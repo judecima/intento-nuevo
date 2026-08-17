@@ -1,0 +1,51 @@
+{
+  "name": "corte-saas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "security:db": "node scripts/check-supabase-security.mjs",
+    "smoke:routes": "node scripts/smoke-routes.mjs",
+    "catalog:extract": "node scripts/extract-legacy-materials.mjs",
+    "catalog:import": "node scripts/import-legacy-materials.mjs",
+    "optimizer:extract": "node scripts/extract-legacy-optimizer.mjs"
+  },
+  "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.3.1",
+    "@mui/material": "^9.3.1",
+    "@mui/material-nextjs": "^9.3.0",
+    "@mui/x-date-pickers": "^9.11.0",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.112.3",
+    "material-react-table": "^3.2.1",
+    "next": "14.2.16",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-is": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.16",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}
