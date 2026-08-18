@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const LEGACY_HTML =
-  process.env.LEGACY_OPTIMIZER_HTML || "Optimizador_V10_Interactivo_Remante_Lepton.html";
+  process.env.LEGACY_OPTIMIZER_HTML || "Optimizador_V10_Interactivo_Modos_Validacion_XML_Lepton.html";
 const OUT_DIR = join("src", "lib", "optimizer", "legacy");
 
 const html = readFileSync(LEGACY_HTML, "utf8");

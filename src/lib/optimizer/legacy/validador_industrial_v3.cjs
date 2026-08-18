@@ -1,4 +1,4 @@
-// Generated mechanically from Optimizador_V10_Interactivo_Remante_Lepton.html.
+// Generated mechanically from Optimizador_V10_Interactivo_Modos_Validacion_XML_Lepton.html.
 // Do not edit these legacy files by hand; update the extractor if the source changes.
 "use strict";
 

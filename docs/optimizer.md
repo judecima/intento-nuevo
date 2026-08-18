@@ -1,6 +1,8 @@
 # Optimizer
 
-The source optimizer still comes from `Optimizador_V10_Interactivo_Selector_Materiales_v3.html`.
+The source optimizer comes from `Optimizador_V10_Interactivo_Modos_Validacion_XML_Lepton.html` (the default of `npm run optimizer:extract`; override it with `LEGACY_OPTIMIZER_HTML`).
+
+That version ranks plans by cut depth: with the same board count it prefers the shallower tree (`maxXmlLayer` → `maxType2Layer` → `maxType1Layer` → `type2Nodes`) and only then the remnant quality. Depth matters because every level of the tree is a `layer` in the machine XML, and the real production files never go past 4. The plan summary now carries `maxXmlLayer`, `maxType2Layer`, `maxType1Layer`, `type2Nodes` and `etapasUsadas`.
 
 Phase 4 extracted it mechanically into `src/lib/optimizer/legacy/` through `scripts/extract-legacy-optimizer.mjs`. Those `.cjs` files are generated legacy code and must not be edited manually.
 

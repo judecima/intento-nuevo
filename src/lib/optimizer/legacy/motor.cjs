@@ -1,4 +1,4 @@
-// Generated mechanically from Optimizador_V10_Interactivo_Remante_Lepton.html.
+// Generated mechanically from Optimizador_V10_Interactivo_Modos_Validacion_XML_Lepton.html.
 // Do not edit these legacy files by hand; update the extractor if the source changes.
 "use strict";
 
@@ -741,7 +741,47 @@ function calidadPlanPlacas(placas,opts){
   for(const p of placas||[]) for(const r of p.restos||[]) restos.push(r);
   return calidadRestos(restos,opts);
 }
+
+/* Profundidad de máquina.
+   `etapas` es el máximo de búsqueda permitido, no un objetivo a consumir.
+   Entre planes con la MISMA cantidad de placas preferimos el árbol más corto,
+   como hace Lepton en los casos donde 5 placas son posibles con layer 4 aunque
+   una variante más profunda también entre en 5.
+
+   Orden de desempate:
+     1) menor maxXmlLayer
+     2) menor maxType2Layer (subdivisiones que continúan)
+     3) menor maxType1Layer
+     4) menos nodos type=2
+     5) recién después, mejor remanente comercial.
+*/
+function metricasProfundidadPlacas(placas){
+  let maxXmlLayer=0,maxType2Layer=0,maxType1Layer=0,type2Nodes=0;
+  const visitar=n=>{
+    if(!n) return;
+    maxXmlLayer=Math.max(maxXmlLayer,+n.nivel||0);
+    for(const p of n.partes||[]){
+      if(p.type===2){ maxType2Layer=Math.max(maxType2Layer,+n.nivel||0); type2Nodes++; }
+      else if(p.type===1) maxType1Layer=Math.max(maxType1Layer,+n.nivel||0);
+      visitar(p.hijo);
+    }
+  };
+  for(const placa of placas||[]) visitar(placa.arbol);
+  return {maxXmlLayer,maxType2Layer,maxType1Layer,type2Nodes};
+}
+function compararProfundidadPlan(a,b){
+  const A=metricasProfundidadPlacas(a), B=metricasProfundidadPlacas(b);
+  if(A.maxXmlLayer!==B.maxXmlLayer) return A.maxXmlLayer<B.maxXmlLayer?1:-1;
+  if(A.maxType2Layer!==B.maxType2Layer) return A.maxType2Layer<B.maxType2Layer?1:-1;
+  if(A.maxType1Layer!==B.maxType1Layer) return A.maxType1Layer<B.maxType1Layer?1:-1;
+  if(A.type2Nodes!==B.type2Nodes) return A.type2Nodes<B.type2Nodes?1:-1;
+  return 0;
+}
 function mejorPlanIgualPlacas(a,b,opts){
+  if(opts.preferirMenorProfundidad!==false){
+    const d=compararProfundidadPlan(a,b);
+    if(d!==0) return d>0;
+  }
   return compararCalidad(calidadPlanPlacas(a,opts),calidadPlanPlacas(b,opts))>0;
 }
 function mejorCandidatoPlaca(a,b,opts){
@@ -832,6 +872,9 @@ function optimizar(lineas, config){
               restoMin:250, restoMax:400, tolerancia:0.02,
               beamWidth:5, maxPiezasBeam:120, presupuestoBeamMs:1500,
               maxPiezasCache:0, semilla:20260812,
+              // `etapas` es un techo. Por defecto se prueban también profundidades
+              // menores y, a igualdad de placas, gana el árbol más simple.
+              preferirMenorProfundidad:true,
               usarRescue:true, maxPiezasRescue:30, presupuestoRescueMs:300, multiRebanada:false, multiVariantes:false, ...config};
 
   const piezas=[]; let id=0;
@@ -925,12 +968,27 @@ function optimizar(lineas, config){
   ];
 
   let mejor=null;
+  const etapasMax=Math.max(2,Math.floor(+opts.etapas||4));
+  const etapasPrueba=opts.preferirMenorProfundidad===false
+    ? [etapasMax]
+    : Array.from({length:etapasMax-1},(_,i)=>i+2); // 2..etapasMax
+
   for(let pase=0; pase<opts.pases; pase++){
-    const placas=armarPlacas(piezas.slice().sort(ordenes[pase%ordenes.length]), opts, configsUsadas, pase);
-    if(placas.reduce((s,p)=>s+p.colocadas.length,0) < piezas.length) continue;
-    const util=placas.reduce((s,p)=>s+areaUtil(p.restos,opts),0);
-    if(!mejor || placas.length<mejor.placas.length ||
-      (placas.length===mejor.placas.length && mejorPlanIgualPlacas(placas,mejor.placas,opts))) mejor={placas, util};
+    for(const etapasActual of etapasPrueba){
+      // No reducimos la capacidad del motor: seguimos probando la profundidad
+      // elegida por el usuario, pero también alternativas más simples.
+      const oEtapas={...opts,etapas:etapasActual};
+      const placas=armarPlacas(
+        piezas.slice().sort(ordenes[pase%ordenes.length]),
+        oEtapas,configsUsadas,pase
+      );
+      if(placas.reduce((s,p)=>s+p.colocadas.length,0) < piezas.length) continue;
+      const util=placas.reduce((s,p)=>s+areaUtil(p.restos,oEtapas),0);
+      if(!mejor || placas.length<mejor.placas.length ||
+        (placas.length===mejor.placas.length && mejorPlanIgualPlacas(placas,mejor.placas,oEtapas))){
+        mejor={placas,util,etapasUsadas:etapasActual};
+      }
+    }
   }
   if(!mejor) throw new Error('No se pudo armar un plan completo con estos parámetros.');
 
@@ -994,6 +1052,7 @@ function optimizar(lineas, config){
   mejor.placas.forEach((p,i)=>p.restos.forEach(r=>{ if(esUtil(r,opts)) sobrantes.push({...r, placa:i+1}); }));
   sobrantes.sort((a,b)=>b.w*b.h-a.w*a.h);
   const calidadRemanente=calidadPlanPlacas(mejor.placas,opts);
+  const profundidad=metricasProfundidadPlacas(mejor.placas);
   return {placas:mejor.placas, opts, sobrantes, resumen:{
     placas:mejor.placas.length, piezas:piezas.length,
     m2Totales:bruto/1e6, m2Cortados:cortado/1e6,
@@ -1006,6 +1065,11 @@ function optimizar(lineas, config){
     mayorSobranteM2:calidadRemanente.mayor/1e6,
     segundoSobranteM2:calidadRemanente.segundo/1e6,
     fragmentosComerciales:calidadRemanente.fragmentos,
+    maxXmlLayer:profundidad.maxXmlLayer,
+    maxType2Layer:profundidad.maxType2Layer,
+    maxType1Layer:profundidad.maxType1Layer,
+    type2Nodes:profundidad.type2Nodes,
+    etapasUsadas:mejor.etapasUsadas??opts.etapas,
     rescueIntentado, rescueGano, rescueMs,
   }};
 }
