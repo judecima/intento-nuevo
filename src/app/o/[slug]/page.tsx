@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- logo URL is tenant-configured and may be external. */
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
@@ -19,6 +20,7 @@ export default async function OrganizationEntryPage({ params, searchParams }: Or
   const context = await getCurrentUserContext();
   const membership = context.memberships.find((item) => item.organizationId === organization.id) ?? null;
   const notice = noticeMessage(first(searchParams?.notice));
+  const brandStyle = { "--brand-primary": organization.primaryColor, "--brand-secondary": organization.secondaryColor } as React.CSSProperties;
 
   // Ya pertenece: derecho a su area segun el rol.
   if (membership) {
@@ -26,8 +28,9 @@ export default async function OrganizationEntryPage({ params, searchParams }: Or
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[520px] flex-col justify-center gap-5 px-5 py-10">
+    <main style={brandStyle} className="mx-auto flex min-h-screen max-w-[520px] flex-col justify-center gap-5 px-5 py-10">
       <header>
+        {organization.logoUrl ? <img src={organization.logoUrl} alt={`Logo de ${organization.name}`} className="mb-4 h-12 max-w-[220px] object-contain object-left" /> : null}
         <div className="eyebrow">Acceso</div>
         <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">{organization.name}</h1>
         <p className="hint mt-2 text-[13px]">

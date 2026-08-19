@@ -14,8 +14,11 @@
 :root {
   color-scheme: light;
 
+  --brand-primary: #12666b;
+  --brand-secondary: #f5b301;
+
   /* ------------------------------------------------------------- color roles */
-  --md-primary: #12666b;
+  --md-primary: var(--brand-primary);
   --md-on-primary: #ffffff;
   --md-primary-container: #a4f0f6;
   --md-on-primary-container: #002023;
@@ -27,7 +30,7 @@
   --md-on-secondary-container: #051f21;
 
   /* color de marca (sierra) expuesto como rol terciario */
-  --md-tertiary: #f5b301;
+  --md-tertiary: var(--brand-secondary);
   --md-on-tertiary: #241a00;
   --md-tertiary-container: #ffe08a;
   --md-on-tertiary-container: #241a00;

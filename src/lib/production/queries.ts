@@ -13,6 +13,22 @@ export type ProductionOrderItem = {
   files: GeneratedFileRow[];
 };
 
+export type MachineCutSettings = {
+  kerf: number;
+  trimX: number;
+  trimY: number;
+  minRemnant: number;
+  minCutSize: number;
+};
+
+export const fallbackMachineCutSettings: MachineCutSettings = {
+  kerf: 4.5,
+  trimX: 10,
+  trimY: 10,
+  minRemnant: 250,
+  minCutSize: 50
+};
+
 export async function listProductionOrders(
   organizationId: string,
   statuses: OrderStatus[],
@@ -79,6 +95,23 @@ export async function listActiveMachineProfiles(organizationId: string): Promise
   return ((data ?? []) as MachineProfileRow[]).map(coerceMachineProfile);
 }
 
+export async function getDefaultMachineCutSettings(organizationId: string): Promise<MachineCutSettings> {
+  const profiles = await listActiveMachineProfiles(organizationId);
+  return profiles.length > 0 ? machineProfileCutSettings(profiles[0]) : fallbackMachineCutSettings;
+}
+
+export function machineProfileCutSettings(profile: MachineProfileRow): MachineCutSettings {
+  const configuration = isRecord(profile.configuration) ? profile.configuration : {};
+  const cutSettings = isRecord(configuration.cutSettings) ? configuration.cutSettings : {};
+  return {
+    kerf: Number(profile.kerf),
+    trimX: numberOrFallback(cutSettings.trimX, fallbackMachineCutSettings.trimX),
+    trimY: numberOrFallback(cutSettings.trimY, fallbackMachineCutSettings.trimY),
+    minRemnant: numberOrFallback(cutSettings.minRemnant, fallbackMachineCutSettings.minRemnant),
+    minCutSize: numberOrFallback(cutSettings.minCutSize, fallbackMachineCutSettings.minCutSize)
+  };
+}
+
 function coerceOrder(row: OrderRow): OrderRow {
   return {
     ...row,
@@ -99,4 +132,13 @@ function coerceMachineProfile(row: MachineProfileRow): MachineProfileRow {
     min_piece_width: Number(row.min_piece_width),
     min_piece_height: Number(row.min_piece_height)
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function numberOrFallback(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import { OrganizationBrandingForm } from "@/components/admin/organization-branding-form";
 import {
   createOrganizationAction,
   copyOrganizationCatalogAction,
@@ -71,7 +72,7 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
         </div>
         <form action={createOrganizationAction} className="flex flex-wrap items-end gap-3 p-4">
           <label className="block min-w-[240px] flex-1">
-            <span className="field-label">Nombre</span>
+            <span className="field-label">Razón social / nombre</span>
             <input name="name" required minLength={2} className="input mt-1.5" placeholder="Mueblería del Sur" />
           </label>
           <label className="block w-[240px]">
@@ -147,7 +148,7 @@ function OrganizationCard({
         <form action={updateOrganizationAction} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="organizationId" value={organization.id} />
           <label className="block min-w-[220px] flex-1">
-            <span className="field-label">Nombre</span>
+            <span className="field-label">Razón social / nombre</span>
             <input name="name" defaultValue={organization.name} required className="input mt-1.5" />
           </label>
           <label className="block w-[220px]">
@@ -171,6 +172,19 @@ function OrganizationCard({
             Guardar
           </PendingSubmitButton>
         </form>
+
+        <div className="border-t border-[var(--line)] pt-4">
+          <div className="mb-3">
+            <h3 className="text-[15px] font-semibold">Identidad visual</h3>
+            <p className="hint mt-1">Se aplicará cuando los usuarios trabajen dentro de esta organización.</p>
+          </div>
+          <OrganizationBrandingForm
+            organizationId={organization.id}
+            primaryColor={organization.primaryColor}
+            secondaryColor={organization.secondaryColor}
+            logoUrl={organization.logoUrl}
+          />
+        </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-[var(--r-md)] bg-[var(--md-surface-container-low)] px-4 py-3">
           <span className="field-label">Ruta de acceso</span>

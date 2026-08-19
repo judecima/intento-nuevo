@@ -54,9 +54,9 @@ type ProjectEditorQueryRow = ProjectRow & {
     | null;
 };
 
-export async function listProjectsForOrganization(organizationId: string): Promise<ProjectListItem[]> {
+export async function listProjectsForOrganization(organizationId: string, createdBy?: string): Promise<ProjectListItem[]> {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("projects")
     .select(
       "*, materials(id, code, description, texture_id, image_url), project_items(quantity)"
@@ -64,6 +64,8 @@ export async function listProjectsForOrganization(organizationId: string): Promi
     .eq("organization_id", organizationId)
     .order("updated_at", { ascending: false })
     .limit(100);
+  if (createdBy) query = query.eq("created_by", createdBy);
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`PROJECTS_QUERY_FAILED: ${error.message}`);

@@ -25,14 +25,12 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
     );
   }
 
-  const [approved, active, completed, profiles] = organizationId
+  const [active, profiles] = organizationId
     ? await Promise.all([
-        listProductionOrders(organizationId, ["approved"]),
         listProductionOrders(organizationId, ["production"]),
-        listProductionOrders(organizationId, ["completed"]),
         listActiveMachineProfiles(organizationId)
       ])
-    : [[], [], [], []];
+    : [[], []];
   const notice = noticeMessage(first(searchParams?.notice));
 
   return (
@@ -46,14 +44,8 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
         <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
       ) : null}
 
-      <QueueSection title="Aprobados">
-        <ProductionOrderList items={approved} machineProfiles={profiles} mode="approved" returnTo="/production" />
-      </QueueSection>
       <QueueSection title="En produccion">
         <ProductionOrderList items={active} machineProfiles={profiles} mode="active" returnTo="/production" />
-      </QueueSection>
-      <QueueSection title="Finalizados">
-        <ProductionOrderList items={completed} machineProfiles={profiles} mode="completed" returnTo="/production" />
       </QueueSection>
     </section>
   );

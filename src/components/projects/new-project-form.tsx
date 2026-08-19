@@ -5,18 +5,27 @@ import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import { BoardPicker, type BoardMaterialOption } from "@/components/materials/board-picker";
 import { MaterialImage } from "@/components/materials/material-image";
 import { createProjectAction } from "@/lib/projects/actions";
+import type { CustomerOption } from "@/lib/customers/queries";
+import type { MachineCutSettings } from "@/lib/production/queries";
 
 export function NewProjectForm({
   materials,
-  organizationId
+  organizationId,
+  customers = [],
+  requiresCustomer = false,
+  machineSettings
 }: {
   materials: BoardMaterialOption[];
   /** Presente solo cuando el super usuario crea para otra organizacion. */
   organizationId?: string;
+  customers?: CustomerOption[];
+  requiresCustomer?: boolean;
+  machineSettings: MachineCutSettings;
 }) {
   const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
   const [name, setName] = useState("");
   const [nameEdited, setNameEdited] = useState(false);
+  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
 
   const selected = materials.find((material) => material.id === materialId) ?? null;
   // Mientras el usuario no escriba un nombre, sigue al tablero elegido.
@@ -36,6 +45,7 @@ export function NewProjectForm({
     <form action={createProjectAction} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <input type="hidden" name="materialId" value={materialId} />
       {organizationId ? <input type="hidden" name="organizationId" value={organizationId} /> : null}
+      {customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
 
       <div className="card">
         <div className="card-head">
@@ -61,6 +71,16 @@ export function NewProjectForm({
             <h3 className="mt-1 text-[16px] font-bold">Datos del proyecto</h3>
 
             <div className="mt-3 grid gap-3">
+              {requiresCustomer ? (
+                <label className="block">
+                  <span className="field-label">Cliente</span>
+                  <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="input mt-1.5" required>
+                    <option value="">Selecciona un cliente</option>
+                    {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.fullName} - {customer.email}</option>)}
+                  </select>
+                  <span className="hint mt-1 block">Si no existe, cargalo desde Clientes antes de crear el pedido.</span>
+                </label>
+              ) : null}
               <label className="block">
                 <span className="field-label">Nombre</span>
                 <input
@@ -81,11 +101,16 @@ export function NewProjectForm({
                 <textarea name="description" rows={3} className="textarea mt-1.5" />
               </label>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <NumberField label="Sierra (kerf)" name="kerf" defaultValue="4.5" />
-                <NumberField label="Sobrante minimo" name="minRemnant" defaultValue="250" />
-                <NumberField label="Refilado X" name="trimX" defaultValue="10" />
-                <NumberField label="Refilado Y" name="trimY" defaultValue="10" />
+              <div className="border border-[var(--line)] bg-[#f7f9f7] p-3 text-sm">
+                <div className="field-label">Parametros de corte del perfil de maquina</div>
+                <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <Detail label="Kerf" value={`${machineSettings.kerf} mm`} />
+                  <Detail label="Refilado X" value={`${machineSettings.trimX} mm`} />
+                  <Detail label="Refilado Y" value={`${machineSettings.trimY} mm`} />
+                  <Detail label="Sobrante minimo" value={`${machineSettings.minRemnant} mm`} />
+                  <Detail label="Corte minimo" value={`${machineSettings.minCutSize} mm`} />
+                </div>
+                <p className="hint mt-2">Estos valores se copian automaticamente al crear el proyecto.</p>
               </div>
             </div>
           </div>
@@ -127,22 +152,5 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dt className="field-label">{label}</dt>
       <dd className="mt-1 font-semibold">{value}</dd>
     </div>
-  );
-}
-
-function NumberField({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
-  return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      <input
-        name={name}
-        defaultValue={defaultValue}
-        type="number"
-        min="0"
-        step="0.1"
-        className="input input-num mt-1.5"
-        required
-      />
-    </label>
   );
 }

@@ -139,7 +139,8 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
               kerf: Number(data.project.kerf),
               trimX: Number(data.project.trim_x),
               trimY: Number(data.project.trim_y),
-              minRemnant: Number(data.project.min_remnant)
+              minRemnant: Number(data.project.min_remnant),
+              minCutSize: Number(data.project.min_cut_size)
             }}
             boardMaterials={editableBoardMaterials.map((material) => ({
               id: material.id,

@@ -142,6 +142,9 @@ export type Database = {
           slug: string;
           active: boolean;
           allow_customer_signup: boolean;
+          primary_color: string;
+          secondary_color: string;
+          logo_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -151,6 +154,9 @@ export type Database = {
           slug: string;
           active?: boolean;
           allow_customer_signup?: boolean;
+          primary_color?: string;
+          secondary_color?: string;
+          logo_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -159,6 +165,9 @@ export type Database = {
           slug?: string;
           active?: boolean;
           allow_customer_signup?: boolean;
+          primary_color?: string;
+          secondary_color?: string;
+          logo_url?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -197,6 +206,32 @@ export type Database = {
         };
         Update: {
           note?: string | null;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          id: boolean;
+          legal_name: string;
+          primary_color: string;
+          secondary_color: string;
+          logo_url: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          legal_name?: string;
+          primary_color?: string;
+          secondary_color?: string;
+          logo_url?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          legal_name?: string;
+          primary_color?: string;
+          secondary_color?: string;
+          logo_url?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -833,6 +868,7 @@ export type Database = {
           id: string;
           organization_id: string;
           owner_id: string;
+          created_by?: string | null;
           name: string;
           description: string | null;
           status: ProjectStatus;
@@ -844,6 +880,7 @@ export type Database = {
           trim_x: number;
           trim_y: number;
           min_remnant: number;
+          min_cut_size: number;
           grain_enabled: boolean;
           created_at: string;
           updated_at: string;
@@ -853,6 +890,7 @@ export type Database = {
           id?: string;
           organization_id: string;
           owner_id: string;
+          created_by?: string | null;
           name: string;
           description?: string | null;
           status?: ProjectStatus;
@@ -864,6 +902,7 @@ export type Database = {
           trim_x?: number;
           trim_y?: number;
           min_remnant?: number;
+          min_cut_size?: number;
           grain_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -881,6 +920,7 @@ export type Database = {
           trim_x?: number;
           trim_y?: number;
           min_remnant?: number;
+          min_cut_size?: number;
           grain_enabled?: boolean;
           updated_at?: string;
           version?: number;
@@ -893,6 +933,7 @@ export type Database = {
           full_name: string | null;
           email: string | null;
           phone: string | null;
+          address: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -901,6 +942,7 @@ export type Database = {
           full_name?: string | null;
           email?: string | null;
           phone?: string | null;
+          address?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -908,6 +950,7 @@ export type Database = {
           full_name?: string | null;
           email?: string | null;
           phone?: string | null;
+          address?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -927,6 +970,9 @@ export type Database = {
           slug: string;
           active: boolean;
           allow_customer_signup: boolean;
+          primary_color: string;
+          secondary_color: string;
+          logo_url: string | null;
         }>;
       };
       join_organization_as_customer: {

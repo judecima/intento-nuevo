@@ -29,6 +29,7 @@ describe("project optimization input mapper", () => {
       trim_x: 10,
       trim_y: 10,
       min_remnant: 250,
+      min_cut_size: 50,
       grain_enabled: true,
       created_at: "2026-08-13T00:00:00.000Z",
       updated_at: "2026-08-13T00:00:00.000Z",
@@ -105,6 +106,7 @@ describe("project optimization input mapper", () => {
       trim_x: 10,
       trim_y: 10,
       min_remnant: 250,
+      min_cut_size: 50,
       grain_enabled: true,
       created_at: "2026-08-13T00:00:00.000Z",
       updated_at: "2026-08-13T00:00:00.000Z",
@@ -129,6 +131,7 @@ describe("project optimization input mapper", () => {
       trimX: 10,
       trimY: 10,
       minRemnant: 250,
+      minCutSize: 50,
       strategy: "v10",
       items: [
         {
@@ -209,6 +212,7 @@ describe("project optimization input mapper", () => {
       trim_x: 10,
       trim_y: 10,
       min_remnant: 250,
+      min_cut_size: 50,
       grain_enabled: false,
       created_at: "2026-08-13T00:00:00.000Z",
       updated_at: "2026-08-13T00:00:00.000Z",
@@ -233,6 +237,7 @@ describe("project optimization input mapper", () => {
       trimX: 10,
       trimY: 10,
       minRemnant: 250,
+      minCutSize: 50,
       strategy: "baseline",
       items: [
         {

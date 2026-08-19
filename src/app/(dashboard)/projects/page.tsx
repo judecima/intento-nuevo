@@ -45,7 +45,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     );
   }
 
-  const projects = await listProjectsForOrganization(organizationId);
+  const projects = await listProjectsForOrganization(organizationId, context.role === "seller" ? context.user?.id : undefined);
   const scopedOrganization = organizations.find((organization) => organization.id === organizationId) ?? null;
 
   return (

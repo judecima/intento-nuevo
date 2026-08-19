@@ -6,6 +6,9 @@ export type PublicOrganization = {
   slug: string;
   active: boolean;
   allowCustomerSignup: boolean;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl: string | null;
 };
 
 /**
@@ -28,7 +31,10 @@ export async function getPublicOrganization(slug: string): Promise<PublicOrganiz
     name: row.name,
     slug: row.slug,
     active: row.active,
-    allowCustomerSignup: row.allow_customer_signup
+    allowCustomerSignup: row.allow_customer_signup,
+    primaryColor: row.primary_color || "#12666b",
+    secondaryColor: row.secondary_color || "#f5b301",
+    logoUrl: row.logo_url
   };
 }
 
@@ -40,5 +46,6 @@ export const organizationAccessNotices: Record<string, string> = {
   email_taken: "Ese email ya tiene cuenta: entra con tu contrasena.",
   confirm_email: "Cuenta creada. Revisa tu correo para confirmarla y despues entra con tu contrasena.",
   join_failed: "No se pudo asociar la cuenta con esta organizacion.",
-  not_member: "Tu cuenta todavia no pertenece a esta organizacion."
+  not_member: "Tu cuenta no pertenece a esta organizacion o esta inactiva.",
+  organization_not_found: "La organizacion no existe o esta inactiva."
 };

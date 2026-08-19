@@ -6,12 +6,25 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
+export type PlatformBranding = {
+  legalName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl: string | null;
+};
+
+export const defaultPlatformBranding: PlatformBranding = {
+  legalName: "Plan de corte SaaS",
+  primaryColor: "#12666b",
+  secondaryColor: "#f5b301",
+  logoUrl: null
+};
 
 export type OrganizationMembership = {
   organizationId: string;
   role: OrganizationRole;
   active: boolean;
-  organization: Pick<Organization, "id" | "name" | "slug" | "active"> | null;
+  organization: Pick<Organization, "id" | "name" | "slug" | "active" | "primary_color" | "secondary_color" | "logo_url"> | null;
 };
 
 export type AppUserContext = {
@@ -27,13 +40,14 @@ export type AppUserContext = {
   /** Super usuario de plataforma: administra organizaciones y membresias. */
   isPlatformAdmin: boolean;
   loadError: string | null;
+  platformBranding: PlatformBranding;
 };
 
 type MembershipQueryRow = {
   organization_id: string;
   role: OrganizationRole;
   active: boolean;
-  organizations: Pick<Organization, "id" | "name" | "slug" | "active"> | null;
+  organizations: Pick<Organization, "id" | "name" | "slug" | "active" | "primary_color" | "secondary_color" | "logo_url"> | null;
 };
 
 const emptyContext = (
@@ -47,7 +61,8 @@ const emptyContext = (
   activeOrganization: null,
   role: null,
   isPlatformAdmin: false,
-  loadError
+  loadError,
+  platformBranding: defaultPlatformBranding
 });
 
 export const getCurrentUserContext = cache(async (): Promise<AppUserContext> => {
@@ -67,14 +82,11 @@ export const getCurrentUserContext = cache(async (): Promise<AppUserContext> => 
     email: authData.user.email ?? null
   };
 
-  const [profileResult, membershipsResult, platformResult] = await Promise.all([
+  const [profileResult, membershipsResult, platformResult, brandingResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-    supabase
-      .from("organization_members")
-      .select("organization_id, role, active, organizations(id, name, slug, active)")
-      .eq("user_id", user.id)
-      .eq("active", true),
-    supabase.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle()
+    loadMemberships(supabase, user.id),
+    supabase.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("platform_settings").select("legal_name, primary_color, secondary_color, logo_url").eq("id", true).maybeSingle()
   ]);
 
   const membershipRows = (membershipsResult.data ?? []) as unknown as MembershipQueryRow[];
@@ -93,6 +105,28 @@ export const getCurrentUserContext = cache(async (): Promise<AppUserContext> => 
     activeOrganization: memberships[0]?.organization ?? null,
     role: memberships[0]?.role ?? null,
     isPlatformAdmin: Boolean(platformResult.data),
-    loadError: profileResult.error?.message ?? membershipsResult.error?.message ?? null
+    // Branding puede no existir todavía en una base que aún no recibió la
+    // migración; en ese caso se usan defaults sin bloquear la aplicación.
+    loadError: profileResult.error?.message ?? membershipsResult.error?.message ?? null,
+    platformBranding: brandingResult.data
+      ? { legalName: brandingResult.data.legal_name, primaryColor: brandingResult.data.primary_color, secondaryColor: brandingResult.data.secondary_color, logoUrl: brandingResult.data.logo_url }
+      : defaultPlatformBranding
   };
 });
+
+async function loadMemberships(supabase: ReturnType<typeof createSupabaseServerClient>, userId: string) {
+  const scoped = supabase
+    .from("organization_members")
+    .select("organization_id, role, active, organizations(id, name, slug, active, primary_color, secondary_color, logo_url)")
+    .eq("user_id", userId)
+    .eq("active", true);
+  const result = await scoped;
+  if (!result.error || !/column .* does not exist/i.test(result.error.message)) return result;
+
+  const fallback = await supabase
+    .from("organization_members")
+    .select("organization_id, role, active, organizations(id, name, slug, active)")
+    .eq("user_id", userId)
+    .eq("active", true);
+  return fallback as unknown as typeof result;
+}

@@ -22,6 +22,9 @@ export type PlatformOrganization = {
   slug: string;
   active: boolean;
   allowCustomerSignup: boolean;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl: string | null;
   createdAt: string;
   members: PlatformOrganizationMember[];
   projectCount: number;
@@ -78,6 +81,9 @@ export async function listPlatformOrganizations(context: AppUserContext): Promis
     slug: organization.slug,
     active: organization.active,
     allowCustomerSignup: organization.allow_customer_signup,
+    primaryColor: organization.primary_color || "#12666b",
+    secondaryColor: organization.secondary_color || "#f5b301",
+    logoUrl: organization.logo_url,
     createdAt: organization.created_at,
     projectCount: projectCounts.get(organization.id) ?? 0,
     materialCount: materialCounts.get(organization.id) ?? 0,

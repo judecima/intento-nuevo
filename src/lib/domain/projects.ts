@@ -49,7 +49,7 @@ export function canCreateProject(
   role: OrganizationRole | null,
   options: { platformAdmin?: boolean } = {}
 ): boolean {
-  return Boolean(options.platformAdmin) || role === "customer" || role === "admin";
+  return Boolean(options.platformAdmin) || role === "customer" || role === "seller" || role === "admin";
 }
 
 export function canEditProject(
@@ -58,19 +58,21 @@ export function canEditProject(
   options: { platformAdmin?: boolean } = {}
 ): boolean {
   if (!isProjectEditableStatus(status)) return false;
-  return Boolean(options.platformAdmin) || role === "customer" || role === "admin";
+  return Boolean(options.platformAdmin) || role === "customer" || role === "seller" || role === "admin";
 }
 
 export const createProjectSchema = z.object({
   materialId: z.string().uuid(),
   /** Solo lo usa el super usuario para crear en una organizacion ajena. */
   organizationId: z.string().uuid().optional(),
+  customerId: z.string().uuid().optional(),
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(2000).optional().default(""),
   kerf: z.coerce.number().min(0).max(20).default(4.5),
   trimX: z.coerce.number().min(0).max(200).default(0),
   trimY: z.coerce.number().min(0).max(200).default(0),
-  minRemnant: z.coerce.number().min(0).max(2000).default(250)
+  minRemnant: z.coerce.number().min(0).max(2000).default(250),
+  minCutSize: z.coerce.number().min(0).max(2000).default(50)
 });
 
 export const updateProjectSettingsSchema = createProjectSchema
@@ -136,6 +138,7 @@ export const projectDraftSchema = z.object({
   trimX: z.coerce.number().min(0).max(200),
   trimY: z.coerce.number().min(0).max(200),
   minRemnant: z.coerce.number().min(0).max(2000),
+  minCutSize: z.coerce.number().min(0).max(2000).default(50),
   strategy: z.enum(["baseline", "v10"]).default("baseline"),
   profile: z.enum(["fast", "balanced", "deep"]).optional(),
   items: z.array(projectDraftItemSchema).max(600)
@@ -143,6 +146,18 @@ export const projectDraftSchema = z.object({
 
 export type ProjectDraftItem = z.infer<typeof projectDraftItemSchema>;
 export type ProjectDraft = z.infer<typeof projectDraftSchema>;
+
+/** La veta del tablero gobierna la orientacion industrial de todas sus piezas. */
+export function normalizeProjectItemOrientation<T extends { grain: boolean; canRotate: boolean }>(
+  items: T[],
+  hasGrain: boolean
+): T[] {
+  return items.map((item) => ({
+    ...item,
+    grain: hasGrain,
+    canRotate: !hasGrain
+  }));
+}
 
 export type SaveProjectDraftOutcome =
   | { ok: true; version: number; optimization: { ok: boolean; error?: string } }

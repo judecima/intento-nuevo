@@ -4,6 +4,7 @@ import {
   canEditProject,
   isProjectEditableStatus,
   projectDraftSchema,
+  normalizeProjectItemOrientation,
   projectStatuses
 } from "@/lib/domain/projects";
 
@@ -21,10 +22,10 @@ describe("projects domain", () => {
     expect(isProjectEditableStatus("approved")).toBe(false);
   });
 
-  it("allows project creation only for customer/admin roles", () => {
+  it("allows project creation for customer, seller and admin roles", () => {
     expect(canCreateProject("customer")).toBe(true);
     expect(canCreateProject("admin")).toBe(true);
-    expect(canCreateProject("seller")).toBe(false);
+    expect(canCreateProject("seller")).toBe(true);
     expect(canCreateProject("operator")).toBe(false);
     expect(canCreateProject(null, { platformAdmin: true })).toBe(true);
   });
@@ -33,7 +34,7 @@ describe("projects domain", () => {
     expect(canEditProject("customer", "draft")).toBe(true);
     expect(canEditProject("admin", "optimized")).toBe(true);
     expect(canEditProject("customer", "submitted")).toBe(false);
-    expect(canEditProject("seller", "draft")).toBe(false);
+    expect(canEditProject("seller", "draft")).toBe(true);
     expect(canEditProject(null, "draft", { platformAdmin: true })).toBe(true);
     expect(canEditProject(null, "submitted", { platformAdmin: true })).toBe(false);
   });
@@ -54,5 +55,14 @@ describe("projects domain", () => {
         items: []
       }).materialId
     ).toBe("20000000-0000-4000-8000-000000000001");
+  });
+
+  it("forces grain orientation when the selected board has grain", () => {
+    expect(normalizeProjectItemOrientation([{ grain: false, canRotate: true }], true)).toEqual([
+      { grain: true, canRotate: false }
+    ]);
+    expect(normalizeProjectItemOrientation([{ grain: true, canRotate: false }], false)).toEqual([
+      { grain: false, canRotate: true }
+    ]);
   });
 });

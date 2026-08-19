@@ -3,6 +3,8 @@ import { getCurrentUserContext } from "@/lib/auth/context";
 import { AppShell } from "@/components/layout/app-shell";
 import { ConfigRequired } from "@/components/layout/config-required";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children
 }: Readonly<{

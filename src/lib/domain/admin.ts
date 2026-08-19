@@ -58,6 +58,10 @@ const machineProfileBaseSchema = z.object({
   kerf: z.coerce.number().min(0).max(20).default(4.5),
   minPieceWidth: z.coerce.number().min(0).max(10000).default(0),
   minPieceHeight: z.coerce.number().min(0).max(10000).default(0),
+  trimX: z.coerce.number().min(0).max(200).default(10),
+  trimY: z.coerce.number().min(0).max(200).default(10),
+  minRemnant: z.coerce.number().min(0).max(2000).default(250),
+  minCutSize: z.coerce.number().min(0).max(2000).default(50),
   configuration: z
     .string()
     .trim()

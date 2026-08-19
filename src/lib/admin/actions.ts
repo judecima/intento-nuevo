@@ -119,6 +119,10 @@ export async function createMachineProfileAction(formData: FormData) {
     kerf: stringField(formData, "kerf"),
     minPieceWidth: stringField(formData, "minPieceWidth"),
     minPieceHeight: stringField(formData, "minPieceHeight"),
+    trimX: stringField(formData, "trimX"),
+    trimY: stringField(formData, "trimY"),
+    minRemnant: stringField(formData, "minRemnant"),
+    minCutSize: stringField(formData, "minCutSize"),
     configuration: stringField(formData, "configuration") || "{}",
     active: stringField(formData, "active")
   });
@@ -147,7 +151,15 @@ export async function createMachineProfileAction(formData: FormData) {
     profile_kerf: parsed.data.kerf,
     profile_min_piece_width: parsed.data.minPieceWidth,
     profile_min_piece_height: parsed.data.minPieceHeight,
-    profile_configuration: toJson(parsed.data.configuration),
+    profile_configuration: toJson({
+      ...parsed.data.configuration,
+      cutSettings: {
+        trimX: parsed.data.trimX,
+        trimY: parsed.data.trimY,
+        minRemnant: parsed.data.minRemnant,
+        minCutSize: parsed.data.minCutSize
+      }
+    }),
     profile_active: parsed.data.active
   });
 
@@ -174,6 +186,10 @@ export async function updateMachineProfileAction(formData: FormData) {
     kerf: stringField(formData, "kerf"),
     minPieceWidth: stringField(formData, "minPieceWidth"),
     minPieceHeight: stringField(formData, "minPieceHeight"),
+    trimX: stringField(formData, "trimX"),
+    trimY: stringField(formData, "trimY"),
+    minRemnant: stringField(formData, "minRemnant"),
+    minCutSize: stringField(formData, "minCutSize"),
     configuration: stringField(formData, "configuration") || "{}",
     active: stringField(formData, "active")
   });
@@ -197,7 +213,15 @@ export async function updateMachineProfileAction(formData: FormData) {
     profile_kerf: parsed.data.kerf,
     profile_min_piece_width: parsed.data.minPieceWidth,
     profile_min_piece_height: parsed.data.minPieceHeight,
-    profile_configuration: toJson(parsed.data.configuration),
+    profile_configuration: toJson({
+      ...parsed.data.configuration,
+      cutSettings: {
+        trimX: parsed.data.trimX,
+        trimY: parsed.data.trimY,
+        minRemnant: parsed.data.minRemnant,
+        minCutSize: parsed.data.minCutSize
+      }
+    }),
     profile_active: parsed.data.active
   });
 

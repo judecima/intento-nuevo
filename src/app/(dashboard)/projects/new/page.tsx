@@ -4,6 +4,8 @@ import { listPlatformOrganizations } from "@/lib/admin/platform";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
 import { listBoardMaterialsForOrganization } from "@/lib/materials/queries";
+import { getDefaultMachineCutSettings } from "@/lib/production/queries";
+import { listOrganizationCustomers } from "@/lib/customers/queries";
 
 type NewProjectPageProps = {
   searchParams?: {
@@ -41,6 +43,9 @@ export default async function NewProjectPage({ searchParams }: NewProjectPagePro
 
   const targetOrganization = organizations.find((organization) => organization.id === targetOrganizationId) ?? null;
   const boardMaterials = await listBoardMaterialsForOrganization(targetOrganizationId);
+  const machineSettings = await getDefaultMachineCutSettings(targetOrganizationId);
+  const salesUser = context.role === "seller" || context.role === "admin";
+  const customers = salesUser ? await listOrganizationCustomers(targetOrganizationId) : [];
 
   return (
     <section className="mx-auto max-w-[1200px] space-y-5">
@@ -64,6 +69,9 @@ export default async function NewProjectPage({ searchParams }: NewProjectPagePro
 
       <NewProjectForm
         organizationId={platformAdmin ? targetOrganizationId : undefined}
+        customers={customers}
+        requiresCustomer={context.role === "seller"}
+        machineSettings={machineSettings}
         materials={boardMaterials.map((material) => ({
           id: material.id,
           code: material.code,

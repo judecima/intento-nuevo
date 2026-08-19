@@ -16,6 +16,8 @@ import {
 } from "@/lib/domain/projects";
 import { canManagePlatform } from "@/lib/domain/platform";
 import { getMaterialForOrganization } from "@/lib/materials/queries";
+import { customerBelongsToOrganization } from "@/lib/customers/queries";
+import { getDefaultMachineCutSettings } from "@/lib/production/queries";
 import { runAndStoreOptimization } from "@/lib/optimizations/run";
 import { getProjectEditorData } from "@/lib/projects/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -29,6 +31,7 @@ export async function createProjectAction(formData: FormData) {
   const parsed = createProjectSchema.parse({
     materialId: stringField(formData, "materialId"),
     organizationId: stringField(formData, "organizationId") || undefined,
+    customerId: stringField(formData, "customerId") || undefined,
     name: stringField(formData, "name"),
     description: stringField(formData, "description"),
     kerf: stringField(formData, "kerf"),
@@ -46,18 +49,25 @@ export async function createProjectAction(formData: FormData) {
     throw new Error(projectDomainErrors.forbidden);
   }
 
+  const customerId = context.role === "seller" ? parsed.customerId : parsed.customerId;
+  if (context.role === "seller" && (!customerId || !(await customerBelongsToOrganization(customerId, organizationId)))) {
+    throw new Error(projectDomainErrors.forbidden);
+  }
+
   const material = await getMaterialForOrganization(organizationId, parsed.materialId);
   if (!material || material.type !== "board") {
     throw new Error(projectDomainErrors.materialNotFound);
   }
 
   const materialThickness = positiveThicknessOrUndefined(material) ?? 0;
+  const machineSettings = await getDefaultMachineCutSettings(organizationId);
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("projects")
     .insert({
       organization_id: organizationId,
-      owner_id: context.user.id,
+      owner_id: customerId ?? context.user.id,
+      created_by: context.user.id,
       name: parsed.name,
       description: parsed.description || null,
       status: "draft",
@@ -65,10 +75,11 @@ export async function createProjectAction(formData: FormData) {
       board_width: material.width,
       board_height: material.height,
       board_thickness: materialThickness,
-      kerf: parsed.kerf,
-      trim_x: parsed.trimX,
-      trim_y: parsed.trimY,
-      min_remnant: parsed.minRemnant,
+      kerf: machineSettings.kerf,
+      trim_x: machineSettings.trimX,
+      trim_y: machineSettings.trimY,
+      min_remnant: machineSettings.minRemnant,
+      min_cut_size: machineSettings.minCutSize,
       grain_enabled: material.has_grain
     })
     .select("id")
@@ -141,7 +152,8 @@ async function persistProjectDraftAction(
     Number(project.kerf) !== parsed.kerf ||
     Number(project.trim_x) !== parsed.trimX ||
     Number(project.trim_y) !== parsed.trimY ||
-    Number(project.min_remnant) !== parsed.minRemnant;
+    Number(project.min_remnant) !== parsed.minRemnant ||
+    Number(project.min_cut_size) !== parsed.minCutSize;
 
   if (settingsChanged) {
     const { error } = await supabase
@@ -157,7 +169,8 @@ async function persistProjectDraftAction(
         kerf: parsed.kerf,
         trim_x: parsed.trimX,
         trim_y: parsed.trimY,
-        min_remnant: parsed.minRemnant
+        min_remnant: parsed.minRemnant,
+        min_cut_size: parsed.minCutSize
       })
       .eq("id", parsed.projectId);
 
@@ -237,6 +250,7 @@ async function persistProjectDraftAction(
               trim_x: parsed.trimX,
               trim_y: parsed.trimY,
               min_remnant: parsed.minRemnant,
+              min_cut_size: parsed.minCutSize,
               grain_enabled: selectedMaterial.has_grain,
               version
             },

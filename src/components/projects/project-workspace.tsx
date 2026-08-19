@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BoardPicker, type BoardMaterialOption } from "@/components/materials/board-picker";
 import { CutPlanViewer } from "@/components/optimizer/cut-plan-viewer";
 import { PrintButton } from "@/components/optimizer/print-button";
-import { parsePastedProjectItems, type ProjectDraftItem } from "@/lib/domain/projects";
+import { normalizeProjectItemOrientation, parsePastedProjectItems, type ProjectDraftItem } from "@/lib/domain/projects";
 import { previewProjectOptimizationAction } from "@/lib/optimizations/actions";
 import type { CutPlanView } from "@/lib/optimizations/plan-view";
 import { saveProjectDraftAction, saveProjectDraftOnlyAction } from "@/lib/projects/actions";
@@ -46,6 +46,7 @@ export type ProjectWorkspaceProps = {
     trimX: number;
     trimY: number;
     minRemnant: number;
+    minCutSize: number;
   };
   boardMaterials: BoardMaterialOption[];
   items: ProjectDraftItem[];
@@ -99,6 +100,13 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     [props.boardMaterials, settings.materialId]
   );
   const optimizerMode = OPTIMIZER_MODES.find((mode) => mode.id === optimizerModeId) ?? OPTIMIZER_MODES[0];
+  const selectedMaterialHasGrain = Boolean(selectedMaterial?.hasGrain);
+  const selectedMaterialId = selectedMaterial?.id ?? "";
+
+  useEffect(() => {
+    if (!selectedMaterialId) return;
+    setRows((current) => normalizeProjectItemOrientation(current, selectedMaterialHasGrain));
+  }, [selectedMaterialId, selectedMaterialHasGrain]);
 
   const draft = () => ({
     projectId: props.projectId,
@@ -110,6 +118,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     trimX: Number(settings.trimX),
     trimY: Number(settings.trimY),
     minRemnant: Number(settings.minRemnant),
+    minCutSize: Number(settings.minCutSize),
     strategy: optimizerMode.strategy,
     profile: optimizerMode.profile,
     items: rows.map(({ uid: _uid, ...item }) => ({
@@ -216,6 +225,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       boardThickness: material.thickness,
       grainEnabled: material.hasGrain
     }));
+    setRows((current) => normalizeProjectItemOrientation(current, material.hasGrain));
     setPreview(null);
     setMessage({
       kind: "info",

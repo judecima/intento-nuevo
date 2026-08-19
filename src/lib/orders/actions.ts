@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { orderDomainErrors, orderTransitionSchema, submitOrderSchema } from "@/lib/domain/orders";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentUserContext } from "@/lib/auth/context";
 
 export async function submitProjectOrderAction(formData: FormData) {
   const parsed = submitOrderSchema.parse({
@@ -27,7 +28,8 @@ export async function submitProjectOrderAction(formData: FormData) {
     redirect(projectRedirect(parsed.projectId, orderNoticeFromError(error.message)));
   }
 
-  redirect("/orders?notice=order_submitted");
+  const context = await getCurrentUserContext();
+  redirect(context.role === "seller" ? "/sales/orders?notice=order_submitted" : "/orders?notice=order_submitted");
 }
 
 export async function startOrderReviewAction(formData: FormData) {

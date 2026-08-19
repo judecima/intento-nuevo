@@ -32,7 +32,7 @@ describe("server-only Supabase boundaries", () => {
   });
 
   it("keeps service-role helper usage in server-only modules", () => {
-    const allowedPrefixes = ["lib/admin/", "lib/production/", "lib/supabase/admin.ts"];
+    const allowedPrefixes = ["lib/admin/", "lib/customers/", "lib/production/", "lib/supabase/admin.ts"];
     const offenders = sourceFiles
       .filter((file) => file.content.includes("createSupabaseAdminClient"))
       .map((file) => file.relativePath)

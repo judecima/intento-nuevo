@@ -1,3 +1,18 @@
+"use client";
+
+import { useMemo } from "react";
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+  type MRT_ColumnDef,
+  type MRT_Row
+} from "material-react-table";
+import { MRT_Localization_ES } from "material-react-table/locales/es";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
 import {
   PendingSubmitButton
 } from "@/components/forms/pending-submit-button";
@@ -16,7 +31,7 @@ import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders"
 import { generatedFileTypeLabels, productionJobStatusLabels } from "@/lib/domain/production";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
 
-type ProductionMode = "approved" | "active" | "completed";
+type ProductionMode = "queue" | "approved" | "active" | "completed";
 
 type ProductionOrderListProps = {
   items: ProductionOrderItem[];
@@ -26,6 +41,100 @@ type ProductionOrderListProps = {
 };
 
 export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: ProductionOrderListProps) {
+  const theme = useMemo(
+    () => createTheme({
+      palette: {
+        primary: { main: "#0f766e" },
+        background: { default: "#dde6e3", paper: "#ffffff" },
+        text: { primary: "#17201f", secondary: "#5f6f6c" }
+      },
+      shape: { borderRadius: 8 },
+      typography: { fontFamily: "inherit" },
+      components: { MuiButton: { styleOverrides: { root: { textTransform: "none", fontWeight: 700 } } } }
+    }),
+    []
+  );
+
+  const columns = useMemo<MRT_ColumnDef<ProductionOrderItem>[]>(
+    () => [
+      {
+        id: "order",
+        accessorFn: (item) => item.order.id.slice(0, 8),
+        header: "Pedido",
+        size: 100,
+        Cell: ({ cell }) => <Typography sx={{ fontFamily: "monospace", fontSize: 12, fontWeight: 800 }}>{cell.getValue<string>()}</Typography>
+      },
+      {
+        id: "status",
+        accessorFn: (item) => orderStatusLabels[item.order.status],
+        header: "Estado",
+        size: 150,
+        Cell: ({ row }) => <Chip size="small" color={row.original.order.status === "production" ? "warning" : "success"} label={orderStatusLabels[row.original.order.status]} />
+      },
+      {
+        id: "project",
+        accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).projectName,
+        header: "Proyecto",
+        size: 220
+      },
+      {
+        id: "customer",
+        accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).customerName,
+        header: "Cliente",
+        size: 220,
+        Cell: ({ row }) => {
+          const summary = getOrderSnapshotSummary(row.original.order.snapshot);
+          return <Stack spacing={0.25}><Typography sx={{ fontSize: 14, fontWeight: 800 }}>{summary.customerName}</Typography><Typography sx={{ color: "#5f6f6c", fontSize: 12 }}>{summary.customerEmail}</Typography></Stack>;
+        }
+      },
+      {
+        id: "material",
+        accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).materialDescription,
+        header: "Material",
+        size: 250
+      },
+      { id: "boards", accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).boardCount, header: "Placas", size: 85 },
+      { id: "pieces", accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).totalPieces, header: "Piezas", size: 85 },
+      {
+        id: "updated",
+        accessorKey: "order.updated_at",
+        header: "Actualizado",
+        size: 160,
+        Cell: ({ row }) => formatDateTimeEsAr(row.original.order.updated_at)
+      }
+    ],
+    []
+  );
+
+  const table = useMaterialReactTable({
+    columns,
+    data: items,
+    localization: MRT_Localization_ES,
+    enableColumnFilters: true,
+    enableColumnPinning: true,
+    enableColumnResizing: true,
+    enableDensityToggle: true,
+    enableExpanding: true,
+    enableFullScreenToggle: true,
+    enableRowActions: true,
+    enableStickyHeader: true,
+    getRowId: (row) => row.order.id,
+    initialState: {
+      density: "compact",
+      pagination: { pageIndex: 0, pageSize: 25 },
+      showColumnFilters: true,
+      sorting: [{ id: "updated", desc: true }],
+      columnPinning: { left: ["order", "status"], right: ["mrt-row-actions"] }
+    },
+    muiTablePaperProps: { sx: { border: "1px solid var(--line)", borderRadius: "8px", overflow: "hidden" } },
+    muiTableContainerProps: { sx: { maxHeight: "calc(100vh - 300px)", backgroundColor: "#fff" } },
+    muiTableHeadCellProps: { sx: { backgroundColor: "#eef3f1", color: "#17201f", fontSize: 12, fontWeight: 800 } },
+    muiTableBodyCellProps: { sx: { borderColor: "var(--line)", fontSize: 13 } },
+    renderRowActions: ({ row }) => <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>{row.getIsExpanded() ? "Cerrar" : "Detalle"}</Button>,
+    renderDetailPanel: ({ row }) => <ProductionOrderCard row={row} machineProfiles={machineProfiles} mode={mode} returnTo={returnTo} />,
+    renderTopToolbarCustomActions: () => <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>{items.length} pedidos en cola</Typography>
+  });
+
   if (items.length === 0) {
     return (
       <div className="rounded-[var(--r)] border border-dashed border-[var(--linea-fuerte)] bg-[rgba(255,255,255,.45)] p-8 text-center text-sm text-[var(--muted)]">
@@ -34,32 +143,21 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {items.map((item) => (
-        <ProductionOrderCard
-          key={item.order.id}
-          item={item}
-          machineProfiles={machineProfiles}
-          mode={mode}
-          returnTo={returnTo}
-        />
-      ))}
-    </div>
-  );
+  return <ThemeProvider theme={theme}><MaterialReactTable table={table} /></ThemeProvider>;
 }
 
 function ProductionOrderCard({
-  item,
+  row,
   machineProfiles,
   mode,
   returnTo
 }: {
-  item: ProductionOrderItem;
+  row: MRT_Row<ProductionOrderItem>;
   machineProfiles: MachineProfileRow[];
   mode: ProductionMode;
   returnTo: string;
 }) {
+  const item = row.original;
   const summary = getOrderSnapshotSummary(item.order.snapshot);
 
   return (
@@ -101,7 +199,7 @@ function ProductionOrderCard({
 
         <div className="space-y-3">
           <GenerateXmlForm orderId={item.order.id} machineProfiles={machineProfiles} returnTo={returnTo} />
-          {mode === "approved" ? (
+          {(mode === "approved" || mode === "queue") && item.order.status === "approved" ? (
             <StartProductionForm
               orderId={item.order.id}
               expectedOrderVersion={item.order.version}
@@ -109,7 +207,7 @@ function ProductionOrderCard({
               returnTo={returnTo}
             />
           ) : null}
-          {mode === "active" ? (
+          {(mode === "active" || mode === "queue") && item.order.status === "production" ? (
             <CompleteProductionForm orderId={item.order.id} expectedOrderVersion={item.order.version} returnTo={returnTo} />
           ) : null}
         </div>

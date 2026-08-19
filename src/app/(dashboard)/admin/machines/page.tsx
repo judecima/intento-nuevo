@@ -3,6 +3,7 @@ import { createMachineProfileAction, updateMachineProfileAction } from "@/lib/ad
 import { listAdminMachineProfiles } from "@/lib/admin/queries";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { adminDomainErrors, canAdminister } from "@/lib/domain/admin";
+import { machineProfileCutSettings } from "@/lib/production/queries";
 
 type AdminMachinesPageProps = {
   searchParams?: {
@@ -49,6 +50,9 @@ export default async function AdminMachinesPage({ searchParams }: AdminMachinesP
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {profiles.map((profile) => (
+              (() => {
+                const cutSettings = machineProfileCutSettings(profile);
+                return (
               <article key={profile.id} className="border border-[var(--line)] bg-white p-4">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
@@ -73,12 +77,18 @@ export default async function AdminMachinesPage({ searchParams }: AdminMachinesP
                     kerf: profile.kerf,
                     minPieceWidth: profile.min_piece_width,
                     minPieceHeight: profile.min_piece_height,
+                    trimX: cutSettings.trimX,
+                    trimY: cutSettings.trimY,
+                    minRemnant: cutSettings.minRemnant,
+                    minCutSize: cutSettings.minCutSize,
                     configuration: formatJson(profile.configuration),
                     active: profile.active
                   }}
                   submitLabel="Guardar cambios"
                 />
               </article>
+                );
+              })()
             ))}
           </div>
         )}
@@ -100,6 +110,10 @@ type MachineProfileFormProps = {
     kerf: number;
     minPieceWidth: number;
     minPieceHeight: number;
+    trimX: number;
+    trimY: number;
+    minRemnant: number;
+    minCutSize: number;
     configuration: string;
     active: boolean;
   };
@@ -119,6 +133,10 @@ function MachineProfileForm({ action, organizationId, profile, submitLabel }: Ma
       <NumberInput label="Kerf" name="kerf" defaultValue={profile?.kerf ?? 4.5} />
       <NumberInput label="Min. ancho pieza" name="minPieceWidth" defaultValue={profile?.minPieceWidth ?? 0} />
       <NumberInput label="Min. alto pieza" name="minPieceHeight" defaultValue={profile?.minPieceHeight ?? 0} />
+      <NumberInput label="Refilado X" name="trimX" defaultValue={profile?.trimX ?? 10} />
+      <NumberInput label="Refilado Y" name="trimY" defaultValue={profile?.trimY ?? 10} />
+      <NumberInput label="Ancho minimo sobrante" name="minRemnant" defaultValue={profile?.minRemnant ?? 250} />
+      <NumberInput label="Tamaño de corte mas chico" name="minCutSize" defaultValue={profile?.minCutSize ?? 50} />
 
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estado</span>

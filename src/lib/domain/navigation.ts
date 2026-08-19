@@ -43,7 +43,7 @@ export const navigationItems: readonly NavigationItem[] = [
     href: "/projects",
     label: "Mis proyectos",
     group: "projects",
-    roles: ["customer", "admin"],
+    roles: ["customer", "seller", "admin"],
     platformAccessible: true
   },
   {
@@ -65,7 +65,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { href: "/admin/users", label: "Usuarios", group: "admin", roles: ["admin"] },
   { href: "/admin/materials", label: "Materiales", group: "admin", roles: ["admin"] },
   { href: "/admin/machines", label: "Maquinas", group: "admin", roles: ["admin"] },
-  { href: "/admin/settings", label: "Configuracion", group: "admin", roles: ["admin"] },
+  { href: "/admin/settings", label: "Configuracion", group: "admin", roles: ["admin"], platformAccessible: true },
   { href: "/admin/audit", label: "Auditoria", group: "admin", roles: ["admin"] }
 ];
 

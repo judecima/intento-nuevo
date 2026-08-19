@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { getDefaultRouteForRole } from "@/lib/domain/roles";
-import { signUpCustomerWithPassword } from "./actions";
+import { signUpCustomerForOrganization } from "./actions";
 
 type RegisterPageProps = {
   searchParams?: {
@@ -13,7 +13,10 @@ type RegisterPageProps = {
 const errorMessages: Record<string, string> = {
   invalid_input: "Revisa nombre, email y password.",
   register_failed: "No se pudo crear la cuenta.",
-  organization_missing: "No hay una organizacion activa para registrar clientes.",
+  organization_required: "Elegí la URL de la organizacion para registrarte, por ejemplo /redarquimax/register.",
+  organization_not_found: "La organizacion no existe o esta inactiva.",
+  confirm_email: "Cuenta creada. Revisa tu correo y luego ingresa por la URL de tu organización.",
+  join_failed: "No se pudo asociar la cuenta con esa organización.",
   supabase_not_configured: "Falta configurar Supabase en .env.local."
 };
 
@@ -40,7 +43,17 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
           </div>
         ) : null}
 
-        <form action={signUpCustomerWithPassword} className="mt-6 space-y-4">
+        <form action={signUpCustomerForOrganization} className="mt-6 space-y-4">
+          <label className="block text-sm font-medium">
+            Identificador de organización
+            <input
+              name="organizationSlug"
+              required
+              placeholder="redarquimax"
+              className="focus-ring mt-2 w-full border border-[var(--line)] px-3 py-2"
+              autoComplete="organization"
+            />
+          </label>
           <label className="block text-sm font-medium">
             Nombre
             <input

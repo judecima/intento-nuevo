@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- logo URL is tenant-configured and may be external. */
 import Link from "next/link";
 import type { AppUserContext } from "@/lib/auth/context";
 import { getNavigationForRole } from "@/lib/domain/navigation";
@@ -16,21 +17,41 @@ export function AppShell({ context, children }: AppShellProps) {
   const organizationName =
     context.activeOrganization?.name ?? (context.isPlatformAdmin ? "Todas las organizaciones" : "Sin organizacion");
   const roleName = context.role ? roleLabels[context.role] : context.isPlatformAdmin ? "Plataforma" : "Sin rol";
+  const appBranding = context.isPlatformAdmin || !context.activeOrganization
+    ? {
+        name: context.platformBranding.legalName,
+        primaryColor: context.platformBranding.primaryColor,
+        secondaryColor: context.platformBranding.secondaryColor,
+        logoUrl: context.platformBranding.logoUrl
+      }
+    : {
+        name: context.activeOrganization.name,
+        primaryColor: context.activeOrganization.primary_color,
+        secondaryColor: context.activeOrganization.secondary_color,
+        logoUrl: context.activeOrganization.logo_url
+      };
   const initials = displayName
     .split(/[\s@.]+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+  const brandStyle = {
+    "--brand-primary": appBranding.primaryColor || "#12666b",
+    "--brand-secondary": appBranding.secondaryColor || "#f5b301"
+  } as React.CSSProperties;
 
   return (
-    <div className="min-h-screen text-[var(--ink)] lg:grid lg:grid-cols-[276px_1fr]">
+    <div style={brandStyle} className="min-h-screen text-[var(--ink)] lg:grid lg:grid-cols-[276px_1fr]">
       {/* Drawer sobre superficie oscura: los tokens `rail-*` son el esquema
           oscuro del sistema, para que el texto claro tenga siempre contraste. */}
       <aside className="no-print bg-[var(--rail)] px-3 py-5 text-[var(--rail-on)] lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
         <Link href="/dashboard" className="focus-ring block rounded-[var(--r-lg)] px-4 py-1">
-          <div className="flex items-baseline gap-2">
-            <div className="text-[20px] font-medium tracking-[0] text-white">Plan de corte</div>
+          <div className="flex items-center gap-3">
+            {appBranding.logoUrl ? (
+              <img src={appBranding.logoUrl} alt={`Logo de ${appBranding.name}`} className="h-10 w-10 rounded-[var(--r)] bg-white object-contain p-1" />
+            ) : null}
+            <div className="text-[20px] font-medium tracking-[0] text-white">{appBranding.name}</div>
             <div className="text-[10px] font-medium uppercase tracking-[0.5px] text-[var(--accent)]">SaaS</div>
           </div>
           <p className="mt-1.5 max-w-[30ch] text-[12px] leading-[16px] text-[var(--rail-on-variant)]">
