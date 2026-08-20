@@ -13,7 +13,9 @@ import {
   updateOrganizationMemberSchema,
   updateOrganizationSchema
 } from "@/lib/domain/platform";
-import { countOrganizationData, findProfileByEmail } from "@/lib/admin/platform";
+import { organizationAuthEmail } from "@/lib/auth/organization-auth";
+import { countOrganizationData, findOrganizationProfileByEmail, getOrganizationIdentity } from "@/lib/admin/platform";
+import { scopedPath } from "@/lib/routing/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -250,11 +252,15 @@ async function assertPlatformAdmin() {
 
 /** Busca la persona por email y, si no existe, crea el usuario de autenticacion. */
 async function resolveOrCreateUser(command: {
+  organizationId: string;
   email: string;
   fullName: string;
   password: string;
 }): Promise<string> {
-  const existing = await findProfileByEmail(command.email);
+  const organization = await getOrganizationIdentity(command.organizationId);
+  if (!organization) throw new Error(platformDomainErrors.organizationNotFound);
+
+  const existing = await findOrganizationProfileByEmail(command.organizationId, command.email);
 
   if (existing) {
     if (command.fullName && !existing.full_name) {
@@ -270,10 +276,14 @@ async function resolveOrCreateUser(command: {
 
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    email: command.email,
+    email: organizationAuthEmail(command.email, organization.id),
     password: command.password,
     email_confirm: true,
-    user_metadata: { full_name: command.fullName }
+    user_metadata: {
+      full_name: command.fullName,
+      organization_id: organization.id,
+      tenant_email: command.email
+    }
   });
 
   if (error || !data.user) {
@@ -294,7 +304,7 @@ async function resolveOrCreateUser(command: {
 function finish(notice: string): never {
   revalidatePath(PLATFORM_PATH);
   revalidatePath("/admin/users");
-  redirect(`${PLATFORM_PATH}?notice=${encodeURIComponent(notice)}`);
+  redirect(`${scopedPath(PLATFORM_PATH)}?notice=${encodeURIComponent(notice)}`);
 }
 
 function field(formData: FormData, name: string): string {

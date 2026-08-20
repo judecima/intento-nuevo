@@ -175,21 +175,22 @@ function OrganizationCard({
 
         <div className="border-t border-[var(--line)] pt-4">
           <div className="mb-3">
-            <h3 className="text-[15px] font-semibold">Identidad visual</h3>
+            <h3 className="text-[15px] font-semibold">Configuracion e identidad visual</h3>
             <p className="hint mt-1">Se aplicará cuando los usuarios trabajen dentro de esta organización.</p>
           </div>
           <OrganizationBrandingForm
             organizationId={organization.id}
             primaryColor={organization.primaryColor}
             secondaryColor={organization.secondaryColor}
+            deliveryTimeDays={organization.deliveryTimeDays}
             logoUrl={organization.logoUrl}
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-[var(--r-md)] bg-[var(--md-surface-container-low)] px-4 py-3">
           <span className="field-label">Ruta de acceso</span>
-          <Link href={`/o/${organization.slug}`} className="chip-mono text-[var(--teal)] hover:underline">
-            /o/{organization.slug}
+          <Link href={`/${organization.slug}/login`} className="chip-mono text-[var(--teal)] hover:underline">
+            /{organization.slug}/login
           </Link>
           <span className="hint">
             {organization.allowCustomerSignup

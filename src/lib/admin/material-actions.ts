@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { materialKinds } from "@/lib/domain/materials";
+import { scopedPath } from "@/lib/routing/server";
 
 const materialSchema = z.object({
   organizationId: z.string().uuid(),
@@ -120,5 +121,5 @@ function stringField(formData: FormData, name: string) {
 }
 
 function redirectNotice(notice: string): never {
-  redirect(`/admin/materials?notice=${encodeURIComponent(notice)}`);
+  redirect(`${scopedPath("/admin/materials")}?notice=${encodeURIComponent(notice)}`);
 }

@@ -254,6 +254,8 @@ async function persistOptimizationResult({
     commercial_remnant_area: result.metrics.commercialRemnantAreaM2,
     cut_count: result.metrics.cutCount,
     saw_meters: result.metrics.sawMeters,
+    edge_band_045_meters: result.metrics.edgeBand045Meters,
+    edge_band_2mm_meters: result.metrics.edgeBand2mmMeters,
     result_json: toJson(result),
     validation_json: toJson(result.validation)
   };

@@ -8,7 +8,7 @@
  * listado de cortes y metros lineales de tapacanto.
  */
 
-import type { OptimizationResult } from "@/lib/optimizer/types";
+import type { OptimizationEdgeBandType, OptimizationResult } from "@/lib/optimizer/types";
 
 export type CutPlanEdges = {
   top: boolean;
@@ -46,6 +46,7 @@ export type CutPlanPiece = {
   sourceWidth: number;
   sourceHeight: number;
   edges: CutPlanEdges;
+  edgeType: OptimizationEdgeBandType;
   trace: CutPlanTraceStep[];
 };
 
@@ -92,6 +93,7 @@ export type CutPlanGroup = {
   height: number;
   quantity: number;
   edges: CutPlanEdges;
+  edgeType: OptimizationEdgeBandType;
   boards: number[];
 };
 
@@ -144,6 +146,8 @@ export type CutPlanMetrics = {
   secondLargestRemnantM2: number;
   remnantFragments: number;
   edgeMeters: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
   edgeSides: number;
 };
 
@@ -333,6 +337,8 @@ export function buildCutPlanView(input: BuildCutPlanViewInput): CutPlanView {
       secondLargestRemnantM2: pickNumber(legacySummary.segundoSobranteM2, stockQuality.secondLargestM2, 0),
       remnantFragments: Math.round(pickNumber(legacySummary.fragmentosComerciales, stockQuality.fragments, 0)),
       edgeMeters: edgeSummary.meters,
+      edgeBand045Meters: edgeSummary.edgeBand045Meters,
+      edgeBand2mmMeters: edgeSummary.edgeBand2mmMeters,
       edgeSides: edgeSummary.sides
     },
     boards,
@@ -415,6 +421,7 @@ function toPlanPiece(row: PieceRowLike, index: number): CutPlanPiece {
   const edges = asRecord(raw.edges);
   const width = Number(row.width);
   const height = Number(row.height);
+  const edgeType = readEdgeType(raw.edgeType, edges);
 
   return {
     id: row.id,
@@ -435,6 +442,7 @@ function toPlanPiece(row: PieceRowLike, index: number): CutPlanPiece {
       left: Boolean(edges.left),
       right: Boolean(edges.right)
     },
+    edgeType,
     trace: Array.isArray(raw.trace) ? (raw.trace as CutPlanTraceStep[]) : []
   };
 }
@@ -477,7 +485,7 @@ function buildGroups(boards: CutPlanBoard[]): CutPlanGroup[] {
 
   for (const board of boards) {
     for (const piece of board.pieces) {
-      const key = `${piece.description}|${piece.sourceWidth}|${piece.sourceHeight}|${edgeKey(piece.edges)}`;
+      const key = `${piece.description}|${piece.sourceWidth}|${piece.sourceHeight}|${edgeKey(piece.edges)}|${piece.edgeType}`;
       const existing = groups.get(key);
 
       if (existing) {
@@ -494,6 +502,7 @@ function buildGroups(boards: CutPlanBoard[]): CutPlanGroup[] {
         height: piece.sourceHeight,
         quantity: 1,
         edges: piece.edges,
+        edgeType: piece.edgeType,
         boards: [board.index + 1]
       });
     }
@@ -537,8 +546,14 @@ function summarizeStock(stock: CutPlanStockItem[]): {
   };
 }
 
-function summarizeEdges(boards: CutPlanBoard[]): { meters: number; sides: number } {
-  let meters = 0;
+function summarizeEdges(boards: CutPlanBoard[]): {
+  meters: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
+  sides: number;
+} {
+  let edgeBand045Meters = 0;
+  let edgeBand2mmMeters = 0;
   let sides = 0;
 
   for (const board of boards) {
@@ -548,12 +563,26 @@ function summarizeEdges(boards: CutPlanBoard[]): { meters: number; sides: number
       for (const side of ["top", "bottom", "left", "right"] as const) {
         if (!piece.edges[side]) continue;
         sides += 1;
-        meters += (side === "left" || side === "right" ? piece.sourceHeight : piece.sourceWidth) / 1000;
+        const meters = (side === "left" || side === "right" ? piece.sourceHeight : piece.sourceWidth) / 1000;
+        if (piece.edgeType === "thin" || piece.edgeType === "both") edgeBand045Meters += meters;
+        if (piece.edgeType === "thick" || piece.edgeType === "both") edgeBand2mmMeters += meters;
       }
     }
   }
 
-  return { meters, sides };
+  return {
+    meters: edgeBand045Meters + edgeBand2mmMeters,
+    edgeBand045Meters,
+    edgeBand2mmMeters,
+    sides
+  };
+}
+
+function readEdgeType(value: unknown, edges: Record<string, unknown>): OptimizationEdgeBandType {
+  const hasEdges = Object.values(edges).some(Boolean);
+  if (value === "thin" || value === "thick" || value === "both") return value;
+  if (value === "none") return hasEdges ? "thin" : "none";
+  return hasEdges ? "thin" : "none";
 }
 
 function edgeKey(edges: CutPlanEdges): string {

@@ -52,6 +52,7 @@ const privilegedFunctions = [
   "can_manage_production_order",
   "can_read_generated_file",
   "start_production_job",
+  "start_edgebanding_job",
   "complete_production_job",
   "write_audit_log",
   "admin_upsert_organization_member",
@@ -93,6 +94,12 @@ describe("database security migrations", () => {
     expect(migrationSql).toMatch(/set\s+public\s*=\s*false/i);
     expect(migrationSql).toMatch(/create\s+policy[\s\S]*?on\s+storage\.objects/i);
     expect(migrationSql).toMatch(/bucket_id\s*=\s*'production-files'/i);
+  });
+
+  it("keeps project creation available for tenant and platform workflows", () => {
+    expect(migrationSql).toMatch(
+      /create\s+policy\s+"projects_insert_authorized"[\s\S]*?public\.is_platform_admin\(\)[\s\S]*?public\.has_org_role\([\s\S]*?seller/i
+    );
   });
 
   it("limits production files and jobs to production-capable roles", () => {

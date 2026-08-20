@@ -43,7 +43,7 @@ export async function getActiveOrderForProject(projectId: string): Promise<Order
     .from("orders")
     .select("*")
     .eq("project_id", projectId)
-    .in("status", ["submitted", "under_review", "approved", "production"])
+    .in("status", ["pending", "submitted", "under_review", "approved", "production", "edgebanding"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

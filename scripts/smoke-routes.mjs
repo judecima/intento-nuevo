@@ -1,14 +1,12 @@
 const baseUrl = new URL(process.env.SMOKE_BASE_URL || process.argv[2] || "http://localhost:3000");
 
 const checks = [
-  { path: "/login", type: "ok" },
-  { path: "/projects", type: "protected" },
-  { path: "/orders", type: "protected" },
-  { path: "/sales/orders", type: "protected" },
-  { path: "/production", type: "protected" },
-  { path: "/admin/users", type: "protected" },
-  { path: "/admin/machines", type: "protected" },
-  { path: "/admin/audit", type: "protected" }
+  { path: "/", type: "ok" },
+  { path: "/jadsi", type: "redirect", targetPath: "/jadsi/login" },
+  { path: "/jadsi/login", type: "ok" },
+  { path: "/projects", type: "root_redirect" },
+  { path: "/jadsi/projects", type: "protected", loginPath: "/jadsi/login" },
+  { path: "/jadsi/admin/organizations", type: "protected", loginPath: "/jadsi/login" }
 ];
 
 const failures = [];
@@ -23,10 +21,26 @@ for (const check of checks) {
       continue;
     }
 
+    if (check.type === "root_redirect") {
+      const isRedirect = response.status >= 300 && response.status < 400;
+      const locationPath = location ? new URL(location, baseUrl).pathname : "";
+      if (!isRedirect || locationPath !== "/") {
+        failures.push(`${check.path}: expected redirect to /, got ${response.status} ${location}`);
+      }
+    }
+
+    if (check.type === "redirect") {
+      const isRedirect = response.status >= 300 && response.status < 400;
+      const locationPath = location ? new URL(location, baseUrl).pathname : "";
+      if (!isRedirect || locationPath !== check.targetPath) {
+        failures.push(`${check.path}: expected redirect to ${check.targetPath}, got ${response.status} ${location}`);
+      }
+    }
+
     if (check.type === "protected") {
       const isRedirect = response.status >= 300 && response.status < 400;
-      if (!isRedirect || !location.includes("/login")) {
-        failures.push(`${check.path}: expected redirect to /login, got ${response.status} ${location}`);
+      if (!isRedirect || !location.includes(check.loginPath)) {
+        failures.push(`${check.path}: expected redirect to ${check.loginPath}, got ${response.status} ${location}`);
       }
     }
   } catch (error) {

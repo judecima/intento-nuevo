@@ -39,7 +39,7 @@ function first(value: string | string[] | undefined) {
 function noticeMessage(notice: string | undefined) {
   if (!notice) return null;
   const messages: Record<string, string> = {
-    order_submitted: "Pedido enviado y pendiente de aprobacion."
+    order_submitted: "Pedido cargado y pendiente de aprobacion."
   };
 
   return messages[notice] ?? null;

@@ -12,14 +12,13 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-import {
-  PendingSubmitButton
-} from "@/components/forms/pending-submit-button";
+import { createTheme, ThemeProvider, type SxProps, type Theme } from "@mui/material/styles";
+import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import {
   completeProductionAction,
   downloadGeneratedFileAction,
   generateProductionXmlAction,
+  startEdgebandingAction,
   startProductionAction
 } from "@/lib/production/actions";
 import type {
@@ -27,17 +26,26 @@ import type {
   MachineProfileRow,
   ProductionOrderItem
 } from "@/lib/production/queries";
-import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders";
+import { getOrderSnapshotSummary, orderStatusLabels, type OrderStatus } from "@/lib/domain/orders";
+import { processDeliveryStatusLabels } from "@/lib/domain/process";
 import { generatedFileTypeLabels, productionJobStatusLabels } from "@/lib/domain/production";
-import { formatDateTimeEsAr } from "@/lib/format/dates";
+import { formatDateOnlyEsAr, formatDateTimeEsAr } from "@/lib/format/dates";
 
-type ProductionMode = "queue" | "approved" | "active" | "completed";
+type ProductionMode = "queue" | "approved" | "active" | "edgebanding" | "completed";
 
 type ProductionOrderListProps = {
   items: ProductionOrderItem[];
   machineProfiles: MachineProfileRow[];
   mode: ProductionMode;
   returnTo: string;
+};
+
+const modeCountLabels: Record<ProductionMode, string> = {
+  queue: "trabajos activos",
+  approved: "pedidos aprobados",
+  active: "pedidos en produccion",
+  edgebanding: "pedidos en pegado de canto",
+  completed: "pedidos finalizados"
 };
 
 export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: ProductionOrderListProps) {
@@ -69,7 +77,29 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
         accessorFn: (item) => orderStatusLabels[item.order.status],
         header: "Estado",
         size: 150,
-        Cell: ({ row }) => <Chip size="small" color={row.original.order.status === "production" ? "warning" : "success"} label={orderStatusLabels[row.original.order.status]} />
+        Cell: ({ row }) => (
+          <Chip
+            size="small"
+            color={productionStatusChipColor(row.original.order.status)}
+            label={orderStatusLabels[row.original.order.status]}
+          />
+        )
+      },
+      {
+        id: "deliveryOn",
+        accessorFn: (item) => item.deliveryOn ?? "",
+        header: "Fecha entrega",
+        size: 140,
+        enableHiding: false,
+        Cell: ({ row }) => formatDateOnlyEsAr(row.original.deliveryOn)
+      },
+      {
+        id: "deliveryStatus",
+        accessorFn: (item) => item.deliveryStatus,
+        header: "Estado entrega",
+        size: 170,
+        enableHiding: false,
+        Cell: ({ row }) => <DeliveryStatusChip status={row.original.deliveryStatus} />
       },
       {
         id: "project",
@@ -95,6 +125,20 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
       },
       { id: "boards", accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).boardCount, header: "Placas", size: 85 },
       { id: "pieces", accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).totalPieces, header: "Piezas", size: 85 },
+      {
+        id: "edgeBand045Meters",
+        accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).edgeBand045Meters,
+        header: "ML canto 0,45",
+        size: 125,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
+      },
+      {
+        id: "edgeBand2mmMeters",
+        accessorFn: (item) => getOrderSnapshotSummary(item.order.snapshot).edgeBand2mmMeters,
+        header: "ML canto 2 mm",
+        size: 125,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
+      },
       {
         id: "updated",
         accessorKey: "order.updated_at",
@@ -124,15 +168,18 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
       pagination: { pageIndex: 0, pageSize: 25 },
       showColumnFilters: true,
       sorting: [{ id: "updated", desc: true }],
-      columnPinning: { left: ["order", "status"], right: ["mrt-row-actions"] }
+      columnPinning: { left: ["order", "status", "deliveryOn", "deliveryStatus"], right: ["mrt-row-actions"] }
     },
     muiTablePaperProps: { sx: { border: "1px solid var(--line)", borderRadius: "8px", overflow: "hidden" } },
     muiTableContainerProps: { sx: { maxHeight: "calc(100vh - 300px)", backgroundColor: "#fff" } },
     muiTableHeadCellProps: { sx: { backgroundColor: "#eef3f1", color: "#17201f", fontSize: 12, fontWeight: 800 } },
     muiTableBodyCellProps: { sx: { borderColor: "var(--line)", fontSize: 13 } },
+    muiTableBodyRowProps: ({ row }) => ({
+      sx: deliveryAlertRowSx(row.original.deliveryAlert)
+    }),
     renderRowActions: ({ row }) => <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>{row.getIsExpanded() ? "Cerrar" : "Detalle"}</Button>,
     renderDetailPanel: ({ row }) => <ProductionOrderCard row={row} machineProfiles={machineProfiles} mode={mode} returnTo={returnTo} />,
-    renderTopToolbarCustomActions: () => <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>{items.length} pedidos en cola</Typography>
+    renderTopToolbarCustomActions: () => <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>{items.length} {modeCountLabels[mode]}</Typography>
   });
 
   if (items.length === 0) {
@@ -178,10 +225,12 @@ function ProductionOrderCard({
             <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">Version {item.order.version}</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--line)] text-sm">
+        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--line)] text-sm md:grid-cols-5">
           <Metric label="Placas" value={summary.boardCount.toString()} />
           <Metric label="Piezas" value={summary.totalPieces.toString()} />
           <Metric label="Aprov." value={`${summary.utilizationPercentage.toFixed(1)}%`} />
+          <Metric label="Canto 0,45" value={`${summary.edgeBand045Meters.toFixed(2)} m`} />
+          <Metric label="Canto 2 mm" value={`${summary.edgeBand2mmMeters.toFixed(2)} m`} />
         </div>
       </div>
 
@@ -190,6 +239,10 @@ function ProductionOrderCard({
           <dl className="grid gap-3 text-sm md:grid-cols-2">
             <Detail label="Material" value={summary.materialDescription} />
             <Detail label="Cliente" value={customerLabel(summary.customerName, summary.customerEmail)} />
+            <Detail label="Fecha entrega" value={formatDateOnlyEsAr(item.deliveryOn) || "Sin aprobacion"} />
+            <Detail label="Estado entrega" value={processDeliveryStatusLabels[item.deliveryStatus]} />
+            <Detail label="Canto 0,45" value={`${summary.edgeBand045Meters.toFixed(2)} m`} />
+            <Detail label="Canto 2 mm" value={`${summary.edgeBand2mmMeters.toFixed(2)} m`} />
             <Detail label="Inicio" value={item.job?.started_at ? formatDateTimeEsAr(item.job.started_at) : "Sin iniciar"} />
             <Detail label="Fin" value={item.job?.completed_at ? formatDateTimeEsAr(item.job.completed_at) : "Pendiente"} />
           </dl>
@@ -208,7 +261,16 @@ function ProductionOrderCard({
             />
           ) : null}
           {(mode === "active" || mode === "queue") && item.order.status === "production" ? (
-            <CompleteProductionForm orderId={item.order.id} expectedOrderVersion={item.order.version} returnTo={returnTo} />
+            <StartEdgebandingForm orderId={item.order.id} expectedOrderVersion={item.order.version} returnTo={returnTo} />
+          ) : null}
+          {(mode === "active" || mode === "edgebanding" || mode === "queue") &&
+          (item.order.status === "production" || item.order.status === "edgebanding") ? (
+            <CompleteProductionForm
+              orderId={item.order.id}
+              expectedOrderVersion={item.order.version}
+              orderStatus={item.order.status}
+              returnTo={returnTo}
+            />
           ) : null}
         </div>
       </div>
@@ -268,7 +330,7 @@ function StartProductionForm({
   );
 }
 
-function CompleteProductionForm({
+function StartEdgebandingForm({
   orderId,
   expectedOrderVersion,
   returnTo
@@ -278,16 +340,45 @@ function CompleteProductionForm({
   returnTo: string;
 }) {
   return (
+    <form action={startEdgebandingAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] p-3">
+      <input type="hidden" name="orderId" value={orderId} />
+      <input type="hidden" name="expectedOrderVersion" value={expectedOrderVersion} />
+      <input type="hidden" name="returnTo" value={returnTo} />
+      <TextArea label="Notas pegado" name="notes" />
+      <PendingSubmitButton
+        pendingLabel="Pasando a pegado..."
+        className="focus-ring w-full rounded-[var(--r)] border border-[var(--teal)] px-4 py-3 text-sm font-semibold text-[var(--teal)] hover:bg-[#f1fbf8]"
+      >
+        Pasar a pegado de canto
+      </PendingSubmitButton>
+    </form>
+  );
+}
+
+function CompleteProductionForm({
+  orderId,
+  expectedOrderVersion,
+  orderStatus,
+  returnTo
+}: {
+  orderId: string;
+  expectedOrderVersion: number;
+  orderStatus: OrderStatus;
+  returnTo: string;
+}) {
+  const isEdgebanding = orderStatus === "edgebanding";
+
+  return (
     <form action={completeProductionAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] p-3">
       <input type="hidden" name="orderId" value={orderId} />
       <input type="hidden" name="expectedOrderVersion" value={expectedOrderVersion} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <TextArea label="Notas cierre" name="notes" />
       <PendingSubmitButton
-        pendingLabel="Finalizando produccion..."
+        pendingLabel={isEdgebanding ? "Finalizando pegado..." : "Finalizando produccion..."}
         className="focus-ring w-full rounded-[var(--r)] bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--teal-claro)]"
       >
-        Finalizar produccion
+        {isEdgebanding ? "Finalizar pegado" : "Finalizar produccion"}
       </PendingSubmitButton>
     </form>
   );
@@ -376,6 +467,49 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
+function deliveryAlertRowSx(alert: ProductionOrderItem["deliveryAlert"]): SxProps<Theme> | undefined {
+  if (alert === "overdue") {
+    return {
+      "& > td": { backgroundColor: "#ef4444", color: "#ffffff" },
+      "&:hover > td": { backgroundColor: "#dc2626", color: "#ffffff" }
+    };
+  }
+
+  if (alert === "due_soon") {
+    return {
+      "& > td": { backgroundColor: "#facc15", color: "#1f2937" },
+      "&:hover > td": { backgroundColor: "#eab308", color: "#111827" }
+    };
+  }
+
+  return undefined;
+}
+
+function DeliveryStatusChip({ status }: { status: ProductionOrderItem["deliveryStatus"] }) {
+  const colorByStatus: Record<ProductionOrderItem["deliveryStatus"], "default" | "error" | "success" | "warning"> = {
+    overdue: "error",
+    due_soon: "warning",
+    on_time: "default",
+    delivered: "success"
+  };
+
+  return (
+    <Chip
+      size="small"
+      label={processDeliveryStatusLabels[status]}
+      color={colorByStatus[status]}
+      variant={status === "on_time" ? "outlined" : "filled"}
+    />
+  );
+}
+
 function customerLabel(name: string, email: string) {
   return email ? `${name} - ${email}` : name;
+}
+
+function productionStatusChipColor(status: OrderStatus): "default" | "primary" | "success" | "warning" {
+  if (status === "production") return "warning";
+  if (status === "edgebanding") return "primary";
+  if (status === "completed" || status === "delivered") return "success";
+  return "default";
 }

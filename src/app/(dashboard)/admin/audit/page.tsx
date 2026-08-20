@@ -105,12 +105,15 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
 
 function auditActionLabel(action: string) {
   const labels: Record<string, string> = {
+    order_pending: "Pedido pendiente",
     order_submitted: "Pedido enviado",
     order_under_review: "Pedido en revision",
     order_changes_requested: "Correcciones solicitadas",
     order_approved: "Pedido aprobado",
     order_in_production: "Produccion iniciada",
+    order_edgebanding: "Pegado de canto",
     order_completed: "Produccion finalizada",
+    order_delivered: "Pedido entregado",
     order_cancelled: "Pedido cancelado",
     xml_generated: "XML generado",
     xml_downloaded: "XML descargado",

@@ -13,6 +13,7 @@ import type {
   LegacyRemnantQuality,
   OptimizationBoardResult,
   OptimizationCut,
+  OptimizationEdgeBandType,
   OptimizationInput,
   OptimizationMetrics,
   OptimizationPlacement,
@@ -84,7 +85,7 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
 
   const industrial = legacyV10.validarPlanIndustrial(raw, expectedPieceCount);
   const independentSlices = validateIndependentSlices(raw);
-  const normalized = normalizeLegacyPlan(raw, expectedPieceCount);
+  const normalized = normalizeLegacyPlan(raw, expectedPieceCount, parsed.pieces);
 
   const result: OptimizationResult = {
     algorithmVersion: LEGACY_OPTIMIZER_VERSION,
@@ -115,6 +116,7 @@ function toLegacyLines(input: OptimizationInput): LegacyLineInput[] {
     base: piece.width,
     altura: piece.height,
     veta: Boolean(piece.grain || piece.canRotate === false),
+    edgeType: resolveEdgeType(piece.edgeType, piece.edges),
     cantos: piece.edges
       ? {
           arr: Boolean(piece.edges.top),
@@ -211,14 +213,18 @@ function completeLegacyPlan(
 
   plan.sobrantes.sort((a, b) => b.w * b.h - a.w * a.h);
 
-  let edgeBandMeters = 0;
+  let edgeBand045Meters = 0;
+  let edgeBand2mmMeters = 0;
   let edgeBandSides = 0;
   for (const line of lineas) {
     const edges = line.cantos ?? {};
+    const edgeType = line.edgeType ?? "none";
     for (const [side, enabled] of Object.entries(edges)) {
       if (!enabled) continue;
       edgeBandSides += line.cant;
-      edgeBandMeters += line.cant * ((side === "izq" || side === "der" ? line.altura : line.base) / 1000);
+      const meters = line.cant * ((side === "izq" || side === "der" ? line.altura : line.base) / 1000);
+      if (edgeType === "thin" || edgeType === "both") edgeBand045Meters += meters;
+      if (edgeType === "thick" || edgeType === "both") edgeBand2mmMeters += meters;
     }
   }
 
@@ -236,7 +242,9 @@ function completeLegacyPlan(
   summary.m2Cortados = cutArea / 1e6;
   summary.aprovechamiento = grossArea ? (cutArea / grossArea) * 100 : 0;
   summary.desperdicio = 100 - summary.aprovechamiento;
-  summary.mlCanto = edgeBandMeters;
+  summary.mlCanto = edgeBand045Meters + edgeBand2mmMeters;
+  summary.mlCanto045 = edgeBand045Meters;
+  summary.mlCanto2mm = edgeBand2mmMeters;
   summary.ladosCanto = edgeBandSides;
   summary.cortes = plan.placas.reduce((total, board) => total + (board.cortes ?? []).length, 0);
   summary.metrosSierra =
@@ -268,11 +276,13 @@ function areaLowerBound(lineas: LegacyLineInput[], options: LegacyOptimizerOptio
 function normalizeLegacyPlan(
   plan: LegacyPlan,
   expectedPieceCount: number,
+  sourcePieces: OptimizationInput["pieces"],
 ): Omit<OptimizationResult, "algorithmVersion" | "strategy" | "projectId" | "projectVersion" | "validation" | "raw"> {
   const boards: OptimizationBoardResult[] = [];
   const placements: OptimizationPlacement[] = [];
   const cuts: OptimizationCut[] = [];
   const remnants: OptimizationRemnant[] = [];
+  const edgeTypesByLegacyId = expandedEdgeTypes(sourcePieces);
 
   for (let boardIndex = 0; boardIndex < plan.placas.length; boardIndex++) {
     const legacyBoard = plan.placas[boardIndex];
@@ -298,6 +308,7 @@ function normalizeLegacyPlan(
           left: Boolean(edges?.izq),
           right: Boolean(edges?.der)
         },
+        edgeType: edgeTypeForPlacement(placement.pieza?.id, edgeTypesByLegacyId, edges),
         trace: normalizeTrace(placement._diagPath)
       };
       placements.push(normalized);
@@ -361,10 +372,46 @@ function normalizeLegacyPlan(
     secondLargestCommercialRemnantM2: numberOr(summary.segundoSobranteM2, (commercialAreas[1] ?? 0) / 1e6),
     commercialRemnantCount: numberOr(summary.fragmentosComerciales, commercialAreas.length),
     cutCount: summary.cortes ?? cuts.length,
-    sawMeters: summary.metrosSierra ?? cuts.reduce((total, cut) => total + cut.length, 0) / 1000
+    sawMeters: summary.metrosSierra ?? cuts.reduce((total, cut) => total + cut.length, 0) / 1000,
+    edgeBand045Meters: numberOr(summary.mlCanto045, 0),
+    edgeBand2mmMeters: numberOr(summary.mlCanto2mm, 0)
   };
 
   return { boards, placements, cuts, remnants, metrics };
+}
+
+function expandedEdgeTypes(pieces: OptimizationInput["pieces"]): Map<number, OptimizationEdgeBandType> {
+  const result = new Map<number, OptimizationEdgeBandType>();
+  let legacyId = 0;
+
+  for (const piece of pieces) {
+    for (let quantity = 0; quantity < piece.quantity; quantity += 1) {
+      result.set(legacyId, resolveEdgeType(piece.edgeType, piece.edges));
+      legacyId += 1;
+    }
+  }
+
+  return result;
+}
+
+function edgeTypeForPlacement(
+  legacyId: unknown,
+  edgeTypesByLegacyId: Map<number, OptimizationEdgeBandType>,
+  edges: { arr?: boolean; aba?: boolean; izq?: boolean; der?: boolean } | null,
+): OptimizationEdgeBandType {
+  const id = Number(legacyId);
+  const fromInput = Number.isInteger(id) ? edgeTypesByLegacyId.get(id) : undefined;
+  if (fromInput) return fromInput;
+
+  return edges && Object.values(edges).some(Boolean) ? "thin" : "none";
+}
+
+function resolveEdgeType(
+  edgeType: OptimizationEdgeBandType | undefined,
+  edges: OptimizationInput["pieces"][number]["edges"],
+): OptimizationEdgeBandType {
+  if (edgeType && !(edgeType === "none" && edges && Object.values(edges).some(Boolean))) return edgeType;
+  return edges && Object.values(edges).some(Boolean) ? "thin" : "none";
 }
 
 function normalizeTrace(steps: LegacyDiagStep[] | undefined): OptimizationPlacementTrace[] {

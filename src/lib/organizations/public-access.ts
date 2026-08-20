@@ -41,11 +41,14 @@ export async function getPublicOrganization(slug: string): Promise<PublicOrganiz
 export const organizationAccessNotices: Record<string, string> = {
   invalid_input: "Revisa los datos ingresados.",
   invalid_credentials: "Email o contrasena incorrectos.",
+  supabase_not_configured: "Falta configurar Supabase en .env.local.",
   signup_disabled: "Esta organizacion no acepta registro de clientes.",
   signup_failed: "No se pudo crear la cuenta. Proba con otro email.",
   email_taken: "Ese email ya tiene cuenta: entra con tu contrasena.",
   confirm_email: "Cuenta creada. Revisa tu correo para confirmarla y despues entra con tu contrasena.",
   join_failed: "No se pudo asociar la cuenta con esta organizacion.",
   not_member: "Tu cuenta no pertenece a esta organizacion o esta inactiva.",
+  tenant_password_required:
+    "Esta cuenta usa credenciales globales antiguas. Pedile al administrador que la cree con una clave propia de esta organizacion.",
   organization_not_found: "La organizacion no existe o esta inactiva."
 };

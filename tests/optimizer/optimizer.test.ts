@@ -122,6 +122,28 @@ describe("optimizer facade", () => {
     expect(result.validation.ok).toBe(true);
   });
 
+  it("calculates edge-band meters separately, including both types", () => {
+    const result = optimizeProject({
+      ...baseInput,
+      projectId: "edge-band-meters",
+      pieces: [
+        {
+          reference: "EDGE",
+          description: "Pieza con ambos cantos",
+          quantity: 1,
+          width: 600,
+          height: 400,
+          edges: { top: true, left: true },
+          edgeType: "both"
+        }
+      ]
+    });
+
+    expect(result.metrics.edgeBand045Meters).toBeCloseTo(1, 6);
+    expect(result.metrics.edgeBand2mmMeters).toBeCloseTo(1, 6);
+    expect(result.placements[0]?.edgeType).toBe("both");
+  });
+
   it("reuses identical optimizer inputs from the in-memory cache", () => {
     const input: OptimizationInput = {
       ...baseInput,

@@ -11,13 +11,15 @@ import Typography from "@mui/material/Typography";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { projectStatusLabels } from "@/lib/domain/projects";
 import { formatDateOnlyEsAr } from "@/lib/format/dates";
+import { toScopedPath } from "@/lib/routing/routes";
 import type { ProjectListItem } from "@/lib/projects/queries";
 
 type ProjectTableProps = {
   projects: ProjectListItem[];
+  basePath: string;
 };
 
-export function ProjectTable({ projects }: ProjectTableProps) {
+export function ProjectTable({ projects, basePath }: ProjectTableProps) {
   const router = useRouter();
   const theme = useMemo(
     () =>
@@ -132,7 +134,7 @@ export function ProjectTable({ projects }: ProjectTableProps) {
       sx: { fontSize: 13, borderColor: "var(--line)" }
     },
     renderRowActions: ({ row }) => (
-      <Button size="small" variant="contained" onClick={() => router.push(`/projects/${row.original.id}`)}>
+      <Button size="small" variant="contained" onClick={() => router.push(toScopedPath(basePath, `/projects/${row.original.id}`))}>
         Abrir
       </Button>
     ),

@@ -82,6 +82,7 @@ export function buildOptimizationInputFromProject({
         left: Boolean(item.edge_left),
         right: Boolean(item.edge_right)
       },
+      edgeType: item.edge_type,
       metadata: {
         sortOrder: Number(item.sort_order)
       }
@@ -146,6 +147,7 @@ export function buildOptimizationInputFromDraft({
         left: item.edgeLeft,
         right: item.edgeRight
       },
+      edgeType: item.edgeType,
       metadata: {
         sortOrder: (index + 1) * 10
       }

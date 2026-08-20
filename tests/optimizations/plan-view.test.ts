@@ -187,6 +187,25 @@ describe("buildCutPlanView", () => {
     expect(plan.metrics.edgeMeters).toBeCloseTo(2, 6);
   });
 
+  it("splits edge-band meters by material type and sums both types", () => {
+    const input = baseInput();
+    input.pieces[0].raw_json = {
+      sourceWidth: 600,
+      sourceHeight: 400,
+      edges: { top: true, bottom: false, left: true, right: false },
+      edgeType: "both",
+      trace: []
+    };
+
+    const plan = buildCutPlanView(input);
+
+    // La primera pieza usa ambos tipos (1 m por tipo) y la segunda usa el
+    // fallback historico fino (1 m): total fino 2 m, grueso 1 m.
+    expect(plan.metrics.edgeBand045Meters).toBeCloseTo(2, 6);
+    expect(plan.metrics.edgeBand2mmMeters).toBeCloseTo(1, 6);
+    expect(plan.metrics.edgeMeters).toBeCloseTo(3, 6);
+  });
+
   it("marks the plan as stale when it belongs to an older project version", () => {
     const input = baseInput();
     input.project.version = 4;

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { AppUserContext } from "@/lib/auth/context";
 import { getNavigationForRole } from "@/lib/domain/navigation";
 import { roleLabels } from "@/lib/domain/roles";
+import { toScopedPath } from "@/lib/routing/routes";
 import { RailNav } from "./rail-nav";
 
 type AppShellProps = {
@@ -11,13 +12,18 @@ type AppShellProps = {
 };
 
 export function AppShell({ context, children }: AppShellProps) {
-  const nav = getNavigationForRole(context.role, { platformAdmin: context.isPlatformAdmin });
-  const displayName = context.profile?.full_name ?? context.user?.email ?? "Sesion no iniciada";
+  const basePath = context.routeBasePath;
+  const platformMode = context.routeScope?.kind === "platform" && context.isPlatformAdmin;
+  const nav = getNavigationForRole(context.role, { platformAdmin: platformMode }).map((item) => ({
+    ...item,
+    href: toScopedPath(basePath, item.href)
+  }));
+  const displayName = context.profile?.full_name ?? context.profile?.email ?? context.user?.email ?? "Sesion no iniciada";
   // El super usuario no depende de una organizacion: opera sobre todas.
   const organizationName =
-    context.activeOrganization?.name ?? (context.isPlatformAdmin ? "Todas las organizaciones" : "Sin organizacion");
-  const roleName = context.role ? roleLabels[context.role] : context.isPlatformAdmin ? "Plataforma" : "Sin rol";
-  const appBranding = context.isPlatformAdmin || !context.activeOrganization
+    context.activeOrganization?.name ?? (platformMode ? "Todas las organizaciones" : "Sin organizacion");
+  const roleName = context.role ? roleLabels[context.role] : platformMode ? "Plataforma" : "Sin rol";
+  const appBranding = platformMode || !context.activeOrganization
     ? {
         name: context.platformBranding.legalName,
         primaryColor: context.platformBranding.primaryColor,
@@ -46,7 +52,7 @@ export function AppShell({ context, children }: AppShellProps) {
       {/* Drawer sobre superficie oscura: los tokens `rail-*` son el esquema
           oscuro del sistema, para que el texto claro tenga siempre contraste. */}
       <aside className="no-print bg-[var(--rail)] px-3 py-5 text-[var(--rail-on)] lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
-        <Link href="/dashboard" className="focus-ring block rounded-[var(--r-lg)] px-4 py-1">
+        <Link href={toScopedPath(basePath, "/dashboard")} className="focus-ring block rounded-[var(--r-lg)] px-4 py-1">
           <div className="flex items-center gap-3">
             {appBranding.logoUrl ? (
               <img src={appBranding.logoUrl} alt={`Logo de ${appBranding.name}`} className="h-10 w-10 rounded-[var(--r)] bg-white object-contain p-1" />
@@ -71,8 +77,8 @@ export function AppShell({ context, children }: AppShellProps) {
               <div className="eyebrow-muted">Organizacion</div>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 <span className="truncate text-[15px] font-semibold">{organizationName}</span>
-                {context.isPlatformAdmin ? (
-                  <Link href="/admin/organizations" className="badge badge-accent focus-ring">
+                {platformMode ? (
+                  <Link href={toScopedPath(basePath, "/admin/organizations")} className="badge badge-accent focus-ring">
                     Super usuario
                   </Link>
                 ) : null}
@@ -90,11 +96,11 @@ export function AppShell({ context, children }: AppShellProps) {
                 {initials || "—"}
               </div>
               {context.user ? (
-                <Link className="btn btn-sm focus-ring" href="/logout">
+                <Link className="btn btn-sm focus-ring" href={toScopedPath(basePath, "/logout")}>
                   Salir
                 </Link>
               ) : (
-                <Link className="btn btn-sm btn-primary focus-ring" href="/login">
+                <Link className="btn btn-sm btn-primary focus-ring" href={toScopedPath(basePath, "/login")}>
                   Ingresar
                 </Link>
               )}

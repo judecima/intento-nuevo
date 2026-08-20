@@ -2,11 +2,13 @@ import { z } from "zod";
 import type { OrganizationRole } from "@/lib/domain/roles";
 
 export const orderStatuses = [
+  "pending",
   "submitted",
   "under_review",
   "changes_requested",
   "approved",
   "production",
+  "edgebanding",
   "completed",
   "delivered",
   "cancelled"
@@ -15,11 +17,13 @@ export const orderStatuses = [
 export type OrderStatus = (typeof orderStatuses)[number];
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
+  pending: "Pendiente",
   submitted: "Pendiente",
   under_review: "En revision",
   changes_requested: "Correcciones solicitadas",
   approved: "Aprobado",
   production: "Produccion",
+  edgebanding: "Pegado de canto",
   completed: "Finalizado",
   delivered: "Entregado",
   cancelled: "Cancelado"
@@ -41,11 +45,13 @@ export const orderDomainErrors = {
 export type OrderDomainError = (typeof orderDomainErrors)[keyof typeof orderDomainErrors];
 
 export const validOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
-  submitted: ["under_review", "approved", "changes_requested", "cancelled"],
-  under_review: ["approved", "changes_requested", "cancelled"],
+  pending: ["approved", "cancelled"],
+  submitted: ["approved", "cancelled"],
+  under_review: ["approved", "cancelled"],
   changes_requested: ["cancelled"],
   approved: ["production", "cancelled"],
-  production: ["completed"],
+  production: ["edgebanding", "completed"],
+  edgebanding: ["completed"],
   completed: ["delivered"],
   delivered: [],
   cancelled: []
@@ -56,7 +62,7 @@ export function canTransitionOrder(from: OrderStatus, to: OrderStatus): boolean 
 }
 
 export function canSubmitOrder(role: OrganizationRole | null, options: { platformAdmin?: boolean } = {}): boolean {
-  return Boolean(options.platformAdmin) || role === "customer" || role === "admin";
+  return Boolean(options.platformAdmin) || role === "customer" || role === "seller" || role === "admin";
 }
 
 export function canReviewOrders(role: OrganizationRole | null): boolean {
@@ -92,6 +98,8 @@ export type OrderSnapshotSummary = {
   wastePercentage: number;
   cutCount: number;
   sawMeters: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
 };
 
 export function getOrderSnapshotSummary(snapshot: unknown): OrderSnapshotSummary {
@@ -100,6 +108,8 @@ export function getOrderSnapshotSummary(snapshot: unknown): OrderSnapshotSummary
   const material = isRecord(root.material) ? root.material : {};
   const customer = isRecord(root.customer) ? root.customer : {};
   const result = isRecord(root.optimization_result) ? root.optimization_result : {};
+  const resultJson = isRecord(result.result_json) ? result.result_json : {};
+  const resultMetrics = isRecord(resultJson.metrics) ? resultJson.metrics : {};
   const items = Array.isArray(root.items) ? root.items : [];
 
   return {
@@ -116,7 +126,9 @@ export function getOrderSnapshotSummary(snapshot: unknown): OrderSnapshotSummary
     utilizationPercentage: numberValue(result.utilization_percentage, 0),
     wastePercentage: numberValue(result.waste_percentage, 0),
     cutCount: numberValue(result.cut_count, 0),
-    sawMeters: numberValue(result.saw_meters, 0)
+    sawMeters: numberValue(result.saw_meters, 0),
+    edgeBand045Meters: numberValue(result.edge_band_045_meters, numberValue(resultMetrics.edgeBand045Meters, 0)),
+    edgeBand2mmMeters: numberValue(result.edge_band_2mm_meters, numberValue(resultMetrics.edgeBand2mmMeters, 0))
   };
 }
 

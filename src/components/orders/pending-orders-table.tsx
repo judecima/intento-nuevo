@@ -16,7 +16,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import { orderStatusLabels, getOrderSnapshotSummary } from "@/lib/domain/orders";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
-import { approveOrderAction, startOrderReviewAction } from "@/lib/orders/actions";
+import { approveOrderAction } from "@/lib/orders/actions";
 import type { OrderRow } from "@/lib/orders/queries";
 
 type PendingOrdersTableProps = {
@@ -37,6 +37,8 @@ type PendingOrderRow = {
   totalPieces: number;
   itemRows: number;
   utilizationPercentage: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
   notesCustomer: string;
   order: OrderRow;
 };
@@ -79,6 +81,8 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
           totalPieces: summary.totalPieces,
           itemRows: summary.itemRows,
           utilizationPercentage: summary.utilizationPercentage,
+          edgeBand045Meters: summary.edgeBand045Meters,
+          edgeBand2mmMeters: summary.edgeBand2mmMeters,
           notesCustomer: order.notes_customer ?? "",
           order
         };
@@ -136,6 +140,18 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
         accessorKey: "totalPieces",
         header: "Piezas",
         size: 90
+      },
+      {
+        accessorKey: "edgeBand045Meters",
+        header: "ML canto 0,45",
+        size: 125,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
+      },
+      {
+        accessorKey: "edgeBand2mmMeters",
+        header: "ML canto 2 mm",
+        size: 125,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
       },
       {
         accessorKey: "utilizationPercentage",
@@ -234,7 +250,7 @@ function PendingOrderActions({ row }: { row: MRT_Row<PendingOrderRow> }) {
   const order = row.original.order;
 
   return (
-    <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px_320px]">
+    <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f9f7] p-3 text-sm">
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Nota cliente</div>
         <div className="mt-2 text-[var(--ink)]">{row.original.notesCustomer || "Sin nota"}</div>
@@ -249,18 +265,6 @@ function PendingOrderActions({ row }: { row: MRT_Row<PendingOrderRow> }) {
           className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
         >
           Aprobar pedido
-        </PendingSubmitButton>
-      </form>
-
-      <form action={startOrderReviewAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-white p-3">
-        <input type="hidden" name="orderId" value={order.id} />
-        <input type="hidden" name="expectedOrderVersion" value={order.version} />
-        <TextArea label="Comentario interno" name="comment" />
-        <PendingSubmitButton
-          pendingLabel="Tomando revision..."
-          className="focus-ring w-full rounded border border-[var(--linea-fuerte)] px-4 py-3 text-sm font-semibold text-[var(--ink)]"
-        >
-          Tomar revision
         </PendingSubmitButton>
       </form>
     </div>

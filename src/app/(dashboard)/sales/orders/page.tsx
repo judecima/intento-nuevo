@@ -11,7 +11,7 @@ type SalesOrdersPageProps = {
 
 export default async function SalesOrdersPage({ searchParams }: SalesOrdersPageProps) {
   const context = await getCurrentUserContext();
-  const orders = context.activeOrganization ? await listSalesOrders(context.activeOrganization.id, ["submitted"]) : [];
+  const orders = context.activeOrganization ? await listSalesOrders(context.activeOrganization.id, ["pending", "submitted"]) : [];
   const notice = noticeMessage(first(searchParams?.notice));
 
   return (

@@ -4,6 +4,7 @@ import type { OptimizationInput } from "./types";
 
 const positiveMm = z.number().finite().positive();
 const nonNegativeMm = z.number().finite().min(0);
+const edgeBandTypeSchema = z.enum(["none", "thin", "thick", "both"]);
 
 const pieceEdgesSchema = z
   .object({
@@ -65,6 +66,7 @@ export const optimizationInputSchema: z.ZodType<OptimizationInput> = z
             grain: z.boolean().optional(),
             canRotate: z.boolean().optional(),
             edges: pieceEdgesSchema,
+            edgeType: edgeBandTypeSchema.optional(),
             metadata: z.record(z.unknown()).optional()
           })
           .strict(),

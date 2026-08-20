@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { orderDomainErrors, orderTransitionSchema, submitOrderSchema } from "@/lib/domain/orders";
+import { scopedPath } from "@/lib/routing/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUserContext } from "@/lib/auth/context";
 
@@ -29,7 +30,7 @@ export async function submitProjectOrderAction(formData: FormData) {
   }
 
   const context = await getCurrentUserContext();
-  redirect(context.role === "seller" ? "/sales/orders?notice=order_submitted" : "/orders?notice=order_submitted");
+  redirect(scopedPath(context.role === "seller" ? "/sales/orders?notice=order_submitted" : "/orders?notice=order_submitted"));
 }
 
 export async function startOrderReviewAction(formData: FormData) {
@@ -40,7 +41,7 @@ export async function startOrderReviewAction(formData: FormData) {
   });
 
   const notice = await runOrderTransition("start_order_review", parsed);
-  redirect(`/sales/review?notice=${encodeURIComponent(notice)}`);
+  redirect(scopedPath(`/sales/review?notice=${encodeURIComponent(notice)}`));
 }
 
 export async function requestOrderChangesAction(formData: FormData) {
@@ -51,7 +52,7 @@ export async function requestOrderChangesAction(formData: FormData) {
   });
 
   const notice = await runOrderTransition("request_order_changes", parsed);
-  redirect(`/sales/orders?notice=${encodeURIComponent(notice)}`);
+  redirect(scopedPath(`/sales/orders?notice=${encodeURIComponent(notice)}`));
 }
 
 export async function approveOrderAction(formData: FormData) {
@@ -62,7 +63,7 @@ export async function approveOrderAction(formData: FormData) {
   });
 
   const notice = await runOrderTransition("approve_order", parsed);
-  redirect(`/sales/approved?notice=${encodeURIComponent(notice)}`);
+  redirect(scopedPath(`/sales/approved?notice=${encodeURIComponent(notice)}`));
 }
 
 async function runOrderTransition(
@@ -114,7 +115,7 @@ function orderNoticeFromError(message: string): string {
 }
 
 function projectRedirect(projectId: string, notice: string) {
-  return `/projects/${projectId}?notice=${encodeURIComponent(notice)}`;
+  return scopedPath(`/projects/${projectId}?notice=${encodeURIComponent(notice)}`);
 }
 
 function stringField(formData: FormData, name: string): string {

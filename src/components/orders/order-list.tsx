@@ -1,8 +1,4 @@
-import {
-  approveOrderAction,
-  requestOrderChangesAction,
-  startOrderReviewAction
-} from "@/lib/orders/actions";
+import { approveOrderAction } from "@/lib/orders/actions";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import type { OrderRow } from "@/lib/orders/queries";
 import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders";
@@ -48,11 +44,13 @@ function OrderCard({ order, mode }: { order: OrderRow; mode: OrderListMode }) {
             <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">{formatDateTimeEsAr(order.created_at)}</span>
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-px overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--line)] text-sm">
+        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--line)] text-sm md:grid-cols-6">
           <Metric label="Placas" value={summary.boardCount.toString()} />
           <Metric label="Piezas" value={summary.totalPieces.toString()} />
           <Metric label="Aprov." value={`${summary.utilizationPercentage.toFixed(1)}%`} />
           <Metric label="Filas" value={summary.itemRows.toString()} />
+          <Metric label="Canto 0,45" value={`${summary.edgeBand045Meters.toFixed(2)} m`} />
+          <Metric label="Canto 2 mm" value={`${summary.edgeBand2mmMeters.toFixed(2)} m`} />
         </div>
       </div>
 
@@ -60,6 +58,8 @@ function OrderCard({ order, mode }: { order: OrderRow; mode: OrderListMode }) {
         <dl className="grid gap-3 text-sm md:grid-cols-2">
           <Detail label="Material" value={summary.materialDescription} />
           <Detail label="Cliente" value={customerLabel(summary.customerName, summary.customerEmail)} />
+          <Detail label="Canto 0,45" value={`${summary.edgeBand045Meters.toFixed(2)} m`} />
+          <Detail label="Canto 2 mm" value={`${summary.edgeBand2mmMeters.toFixed(2)} m`} />
           <Detail label="Nota cliente" value={order.notes_customer || "Sin nota"} />
           <Detail label="Nota vendedor" value={order.notes_seller || "Sin nota"} />
         </dl>
@@ -71,61 +71,19 @@ function OrderCard({ order, mode }: { order: OrderRow; mode: OrderListMode }) {
 }
 
 function OrderActions({ order, mode }: { order: OrderRow; mode: OrderListMode }) {
-  if (mode === "pending") {
+  if (mode === "pending" || mode === "review") {
     return (
-      <div className="space-y-3">
-        <form action={approveOrderAction} className="space-y-3">
-          <input type="hidden" name="orderId" value={order.id} />
-          <input type="hidden" name="expectedOrderVersion" value={order.version} />
-          <TextArea label="Comentario de validacion" name="comment" />
-          <PendingSubmitButton
-            pendingLabel="Aprobando pedido..."
-            className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
-          >
-            Aprobar pedido
-          </PendingSubmitButton>
-        </form>
-        <form action={startOrderReviewAction} className="space-y-3 border-t border-[var(--line)] pt-3">
-          <input type="hidden" name="orderId" value={order.id} />
-          <input type="hidden" name="expectedOrderVersion" value={order.version} />
-          <TextArea label="Comentario interno" name="comment" />
-          <PendingSubmitButton
-            pendingLabel="Tomando revision..."
-            className="focus-ring w-full rounded border border-[var(--linea-fuerte)] px-4 py-3 text-sm font-semibold text-[var(--ink)]"
-          >
-            Tomar revision
-          </PendingSubmitButton>
-        </form>
-      </div>
-    );
-  }
-
-  if (mode === "review") {
-    return (
-      <div className="space-y-3">
-        <form action={approveOrderAction} className="space-y-3">
-          <input type="hidden" name="orderId" value={order.id} />
-          <input type="hidden" name="expectedOrderVersion" value={order.version} />
-          <TextArea label="Comentario aprobacion" name="comment" />
-          <PendingSubmitButton
-            pendingLabel="Aprobando pedido..."
-            className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
-          >
-            Aprobar pedido
-          </PendingSubmitButton>
-        </form>
-        <form action={requestOrderChangesAction} className="space-y-3 border-t border-[var(--line)] pt-3">
-          <input type="hidden" name="orderId" value={order.id} />
-          <input type="hidden" name="expectedOrderVersion" value={order.version} />
-          <TextArea label="Correcciones solicitadas" name="comment" required />
-          <PendingSubmitButton
-            pendingLabel="Enviando correcciones..."
-            className="focus-ring w-full rounded border border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
-          >
-            Solicitar cambios
-          </PendingSubmitButton>
-        </form>
-      </div>
+      <form action={approveOrderAction} className="space-y-3">
+        <input type="hidden" name="orderId" value={order.id} />
+        <input type="hidden" name="expectedOrderVersion" value={order.version} />
+        <TextArea label="Comentario de validacion" name="comment" />
+        <PendingSubmitButton
+          pendingLabel="Aprobando pedido..."
+          className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
+        >
+          Aprobar pedido
+        </PendingSubmitButton>
+      </form>
     );
   }
 

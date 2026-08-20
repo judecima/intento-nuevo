@@ -11,6 +11,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const context = await getCurrentUserContext();
+  const loginPath = context.routeBasePath ? `${context.routeBasePath}/login` : "/";
 
   if (!context.supabaseConfigured) {
     return (
@@ -21,7 +22,19 @@ export default async function DashboardLayout({
   }
 
   if (!context.user) {
-    redirect("/login");
+    redirect(loginPath);
+  }
+
+  if (!context.routeScope) {
+    redirect("/");
+  }
+
+  if (context.routeScope.kind === "platform" && !context.isPlatformAdmin) {
+    redirect(`${loginPath}?error=not_platform_admin`);
+  }
+
+  if (context.routeScope.kind === "organization" && !context.activeOrganization) {
+    redirect(`${loginPath}?error=not_member`);
   }
 
   return <AppShell context={context}>{children}</AppShell>;

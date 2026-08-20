@@ -10,6 +10,7 @@ import { getCurrentUserContext } from "@/lib/auth/context";
 import { materialFiltersFromSearchParams, getMaterialByIdForOrganization, listMaterialsForOrganization, type MaterialSearchParams } from "@/lib/materials/queries";
 import { canAdminister } from "@/lib/domain/admin";
 import { canManagePlatform } from "@/lib/domain/platform";
+import { toScopedPath } from "@/lib/routing/routes";
 
 type AdminMaterialsPageProps = {
   searchParams?: MaterialSearchParams;
@@ -18,6 +19,7 @@ type AdminMaterialsPageProps = {
 export default async function AdminMaterialsPage({ searchParams }: AdminMaterialsPageProps) {
   const context = await getCurrentUserContext();
   const platformAdmin = canManagePlatform(context);
+  const basePath = context.routeBasePath;
   const platformOrganizations = platformAdmin
     ? (await listPlatformOrganizations(context)).filter((organization) => organization.active)
     : [];
@@ -33,7 +35,7 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Materiales</h1>
         <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
           El usuario no tiene una organizacion activa. Si sos super usuario, entra desde{" "}
-          <Link href="/admin/organizations" className="text-[var(--teal)] hover:underline">
+          <Link href={toScopedPath(basePath, "/admin/organizations")} className="text-[var(--teal)] hover:underline">
             Organizaciones
           </Link>
           .
@@ -67,7 +69,7 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
 
       {platformAdmin ? (
         <OrganizationScopePicker
-          action="/admin/materials"
+          action={toScopedPath(basePath, "/admin/materials")}
           organizations={platformOrganizations}
           selectedId={organization.id}
           label="Administrar catálogo de"
@@ -85,7 +87,7 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
             <h2 className="mt-1 text-[19px] font-semibold">{editingMaterial ? "Editar material" : "Nuevo material"}</h2>
             <p className="hint mt-1.5">Los cambios afectan solamente al catálogo de tu organización.</p>
           </div>
-          {editingMaterial ? <Link href="/admin/materials" className="btn focus-ring">Cancelar edición</Link> : null}
+          {editingMaterial ? <Link href={toScopedPath(basePath, "/admin/materials")} className="btn focus-ring">Cancelar edición</Link> : null}
         </div>
         <MaterialAdminForm
           organizationId={organization.id}
@@ -102,11 +104,16 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
             <h2 className="mt-1 text-[19px] font-semibold">Gestión de materiales</h2>
           </div>
         </div>
-        <MaterialAdminTable materials={result.materials} organizationId={organization.id} disableAction={disableMaterialAction} />
+        <MaterialAdminTable
+          materials={result.materials}
+          organizationId={organization.id}
+          basePath={basePath}
+          disableAction={disableMaterialAction}
+        />
       </section>
 
       <MaterialGallery
-        basePath="/admin/materials"
+        basePath={toScopedPath(basePath, "/admin/materials")}
         filters={filters}
         facets={result.facets}
         materials={result.materials}

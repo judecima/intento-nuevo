@@ -1,5 +1,13 @@
 import { getOrderSnapshotSummary, orderStatusLabels, type OrderStatus } from "@/lib/domain/orders";
-import { processOrderStatusesForRole, processStageLabels } from "@/lib/domain/process";
+import {
+  calculateAutomaticDeliveryDate,
+  calculateProcessDeliveryStatus,
+  processOrderStatusesForRole,
+  processStageLabels,
+  type ProcessDeliveryAlert,
+  type ProcessDeliveryStatus
+} from "@/lib/domain/process";
+import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import type { OrganizationRole } from "@/lib/domain/roles";
 import type { Database } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,6 +31,9 @@ export type ProcessOrderRow = {
   submittedAt: string;
   updatedAt: string;
   approvedAt: string | null;
+  deliveryOn: string | null;
+  deliveryAlert: ProcessDeliveryAlert | null;
+  deliveryStatus: ProcessDeliveryStatus;
   reviewedAt: string | null;
   approvedByName: string;
   operatorName: string;
@@ -35,6 +46,8 @@ export type ProcessOrderRow = {
   utilizationPercentage: number;
   wastePercentage: number;
   sawMeters: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
   hasMachineXml: boolean;
   process: {
     id: string | null;
@@ -54,7 +67,8 @@ export type ProcessOrderRow = {
 
 export async function listProcessOrders(
   organizationId: string,
-  role: OrganizationRole | null
+  role: OrganizationRole | null,
+  deliveryTimeDays: number = DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS
 ): Promise<ProcessOrderRow[]> {
   const supabase = createSupabaseServerClient();
   const statuses = processOrderStatusesForRole(role);
@@ -109,6 +123,8 @@ export async function listProcessOrders(
     const job = jobsByOrder.get(order.id) ?? null;
     const approvedBy = profileLabel(profilesById.get(order.approved_by ?? ""));
     const operator = profileLabel(profilesById.get(job?.assigned_operator_id ?? ""));
+    const deliveryOn = calculateAutomaticDeliveryDate(order.approved_at, deliveryTimeDays);
+    const deliveryStatus = calculateProcessDeliveryStatus(order.status, deliveryOn);
 
     return {
       orderId: order.id,
@@ -124,6 +140,9 @@ export async function listProcessOrders(
       submittedAt: order.submitted_at,
       updatedAt: order.updated_at,
       approvedAt: order.approved_at,
+      deliveryOn,
+      deliveryAlert: deliveryStatus === "overdue" || deliveryStatus === "due_soon" ? deliveryStatus : null,
+      deliveryStatus,
       reviewedAt: order.reviewed_at,
       approvedByName: approvedBy || "Sin aprobacion",
       operatorName: operator || "Sin asignar",
@@ -136,6 +155,8 @@ export async function listProcessOrders(
       utilizationPercentage: summary.utilizationPercentage,
       wastePercentage: summary.wastePercentage,
       sawMeters: summary.sawMeters,
+      edgeBand045Meters: summary.edgeBand045Meters,
+      edgeBand2mmMeters: summary.edgeBand2mmMeters,
       hasMachineXml: xmlByOrder.has(order.id),
       process: entry
         ? {

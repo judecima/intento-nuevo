@@ -17,11 +17,12 @@ import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { createTheme, ThemeProvider, type SxProps, type Theme } from "@mui/material/styles";
 import {
   canRunProcessAction,
   listAvailableProcessActions,
   processActionLabels,
+  processDeliveryStatusLabels,
   type ProcessActionId
 } from "@/lib/domain/process";
 import type { OrganizationRole } from "@/lib/domain/roles";
@@ -102,6 +103,22 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
         Cell: ({ row }) => <StatusChip row={row.original} />
       },
       {
+        accessorKey: "deliveryOn",
+        header: "Fecha entrega",
+        size: 140,
+        enableHiding: false,
+        enableEditing: false,
+        Cell: ({ cell }) => formatDateOnlyEsAr(cell.getValue<string | null>())
+      },
+      {
+        accessorKey: "deliveryStatus",
+        header: "Estado entrega",
+        size: 170,
+        enableHiding: false,
+        enableEditing: false,
+        Cell: ({ row }) => <DeliveryStatusChip status={row.original.deliveryStatus} />
+      },
+      {
         accessorKey: "customerName",
         header: "Cliente",
         size: 220,
@@ -146,6 +163,20 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
         header: "Cortes",
         size: 90,
         enableEditing: false
+      },
+      {
+        accessorKey: "edgeBand045Meters",
+        header: "ML canto 0,45",
+        size: 120,
+        enableEditing: false,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
+      },
+      {
+        accessorKey: "edgeBand2mmMeters",
+        header: "ML canto 2 mm",
+        size: 120,
+        enableEditing: false,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
       },
       {
         id: "edgeBand045Count",
@@ -306,7 +337,7 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
       density: "compact",
       pagination: { pageIndex: 0, pageSize: 25 },
       showColumnFilters: true,
-      columnPinning: { left: ["shortId", "stageLabel"], right: ["mrt-row-actions"] },
+      columnPinning: { left: ["shortId", "stageLabel", "deliveryOn", "deliveryStatus"], right: ["mrt-row-actions"] },
       sorting: [{ id: "updatedAt", desc: true }]
     },
     muiTablePaperProps: {
@@ -336,6 +367,9 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
         borderColor: "var(--line)"
       }
     },
+    muiTableBodyRowProps: ({ row }) => ({
+      sx: deliveryAlertRowSx(row.original.deliveryAlert)
+    }),
     onEditingRowSave: async ({ row, values, table: tableInstance }) => {
       const result = await saveOrderProcessEntryAction({
         orderId: row.original.orderId,
@@ -457,6 +491,10 @@ function DetailPanel({ row }: { row: ProcessOrderRow }) {
       <Detail label="Aprovechamiento" value={`${row.utilizationPercentage.toFixed(1)}%`} />
       <Detail label="Desperdicio" value={`${row.wastePercentage.toFixed(1)}%`} />
       <Detail label="Sierra" value={`${row.sawMeters.toFixed(2)} m`} />
+      <Detail label="Canto 0,45" value={`${row.edgeBand045Meters.toFixed(2)} m`} />
+      <Detail label="Canto 2 mm" value={`${row.edgeBand2mmMeters.toFixed(2)} m`} />
+      <Detail label="Fecha entrega" value={formatDateOnlyEsAr(row.deliveryOn) || "Sin aprobacion"} />
+      <Detail label="Estado entrega" value={processDeliveryStatusLabels[row.deliveryStatus]} />
       <Detail label="Inicio produccion" value={formatDateTimeEsAr(row.productionStartedAt)} />
       <Detail label="Fin produccion" value={formatDateTimeEsAr(row.productionCompletedAt)} />
     </Box>
@@ -474,13 +512,51 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
+function deliveryAlertRowSx(alert: ProcessOrderRow["deliveryAlert"]): SxProps<Theme> | undefined {
+  if (alert === "overdue") {
+    return {
+      "& > td": { backgroundColor: "#ef4444", color: "#ffffff" },
+      "&:hover > td": { backgroundColor: "#dc2626", color: "#ffffff" }
+    };
+  }
+
+  if (alert === "due_soon") {
+    return {
+      "& > td": { backgroundColor: "#facc15", color: "#1f2937" },
+      "&:hover > td": { backgroundColor: "#eab308", color: "#111827" }
+    };
+  }
+
+  return undefined;
+}
+
+function DeliveryStatusChip({ status }: { status: ProcessOrderRow["deliveryStatus"] }) {
+  const colorByStatus: Record<ProcessOrderRow["deliveryStatus"], "default" | "error" | "success" | "warning"> = {
+    overdue: "error",
+    due_soon: "warning",
+    on_time: "default",
+    delivered: "success"
+  };
+
+  return (
+    <Chip
+      size="small"
+      label={processDeliveryStatusLabels[status]}
+      color={colorByStatus[status]}
+      variant={status === "on_time" ? "outlined" : "filled"}
+    />
+  );
+}
+
 function StatusChip({ row }: { row: ProcessOrderRow }) {
   const colorByStatus: Partial<Record<ProcessOrderRow["status"], "default" | "primary" | "success" | "warning" | "error">> = {
+    pending: "warning",
     submitted: "warning",
     under_review: "primary",
     changes_requested: "error",
     approved: "primary",
     production: "warning",
+    edgebanding: "primary",
     completed: "success",
     delivered: "success",
     cancelled: "default"
@@ -497,11 +573,11 @@ function StatusChip({ row }: { row: ProcessOrderRow }) {
 }
 
 function primaryAction(action: ProcessActionId): boolean {
-  return ["approve", "start_production", "complete_production", "deliver"].includes(action);
+  return ["approve", "start_production", "start_edgebanding", "complete_production", "deliver"].includes(action);
 }
 
 function dangerAction(action: ProcessActionId): boolean {
-  return action === "request_changes";
+  return false;
 }
 
 function asString(value: unknown): string {
@@ -524,10 +600,9 @@ function datePart(value: string | null): string {
 function noticeLabel(notice: string): string {
   const messages: Record<string, string> = {
     process_saved: "Proceso actualizado.",
-    order_under_review: "Pedido tomado en revision.",
-    order_changes_requested: "Pedido devuelto para correcciones.",
     order_approved: "Pedido aprobado y listo para produccion.",
     production_started: "Produccion iniciada.",
+    production_edgebanding: "Pedido pasado a pegado de canto.",
     production_completed: "Produccion finalizada.",
     order_delivered: "Pedido marcado como entregado.",
     FORBIDDEN: "No tenes permisos para realizar esa accion.",

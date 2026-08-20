@@ -1,3 +1,4 @@
+import { organizationAuthEmail } from "@/lib/auth/organization-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function attachCustomerToDefaultOrganization(input: {
@@ -39,6 +40,40 @@ export async function attachCustomerToDefaultOrganization(input: {
   });
 
   return !memberError;
+}
+
+export async function createOrganizationCustomerAuthUser(input: {
+  organizationId: string;
+  email: string;
+  fullName: string;
+  password: string;
+}): Promise<{ ok: true; userId: string; authEmail: string } | { ok: false; duplicate: boolean }> {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const authEmail = organizationAuthEmail(input.email, input.organizationId);
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email: authEmail,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: input.fullName,
+      organization_id: input.organizationId,
+      tenant_email: input.email
+    }
+  });
+
+  if (error || !data.user) {
+    return { ok: false, duplicate: error?.status === 422 };
+  }
+
+  const { error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .upsert({ id: data.user.id, email: input.email, full_name: input.fullName }, { onConflict: "id" });
+
+  if (profileError) {
+    return { ok: false, duplicate: false };
+  }
+
+  return { ok: true, userId: data.user.id, authEmail };
 }
 
 async function resolveDefaultOrganizationId(): Promise<string | null> {

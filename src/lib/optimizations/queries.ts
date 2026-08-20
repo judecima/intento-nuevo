@@ -128,7 +128,9 @@ function coerceOptimizationResult(row: OptimizationResultRow): OptimizationResul
     waste_percentage: Number(row.waste_percentage),
     commercial_remnant_area: Number(row.commercial_remnant_area),
     cut_count: Number(row.cut_count),
-    saw_meters: Number(row.saw_meters)
+    saw_meters: Number(row.saw_meters),
+    edge_band_045_meters: Number(row.edge_band_045_meters),
+    edge_band_2mm_meters: Number(row.edge_band_2mm_meters)
   };
 }
 

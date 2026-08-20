@@ -1,5 +1,5 @@
 import type { AppUserContext } from "@/lib/auth/context";
-import { canManagePlatform, platformDomainErrors } from "@/lib/domain/platform";
+import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS, canManagePlatform, platformDomainErrors } from "@/lib/domain/platform";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -24,6 +24,7 @@ export type PlatformOrganization = {
   allowCustomerSignup: boolean;
   primaryColor: string;
   secondaryColor: string;
+  deliveryTimeDays: number;
   logoUrl: string | null;
   createdAt: string;
   members: PlatformOrganizationMember[];
@@ -83,6 +84,7 @@ export async function listPlatformOrganizations(context: AppUserContext): Promis
     allowCustomerSignup: organization.allow_customer_signup,
     primaryColor: organization.primary_color || "#12666b",
     secondaryColor: organization.secondary_color || "#f5b301",
+    deliveryTimeDays: organization.delivery_time_days ?? DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS,
     logoUrl: organization.logo_url,
     createdAt: organization.created_at,
     projectCount: projectCounts.get(organization.id) ?? 0,
@@ -122,15 +124,50 @@ async function countByOrganization(
   return counts;
 }
 
-export async function findProfileByEmail(email: string): Promise<ProfileRow | null> {
+export async function findOrganizationProfileByEmail(
+  organizationId: string,
+  email: string
+): Promise<ProfileRow | null> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase.from("profiles").select("*").ilike("email", email).limit(1);
+  const { data: members, error: membersError } = await supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", organizationId);
+
+  if (membersError) {
+    throw new Error(`ORGANIZATION_MEMBERS_QUERY_FAILED: ${membersError.message}`);
+  }
+
+  const userIds = [...new Set((members ?? []).map((member) => member.user_id))];
+  if (userIds.length === 0) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", userIds)
+    .ilike("email", email)
+    .limit(1);
 
   if (error) {
     throw new Error(`PROFILES_QUERY_FAILED: ${error.message}`);
   }
 
   return ((data ?? []) as ProfileRow[])[0] ?? null;
+}
+
+export async function getOrganizationIdentity(organizationId: string): Promise<Pick<OrganizationRow, "id" | "slug"> | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id, slug")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`ORGANIZATION_QUERY_FAILED: ${error.message}`);
+  }
+
+  return data ?? null;
 }
 
 export async function countOrganizationData(organizationId: string): Promise<number> {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BoardPicker, type BoardMaterialOption } from "@/components/materials/board-picker";
 import { CutPlanViewer } from "@/components/optimizer/cut-plan-viewer";
 import { PrintButton } from "@/components/optimizer/print-button";
+import { countSelectedEdges, cycleEdgeCount, setEdgeBandType } from "@/lib/domain/edge-bands";
 import { normalizeProjectItemOrientation, parsePastedProjectItems, type ProjectDraftItem } from "@/lib/domain/projects";
 import { previewProjectOptimizationAction } from "@/lib/optimizations/actions";
 import type { CutPlanView } from "@/lib/optimizations/plan-view";
@@ -248,7 +249,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         edgeTop: false,
         edgeBottom: false,
         edgeLeft: false,
-        edgeRight: false
+        edgeRight: false,
+        edgeType: "none" as const
       }
     ]);
   };
@@ -274,7 +276,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         edgeTop: false,
         edgeBottom: false,
         edgeLeft: false,
-        edgeRight: false
+        edgeRight: false,
+        edgeType: "none" as const
       }))
     ]);
     setPaste("");
@@ -425,8 +428,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="min-w-[980px]">
-              <div className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_150px_84px] gap-2 border-b border-[var(--line)] bg-[#f6f8f5] px-4 py-2 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[var(--muted)]">
+              <div className="min-w-[1180px]">
+              <div className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_430px_84px] gap-2 border-b border-[var(--line)] bg-[#f6f8f5] px-4 py-2 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[var(--muted)]">
                 <div>Ref.</div>
                 <div>Descripcion</div>
                 <div>Cant.</div>
@@ -440,7 +443,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
               {rows.map((row) => (
                 <div
                   key={row.uid}
-                  className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_150px_84px] items-center gap-2 border-b border-[#edefec] px-4 py-2 hover:bg-[#fafbf9]"
+                  className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_430px_84px] items-center gap-2 border-b border-[#edefec] px-4 py-2 hover:bg-[#fafbf9]"
                 >
                   <input
                     value={row.reference}
@@ -489,24 +492,84 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
                     <option value="true">Si</option>
                     <option value="false">No</option>
                   </select>
-                  <div className="flex gap-1">
-                    {EDGES.map(([key, short, title]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        title={`Tapacanto ${title}`}
-                        aria-pressed={row[key]}
-                        disabled={!props.editable}
-                        onClick={() => updateRow(row.uid, { [key]: !row[key] } as Partial<EditorRow>)}
-                        className={`h-[30px] w-[30px] rounded-[var(--r)] border font-mono text-[11px] font-semibold ${
-                          row[key]
-                            ? "border-[var(--teal-claro)] bg-[var(--teal)] text-white"
-                            : "border-[var(--line)] text-[var(--muted)] hover:border-[var(--linea-fuerte)]"
-                        }`}
-                      >
-                        {short}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-1">
+                    {EDGE_BANDS.map((band) => {
+                      const active = row.edgeType === band.type;
+                      const edgeCount = active && band.type !== "none" ? countSelectedEdges(row) : 0;
+                      return (
+                        <button
+                          key={band.type}
+                          type="button"
+                          title={`Usar canto: ${band.label}`}
+                          aria-label={`${band.label}, ${active ? `${edgeCount} cantos` : "sin seleccionar"}`}
+                          aria-pressed={active}
+                          disabled={!props.editable}
+                          onClick={() =>
+                            setRows((current) =>
+                              current.map((item) =>
+                                item.uid === row.uid ? setEdgeBandType(item, band.type) : item
+                              )
+                            )
+                          }
+                          className={`inline-flex h-[30px] items-center gap-1 rounded-[var(--r)] border px-2 font-mono text-[10px] font-semibold ${
+                            active
+                              ? "border-[var(--teal-claro)] bg-[var(--teal)] text-white"
+                              : "border-[var(--line)] text-[var(--muted)] hover:border-[var(--linea-fuerte)]"
+                          }`}
+                        >
+                          <span>{band.label}</span>
+                          <span className="opacity-80">
+                            {band.type === "none" ? "-" : active ? `${edgeCount}/2` : "-"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      title="Cantos: click para 1 lado, otra vez para 2 lados y otra vez para quitar"
+                      aria-label={`Cantidad de lados con canto: ${countSelectedEdges(row)}`}
+                      disabled={!props.editable}
+                      onClick={() =>
+                        setRows((current) =>
+                          current.map((item) => (item.uid === row.uid ? cycleEdgeCount(item) : item))
+                        )
+                      }
+                      className="inline-flex h-[30px] items-center rounded-[var(--r)] border border-[var(--line)] px-2 font-mono text-[10px] font-semibold text-[var(--muted)] hover:border-[var(--linea-fuerte)]"
+                    >
+                      {countSelectedEdges(row) === 0
+                        ? "Sin lados"
+                        : `${countSelectedEdges(row)} ${countSelectedEdges(row) === 1 ? "lado" : "lados"}`}
+                    </button>
+                    <div className="flex gap-1 border-l border-[var(--line)] pl-1">
+                      {EDGES.map(([key, short, title]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          title={`Ubicacion del tapacanto: ${title}`}
+                          aria-pressed={row[key]}
+                          disabled={!props.editable}
+                          onClick={() =>
+                            setRows((current) =>
+                              current.map((item) => {
+                                if (item.uid !== row.uid) return item;
+                                const next = { ...item, [key]: !item[key] };
+                                return {
+                                  ...next,
+                                  edgeType: countSelectedEdges(next) > 0 ? (next.edgeType === "none" ? "thin" : next.edgeType) : "none"
+                                } as EditorRow;
+                              })
+                            )
+                          }
+                          className={`h-[30px] w-[30px] rounded-[var(--r)] border font-mono text-[11px] font-semibold ${
+                            row[key]
+                              ? "border-[var(--teal-claro)] bg-[var(--teal)] text-white"
+                              : "border-[var(--line)] text-[var(--muted)] hover:border-[var(--linea-fuerte)]"
+                          }`}
+                        >
+                          {short}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   {props.editable ? (
                     <div className="flex justify-end gap-1">
@@ -585,12 +648,15 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       <section className="card no-print">
         <div className="card-head">
           <div>
-            <div className="eyebrow-muted">Parametros</div>
-            <h2 className="mt-1 text-[17px] font-bold">Corte y refilado</h2>
+            <div className="eyebrow-muted">Proyecto</div>
+            <h2 className="mt-1 text-[17px] font-bold">Material y datos</h2>
           </div>
-          <span className="hint">
-            Tablero {Math.round(settings.boardWidth)} x {Math.round(settings.boardHeight)} mm
-          </span>
+          <div className="text-right">
+            <span className="hint block">Perfil de maquina</span>
+            <span className="hint block">
+              Tablero {Math.round(settings.boardWidth)} x {Math.round(settings.boardHeight)} mm
+            </span>
+          </div>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="block md:col-span-2 xl:col-span-3">
@@ -629,30 +695,6 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
               className="input mt-1.5"
             />
           </label>
-          <SettingField
-            label="Sierra (kerf)"
-            value={settings.kerf}
-            disabled={!props.editable}
-            onChange={(value) => setSettings({ ...settings, kerf: value })}
-          />
-          <SettingField
-            label="Sobrante minimo"
-            value={settings.minRemnant}
-            disabled={!props.editable}
-            onChange={(value) => setSettings({ ...settings, minRemnant: value })}
-          />
-          <SettingField
-            label="Refilado X"
-            value={settings.trimX}
-            disabled={!props.editable}
-            onChange={(value) => setSettings({ ...settings, trimX: value })}
-          />
-          <SettingField
-            label="Refilado Y"
-            value={settings.trimY}
-            disabled={!props.editable}
-            onChange={(value) => setSettings({ ...settings, trimY: value })}
-          />
         </div>
       </section>
     </div>
@@ -665,6 +707,13 @@ const EDGES = [
   ["edgeLeft", "I", "izquierda"],
   ["edgeRight", "D", "derecha"]
 ] as const;
+
+const EDGE_BANDS = [
+  { type: "thin" as const, label: "0,45" },
+  { type: "thick" as const, label: "2 mm" },
+  { type: "both" as const, label: "Ambos" },
+  { type: "none" as const, label: "Sin canto" }
+];
 
 function NumberCell({
   value,
@@ -687,33 +736,6 @@ function NumberCell({
       disabled={disabled}
       className="input input-num"
     />
-  );
-}
-
-function SettingField({
-  label,
-  value,
-  onChange,
-  disabled
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      <input
-        type="number"
-        min={0}
-        step={0.1}
-        value={Number.isFinite(value) ? value : ""}
-        onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
-        disabled={disabled}
-        className="input input-num mt-1.5"
-      />
-    </label>
   );
 }
 

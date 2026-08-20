@@ -15,6 +15,7 @@ import { getActiveOrderForProject } from "@/lib/orders/queries";
 import { listBoardMaterialsForOrganization } from "@/lib/materials/queries";
 import { getProjectEditorData } from "@/lib/projects/queries";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
+import { toScopedPath } from "@/lib/routing/routes";
 
 type ProjectPageProps = {
   params: {
@@ -35,6 +36,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
   ]);
 
   if (!data) notFound();
+  const basePath = context.routeBasePath;
 
   // El catalogo es el de la organizacion DEL PROYECTO, no el de la sesion: el
   // super usuario puede estar editando un proyecto de otra organizacion.
@@ -90,7 +92,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
     <section className="mx-auto max-w-[1500px] space-y-5">
       <header className="no-print flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <Link href="/projects" className="focus-ring text-[12px] text-[var(--teal)] hover:underline">
+          <Link href={toScopedPath(basePath, "/projects")} className="focus-ring text-[12px] text-[var(--teal)] hover:underline">
             ← Volver a proyectos
           </Link>
           <div className="mt-3 eyebrow">Proyecto</div>
@@ -165,7 +167,12 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
               edgeTop: Boolean(item.edge_top),
               edgeBottom: Boolean(item.edge_bottom),
               edgeLeft: Boolean(item.edge_left),
-              edgeRight: Boolean(item.edge_right)
+              edgeRight: Boolean(item.edge_right),
+              edgeType:
+                item.edge_type === "none" &&
+                (Boolean(item.edge_top) || Boolean(item.edge_bottom) || Boolean(item.edge_left) || Boolean(item.edge_right))
+                  ? "thin"
+                  : item.edge_type
             }))}
             storedPlan={storedPlan}
             storedPlanSavedAt={storedPlan ? formatDateTimeEsAr(storedPlan.meta.createdAt) : null}
@@ -193,7 +200,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
               {activeOrder ? (
                 <p className="text-sm text-[var(--muted)]">
                   Ya existe un pedido activo para este proyecto. Segui su estado desde{" "}
-                  <Link href="/orders" className="text-[var(--teal)] hover:underline">
+                  <Link href={toScopedPath(basePath, "/orders")} className="text-[var(--teal)] hover:underline">
                     Mis pedidos
                   </Link>
                   .

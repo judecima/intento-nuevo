@@ -1,5 +1,6 @@
 import { ProductionOrderList } from "@/components/production/production-order-list";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import { canAccessProduction, productionDomainErrors } from "@/lib/domain/production";
 import { listActiveMachineProfiles, listProductionOrders } from "@/lib/production/queries";
 
@@ -27,7 +28,11 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
 
   const [active, profiles] = organizationId
     ? await Promise.all([
-        listProductionOrders(organizationId, ["production"]),
+        listProductionOrders(
+          organizationId,
+          ["production", "edgebanding"],
+          context.activeOrganization?.delivery_time_days ?? DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS
+        ),
         listActiveMachineProfiles(organizationId)
       ])
     : [[], []];
@@ -44,8 +49,8 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
         <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
       ) : null}
 
-      <QueueSection title="En produccion">
-        <ProductionOrderList items={active} machineProfiles={profiles} mode="active" returnTo="/production" />
+      <QueueSection title="Trabajos activos">
+        <ProductionOrderList items={active} machineProfiles={profiles} mode="queue" returnTo="/production" />
       </QueueSection>
     </section>
   );
@@ -69,6 +74,7 @@ function noticeMessage(notice: string | undefined) {
   const messages: Record<string, string> = {
     xml_generated: "XML generado y guardado en Storage privado.",
     production_started: "Produccion iniciada.",
+    production_edgebanding: "Pedido pasado a pegado de canto.",
     production_completed: "Produccion finalizada.",
     [productionDomainErrors.forbidden]: "No tenes permisos para realizar esta accion.",
     [productionDomainErrors.invalidOrderStatus]: "El pedido ya no esta en un estado valido.",

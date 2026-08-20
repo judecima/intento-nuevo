@@ -144,6 +144,7 @@ export type Database = {
           allow_customer_signup: boolean;
           primary_color: string;
           secondary_color: string;
+          delivery_time_days: number;
           logo_url: string | null;
           created_at: string;
           updated_at: string;
@@ -156,6 +157,7 @@ export type Database = {
           allow_customer_signup?: boolean;
           primary_color?: string;
           secondary_color?: string;
+          delivery_time_days?: number;
           logo_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -167,6 +169,7 @@ export type Database = {
           allow_customer_signup?: boolean;
           primary_color?: string;
           secondary_color?: string;
+          delivery_time_days?: number;
           logo_url?: string | null;
           updated_at?: string;
         };
@@ -599,6 +602,8 @@ export type Database = {
           commercial_remnant_area: number;
           cut_count: number;
           saw_meters: number;
+          edge_band_045_meters: number;
+          edge_band_2mm_meters: number;
           result_json: Json;
           validation_json: Json;
           created_at: string;
@@ -616,6 +621,8 @@ export type Database = {
           commercial_remnant_area?: number;
           cut_count?: number;
           saw_meters?: number;
+          edge_band_045_meters?: number;
+          edge_band_2mm_meters?: number;
           result_json: Json;
           validation_json: Json;
           created_at?: string;
@@ -632,6 +639,8 @@ export type Database = {
           commercial_remnant_area?: number;
           cut_count?: number;
           saw_meters?: number;
+          edge_band_045_meters?: number;
+          edge_band_2mm_meters?: number;
           result_json?: Json;
           validation_json?: Json;
         };
@@ -821,6 +830,7 @@ export type Database = {
           edge_bottom: boolean;
           edge_left: boolean;
           edge_right: boolean;
+          edge_type: "none" | "thin" | "thick" | "both";
           metadata: Json;
           sort_order: number;
           created_at: string;
@@ -840,6 +850,7 @@ export type Database = {
           edge_bottom?: boolean;
           edge_left?: boolean;
           edge_right?: boolean;
+          edge_type?: "none" | "thin" | "thick" | "both";
           metadata?: Json;
           sort_order?: number;
           created_at?: string;
@@ -857,6 +868,7 @@ export type Database = {
           edge_bottom?: boolean;
           edge_left?: boolean;
           edge_right?: boolean;
+          edge_type?: "none" | "thin" | "thick" | "both";
           metadata?: Json;
           sort_order?: number;
           updated_at?: string;
@@ -1095,6 +1107,14 @@ export type Database = {
         Returns: string;
       };
       complete_production_job: {
+        Args: {
+          target_order_id: string;
+          expected_order_version: number;
+          production_notes?: string | null;
+        };
+        Returns: string;
+      };
+      start_edgebanding_job: {
         Args: {
           target_order_id: string;
           expected_order_version: number;

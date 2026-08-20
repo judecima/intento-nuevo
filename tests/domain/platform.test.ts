@@ -4,6 +4,7 @@ import {
   canManagePlatform,
   createOrganizationSchema,
   linkOrganizationMemberSchema,
+  organizationDeliveryTimeDaysSchema,
   slugifyOrganizationName,
   updateOrganizationSchema
 } from "@/lib/domain/platform";
@@ -30,6 +31,13 @@ describe("platform domain", () => {
 
   it("rejects names that cannot produce a valid identifier", () => {
     expect(createOrganizationSchema.safeParse({ name: "-- --", slug: "" }).success).toBe(false);
+  });
+
+  it("validates organization delivery time as an integer day count", () => {
+    expect(organizationDeliveryTimeDaysSchema.parse("12")).toBe(12);
+    expect(organizationDeliveryTimeDaysSchema.safeParse("12.5").success).toBe(false);
+    expect(organizationDeliveryTimeDaysSchema.safeParse("0").success).toBe(false);
+    expect(organizationDeliveryTimeDaysSchema.safeParse("366").success).toBe(false);
   });
 
   it("reads organization checkboxes, treating an absent field as unchecked", () => {

@@ -1,5 +1,6 @@
 export type OptimizerStrategy = "baseline" | "v10";
 export type OptimizerProfile = "fast" | "balanced" | "deep";
+export type OptimizationEdgeBandType = "none" | "thin" | "thick" | "both";
 
 export interface OptimizationBoardInput {
   width: number;
@@ -48,6 +49,7 @@ export interface OptimizationPieceInput {
   grain?: boolean;
   canRotate?: boolean;
   edges?: OptimizationPieceEdgesInput;
+  edgeType?: OptimizationEdgeBandType;
   metadata?: Record<string, unknown>;
 }
 
@@ -105,6 +107,7 @@ export interface OptimizationPlacement {
   sourceWidth: number;
   sourceHeight: number;
   edges: OptimizationPlacementEdges;
+  edgeType: OptimizationEdgeBandType;
   trace: OptimizationPlacementTrace[];
 }
 
@@ -152,6 +155,8 @@ export interface OptimizationMetrics {
   commercialRemnantCount: number;
   cutCount: number;
   sawMeters: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
   engineMs?: number;
   cacheHit?: boolean;
 }
@@ -200,6 +205,7 @@ export interface LegacyLineInput {
   base: number;
   altura: number;
   veta: boolean;
+  edgeType?: OptimizationEdgeBandType;
   cantos?: {
     arr?: boolean;
     aba?: boolean;

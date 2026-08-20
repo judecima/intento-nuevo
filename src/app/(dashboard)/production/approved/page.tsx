@@ -1,5 +1,6 @@
 import { ProductionOrderList } from "@/components/production/production-order-list";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import { canAccessProduction, productionDomainErrors } from "@/lib/domain/production";
 import { listActiveMachineProfiles, listProductionOrders } from "@/lib/production/queries";
 
@@ -26,7 +27,14 @@ export default async function ProductionApprovedPage({ searchParams }: Productio
   }
 
   const [items, profiles] = organizationId
-    ? await Promise.all([listProductionOrders(organizationId, ["approved"]), listActiveMachineProfiles(organizationId)])
+    ? await Promise.all([
+        listProductionOrders(
+          organizationId,
+          ["approved"],
+          context.activeOrganization?.delivery_time_days ?? DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS
+        ),
+        listActiveMachineProfiles(organizationId)
+      ])
     : [[], []];
   const notice = noticeMessage(first(searchParams?.notice));
 

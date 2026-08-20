@@ -2,8 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { attachCustomerToDefaultOrganization } from "@/lib/admin/customer-registration";
+import { attachCustomerToDefaultOrganization, createOrganizationCustomerAuthUser } from "@/lib/admin/customer-registration";
 import { isSupabaseServerConfigured } from "@/lib/env";
+import { organizationPath } from "@/lib/routing/routes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const signUpSchema = z.object({
@@ -66,24 +67,39 @@ export async function signUpCustomerForOrganization(formData: FormData): Promise
   const { getPublicOrganization } = await import("@/lib/organizations/public-access");
   const organization = await getPublicOrganization(String(scopedForm.get("slug"))).catch(() => null);
   if (!organization) redirect(`/${encodeURIComponent(String(scopedForm.get("slug")))}/register?error=organization_not_found`);
+  if (!isRegistrationConfigured()) redirect(`/${encodeURIComponent(organization.slug)}/register?error=supabase_not_configured`);
 
-  const supabase = createSupabaseServerClient();
   const parsed = signUpSchema.safeParse({
     fullName: scopedForm.get("fullName"),
     email: scopedForm.get("email"),
     password: scopedForm.get("password")
   });
   if (!parsed.success) redirect(`/${encodeURIComponent(organization.slug)}/register?error=invalid_input`);
-  const { data, error } = await supabase.auth.signUp({
+
+  const created = await createOrganizationCustomerAuthUser({
+    organizationId: organization.id,
     email: parsed.data.email,
-    password: parsed.data.password,
-    options: { data: { full_name: parsed.data.fullName } }
+    fullName: parsed.data.fullName,
+    password: parsed.data.password
   });
-  if (error || !data.user) redirect(`/${encodeURIComponent(organization.slug)}/register?error=signup_failed`);
-  if (!data.session) redirect(`/${encodeURIComponent(organization.slug)}/register?error=confirm_email`);
+  if (!created.ok) {
+    redirect(
+      `/${encodeURIComponent(organization.slug)}/register?error=${
+        created.duplicate ? "email_taken" : "signup_failed"
+      }`
+    );
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: created.authEmail,
+    password: parsed.data.password
+  });
+  if (signInError) redirect(`/${encodeURIComponent(organization.slug)}/register?error=signup_failed`);
+
   const { error: joinError } = await supabase.rpc("join_organization_as_customer", { target_slug: organization.slug });
   if (joinError) redirect(`/${encodeURIComponent(organization.slug)}/register?error=join_failed`);
-  redirect("/dashboard");
+  redirect(organizationPath(organization.slug, "/dashboard"));
 }
 
 function isRegistrationConfigured(): boolean {

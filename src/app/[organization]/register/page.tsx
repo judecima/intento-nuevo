@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { getPublicOrganization, organizationAccessNotices } from "@/lib/organizations/public-access";
+import { organizationPath } from "@/lib/routing/routes";
 import { signUpCustomerForOrganization } from "@/app/(auth)/register/actions";
 
 type Props = { params: { organization: string }; searchParams?: { error?: string } };
@@ -11,8 +12,9 @@ export default async function OrganizationRegisterPage({ params, searchParams }:
   const organization = await getPublicOrganization(params.organization).catch(() => null);
   if (!organization) notFound();
   if (!organization.allowCustomerSignup) redirect(`/${organization.slug}/login?error=signup_disabled`);
-  const context = await getCurrentUserContext();
-  if (context.user) redirect("/dashboard");
+  const context = await getCurrentUserContext(organization.slug);
+  const membership = context.memberships.find((item) => item.organizationId === organization.id) ?? null;
+  if (context.user && membership) redirect(organizationPath(organization.slug, "/dashboard"));
   const error = searchParams?.error ? (organizationAccessNotices[searchParams.error] ?? "No se pudo crear la cuenta.") : null;
   const brandStyle = { "--brand-primary": organization.primaryColor, "--brand-secondary": organization.secondaryColor } as React.CSSProperties;
 

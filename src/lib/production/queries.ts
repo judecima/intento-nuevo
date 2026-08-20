@@ -1,4 +1,11 @@
 import type { OrderStatus } from "@/lib/domain/orders";
+import {
+  calculateAutomaticDeliveryDate,
+  calculateProcessDeliveryStatus,
+  type ProcessDeliveryAlert,
+  type ProcessDeliveryStatus
+} from "@/lib/domain/process";
+import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import type { OrderRow } from "@/lib/orders/queries";
@@ -11,6 +18,9 @@ export type ProductionOrderItem = {
   order: OrderRow;
   job: ProductionJobRow | null;
   files: GeneratedFileRow[];
+  deliveryOn: string | null;
+  deliveryAlert: ProcessDeliveryAlert | null;
+  deliveryStatus: ProcessDeliveryStatus;
 };
 
 export type MachineCutSettings = {
@@ -32,6 +42,7 @@ export const fallbackMachineCutSettings: MachineCutSettings = {
 export async function listProductionOrders(
   organizationId: string,
   statuses: OrderStatus[],
+  deliveryTimeDays: number = DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS
 ): Promise<ProductionOrderItem[]> {
   const supabase = createSupabaseServerClient();
   const { data: ordersData, error: ordersError } = await supabase
@@ -72,11 +83,19 @@ export async function listProductionOrders(
     filesByOrder.set(file.order_id, current);
   }
 
-  return orders.map((order) => ({
-    order,
-    job: jobsByOrder.get(order.id) ?? null,
-    files: filesByOrder.get(order.id) ?? []
-  }));
+  return orders.map((order) => {
+    const deliveryOn = calculateAutomaticDeliveryDate(order.approved_at, deliveryTimeDays);
+    const deliveryStatus = calculateProcessDeliveryStatus(order.status, deliveryOn);
+
+    return {
+      order,
+      job: jobsByOrder.get(order.id) ?? null,
+      files: filesByOrder.get(order.id) ?? [],
+      deliveryOn,
+      deliveryAlert: deliveryStatus === "overdue" || deliveryStatus === "due_soon" ? deliveryStatus : null,
+      deliveryStatus
+    };
+  });
 }
 
 export async function listActiveMachineProfiles(organizationId: string): Promise<MachineProfileRow[]> {

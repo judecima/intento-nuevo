@@ -4,6 +4,7 @@ import { ProjectTable } from "@/components/projects/project-table";
 import { listPlatformOrganizations } from "@/lib/admin/platform";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
+import { toScopedPath } from "@/lib/routing/routes";
 import { listProjectsForOrganization } from "@/lib/projects/queries";
 
 type ProjectsPageProps = {
@@ -15,6 +16,7 @@ type ProjectsPageProps = {
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
   const context = await getCurrentUserContext();
   const platformAdmin = canManagePlatform(context);
+  const basePath = context.routeBasePath;
 
   const organizations = platformAdmin
     ? (await listPlatformOrganizations(context)).map((organization) => ({
@@ -58,14 +60,14 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
             Proyectos editables con material, parametros de corte y piezas persistidas.
           </p>
         </div>
-        <Link href="/projects/new" className="focus-ring rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white">
+        <Link href={toScopedPath(basePath, "/projects/new")} className="focus-ring rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white">
           Nuevo proyecto
         </Link>
       </div>
 
       {platformAdmin ? (
         <OrganizationScopePicker
-          action="/projects"
+          action={toScopedPath(basePath, "/projects")}
           organizations={organizations}
           selectedId={organizationId}
           label="Ver proyectos de"
@@ -76,7 +78,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         <p className="hint">Estas viendo los proyectos de {scopedOrganization.name}.</p>
       ) : null}
 
-      <ProjectTable projects={projects} />
+      <ProjectTable projects={projects} basePath={basePath} />
     </section>
   );
 }

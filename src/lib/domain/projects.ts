@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { OrganizationRole } from "@/lib/domain/roles";
+import { edgeBandTypes } from "@/lib/domain/edge-bands";
 
 export const projectStatuses = [
   "draft",
@@ -95,7 +96,8 @@ export const projectItemSchema = z.object({
   edgeTop: z.coerce.boolean().optional().default(false),
   edgeBottom: z.coerce.boolean().optional().default(false),
   edgeLeft: z.coerce.boolean().optional().default(false),
-  edgeRight: z.coerce.boolean().optional().default(false)
+  edgeRight: z.coerce.boolean().optional().default(false),
+  edgeType: z.enum(edgeBandTypes).optional().default("none")
 });
 
 export const projectItemCommandSchema = z.object({
@@ -125,7 +127,8 @@ export const projectDraftItemSchema = z.object({
   edgeTop: z.boolean().default(false),
   edgeBottom: z.boolean().default(false),
   edgeLeft: z.boolean().default(false),
-  edgeRight: z.boolean().default(false)
+  edgeRight: z.boolean().default(false),
+  edgeType: z.enum(edgeBandTypes).default("none")
 });
 
 export const projectDraftSchema = z.object({

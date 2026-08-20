@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { organizationAuthEmail } from "@/lib/auth/organization-auth";
+import { findOrganizationProfileByEmail } from "@/lib/admin/platform";
 import {
   adminDomainErrors,
   canAdminister,
@@ -12,6 +14,7 @@ import {
   updateMemberSchema,
   type CreateStaffMemberCommand
 } from "@/lib/domain/admin";
+import { scopedPath } from "@/lib/routing/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
@@ -245,17 +248,7 @@ function revalidateAdminPaths() {
 
 async function resolveOrCreateStaffUser(command: CreateStaffMemberCommand): Promise<string> {
   const supabaseAdmin = createSupabaseAdminClient();
-  const { data: existingProfiles, error: lookupError } = await supabaseAdmin
-    .from("profiles")
-    .select("id")
-    .ilike("email", command.email)
-    .limit(1);
-
-  if (lookupError) {
-    throw new Error(`${adminDomainErrors.authUserCreateFailed}: ${lookupError.message}`);
-  }
-
-  const existingProfile = existingProfiles?.[0];
+  const existingProfile = await findOrganizationProfileByEmail(command.organizationId, command.email);
   if (existingProfile) {
     const { error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
@@ -273,11 +266,13 @@ async function resolveOrCreateStaffUser(command: CreateStaffMemberCommand): Prom
   }
 
   const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-    email: command.email,
+    email: organizationAuthEmail(command.email, command.organizationId),
     password: command.password,
     email_confirm: true,
     user_metadata: {
-      full_name: command.fullName
+      full_name: command.fullName,
+      organization_id: command.organizationId,
+      tenant_email: command.email
     }
   });
 
@@ -309,8 +304,9 @@ function adminNoticeFromError(message: string, fallback: string): string {
 }
 
 function withNotice(path: string, notice: string): string {
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}notice=${encodeURIComponent(notice)}`;
+  const scoped = scopedPath(path);
+  const separator = scoped.includes("?") ? "&" : "?";
+  return `${scoped}${separator}notice=${encodeURIComponent(notice)}`;
 }
 
 function safeAdminReturnPath(value: string, fallback: string): string {

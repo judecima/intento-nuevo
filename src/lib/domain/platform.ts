@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { organizationRoles } from "@/lib/domain/roles";
+import { PLATFORM_SLUG } from "@/lib/routing/routes";
 
 /**
  * Plataforma: el nivel que esta por encima del tenant. Un super usuario crea
@@ -10,6 +11,7 @@ export const platformDomainErrors = {
   forbidden: "PLATFORM_FORBIDDEN",
   invalidInput: "PLATFORM_INVALID_INPUT",
   slugTaken: "ORGANIZATION_SLUG_TAKEN",
+  slugReserved: "ORGANIZATION_SLUG_RESERVED",
   organizationNotFound: "ORGANIZATION_NOT_FOUND",
   organizationHasData: "ORGANIZATION_HAS_DATA",
   memberNotFound: "ORGANIZATION_MEMBER_NOT_FOUND",
@@ -21,8 +23,17 @@ export const platformDomainErrors = {
 
 export type PlatformDomainError = (typeof platformDomainErrors)[keyof typeof platformDomainErrors];
 
-export function canManagePlatform(context: { isPlatformAdmin?: boolean } | null | undefined): boolean {
-  return Boolean(context?.isPlatformAdmin);
+export const DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS = 7;
+
+export const organizationDeliveryTimeDaysSchema = z.preprocess(
+  (value) => (value === "" || value == null ? DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS : value),
+  z.coerce.number().int().min(1).max(365)
+);
+
+export function canManagePlatform(
+  context: { isPlatformAdmin?: boolean; routeScope?: { kind?: string } | null } | null | undefined
+): boolean {
+  return Boolean(context?.isPlatformAdmin && context.routeScope?.kind !== "organization");
 }
 
 /**
@@ -70,6 +81,10 @@ export const createOrganizationSchema = z
   .refine((value) => value.slug.length >= 2, {
     message: "El nombre no genera un identificador valido.",
     path: ["slug"]
+  })
+  .refine((value) => value.slug !== PLATFORM_SLUG, {
+    message: "Ese identificador esta reservado para plataforma.",
+    path: ["slug"]
   });
 
 export const updateOrganizationSchema = z
@@ -89,6 +104,10 @@ export const updateOrganizationSchema = z
   }))
   .refine((value) => value.slug.length >= 2, {
     message: "El nombre no genera un identificador valido.",
+    path: ["slug"]
+  })
+  .refine((value) => value.slug !== PLATFORM_SLUG, {
+    message: "Ese identificador esta reservado para plataforma.",
     path: ["slug"]
   });
 
@@ -140,6 +159,7 @@ export const platformNoticeMessages: Record<string, string> = {
   [platformDomainErrors.forbidden]: "Solo un super usuario puede administrar organizaciones.",
   [platformDomainErrors.invalidInput]: "Revisa los datos: hay algun campo invalido.",
   [platformDomainErrors.slugTaken]: "Ya existe una organizacion con ese identificador.",
+  [platformDomainErrors.slugReserved]: "El identificador jadsi esta reservado para el super usuario.",
   [platformDomainErrors.organizationNotFound]: "No se encontro la organizacion.",
   [platformDomainErrors.organizationHasData]:
     "La organizacion tiene proyectos o pedidos cargados: desactivala en lugar de eliminarla.",

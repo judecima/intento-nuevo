@@ -15,6 +15,7 @@ import {
   type SaveProjectDraftOutcome
 } from "@/lib/domain/projects";
 import { canManagePlatform } from "@/lib/domain/platform";
+import { scopedPath } from "@/lib/routing/server";
 import { getMaterialForOrganization } from "@/lib/materials/queries";
 import { customerBelongsToOrganization } from "@/lib/customers/queries";
 import { getDefaultMachineCutSettings } from "@/lib/production/queries";
@@ -49,7 +50,9 @@ export async function createProjectAction(formData: FormData) {
     throw new Error(projectDomainErrors.forbidden);
   }
 
-  const customerId = context.role === "seller" ? parsed.customerId : parsed.customerId;
+  // Solo el vendedor crea el proyecto a nombre de un cliente. Admin y
+  // superusuario crean proyectos propios dentro de la organizacion elegida.
+  const customerId = context.role === "seller" ? parsed.customerId : undefined;
   if (context.role === "seller" && (!customerId || !(await customerBelongsToOrganization(customerId, organizationId)))) {
     throw new Error(projectDomainErrors.forbidden);
   }
@@ -90,7 +93,7 @@ export async function createProjectAction(formData: FormData) {
   }
 
   revalidatePath("/projects");
-  redirect(`/projects/${data.id}`);
+  redirect(scopedPath(`/projects/${data.id}`));
 }
 
 export async function saveProjectDraftAction(draft: ProjectDraft): Promise<SaveProjectDraftOutcome> {
@@ -193,6 +196,7 @@ async function persistProjectDraftAction(
     edge_bottom: item.edgeBottom,
     edge_left: item.edgeLeft,
     edge_right: item.edgeRight,
+    edge_type: item.edgeType,
     sort_order: (index + 1) * 10
   }));
 

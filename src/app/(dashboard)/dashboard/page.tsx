@@ -3,11 +3,13 @@ import { SectionPlaceholder } from "@/components/layout/section-placeholder";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
 import { roleLabels } from "@/lib/domain/roles";
+import { toScopedPath } from "@/lib/routing/routes";
 
 export default async function DashboardPage() {
   const context = await getCurrentUserContext();
   const platformAdmin = canManagePlatform(context);
   const role = context.role ? roleLabels[context.role] : platformAdmin ? "Super usuario" : "Sin rol";
+  const basePath = context.routeBasePath;
 
   return (
     <SectionPlaceholder title="Dashboard" eyebrow="Resumen">
@@ -29,7 +31,7 @@ export default async function DashboardPage() {
           <div className="eyebrow-muted">Plataforma</div>
           <div className="mt-1 text-lg font-medium text-[var(--ink)]">
             {platformAdmin ? (
-              <Link href="/admin/organizations" className="text-[var(--teal)] hover:underline">
+              <Link href={toScopedPath(basePath, "/admin/organizations")} className="text-[var(--teal)] hover:underline">
                 Administrar organizaciones
               </Link>
             ) : (

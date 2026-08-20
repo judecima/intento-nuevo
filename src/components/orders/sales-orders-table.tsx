@@ -42,6 +42,8 @@ type SalesOrderTableRow = {
   totalPieces: number;
   itemRows: number;
   utilizationPercentage: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
   wastePercentage: number;
   notesCustomer: string;
   notesSeller: string;
@@ -99,6 +101,8 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
           totalPieces: summary.totalPieces,
           itemRows: summary.itemRows,
           utilizationPercentage: summary.utilizationPercentage,
+          edgeBand045Meters: summary.edgeBand045Meters,
+          edgeBand2mmMeters: summary.edgeBand2mmMeters,
           wastePercentage: summary.wastePercentage,
           notesCustomer: order.notes_customer ?? "",
           notesSeller: order.notes_seller ?? "",
@@ -165,6 +169,18 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
         accessorKey: "totalPieces",
         header: "Piezas",
         size: 90
+      },
+      {
+        accessorKey: "edgeBand045Meters",
+        header: "ML canto 0,45",
+        size: 125,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
+      },
+      {
+        accessorKey: "edgeBand2mmMeters",
+        header: "ML canto 2 mm",
+        size: 125,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
       },
       {
         accessorKey: "utilizationPercentage",
@@ -321,6 +337,8 @@ function OrderNotes({ row }: { row: SalesOrderTableRow }) {
       <Detail label="Nota vendedor" value={row.notesSeller || "Sin nota"} />
       <Detail label="Filas" value={`${row.itemRows}`} />
       <Detail label="Desperdicio" value={`${row.wastePercentage.toFixed(1)}%`} />
+      <Detail label="Canto 0,45" value={`${row.edgeBand045Meters.toFixed(2)} m`} />
+      <Detail label="Canto 2 mm" value={`${row.edgeBand2mmMeters.toFixed(2)} m`} />
     </div>
   );
 }

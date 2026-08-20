@@ -92,26 +92,6 @@ export async function runOrderProcessTransitionAction(input: unknown): Promise<P
       remittanceNumber: string;
     }
   ) {
-    if (action === "start_review") {
-      return (
-        await supabase.rpc("start_order_review", {
-          target_order_id: values.orderId,
-          expected_order_version: values.expectedOrderVersion,
-          transition_comment: values.comment || null
-        })
-      ).error;
-    }
-
-    if (action === "request_changes") {
-      return (
-        await supabase.rpc("request_order_changes", {
-          target_order_id: values.orderId,
-          expected_order_version: values.expectedOrderVersion,
-          transition_comment: values.comment || null
-        })
-      ).error;
-    }
-
     if (action === "approve") {
       return (
         await supabase.rpc("approve_order", {
@@ -128,6 +108,16 @@ export async function runOrderProcessTransitionAction(input: unknown): Promise<P
           target_order_id: values.orderId,
           expected_order_version: values.expectedOrderVersion,
           target_machine_profile_id: values.machineProfileId,
+          production_notes: values.comment || null
+        })
+      ).error;
+    }
+
+    if (action === "start_edgebanding") {
+      return (
+        await supabase.rpc("start_edgebanding_job", {
+          target_order_id: values.orderId,
+          expected_order_version: values.expectedOrderVersion,
           production_notes: values.comment || null
         })
       ).error;
@@ -163,6 +153,7 @@ function revalidateProcessPaths() {
   revalidatePath("/production");
   revalidatePath("/production/approved");
   revalidatePath("/production/active");
+  revalidatePath("/production/edgebanding");
   revalidatePath("/production/completed");
   revalidatePath("/dashboard");
 }
@@ -181,10 +172,9 @@ function noticeFromError(message: string, fallback: string): string {
 
 function successNotice(action: ProcessActionId): string {
   const notices: Record<ProcessActionId, string> = {
-    start_review: "order_under_review",
-    request_changes: "order_changes_requested",
     approve: "order_approved",
     start_production: "production_started",
+    start_edgebanding: "production_edgebanding",
     complete_production: "production_completed",
     deliver: "order_delivered"
   };

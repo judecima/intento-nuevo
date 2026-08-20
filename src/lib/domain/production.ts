@@ -48,15 +48,19 @@ export function canAccessProduction(role: OrganizationRole | null): boolean {
 }
 
 export function canGenerateMachineXml(role: OrganizationRole | null, orderStatus: OrderStatus): boolean {
-  return canManageProduction(role) && ["approved", "production", "completed", "delivered"].includes(orderStatus);
+  return canManageProduction(role) && ["approved", "production", "edgebanding", "completed", "delivered"].includes(orderStatus);
 }
 
 export function canStartProduction(role: OrganizationRole | null, orderStatus: OrderStatus): boolean {
   return canManageProduction(role) && orderStatus === "approved";
 }
 
-export function canCompleteProduction(role: OrganizationRole | null, orderStatus: OrderStatus): boolean {
+export function canStartEdgebanding(role: OrganizationRole | null, orderStatus: OrderStatus): boolean {
   return canManageProduction(role) && orderStatus === "production";
+}
+
+export function canCompleteProduction(role: OrganizationRole | null, orderStatus: OrderStatus): boolean {
+  return canManageProduction(role) && (orderStatus === "production" || orderStatus === "edgebanding");
 }
 
 export const startProductionSchema = z.object({
@@ -68,6 +72,13 @@ export const startProductionSchema = z.object({
 });
 
 export const completeProductionSchema = z.object({
+  orderId: z.string().uuid(),
+  expectedOrderVersion: z.coerce.number().int().positive(),
+  notes: z.string().trim().max(2000).optional().default(""),
+  returnTo: z.string().trim().optional().default("/production/active")
+});
+
+export const startEdgebandingSchema = z.object({
   orderId: z.string().uuid(),
   expectedOrderVersion: z.coerce.number().int().positive(),
   notes: z.string().trim().max(2000).optional().default(""),

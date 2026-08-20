@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { OrganizationRole } from "@/lib/domain/roles";
+import { getRouteScopeFromHeaders } from "@/lib/routing/server";
+import { routeScopeFromSlug, type RouteScope } from "@/lib/routing/routes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -24,11 +26,16 @@ export type OrganizationMembership = {
   organizationId: string;
   role: OrganizationRole;
   active: boolean;
-  organization: Pick<Organization, "id" | "name" | "slug" | "active" | "primary_color" | "secondary_color" | "logo_url"> | null;
+  organization: Pick<
+    Organization,
+    "id" | "name" | "slug" | "active" | "primary_color" | "secondary_color" | "delivery_time_days" | "logo_url"
+  > | null;
 };
 
 export type AppUserContext = {
   supabaseConfigured: boolean;
+  routeScope: RouteScope | null;
+  routeBasePath: string;
   user: {
     id: string;
     email: string | null;
@@ -47,14 +54,17 @@ type MembershipQueryRow = {
   organization_id: string;
   role: OrganizationRole;
   active: boolean;
-  organizations: Pick<Organization, "id" | "name" | "slug" | "active" | "primary_color" | "secondary_color" | "logo_url"> | null;
+  organizations: OrganizationMembership["organization"];
 };
 
 const emptyContext = (
   supabaseConfigured: boolean,
-  loadError: string | null = null
+  loadError: string | null = null,
+  routeScope: RouteScope | null = null
 ): AppUserContext => ({
   supabaseConfigured,
+  routeScope,
+  routeBasePath: routeScope?.basePath ?? "",
   user: null,
   profile: null,
   memberships: [],
@@ -65,16 +75,18 @@ const emptyContext = (
   platformBranding: defaultPlatformBranding
 });
 
-export const getCurrentUserContext = cache(async (): Promise<AppUserContext> => {
+export const getCurrentUserContext = cache(async (scopeSlug?: string): Promise<AppUserContext> => {
+  const routeScope = scopeSlug ? routeScopeFromSlug(scopeSlug) : getRouteScopeFromHeaders();
+
   if (!isSupabaseConfigured()) {
-    return emptyContext(false);
+    return emptyContext(false, null, routeScope);
   }
 
   const supabase = createSupabaseServerClient();
   const { data: authData, error: authError } = await supabase.auth.getUser();
 
   if (authError || !authData.user) {
-    return emptyContext(true, authError?.message ?? null);
+    return emptyContext(true, authError?.message ?? null, routeScope);
   }
 
   const user = {
@@ -96,14 +108,17 @@ export const getCurrentUserContext = cache(async (): Promise<AppUserContext> => 
     active: membership.active,
     organization: membership.organizations
   }));
+  const activeMembership = resolveActiveMembership(memberships, routeScope);
 
   return {
     supabaseConfigured: true,
+    routeScope,
+    routeBasePath: routeScope?.basePath ?? "",
     user,
     profile: profileResult.data ?? null,
     memberships,
-    activeOrganization: memberships[0]?.organization ?? null,
-    role: memberships[0]?.role ?? null,
+    activeOrganization: activeMembership?.organization ?? null,
+    role: activeMembership?.role ?? null,
     isPlatformAdmin: Boolean(platformResult.data),
     // Branding puede no existir todavía en una base que aún no recibió la
     // migración; en ese caso se usan defaults sin bloquear la aplicación.
@@ -114,10 +129,23 @@ export const getCurrentUserContext = cache(async (): Promise<AppUserContext> => 
   };
 });
 
+function resolveActiveMembership(
+  memberships: OrganizationMembership[],
+  routeScope: RouteScope | null
+): OrganizationMembership | null {
+  if (routeScope?.kind === "platform") return null;
+
+  if (routeScope?.kind === "organization") {
+    return memberships.find((membership) => membership.organization?.slug === routeScope.slug) ?? null;
+  }
+
+  return memberships[0] ?? null;
+}
+
 async function loadMemberships(supabase: ReturnType<typeof createSupabaseServerClient>, userId: string) {
   const scoped = supabase
     .from("organization_members")
-    .select("organization_id, role, active, organizations(id, name, slug, active, primary_color, secondary_color, logo_url)")
+    .select("organization_id, role, active, organizations(id, name, slug, active, primary_color, secondary_color, delivery_time_days, logo_url)")
     .eq("user_id", userId)
     .eq("active", true);
   const result = await scoped;

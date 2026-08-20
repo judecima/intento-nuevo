@@ -5,12 +5,15 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canAdminister } from "@/lib/domain/admin";
+import { canManagePlatform, organizationDeliveryTimeDaysSchema } from "@/lib/domain/platform";
+import { scopedPath } from "@/lib/routing/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const brandingSchema = z.object({
   organizationId: z.string().uuid(),
   primaryColor: z.string().regex(/^#[0-9a-f]{6}$/i),
   secondaryColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+  deliveryTimeDays: organizationDeliveryTimeDaysSchema,
   removeLogo: z.string().optional()
 });
 
@@ -28,21 +31,22 @@ export async function updateOrganizationBrandingAction(formData: FormData) {
     organizationId: formData.get("organizationId"),
     primaryColor: formData.get("primaryColor"),
     secondaryColor: formData.get("secondaryColor"),
+    deliveryTimeDays: formData.get("deliveryTimeDays"),
     removeLogo: formData.get("removeLogo") ?? undefined
   });
-  if (!parsed.success) redirect("/admin/settings?notice=branding_invalid");
+  if (!parsed.success) redirect(settingsNoticePath("branding_invalid"));
 
   const context = await getCurrentUserContext();
-  const canEdit = context.isPlatformAdmin || (
+  const canEdit = canManagePlatform(context) || (
     context.activeOrganization?.id === parsed.data.organizationId && canAdminister(context.role)
   );
-  if (!context.user || !canEdit) redirect("/admin/settings?notice=branding_forbidden");
+  if (!context.user || !canEdit) redirect(settingsNoticePath("branding_forbidden"));
 
   const admin = createSupabaseAdminClient();
   const file = formData.get("logo");
   let logoUrl: string | null | undefined;
   if (file instanceof File && file.size > 0) {
-    if (!allowedTypes.has(file.type) || file.size > 2 * 1024 * 1024) redirect("/admin/settings?notice=branding_file_invalid");
+    if (!allowedTypes.has(file.type) || file.size > 2 * 1024 * 1024) redirect(settingsNoticePath("branding_file_invalid"));
     const extension = file.type === "image/svg+xml" ? "svg" : file.type.split("/")[1];
     const path = `${parsed.data.organizationId}/logo.${extension}`;
     const { error: uploadError } = await admin.storage.from("organization-branding").upload(path, file, {
@@ -50,7 +54,7 @@ export async function updateOrganizationBrandingAction(formData: FormData) {
       contentType: file.type,
       cacheControl: "3600"
     });
-    if (uploadError) redirect("/admin/settings?notice=branding_save_failed");
+    if (uploadError) redirect(settingsNoticePath("branding_save_failed"));
     logoUrl = admin.storage.from("organization-branding").getPublicUrl(path).data.publicUrl;
   } else if (parsed.data.removeLogo) {
     logoUrl = null;
@@ -59,20 +63,22 @@ export async function updateOrganizationBrandingAction(formData: FormData) {
   const update: {
     primary_color: string;
     secondary_color: string;
+    delivery_time_days: number;
     logo_url?: string | null;
   } = {
     primary_color: parsed.data.primaryColor,
-    secondary_color: parsed.data.secondaryColor
+    secondary_color: parsed.data.secondaryColor,
+    delivery_time_days: parsed.data.deliveryTimeDays
   };
   if (logoUrl !== undefined) update.logo_url = logoUrl;
 
   const { error } = await admin.from("organizations").update(update).eq("id", parsed.data.organizationId);
-  if (error) redirect("/admin/settings?notice=branding_save_failed");
+  if (error) redirect(settingsNoticePath("branding_save_failed"));
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin/organizations");
   revalidatePath("/dashboard");
-  redirect("/admin/settings?notice=branding_saved");
+  redirect(settingsNoticePath("branding_saved"));
 }
 
 export async function updatePlatformBrandingAction(formData: FormData) {
@@ -84,21 +90,21 @@ export async function updatePlatformBrandingAction(formData: FormData) {
   });
   if (!parsed.success) {
     const hasInvalidName = parsed.error.issues.some((issue) => issue.path[0] === "legalName");
-    redirect(`/admin/settings?notice=${hasInvalidName ? "platform_branding_name_invalid" : "platform_branding_invalid"}`);
+    redirect(settingsNoticePath(hasInvalidName ? "platform_branding_name_invalid" : "platform_branding_invalid"));
   }
 
   const context = await getCurrentUserContext();
-  if (!context.user || !context.isPlatformAdmin) redirect("/admin/settings?notice=branding_forbidden");
+  if (!context.user || !canManagePlatform(context)) redirect(settingsNoticePath("branding_forbidden"));
 
   const admin = createSupabaseAdminClient();
   const file = formData.get("logo");
   let logoUrl: string | null | undefined;
   if (file instanceof File && file.size > 0) {
-    if (!allowedTypes.has(file.type) || file.size > 2 * 1024 * 1024) redirect("/admin/settings?notice=branding_file_invalid");
+    if (!allowedTypes.has(file.type) || file.size > 2 * 1024 * 1024) redirect(settingsNoticePath("branding_file_invalid"));
     const extension = file.type === "image/svg+xml" ? "svg" : file.type.split("/")[1];
     const path = `platform/logo.${extension}`;
     const { error } = await admin.storage.from("organization-branding").upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
-    if (error) redirect("/admin/settings?notice=platform_branding_save_failed");
+    if (error) redirect(settingsNoticePath("platform_branding_save_failed"));
     logoUrl = admin.storage.from("organization-branding").getPublicUrl(path).data.publicUrl;
   } else if (parsed.data.removeLogo) {
     logoUrl = null;
@@ -116,9 +122,13 @@ export async function updatePlatformBrandingAction(formData: FormData) {
     .upsert({ id: true, ...update }, { onConflict: "id" })
     .select("id")
     .maybeSingle();
-  if (error || !saved) redirect("/admin/settings?notice=platform_branding_migration_required");
+  if (error || !saved) redirect(settingsNoticePath("platform_branding_migration_required"));
   revalidatePath("/admin/settings");
   revalidatePath("/dashboard");
   revalidatePath("/", "layout");
-  redirect("/admin/settings?notice=platform_branding_saved");
+  redirect(settingsNoticePath("platform_branding_saved"));
+}
+
+function settingsNoticePath(notice: string): string {
+  return `${scopedPath("/admin/settings")}?notice=${encodeURIComponent(notice)}`;
 }

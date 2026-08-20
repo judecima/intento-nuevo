@@ -1,5 +1,6 @@
 import { ProductionOrderList } from "@/components/production/production-order-list";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import { canAccessProduction, productionDomainErrors } from "@/lib/domain/production";
 import { listActiveMachineProfiles, listProductionOrders } from "@/lib/production/queries";
 
@@ -26,7 +27,14 @@ export default async function ProductionCompletedPage({ searchParams }: Producti
   }
 
   const [items, profiles] = organizationId
-    ? await Promise.all([listProductionOrders(organizationId, ["completed"]), listActiveMachineProfiles(organizationId)])
+    ? await Promise.all([
+        listProductionOrders(
+          organizationId,
+          ["completed", "delivered"],
+          context.activeOrganization?.delivery_time_days ?? DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS
+        ),
+        listActiveMachineProfiles(organizationId)
+      ])
     : [[], []];
   const notice = noticeMessage(first(searchParams?.notice));
 
@@ -52,6 +60,7 @@ function noticeMessage(notice: string | undefined) {
   if (!notice) return null;
   const messages: Record<string, string> = {
     xml_generated: "XML generado y guardado en Storage privado.",
+    production_completed: "Produccion finalizada.",
     [productionDomainErrors.fileNotFound]: "No se encontro el archivo solicitado.",
     [productionDomainErrors.forbidden]: "No tenes permisos para realizar esta accion.",
     [productionDomainErrors.xmlGenerationFailed]: "No se pudo generar el XML desde el snapshot aprobado.",

@@ -51,6 +51,7 @@ describe("project optimization input mapper", () => {
         edge_bottom: false,
         edge_left: true,
         edge_right: true,
+        edge_type: "thin",
         metadata: {},
         sort_order: 10,
         created_at: "2026-08-13T00:00:00.000Z",
@@ -86,7 +87,8 @@ describe("project optimization input mapper", () => {
       width: 578,
       height: 1800,
       grain: true,
-      canRotate: false
+      canRotate: false,
+      edgeType: "thin"
     });
   });
 
@@ -146,7 +148,8 @@ describe("project optimization input mapper", () => {
           edgeTop: false,
           edgeBottom: false,
           edgeLeft: false,
-          edgeRight: false
+          edgeRight: false,
+          edgeType: "none"
         },
         {
           reference: "P2",
@@ -159,7 +162,8 @@ describe("project optimization input mapper", () => {
           edgeTop: false,
           edgeBottom: false,
           edgeLeft: false,
-          edgeRight: false
+          edgeRight: false,
+          edgeType: "none"
         }
       ]
     };
@@ -177,6 +181,7 @@ describe("project optimization input mapper", () => {
       edge_bottom: item.edgeBottom,
       edge_left: item.edgeLeft,
       edge_right: item.edgeRight,
+      edge_type: item.edgeType,
       metadata: {},
       sort_order: (index + 1) * 10,
       created_at: "2026-08-13T00:00:00.000Z",
@@ -251,7 +256,8 @@ describe("project optimization input mapper", () => {
           edgeTop: false,
           edgeBottom: false,
           edgeLeft: false,
-          edgeRight: false
+          edgeRight: false,
+          edgeType: "none"
         }
       ]
     };

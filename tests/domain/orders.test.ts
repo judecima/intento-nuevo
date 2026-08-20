@@ -10,11 +10,14 @@ import {
 } from "@/lib/domain/orders";
 
 describe("order domain", () => {
-  it("defines the seller review transition chain", () => {
-    expect(canTransitionOrder("submitted", "under_review")).toBe(true);
+  it("defines the order workflow from pending to production stages", () => {
+    expect(canTransitionOrder("pending", "approved")).toBe(true);
     expect(canTransitionOrder("submitted", "approved")).toBe(true);
     expect(canTransitionOrder("under_review", "approved")).toBe(true);
-    expect(canTransitionOrder("under_review", "changes_requested")).toBe(true);
+    expect(canTransitionOrder("pending", "under_review")).toBe(false);
+    expect(canTransitionOrder("production", "edgebanding")).toBe(true);
+    expect(canTransitionOrder("production", "completed")).toBe(true);
+    expect(canTransitionOrder("edgebanding", "completed")).toBe(true);
     expect(canTransitionOrder("completed", "delivered")).toBe(true);
     expect(canTransitionOrder("approved", "completed")).toBe(false);
   });
@@ -22,7 +25,7 @@ describe("order domain", () => {
   it("limits submit and review permissions by role", () => {
     expect(canSubmitOrder("customer")).toBe(true);
     expect(canSubmitOrder("admin")).toBe(true);
-    expect(canSubmitOrder("seller")).toBe(false);
+    expect(canSubmitOrder("seller")).toBe(true);
     expect(canReviewOrders("seller")).toBe(true);
     expect(canReviewOrders("operator")).toBe(false);
   });
@@ -75,7 +78,9 @@ describe("order domain", () => {
         utilization_percentage: 81.25,
         waste_percentage: 18.75,
         cut_count: 42,
-        saw_meters: 51.2
+        saw_meters: 51.2,
+        edge_band_045_meters: 8.4,
+        edge_band_2mm_meters: 2.1
       }
     });
 
@@ -90,7 +95,9 @@ describe("order domain", () => {
       utilizationPercentage: 81.25,
       wastePercentage: 18.75,
       cutCount: 42,
-      sawMeters: 51.2
+      sawMeters: 51.2,
+      edgeBand045Meters: 8.4,
+      edgeBand2mmMeters: 2.1
     });
   });
 });

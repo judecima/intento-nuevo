@@ -4,17 +4,17 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import {
-  canCompleteProduction,
   canGenerateMachineXml,
-  canStartProduction,
   completeProductionSchema,
   downloadGeneratedFileSchema,
   generateMachineXmlSchema,
   productionDomainErrors,
   safeReturnPath,
+  startEdgebandingSchema,
   startProductionSchema
 } from "@/lib/domain/production";
 import { generateMachineXml } from "@/lib/optimizer";
+import { scopedPath } from "@/lib/routing/server";
 import {
   PRODUCTION_FILES_BUCKET,
   buildProductionFilePath,
@@ -78,6 +78,30 @@ export async function completeProductionAction(formData: FormData) {
   }
 
   redirect(withNotice("/production/completed", "production_completed"));
+}
+
+export async function startEdgebandingAction(formData: FormData) {
+  const parsed = startEdgebandingSchema.parse({
+    orderId: stringField(formData, "orderId"),
+    expectedOrderVersion: stringField(formData, "expectedOrderVersion"),
+    notes: stringField(formData, "notes"),
+    returnTo: stringField(formData, "returnTo") || "/production/active"
+  });
+  const returnTo = safeReturnPath(parsed.returnTo);
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.rpc("start_edgebanding_job", {
+    target_order_id: parsed.orderId,
+    expected_order_version: parsed.expectedOrderVersion,
+    production_notes: parsed.notes || null
+  });
+
+  revalidateProductionPaths();
+
+  if (error) {
+    redirect(withNotice(returnTo, productionNoticeFromError(error.message)));
+  }
+
+  redirect(withNotice("/production/edgebanding", "production_edgebanding"));
 }
 
 export async function generateProductionXmlAction(formData: FormData) {
@@ -235,6 +259,7 @@ function revalidateProductionPaths() {
   revalidatePath("/production");
   revalidatePath("/production/approved");
   revalidatePath("/production/active");
+  revalidatePath("/production/edgebanding");
   revalidatePath("/production/completed");
   revalidatePath("/sales/approved");
   revalidatePath("/orders");
@@ -248,8 +273,9 @@ function productionNoticeFromError(message: string): string {
 }
 
 function withNotice(path: string, notice: string): string {
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}notice=${encodeURIComponent(notice)}`;
+  const target = scopedPath(path);
+  const separator = target.includes("?") ? "&" : "?";
+  return `${target}${separator}notice=${encodeURIComponent(notice)}`;
 }
 
 function toJson(value: unknown): Json {

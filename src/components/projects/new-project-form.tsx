@@ -45,7 +45,7 @@ export function NewProjectForm({
     <form action={createProjectAction} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <input type="hidden" name="materialId" value={materialId} />
       {organizationId ? <input type="hidden" name="organizationId" value={organizationId} /> : null}
-      {customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
+      {requiresCustomer && customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
 
       <div className="card">
         <div className="card-head">

@@ -3,6 +3,7 @@ import { getCurrentUserContext } from "@/lib/auth/context";
 import { canAdminister } from "@/lib/domain/admin";
 import { createCustomerAction } from "@/lib/customers/actions";
 import { listOrganizationCustomers } from "@/lib/customers/queries";
+import { toScopedPath } from "@/lib/routing/routes";
 import Link from "next/link";
 
 type Props = { searchParams?: { notice?: string } };
@@ -31,7 +32,7 @@ export default async function SalesCustomersPage({ searchParams }: Props) {
           <h1 className="mt-1.5 text-[30px] font-semibold">Clientes</h1>
           <p className="hint mt-2">Selecciona un cliente existente o da de alta uno nuevo para cargar un pedido.</p>
         </div>
-        <Link href="/projects/new" className="btn btn-primary focus-ring">Cargar pedido</Link>
+        <Link href={toScopedPath(context.routeBasePath, "/projects/new")} className="btn btn-primary focus-ring">Cargar pedido</Link>
       </header>
       {notice ? <div className="operation-banner">{notice}</div> : null}
 

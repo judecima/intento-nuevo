@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { MaterialReactTable, useMaterialReactTable, type MRT_ColumnDef } from "material-react-table";
+import { toScopedPath } from "@/lib/routing/routes";
 import type { MaterialListItem } from "@/lib/materials/queries";
 
 export function MaterialAdminTable({
   materials,
   organizationId,
+  basePath,
   disableAction
 }: {
   materials: MaterialListItem[];
   organizationId: string;
+  basePath: string;
   disableAction: (formData: FormData) => Promise<never>;
 }) {
   const columns: MRT_ColumnDef<MaterialListItem>[] = [
@@ -38,7 +41,7 @@ export function MaterialAdminTable({
     positionActionsColumn: "last",
     renderRowActions: ({ row }) => (
       <div className="flex items-center gap-2">
-        <Link href={`/admin/materials?edit=${row.original.id}`} className="btn btn-sm focus-ring">
+        <Link href={toScopedPath(basePath, `/admin/materials?edit=${row.original.id}`)} className="btn btn-sm focus-ring">
           Editar
         </Link>
         <form action={disableAction}>
