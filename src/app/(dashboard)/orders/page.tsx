@@ -27,7 +27,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
       ) : null}
 
-      <OrderList orders={orders} mode="customer" />
+      <OrderList orders={orders} />
     </section>
   );
 }

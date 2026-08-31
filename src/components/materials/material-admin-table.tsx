@@ -37,6 +37,7 @@ export function MaterialAdminTable({
   const table = useMaterialReactTable({
     columns,
     data: materials,
+    layoutMode: "grid",
     enableRowActions: true,
     positionActionsColumn: "last",
     renderRowActions: ({ row }) => (

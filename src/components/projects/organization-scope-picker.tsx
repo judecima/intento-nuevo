@@ -1,4 +1,5 @@
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import { StatusChip, SurfaceCard } from "@/components/ui/material";
 
 export type OrganizationScopeOption = {
   id: string;
@@ -25,25 +26,23 @@ export function OrganizationScopePicker({
   if (organizations.length === 0) return null;
 
   return (
-    <form
-      action={action}
-      method="get"
-      className="card flex flex-wrap items-end gap-3 p-4"
-    >
-      <span className="badge badge-accent">Super usuario</span>
-      <label className="block min-w-[260px] flex-1">
-        <span className="field-label">{label}</span>
-        <select name="organizationId" defaultValue={selectedId} className="select mt-1.5">
-          {organizations.map((organization) => (
-            <option key={organization.id} value={organization.id}>
-              {organization.name} ({organization.slug})
-            </option>
-          ))}
-        </select>
-      </label>
-      <PendingSubmitButton pendingLabel="Cambiando..." className="btn focus-ring">
-        Cambiar organizacion
-      </PendingSubmitButton>
-    </form>
+    <SurfaceCard bodyClassName="p-4">
+      <form action={action} method="get" className="flex flex-wrap items-end gap-3">
+        <StatusChip value="Plataforma" color="amber" className="mb-1" />
+        <label className="block min-w-[260px] flex-1">
+          <span className="field-label">{label}</span>
+          <select name="organizationId" defaultValue={selectedId} className="select mt-1.5">
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>
+                {organization.name} ({organization.slug})
+              </option>
+            ))}
+          </select>
+        </label>
+        <PendingSubmitButton pendingLabel="Cambiando..." className="btn focus-ring">
+          Cambiar organizacion
+        </PendingSubmitButton>
+      </form>
+    </SurfaceCard>
   );
 }

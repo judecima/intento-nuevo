@@ -30,7 +30,7 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
       <section className="mx-auto max-w-[900px] space-y-4">
         <Header />
         <div className="card p-5 text-sm text-[var(--muted)]">
-          Esta seccion es exclusiva del super usuario de la plataforma.
+          Esta seccion es exclusiva de la administracion de plataforma.
         </div>
       </section>
     );

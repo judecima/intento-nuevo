@@ -1,3 +1,5 @@
+import { SurfaceCard, SurfaceTitle } from "@/components/ui/material";
+
 type SectionPlaceholderProps = {
   title: string;
   eyebrow: string;
@@ -7,13 +9,10 @@ type SectionPlaceholderProps = {
 export function SectionPlaceholder({ title, eyebrow, children }: SectionPlaceholderProps) {
   return (
     <section className="max-w-5xl">
-      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--teal)]">
-        {eyebrow}
-      </div>
-      <h1 className="mt-2 text-[32px] font-bold tracking-[-0.03em]">{title}</h1>
-      <div className="mt-5 rounded-[var(--r)] border border-[var(--line)] bg-[rgba(255,255,255,.55)] p-8 text-sm text-[var(--muted)]">
-        {children ?? "Modulo preparado para la siguiente fase de implementacion."}
-      </div>
+      <SurfaceTitle eyebrow={eyebrow} title={title} />
+      <SurfaceCard className="mt-5" bodyClassName="p-6 text-sm text-[var(--muted)] md:p-8">
+        {children ?? "No hay contenido disponible para esta vista."}
+      </SurfaceCard>
     </section>
   );
 }

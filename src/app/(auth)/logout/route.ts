@@ -6,6 +6,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const scope = getRouteScopeFromHeaders();
+  redirect(scope ? `${scope.basePath}/login` : platformPath("/login"));
+}
+
+export async function POST() {
+  const scope = getRouteScopeFromHeaders();
 
   if (isSupabaseConfigured()) {
     const supabase = createSupabaseServerClient();

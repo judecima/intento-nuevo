@@ -24,7 +24,7 @@ export function MaterialGallery({
 }: MaterialGalleryProps) {
   return (
     <section className="space-y-4">
-      <form action={basePath} className="rounded-[var(--r)] border border-[var(--line)] bg-white">
+      <form action={basePath} className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)]">
         {selectedMaterialId ? <input type="hidden" name="material" value={selectedMaterialId} /> : null}
         <div className="grid gap-3 border-b border-[var(--line)] p-4 lg:grid-cols-[minmax(180px,1fr)_170px_170px_140px_130px]">
           <label className="block">
@@ -33,7 +33,7 @@ export function MaterialGallery({
               name="q"
               defaultValue={filters.q}
               placeholder="Codigo, nombre o textura"
-              className="mt-2 h-[38px] w-full rounded-[7px] border border-[#bac8c4] px-3 text-[12px] focus-ring"
+              className="mt-2 h-[38px] w-full rounded-[7px] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 text-[12px] focus-ring"
             />
           </label>
 
@@ -42,7 +42,7 @@ export function MaterialGallery({
             <select
               name="kind"
               defaultValue={filters.kind}
-              className="mt-2 h-[38px] w-full rounded-[7px] border border-[#bac8c4] bg-white px-3 text-[12px] focus-ring"
+              className="mt-2 h-[38px] w-full rounded-[7px] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 text-[12px] focus-ring"
             >
               {materialKinds.map((kind) => (
                 <option key={kind} value={kind}>
@@ -57,7 +57,7 @@ export function MaterialGallery({
             <select
               name="thickness"
               defaultValue={filters.thickness?.toString() ?? ""}
-              className="mt-2 h-[38px] w-full rounded-[7px] border border-[#bac8c4] bg-white px-3 text-[12px] focus-ring"
+              className="mt-2 h-[38px] w-full rounded-[7px] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 text-[12px] focus-ring"
             >
               <option value="">Todos</option>
               {facets.thicknesses.map((thickness) => (
@@ -73,7 +73,7 @@ export function MaterialGallery({
             <select
               name="size"
               defaultValue={filters.size}
-              className="mt-2 h-[38px] w-full rounded-[7px] border border-[#bac8c4] bg-white px-3 text-[12px] focus-ring"
+              className="mt-2 h-[38px] w-full rounded-[7px] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 text-[12px] focus-ring"
             >
               <option value="">Todas</option>
               {facets.sizes.map((size) => (
@@ -89,7 +89,7 @@ export function MaterialGallery({
             <select
               name="grain"
               defaultValue={filters.grain}
-              className="mt-2 h-[38px] w-full rounded-[7px] border border-[#bac8c4] bg-white px-3 text-[12px] focus-ring"
+              className="mt-2 h-[38px] w-full rounded-[7px] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 text-[12px] focus-ring"
             >
               <option value="all">Todas</option>
               <option value="yes">Con veta</option>
@@ -98,12 +98,12 @@ export function MaterialGallery({
           </label>
         </div>
 
-        <div className="flex flex-col gap-3 bg-[#f5f7f6] px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
-          <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#596c67]">
+        <div className="flex flex-col gap-3 bg-[var(--md-surface-container)] px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
+          <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">
             {matchingCount} resultados sobre {sourceCount} materiales habilitados
           </div>
           <div className="flex gap-2">
-            <Link href={basePath} className="focus-ring rounded-[var(--r)] border border-[var(--line)] bg-white px-3 py-2 text-[13px] hover:border-[var(--linea-fuerte)]">
+            <Link href={basePath} className="focus-ring rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 py-2 text-[13px] hover:border-[var(--linea-fuerte)]">
               Limpiar
             </Link>
             <button className="focus-ring rounded-[var(--r)] border border-[var(--teal)] bg-[var(--teal)] px-3 py-2 text-[13px] font-semibold text-white hover:bg-[var(--teal-claro)]" type="submit">
@@ -125,7 +125,7 @@ export function MaterialGallery({
           ))}
         </div>
       ) : (
-        <div className="border border-[var(--line)] bg-white p-6 text-sm text-[var(--muted)]">
+        <div className="border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-6 text-sm text-[var(--muted)]">
           No hay materiales para los filtros seleccionados.
         </div>
       )}

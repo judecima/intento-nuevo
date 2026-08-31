@@ -972,6 +972,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      platform_public_branding: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          legal_name: string;
+          primary_color: string;
+          secondary_color: string;
+          logo_url: string | null;
+        }>;
+      };
       organization_public_info: {
         Args: {
           target_slug: string;

@@ -17,7 +17,14 @@ import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider, type SxProps, type Theme } from "@mui/material/styles";
+import type { SxProps, Theme } from "@mui/material/styles";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableContainerSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import {
   canRunProcessAction,
   listAvailableProcessActions,
@@ -48,39 +55,6 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          primary: { main: "#0f766e" },
-          background: { default: "#dde6e3", paper: "#ffffff" },
-          text: { primary: "#17201f", secondary: "#5f6f6c" }
-        },
-        shape: { borderRadius: 8 },
-        typography: {
-          fontFamily: "inherit"
-        },
-        components: {
-          MuiButton: {
-            styleOverrides: {
-              root: {
-                textTransform: "none",
-                fontWeight: 700
-              }
-            }
-          },
-          MuiPaper: {
-            styleOverrides: {
-              root: {
-                boxShadow: "0 18px 48px rgba(19, 31, 30, 0.12)"
-              }
-            }
-          }
-        }
-      }),
-    []
-  );
 
   const columns = useMemo<MRT_ColumnDef<ProcessOrderRow>[]>(
     () => [
@@ -320,6 +294,7 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
   const table = useMaterialReactTable({
     columns,
     data: rows,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnFilters: true,
     enableColumnPinning: true,
@@ -340,33 +315,10 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
       columnPinning: { left: ["shortId", "stageLabel", "deliveryOn", "deliveryStatus"], right: ["mrt-row-actions"] },
       sorting: [{ id: "updatedAt", desc: true }]
     },
-    muiTablePaperProps: {
-      sx: {
-        border: "1px solid var(--line)",
-        borderRadius: "8px",
-        overflow: "hidden"
-      }
-    },
-    muiTableContainerProps: {
-      sx: {
-        maxHeight: "calc(100vh - 285px)",
-        backgroundColor: "#fff"
-      }
-    },
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: "#eef3f1",
-        color: "#17201f",
-        fontSize: 12,
-        fontWeight: 800
-      }
-    },
-    muiTableBodyCellProps: {
-      sx: {
-        fontSize: 13,
-        borderColor: "var(--line)"
-      }
-    },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableContainerProps: { sx: brandedTableContainerSx("calc(100vh - 285px)") },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     muiTableBodyRowProps: ({ row }) => ({
       sx: deliveryAlertRowSx(row.original.deliveryAlert)
     }),
@@ -419,14 +371,14 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
     ),
     renderDetailPanel: ({ row }) => <DetailPanel row={row.original} />,
     renderTopToolbarCustomActions: () => (
-      <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {rows.length} pedidos en proceso
       </Typography>
     )
   });
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
       <Snackbar
         open={Boolean(notice)}
@@ -440,7 +392,7 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
           </Alert>
         ) : undefined}
       </Snackbar>
-    </ThemeProvider>
+    </BrandedMuiThemeProvider>
   );
 }
 
@@ -504,10 +456,10 @@ function DetailPanel({ row }: { row: ProcessOrderRow }) {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <Box>
-      <Typography sx={{ color: "#5f6f6c", fontSize: 11, fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase" }}>
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 11, fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase" }}>
         {label}
       </Typography>
-      <Typography sx={{ color: "#17201f", fontSize: 14, fontWeight: 700, mt: 0.5 }}>{value}</Typography>
+      <Typography sx={{ color: "var(--md-on-surface)", fontSize: 14, fontWeight: 700, mt: 0.5 }}>{value}</Typography>
     </Box>
   );
 }

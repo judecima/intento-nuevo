@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- logo URL is tenant-configured and may be external. */
 import Link from "next/link";
 import type { AppUserContext } from "@/lib/auth/context";
+import { brandThemeCssText, brandThemeStyle } from "@/lib/branding/theme";
 import { getNavigationForRole } from "@/lib/domain/navigation";
 import { roleLabels } from "@/lib/domain/roles";
 import { toScopedPath } from "@/lib/routing/routes";
@@ -22,7 +23,11 @@ export function AppShell({ context, children }: AppShellProps) {
   // El super usuario no depende de una organizacion: opera sobre todas.
   const organizationName =
     context.activeOrganization?.name ?? (platformMode ? "Todas las organizaciones" : "Sin organizacion");
-  const roleName = context.role ? roleLabels[context.role] : platformMode ? "Plataforma" : "Sin rol";
+  const roleName = context.isPlatformAdmin
+    ? context.platformBranding.legalName
+    : context.role
+      ? roleLabels[context.role]
+      : "Sin rol";
   const appBranding = platformMode || !context.activeOrganization
     ? {
         name: context.platformBranding.legalName,
@@ -42,20 +47,19 @@ export function AppShell({ context, children }: AppShellProps) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-  const brandStyle = {
-    "--brand-primary": appBranding.primaryColor || "#12666b",
-    "--brand-secondary": appBranding.secondaryColor || "#f5b301"
-  } as React.CSSProperties;
+  const brandStyle = brandThemeStyle(appBranding);
 
   return (
-    <div style={brandStyle} className="min-h-screen text-[var(--ink)] lg:grid lg:grid-cols-[276px_1fr]">
-      {/* Drawer sobre superficie oscura: los tokens `rail-*` son el esquema
-          oscuro del sistema, para que el texto claro tenga siempre contraste. */}
-      <aside className="no-print bg-[var(--rail)] px-3 py-5 text-[var(--rail-on)] lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `:root{${brandThemeCssText(appBranding)}}` }} />
+      <div style={brandStyle} className="min-h-screen bg-[var(--md-surface)] text-[var(--ink)] lg:grid lg:grid-cols-[276px_1fr]">
+        {/* Drawer sobre superficie oscura: los tokens `rail-*` son el esquema
+            oscuro del sistema, para que el texto claro tenga siempre contraste. */}
+        <aside className="no-print border-r border-[var(--rail-outline)] bg-[var(--rail)] px-3 py-5 text-[var(--rail-on)] lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
         <Link href={toScopedPath(basePath, "/dashboard")} className="focus-ring block rounded-[var(--r-lg)] px-4 py-1">
           <div className="flex items-center gap-3">
             {appBranding.logoUrl ? (
-              <img src={appBranding.logoUrl} alt={`Logo de ${appBranding.name}`} className="h-10 w-10 rounded-[var(--r)] bg-white object-contain p-1" />
+              <img src={appBranding.logoUrl} alt={`Logo de ${appBranding.name}`} className="h-10 w-10 rounded-lg bg-transparent object-contain p-1" />
             ) : null}
             <div className="text-[20px] font-medium tracking-[0] text-white">{appBranding.name}</div>
             <div className="text-[10px] font-medium uppercase tracking-[0.5px] text-[var(--accent)]">SaaS</div>
@@ -71,7 +75,7 @@ export function AppShell({ context, children }: AppShellProps) {
       </aside>
 
       <div className="min-w-0">
-        <header className="no-print sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--md-surface-container-low)] px-5 py-3 md:px-7">
+        <header className="no-print sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--md-surface-container-low)]/95 px-5 py-3 shadow-sm backdrop-blur md:px-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="eyebrow-muted">Organizacion</div>
@@ -79,7 +83,7 @@ export function AppShell({ context, children }: AppShellProps) {
                 <span className="truncate text-[15px] font-semibold">{organizationName}</span>
                 {platformMode ? (
                   <Link href={toScopedPath(basePath, "/admin/organizations")} className="badge badge-accent focus-ring">
-                    Super usuario
+                    {appBranding.name}
                   </Link>
                 ) : null}
               </div>
@@ -93,12 +97,14 @@ export function AppShell({ context, children }: AppShellProps) {
                 aria-hidden
                 className="grid h-10 w-10 flex-none place-items-center rounded-full bg-[var(--md-primary-container)] font-mono text-[13px] font-medium text-[var(--md-on-primary-container)]"
               >
-                {initials || "—"}
+                {initials || "-"}
               </div>
               {context.user ? (
-                <Link className="btn btn-sm focus-ring" href={toScopedPath(basePath, "/logout")}>
-                  Salir
-                </Link>
+                <form action={toScopedPath(basePath, "/logout")} method="post">
+                  <button className="btn btn-sm focus-ring" type="submit">
+                    Salir
+                  </button>
+                </form>
               ) : (
                 <Link className="btn btn-sm btn-primary focus-ring" href={toScopedPath(basePath, "/login")}>
                   Ingresar
@@ -107,7 +113,7 @@ export function AppShell({ context, children }: AppShellProps) {
             </div>
           </div>
           {context.loadError ? (
-            <div className="mt-3 rounded-[var(--r)] border-l-4 border-[var(--danger)] bg-[var(--alerta-suave)] px-3 py-2 text-sm text-[#8d3220]">
+            <div className="mt-3 rounded-[var(--r)] border-l-4 border-[var(--danger)] bg-[var(--alerta-suave)] px-3 py-2 text-sm text-[var(--md-on-error-container)]">
               {context.loadError}
             </div>
           ) : null}
@@ -115,6 +121,7 @@ export function AppShell({ context, children }: AppShellProps) {
 
         <main className="px-5 py-6 md:px-7">{children}</main>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

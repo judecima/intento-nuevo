@@ -12,7 +12,14 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider, type SxProps, type Theme } from "@mui/material/styles";
+import type { SxProps, Theme } from "@mui/material/styles";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableContainerSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import {
   completeProductionAction,
@@ -49,20 +56,6 @@ const modeCountLabels: Record<ProductionMode, string> = {
 };
 
 export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: ProductionOrderListProps) {
-  const theme = useMemo(
-    () => createTheme({
-      palette: {
-        primary: { main: "#0f766e" },
-        background: { default: "#dde6e3", paper: "#ffffff" },
-        text: { primary: "#17201f", secondary: "#5f6f6c" }
-      },
-      shape: { borderRadius: 8 },
-      typography: { fontFamily: "inherit" },
-      components: { MuiButton: { styleOverrides: { root: { textTransform: "none", fontWeight: 700 } } } }
-    }),
-    []
-  );
-
   const columns = useMemo<MRT_ColumnDef<ProductionOrderItem>[]>(
     () => [
       {
@@ -114,7 +107,7 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
         size: 220,
         Cell: ({ row }) => {
           const summary = getOrderSnapshotSummary(row.original.order.snapshot);
-          return <Stack spacing={0.25}><Typography sx={{ fontSize: 14, fontWeight: 800 }}>{summary.customerName}</Typography><Typography sx={{ color: "#5f6f6c", fontSize: 12 }}>{summary.customerEmail}</Typography></Stack>;
+          return <Stack spacing={0.25}><Typography sx={{ fontSize: 14, fontWeight: 800 }}>{summary.customerName}</Typography><Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 12 }}>{summary.customerEmail}</Typography></Stack>;
         }
       },
       {
@@ -153,6 +146,7 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
   const table = useMaterialReactTable({
     columns,
     data: items,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnFilters: true,
     enableColumnPinning: true,
@@ -170,16 +164,16 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
       sorting: [{ id: "updated", desc: true }],
       columnPinning: { left: ["order", "status", "deliveryOn", "deliveryStatus"], right: ["mrt-row-actions"] }
     },
-    muiTablePaperProps: { sx: { border: "1px solid var(--line)", borderRadius: "8px", overflow: "hidden" } },
-    muiTableContainerProps: { sx: { maxHeight: "calc(100vh - 300px)", backgroundColor: "#fff" } },
-    muiTableHeadCellProps: { sx: { backgroundColor: "#eef3f1", color: "#17201f", fontSize: 12, fontWeight: 800 } },
-    muiTableBodyCellProps: { sx: { borderColor: "var(--line)", fontSize: 13 } },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableContainerProps: { sx: brandedTableContainerSx("calc(100vh - 300px)") },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     muiTableBodyRowProps: ({ row }) => ({
       sx: deliveryAlertRowSx(row.original.deliveryAlert)
     }),
     renderRowActions: ({ row }) => <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>{row.getIsExpanded() ? "Cerrar" : "Detalle"}</Button>,
     renderDetailPanel: ({ row }) => <ProductionOrderCard row={row} machineProfiles={machineProfiles} mode={mode} returnTo={returnTo} />,
-    renderTopToolbarCustomActions: () => <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>{items.length} {modeCountLabels[mode]}</Typography>
+    renderTopToolbarCustomActions: () => <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>{items.length} {modeCountLabels[mode]}</Typography>
   });
 
   if (items.length === 0) {
@@ -190,7 +184,7 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
     );
   }
 
-  return <ThemeProvider theme={theme}><MaterialReactTable table={table} /></ThemeProvider>;
+  return <BrandedMuiThemeProvider><MaterialReactTable table={table} /></BrandedMuiThemeProvider>;
 }
 
 function ProductionOrderCard({
@@ -208,21 +202,21 @@ function ProductionOrderCard({
   const summary = getOrderSnapshotSummary(item.order.snapshot);
 
   return (
-    <article className="overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-white">
+    <article className="overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)]">
       <div className="flex flex-col gap-3 border-b border-[var(--line)] px-4 py-3 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="font-mono text-xs text-[var(--muted)]">{item.order.id.slice(0, 8)}</div>
           <h2 className="mt-1 text-[20px] font-bold">{summary.projectName}</h2>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">
+            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] px-2 py-1">
               {orderStatusLabels[item.order.status]}
             </span>
             {item.job ? (
-              <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">
+              <span className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] px-2 py-1">
                 {productionJobStatusLabels[item.job.status]}
               </span>
             ) : null}
-            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">Version {item.order.version}</span>
+            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] px-2 py-1">Version {item.order.version}</span>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--line)] text-sm md:grid-cols-5">
@@ -294,7 +288,7 @@ function GenerateXmlForm({
       <MachineProfileSelect profiles={machineProfiles} />
       <PendingSubmitButton
         pendingLabel="Generando XML..."
-        className="focus-ring w-full rounded-[var(--r)] border border-[var(--teal)] px-4 py-3 text-sm font-semibold text-[var(--teal)] hover:bg-[#f1fbf8]"
+        className="focus-ring w-full rounded-[var(--r)] border border-[var(--teal)] px-4 py-3 text-sm font-semibold text-[var(--teal)] hover:bg-[var(--brand-primary-hover-surface)]"
       >
         Generar XML
       </PendingSubmitButton>
@@ -347,7 +341,7 @@ function StartEdgebandingForm({
       <TextArea label="Notas pegado" name="notes" />
       <PendingSubmitButton
         pendingLabel="Pasando a pegado..."
-        className="focus-ring w-full rounded-[var(--r)] border border-[var(--teal)] px-4 py-3 text-sm font-semibold text-[var(--teal)] hover:bg-[#f1fbf8]"
+        className="focus-ring w-full rounded-[var(--r)] border border-[var(--teal)] px-4 py-3 text-sm font-semibold text-[var(--teal)] hover:bg-[var(--brand-primary-hover-surface)]"
       >
         Pasar a pegado de canto
       </PendingSubmitButton>
@@ -390,7 +384,7 @@ function MachineProfileSelect({ profiles }: { profiles: MachineProfileRow[] }) {
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Maquina</span>
       <select
         name="machineProfileId"
-        className="mt-2 w-full rounded-[var(--r)] border border-[var(--line)] bg-white px-3 py-2 text-sm focus-ring"
+        className="mt-2 w-full rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 py-2 text-sm focus-ring"
       >
         <option value="">Perfil por defecto</option>
         {profiles.map((profile) => (
@@ -406,7 +400,7 @@ function MachineProfileSelect({ profiles }: { profiles: MachineProfileRow[] }) {
 function GeneratedFiles({ files, returnTo }: { files: GeneratedFileRow[]; returnTo: string }) {
   if (files.length === 0) {
     return (
-      <div className="border border-[var(--line)] bg-[#f7f9f7] p-3 text-sm text-[var(--muted)]">
+      <div className="border border-[var(--line)] bg-[var(--md-surface-container)] p-3 text-sm text-[var(--muted)]">
         No hay XML generado para este pedido.
       </div>
     );
@@ -451,7 +445,7 @@ function TextArea({ label, name }: { label: string; name: string }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[68px] bg-white px-3 py-2 text-center">
+    <div className="min-w-[68px] bg-[var(--md-surface-container-lowest)] px-3 py-2 text-center">
       <div className="font-mono text-[17px] font-semibold leading-none tracking-[-0.02em]">{value}</div>
       <div className="mt-1 text-[9.5px] uppercase tracking-[0.11em] text-[var(--muted)]">{label}</div>
     </div>

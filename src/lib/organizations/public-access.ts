@@ -1,4 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  DEFAULT_ORGANIZATION_NAME,
+  normalizeBrandIdentity
+} from "@/lib/branding/identity";
 
 export type PublicOrganization = {
   id: string;
@@ -25,21 +29,31 @@ export async function getPublicOrganization(slug: string): Promise<PublicOrganiz
 
   const row = (data ?? [])[0];
   if (!row) return null;
+  const brand = normalizeBrandIdentity(
+    {
+      name: row.name,
+      primaryColor: row.primary_color,
+      secondaryColor: row.secondary_color,
+      logoUrl: row.logo_url
+    },
+    DEFAULT_ORGANIZATION_NAME
+  );
 
   return {
     id: row.id,
-    name: row.name,
+    name: brand.name,
     slug: row.slug,
     active: row.active,
     allowCustomerSignup: row.allow_customer_signup,
-    primaryColor: row.primary_color || "#12666b",
-    secondaryColor: row.secondary_color || "#f5b301",
-    logoUrl: row.logo_url
+    primaryColor: brand.primaryColor,
+    secondaryColor: brand.secondaryColor,
+    logoUrl: brand.logoUrl
   };
 }
 
 export const organizationAccessNotices: Record<string, string> = {
   invalid_input: "Revisa los datos ingresados.",
+  password_mismatch: "Las contrasenas no coinciden.",
   invalid_credentials: "Email o contrasena incorrectos.",
   supabase_not_configured: "Falta configurar Supabase en .env.local.",
   signup_disabled: "Esta organizacion no acepta registro de clientes.",

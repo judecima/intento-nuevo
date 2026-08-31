@@ -164,7 +164,7 @@ export function BoardPlan({
       <defs>
         <pattern id={patternId} width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="14" height="14" fill="#c9d6d2" opacity="0.55" />
-          <line x1="0" y1="0" x2="0" y2="14" stroke="#12666b" strokeWidth="2.5" opacity="0.35" />
+          <line x1="0" y1="0" x2="0" y2="14" stroke="var(--md-primary)" strokeWidth="2.5" opacity="0.35" />
         </pattern>
         <pattern id={wastePatternId} width="10" height="10" patternUnits="userSpaceOnUse">
           <rect width="10" height="10" fill="#f8faf8" />

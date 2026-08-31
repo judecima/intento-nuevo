@@ -1,5 +1,6 @@
 import { NewProjectForm } from "@/components/projects/new-project-form";
 import { OrganizationScopePicker } from "@/components/projects/organization-scope-picker";
+import { SurfaceCard, SurfaceTitle } from "@/components/ui/material";
 import { listPlatformOrganizations } from "@/lib/admin/platform";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
@@ -36,9 +37,10 @@ export default async function NewProjectPage({ searchParams }: NewProjectPagePro
   if (!targetOrganizationId) {
     return (
       <section className="max-w-6xl">
-        <div className="eyebrow">Cliente</div>
-        <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.025em]">Nuevo proyecto</h1>
-        <div className="mt-5 card p-5 text-sm text-[var(--muted)]">El usuario no tiene una organizacion activa.</div>
+        <SurfaceTitle eyebrow="Cliente" title="Nuevo proyecto" />
+        <SurfaceCard className="mt-5" bodyClassName="p-5 text-sm text-[var(--muted)]">
+          El usuario no tiene una organizacion activa.
+        </SurfaceCard>
       </section>
     );
   }
@@ -51,14 +53,13 @@ export default async function NewProjectPage({ searchParams }: NewProjectPagePro
 
   return (
     <section className="mx-auto max-w-[1200px] space-y-5">
-      <header>
-        <div className="eyebrow">Cliente</div>
-        <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.025em]">Nuevo proyecto</h1>
-        <p className="hint mt-2 max-w-3xl text-[13px]">
-          Elegi el tablero del catalogo y crea un proyecto editable con sus piezas
-          {targetOrganization ? ` para ${targetOrganization.name}.` : "."}
-        </p>
-      </header>
+      <SurfaceTitle
+        eyebrow="Cliente"
+        title="Nuevo proyecto"
+        description={`Elegi el tablero del catalogo y crea un proyecto editable con sus piezas${
+          targetOrganization ? ` para ${targetOrganization.name}.` : "."
+        }`}
+      />
 
       {platformAdmin ? (
         <OrganizationScopePicker

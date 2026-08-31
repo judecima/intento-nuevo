@@ -12,14 +12,14 @@ type DiagPanelProps = {
 export function DiagPanel({ target, meta, onClose }: DiagPanelProps) {
   return (
     <aside className="diag-panel flex max-h-[520px] flex-col overflow-hidden">
-      <header className="flex items-center gap-2 border-b border-[#284050] px-3 py-2">
+      <header className="flex items-center gap-2 border-b border-[var(--rail-outline)] px-3 py-2">
         <span className="diag-title flex-1">
           {target ? titleFor(target) : "Diagnóstico de huecos"}
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="focus-ring rounded border border-[#2f5262] px-2 py-1 text-[11px] text-[#9fb9bd] hover:text-white"
+          className="focus-ring rounded border border-[var(--rail-outline)] px-2 py-1 text-[11px] text-[var(--rail-on-variant)] hover:text-[var(--rail-on)]"
         >
           Cerrar
         </button>
@@ -27,7 +27,7 @@ export function DiagPanel({ target, meta, onClose }: DiagPanelProps) {
 
       <div className="overflow-auto px-3 py-3">
         {!target ? (
-          <p className="text-[#9fb9bd]">
+          <p className="text-[var(--rail-on-variant)]">
             Hacé clic sobre una pieza, un corte o un sobrante del plano para ver por qué quedó ese espacio: separación
             real contra kerf, nivel de corte y la cadena de rebanadas que condicionó el bloque.
           </p>
@@ -82,7 +82,7 @@ function PieceDetail({
         <Row label="Vecino arriba" value={formatNeighbor(neighbors.above, meta.kerf)} />
       </div>
 
-      <div className="mt-3 border-t border-[#284050] pt-3">
+      <div className="mt-3 border-t border-[var(--rail-outline)] pt-3">
         <div className="diag-title mb-2">CADENA DE REGIONES / REBANADAS</div>
         {piece.trace.length === 0 ? (
           <p className="diag-v opacity-70">
@@ -90,7 +90,7 @@ function PieceDetail({
           </p>
         ) : (
           piece.trace.map((step, index) => (
-            <div key={`${step.type}-${index}`} className="border-b border-dashed border-[#263d49] py-2">
+            <div key={`${step.type}-${index}`} className="border-b border-dashed border-[var(--rail-outline)] py-2">
               <b>{`#${index + 1} · Nivel ${step.level ?? "—"} · ${step.type}`}</b>
               <br />
               {`Región: ${formatMm(step.region?.width)}×${formatMm(step.region?.height)} @ (${formatMm(

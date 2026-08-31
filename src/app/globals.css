@@ -16,13 +16,17 @@
 
   --brand-primary: #12666b;
   --brand-secondary: #f5b301;
+  --brand-primary-strong: #0e4f53;
+  --brand-secondary-strong: #bf8b01;
+  --brand-primary-hover-surface: rgba(18, 102, 107, 0.08);
+  --brand-primary-focus-surface: rgba(18, 102, 107, 0.12);
 
   /* ------------------------------------------------------------- color roles */
   --md-primary: var(--brand-primary);
   --md-on-primary: #ffffff;
-  --md-primary-container: #a4f0f6;
-  --md-on-primary-container: #002023;
-  --md-primary-fixed-dim: #83d4da;
+  --md-primary-container: #d0e8e9;
+  --md-on-primary-container: #111111;
+  --md-primary-fixed-dim: #acd8da;
 
   --md-secondary: #4a6365;
   --md-on-secondary: #ffffff;
@@ -32,8 +36,8 @@
   /* color de marca (sierra) expuesto como rol terciario */
   --md-tertiary: var(--brand-secondary);
   --md-on-tertiary: #241a00;
-  --md-tertiary-container: #ffe08a;
-  --md-on-tertiary-container: #241a00;
+  --md-tertiary-container: #fce8b3;
+  --md-on-tertiary-container: #111111;
 
   --md-error: #ba1a1a;
   --md-on-error: #ffffff;
@@ -59,7 +63,7 @@
 
   --md-inverse-surface: #2b3231;
   --md-inverse-on-surface: #ecf2f1;
-  --md-inverse-primary: #83d4da;
+  --md-inverse-primary: #acd8da;
   --md-scrim: rgba(0, 0, 0, 0.32);
 
   /* opacidades de state layer (M3) */
@@ -102,22 +106,22 @@
   --mesa-2: var(--md-surface-container-low);
   /* Drawer sobre superficie oscura: esquema oscuro completo, para que el texto
      claro nunca quede sobre un fondo claro. */
-  --rail: #151b1c;
-  --rail-soft: #202829;
+  --rail: #041819;
+  --rail-soft: #062324;
   --rail-on: #e0e5e4;
   --rail-on-variant: #a6b1b0;
-  --rail-outline: #313b3b;
-  --rail-active: #00494e;
-  --rail-on-active: #a4f0f6;
+  --rail-outline: rgba(137, 178, 181, 0.3);
+  --rail-active: rgba(105, 157, 161, 0.24);
+  --rail-on-active: #cfe8e9;
   --grafito: #151b1c;
   --grafito-2: #202829;
   --grafito-3: #313b3b;
   --grafito-4: #526160;
   --teal: var(--md-primary);
-  --teal-claro: #1b888e;
+  --teal-claro: #419095;
   --teal-suave: var(--md-primary-container);
   --sierra: var(--md-tertiary);
-  --sierra-fuerte: #d99b00;
+  --sierra-fuerte: var(--brand-secondary-strong);
   --accent: var(--md-tertiary);
   --alerta: var(--md-error);
   --alerta-suave: var(--md-error-container);
@@ -678,7 +682,7 @@ textarea {
   }
 
   .data-table tbody tr:hover td {
-    background: rgba(18, 102, 107, 0.05);
+    background: var(--brand-primary-hover-surface);
   }
 
   .data-table tbody tr.is-active td {
@@ -720,9 +724,9 @@ textarea {
   }
 
   .rail-link[data-active="true"] {
-    background: rgba(164, 240, 246, 0.16);
+    background: var(--rail-active);
     color: #ffffff;
-    box-shadow: inset 0 0 0 1px rgba(164, 240, 246, 0.24);
+    box-shadow: inset 0 0 0 1px var(--rail-outline);
   }
 
   .rail-link[data-active="true"]::after {
@@ -975,7 +979,7 @@ textarea {
 }
 
 .plan-legend-remnant {
-  background: repeating-linear-gradient(45deg, #ffffff 0, #ffffff 5px, #4c8582 5px, #4c8582 7px);
+  background: repeating-linear-gradient(45deg, #ffffff 0, #ffffff 5px, var(--md-primary) 5px, var(--md-primary) 7px);
 }
 
 .plan-legend-waste {
@@ -1045,13 +1049,13 @@ textarea {
 
 .print-report-header {
   padding-bottom: 16px;
-  border-bottom: 2px solid #17201f;
+  border-bottom: 2px solid var(--md-on-surface);
 }
 
 .print-report-header h1,
 .print-board-heading h2 {
   margin: 2px 0 4px;
-  color: #17201f;
+  color: var(--md-on-surface);
   font-size: 20px;
   line-height: 1.15;
 }
@@ -1071,7 +1075,7 @@ textarea {
 }
 
 .print-report-kicker {
-  color: #0f766e;
+  color: var(--md-primary);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1091,13 +1095,13 @@ textarea {
   min-height: 42px;
   padding: 7px 8px;
   border: 1px solid #cfd8d4;
-  background: #f7f9f7;
+  background: var(--md-surface-container);
 }
 
 .print-metric strong,
 .print-board-metrics strong {
   display: block;
-  color: #17201f;
+  color: var(--md-on-surface);
   font-family: "Roboto Mono", ui-monospace, monospace;
   font-size: 13px;
   line-height: 1.2;
@@ -1114,8 +1118,8 @@ textarea {
 }
 
 .print-metric-strong {
-  border-color: #0f766e;
-  background: #e4f2ef;
+  border-color: var(--md-primary);
+  background: var(--md-primary-container);
 }
 
 .print-board-sheet {
@@ -1161,7 +1165,7 @@ textarea {
 
 .print-detail-section h3 {
   margin: 0 0 5px;
-  color: #17201f;
+  color: var(--md-on-surface);
   font-size: 11px;
 }
 
@@ -1172,7 +1176,7 @@ textarea {
 .print-table {
   width: 100%;
   border-collapse: collapse;
-  color: #17201f;
+  color: var(--md-on-surface);
   font-size: 8px;
   table-layout: fixed;
 }
@@ -1207,7 +1211,7 @@ textarea {
 
   .print-report {
     display: block !important;
-    color: #17201f;
+    color: var(--md-on-surface);
   }
 
   body {

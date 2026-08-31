@@ -34,7 +34,7 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Administrador</div>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Materiales</h1>
         <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
-          El usuario no tiene una organizacion activa. Si sos super usuario, entra desde{" "}
+          El usuario no tiene una organizacion activa. Si administras la plataforma, entra desde{" "}
           <Link href={toScopedPath(basePath, "/admin/organizations")} className="text-[var(--teal)] hover:underline">
             Organizaciones
           </Link>

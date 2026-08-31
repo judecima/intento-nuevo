@@ -12,8 +12,14 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableContainerSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import { orderStatusLabels, getOrderSnapshotSummary } from "@/lib/domain/orders";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
 import { approveOrderAction } from "@/lib/orders/actions";
@@ -44,25 +50,6 @@ type PendingOrderRow = {
 };
 
 export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          primary: { main: "#0f766e" },
-          background: { default: "#dde6e3", paper: "#ffffff" },
-          text: { primary: "#17201f", secondary: "#5f6f6c" }
-        },
-        shape: { borderRadius: 8 },
-        typography: { fontFamily: "inherit" },
-        components: {
-          MuiButton: {
-            styleOverrides: { root: { textTransform: "none", fontWeight: 700 } }
-          }
-        }
-      }),
-    []
-  );
-
   const rows = useMemo<PendingOrderRow[]>(
     () =>
       orders.map((order) => {
@@ -116,7 +103,7 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
           <Stack spacing={0.25}>
             <Typography sx={{ fontSize: 14, fontWeight: 800 }}>{row.original.customerName}</Typography>
             {row.original.customerEmail ? (
-              <Typography sx={{ color: "#5f6f6c", fontSize: 12 }}>{row.original.customerEmail}</Typography>
+              <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 12 }}>{row.original.customerEmail}</Typography>
             ) : null}
           </Stack>
         )
@@ -180,6 +167,7 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
   const table = useMaterialReactTable({
     columns,
     data: rows,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnFilters: true,
     enableColumnPinning: true,
@@ -197,27 +185,10 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
       sorting: [{ id: "submittedAt", desc: true }],
       columnPinning: { left: ["shortId", "statusLabel"], right: ["mrt-row-actions"] }
     },
-    muiTablePaperProps: {
-      sx: {
-        border: "1px solid var(--line)",
-        borderRadius: "8px",
-        overflow: "hidden"
-      }
-    },
-    muiTableContainerProps: {
-      sx: { maxHeight: "calc(100vh - 285px)", backgroundColor: "#fff" }
-    },
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: "#eef3f1",
-        color: "#17201f",
-        fontSize: 12,
-        fontWeight: 800
-      }
-    },
-    muiTableBodyCellProps: {
-      sx: { borderColor: "var(--line)", fontSize: 13 }
-    },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableContainerProps: { sx: brandedTableContainerSx("calc(100vh - 285px)") },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
       <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
         {row.getIsExpanded() ? "Cerrar" : "Acciones"}
@@ -225,7 +196,7 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
     ),
     renderDetailPanel: ({ row }) => <PendingOrderActions row={row} />,
     renderTopToolbarCustomActions: () => (
-      <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {orders.length} pedidos pendientes
       </Typography>
     )
@@ -240,9 +211,9 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
   }
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
-    </ThemeProvider>
+    </BrandedMuiThemeProvider>
   );
 }
 
@@ -251,12 +222,12 @@ function PendingOrderActions({ row }: { row: MRT_Row<PendingOrderRow> }) {
 
   return (
     <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f9f7] p-3 text-sm">
+      <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] p-3 text-sm">
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Nota cliente</div>
         <div className="mt-2 text-[var(--ink)]">{row.original.notesCustomer || "Sin nota"}</div>
       </div>
 
-      <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-white p-3">
+      <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3">
         <input type="hidden" name="orderId" value={order.id} />
         <input type="hidden" name="expectedOrderVersion" value={order.version} />
         <TextArea label="Comentario de validacion" name="comment" />

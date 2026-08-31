@@ -1,5 +1,11 @@
 import { cache } from "react";
 import { isSupabaseConfigured } from "@/lib/env";
+import {
+  DEFAULT_BRAND_NAME,
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SECONDARY_COLOR,
+  normalizeBrandIdentity
+} from "@/lib/branding/identity";
 import type { OrganizationRole } from "@/lib/domain/roles";
 import { getRouteScopeFromHeaders } from "@/lib/routing/server";
 import { routeScopeFromSlug, type RouteScope } from "@/lib/routing/routes";
@@ -16,9 +22,9 @@ export type PlatformBranding = {
 };
 
 export const defaultPlatformBranding: PlatformBranding = {
-  legalName: "Plan de corte SaaS",
-  primaryColor: "#12666b",
-  secondaryColor: "#f5b301",
+  legalName: DEFAULT_BRAND_NAME,
+  primaryColor: DEFAULT_PRIMARY_COLOR,
+  secondaryColor: DEFAULT_SECONDARY_COLOR,
   logoUrl: null
 };
 
@@ -123,11 +129,29 @@ export const getCurrentUserContext = cache(async (scopeSlug?: string): Promise<A
     // Branding puede no existir todavía en una base que aún no recibió la
     // migración; en ese caso se usan defaults sin bloquear la aplicación.
     loadError: profileResult.error?.message ?? membershipsResult.error?.message ?? null,
-    platformBranding: brandingResult.data
-      ? { legalName: brandingResult.data.legal_name, primaryColor: brandingResult.data.primary_color, secondaryColor: brandingResult.data.secondary_color, logoUrl: brandingResult.data.logo_url }
-      : defaultPlatformBranding
+    platformBranding: brandingResult.data ? toPlatformBranding(brandingResult.data) : defaultPlatformBranding
   };
 });
+
+function toPlatformBranding(value: {
+  legal_name: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  logo_url: string | null;
+}): PlatformBranding {
+  const brand = normalizeBrandIdentity({
+    name: value.legal_name,
+    primaryColor: value.primary_color,
+    secondaryColor: value.secondary_color,
+    logoUrl: value.logo_url
+  });
+  return {
+    legalName: brand.name,
+    primaryColor: brand.primaryColor,
+    secondaryColor: brand.secondaryColor,
+    logoUrl: brand.logoUrl
+  };
+}
 
 function resolveActiveMembership(
   memberships: OrganizationMembership[],

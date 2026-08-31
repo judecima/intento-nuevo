@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
+import { AppProviders } from "@/components/layout/app-providers";
+import { getPublicPlatformBranding } from "@/lib/branding/public";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Corte SaaS",
-  description: "Gestion, optimizacion y produccion de cortes de tableros"
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const branding = await getPublicPlatformBranding();
+
+  return {
+    title: branding.name,
+    description: "Gestion, optimizacion y produccion de cortes de tableros"
+  };
+}
 
 export default function RootLayout({
   children
@@ -15,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <AppRouterCacheProvider>{children}</AppRouterCacheProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

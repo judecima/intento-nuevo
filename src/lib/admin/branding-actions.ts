@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from "@/lib/branding/identity";
 import { canAdminister } from "@/lib/domain/admin";
 import { canManagePlatform, organizationDeliveryTimeDaysSchema } from "@/lib/domain/platform";
 import { scopedPath } from "@/lib/routing/server";
@@ -84,8 +85,8 @@ export async function updateOrganizationBrandingAction(formData: FormData) {
 export async function updatePlatformBrandingAction(formData: FormData) {
   const parsed = platformBrandingSchema.safeParse({
     legalName: String(formData.get("legalName") ?? "").trim(),
-    primaryColor: String(formData.get("primaryColor") ?? "#12666b").trim(),
-    secondaryColor: String(formData.get("secondaryColor") ?? "#f5b301").trim(),
+    primaryColor: String(formData.get("primaryColor") ?? DEFAULT_PRIMARY_COLOR).trim(),
+    secondaryColor: String(formData.get("secondaryColor") ?? DEFAULT_SECONDARY_COLOR).trim(),
     removeLogo: formData.get("removeLogo") ?? undefined
   });
   if (!parsed.success) {

@@ -156,10 +156,10 @@ export const platformNoticeMessages: Record<string, string> = {
   member_linked: "Usuario vinculado a la organizacion.",
   member_saved: "Membresia actualizada.",
   member_removed: "Usuario desvinculado.",
-  [platformDomainErrors.forbidden]: "Solo un super usuario puede administrar organizaciones.",
+  [platformDomainErrors.forbidden]: "Solo un administrador de plataforma puede administrar organizaciones.",
   [platformDomainErrors.invalidInput]: "Revisa los datos: hay algun campo invalido.",
   [platformDomainErrors.slugTaken]: "Ya existe una organizacion con ese identificador.",
-  [platformDomainErrors.slugReserved]: "El identificador jadsi esta reservado para el super usuario.",
+  [platformDomainErrors.slugReserved]: "El identificador jadsi esta reservado para la plataforma.",
   [platformDomainErrors.organizationNotFound]: "No se encontro la organizacion.",
   [platformDomainErrors.organizationHasData]:
     "La organizacion tiene proyectos o pedidos cargados: desactivala en lugar de eliminarla.",

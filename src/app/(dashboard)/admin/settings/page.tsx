@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
 import { OrganizationBrandingForm } from "@/components/admin/organization-branding-form";
 import { PlatformBrandingForm } from "@/components/admin/platform-branding-form";
 import { getCurrentUserContext } from "@/lib/auth/context";
@@ -20,7 +19,9 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
         <header>
           <div className="eyebrow">Plataforma</div>
           <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">Configuracion</h1>
-          <p className="hint mt-2">El superusuario configura la identidad visual dentro de cada organizacion.</p>
+          <p className="hint mt-2">
+            {context.platformBranding.legalName} configura la identidad visual global y la de cada organizacion.
+          </p>
         </header>
         <section className="card p-5">
           <h2 className="text-[19px] font-semibold">Identidad global del SaaS</h2>
@@ -42,7 +43,17 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
   }
 
   if (!context.activeOrganization || !canAdminister(context.role)) {
-    return <SectionPlaceholder title="Configuracion" eyebrow="Administrador" />;
+    return (
+      <section className="mx-auto max-w-[900px] space-y-4">
+        <header>
+          <div className="eyebrow">Administrador</div>
+          <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">Configuracion</h1>
+        </header>
+        <div className="card p-5 text-sm text-[var(--muted)]">
+          Tu usuario no tiene permisos para editar la configuracion de esta organizacion.
+        </div>
+      </section>
+    );
   }
 
   const notice = searchParams?.notice ? noticeMessages[searchParams.notice] : null;
@@ -80,6 +91,8 @@ const noticeMessages: Record<string, string> = {
   branding_invalid: "Los colores, la organizacion o el tiempo de entrega no son validos.",
   branding_file_invalid: "El logo debe ser PNG, JPG, WEBP o SVG y pesar como maximo 2 MB.",
   branding_save_failed: "No se pudo guardar la configuracion de organizacion.",
+  platform_branding_saved: "Identidad global guardada.",
+  platform_branding_invalid: "Los datos de identidad global no son validos.",
   platform_branding_migration_required: "Falta aplicar la migracion de identidad global en Supabase.",
   platform_branding_save_failed: "No se pudo cargar el logo global.",
   platform_branding_name_invalid: "La razon social del SaaS debe tener entre 2 y 160 caracteres.",

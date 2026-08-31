@@ -1,4 +1,5 @@
 import type { AppUserContext } from "@/lib/auth/context";
+import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from "@/lib/branding/identity";
 import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS, canManagePlatform, platformDomainErrors } from "@/lib/domain/platform";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
@@ -82,8 +83,8 @@ export async function listPlatformOrganizations(context: AppUserContext): Promis
     slug: organization.slug,
     active: organization.active,
     allowCustomerSignup: organization.allow_customer_signup,
-    primaryColor: organization.primary_color || "#12666b",
-    secondaryColor: organization.secondary_color || "#f5b301",
+    primaryColor: organization.primary_color || DEFAULT_PRIMARY_COLOR,
+    secondaryColor: organization.secondary_color || DEFAULT_SECONDARY_COLOR,
     deliveryTimeDays: organization.delivery_time_days ?? DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS,
     logoUrl: organization.logo_url,
     createdAt: organization.created_at,

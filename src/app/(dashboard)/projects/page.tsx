@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { OrganizationScopePicker } from "@/components/projects/organization-scope-picker";
 import { ProjectTable } from "@/components/projects/project-table";
+import { SurfaceCard, SurfaceTitle } from "@/components/ui/material";
 import { listPlatformOrganizations } from "@/lib/admin/platform";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
@@ -38,11 +39,10 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   if (!organizationId) {
     return (
       <section className="max-w-6xl">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Cliente</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Mis proyectos</h1>
-        <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
+        <SurfaceTitle eyebrow="Cliente" title="Mis proyectos" />
+        <SurfaceCard className="mt-5" bodyClassName="p-5 text-sm text-[var(--muted)]">
           El usuario no tiene una organizacion activa.
-        </div>
+        </SurfaceCard>
       </section>
     );
   }
@@ -53,14 +53,12 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   return (
     <section className="max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Cliente</div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Mis proyectos</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">
-            Proyectos editables con material, parametros de corte y piezas persistidas.
-          </p>
-        </div>
-        <Link href={toScopedPath(basePath, "/projects/new")} className="focus-ring rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white">
+        <SurfaceTitle
+          eyebrow="Cliente"
+          title="Mis proyectos"
+          description="Proyectos editables con material, parametros de corte y piezas persistidas."
+        />
+        <Link href={toScopedPath(basePath, "/projects/new")} className="btn btn-primary focus-ring">
           Nuevo proyecto
         </Link>
       </div>

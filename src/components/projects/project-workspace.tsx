@@ -429,7 +429,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
               <div className="min-w-[1180px]">
-              <div className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_430px_84px] gap-2 border-b border-[var(--line)] bg-[#f6f8f5] px-4 py-2 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[var(--muted)]">
+              <div className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_430px_84px] gap-2 border-b border-[var(--line)] bg-[var(--md-surface-container)] px-4 py-2 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-[var(--muted)]">
                 <div>Ref.</div>
                 <div>Descripcion</div>
                 <div>Cant.</div>
@@ -443,7 +443,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
               {rows.map((row) => (
                 <div
                   key={row.uid}
-                  className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_430px_84px] items-center gap-2 border-b border-[#edefec] px-4 py-2 hover:bg-[#fafbf9]"
+                  className="grid grid-cols-[86px_minmax(160px,1fr)_74px_92px_92px_70px_70px_430px_84px] items-center gap-2 border-b border-[var(--line)] px-4 py-2 hover:bg-[var(--brand-primary-hover-surface)]"
                 >
                   <input
                     value={row.reference}
@@ -613,7 +613,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         )}
 
         {props.editable ? (
-          <div className="border-t border-[var(--line)] bg-[#fbfcfa] p-4">
+          <div className="border-t border-[var(--line)] bg-[var(--md-surface-container-low)] p-4">
             <details>
               <summary className="cursor-pointer text-[12.5px] font-semibold text-[var(--teal)]">
                 Pegar listado del taller

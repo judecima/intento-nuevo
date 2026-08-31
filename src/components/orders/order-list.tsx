@@ -1,17 +1,206 @@
-import { approveOrderAction } from "@/lib/orders/actions";
-import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
-import type { OrderRow } from "@/lib/orders/queries";
+"use client";
+
+import { useMemo } from "react";
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+  type MRT_ColumnDef,
+  type MRT_Row
+} from "material-react-table";
+import { MRT_Localization_ES } from "material-react-table/locales/es";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableContainerSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
-
-type OrderListMode = "customer" | "pending" | "review" | "approved";
+import type { OrderRow } from "@/lib/orders/queries";
 
 type OrderListProps = {
   orders: OrderRow[];
-  mode: OrderListMode;
 };
 
-export function OrderList({ orders, mode }: OrderListProps) {
+type CustomerOrderTableRow = {
+  id: string;
+  shortId: string;
+  version: number;
+  statusLabel: string;
+  projectName: string;
+  materialDescription: string;
+  submittedAt: string;
+  createdAt: string;
+  boardCount: number;
+  totalPieces: number;
+  itemRows: number;
+  cutCount: number;
+  sawMeters: number;
+  utilizationPercentage: number;
+  edgeBand045Meters: number;
+  edgeBand2mmMeters: number;
+  notesCustomer: string;
+  notesSeller: string;
+  order: OrderRow;
+};
+
+export function OrderList({ orders }: OrderListProps) {
+  const rows = useMemo<CustomerOrderTableRow[]>(
+    () =>
+      orders.map((order) => {
+        const summary = getOrderSnapshotSummary(order.snapshot);
+
+        return {
+          id: order.id,
+          shortId: order.id.slice(0, 8),
+          version: order.version,
+          statusLabel: orderStatusLabels[order.status],
+          projectName: summary.projectName,
+          materialDescription: summary.materialDescription,
+          submittedAt: order.submitted_at,
+          createdAt: order.created_at,
+          boardCount: summary.boardCount,
+          totalPieces: summary.totalPieces,
+          itemRows: summary.itemRows,
+          cutCount: summary.cutCount,
+          sawMeters: summary.sawMeters,
+          utilizationPercentage: summary.utilizationPercentage,
+          edgeBand045Meters: summary.edgeBand045Meters,
+          edgeBand2mmMeters: summary.edgeBand2mmMeters,
+          notesCustomer: order.notes_customer ?? "",
+          notesSeller: order.notes_seller ?? "",
+          order
+        };
+      }),
+    [orders]
+  );
+
+  const columns = useMemo<MRT_ColumnDef<CustomerOrderTableRow>[]>(
+    () => [
+      {
+        accessorKey: "shortId",
+        header: "Pedido",
+        size: 90,
+        Cell: ({ cell }) => (
+          <Typography component="span" sx={{ fontFamily: "monospace", fontSize: 12, fontWeight: 800 }}>
+            {cell.getValue<string>()}
+          </Typography>
+        )
+      },
+      {
+        accessorKey: "statusLabel",
+        header: "Estado",
+        size: 140,
+        Cell: ({ row }) => (
+          <Chip
+            size="small"
+            color={statusColor(row.original.order.status)}
+            variant={row.original.order.status === "completed" || row.original.order.status === "delivered" ? "filled" : "outlined"}
+            label={row.original.statusLabel}
+          />
+        )
+      },
+      {
+        accessorKey: "projectName",
+        header: "Proyecto",
+        size: 260,
+        Cell: ({ row }) => (
+          <Stack spacing={0.25}>
+            <Typography sx={{ fontSize: 14, fontWeight: 800 }}>{row.original.projectName}</Typography>
+            <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 12 }}>
+              {row.original.materialDescription}
+            </Typography>
+          </Stack>
+        )
+      },
+      {
+        accessorKey: "boardCount",
+        header: "Placas",
+        size: 90
+      },
+      {
+        accessorKey: "totalPieces",
+        header: "Piezas",
+        size: 90
+      },
+      {
+        accessorKey: "cutCount",
+        header: "Cortes",
+        size: 90
+      },
+      {
+        accessorKey: "sawMeters",
+        header: "ML sierra",
+        size: 110,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(2)} m`
+      },
+      {
+        accessorKey: "utilizationPercentage",
+        header: "Aprov.",
+        size: 100,
+        Cell: ({ cell }) => `${cell.getValue<number>().toFixed(1)}%`
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Creado",
+        size: 160,
+        Cell: ({ cell }) => formatDateTimeEsAr(cell.getValue<string>())
+      },
+      {
+        accessorKey: "version",
+        header: "Version",
+        size: 100,
+        Cell: ({ cell }) => (
+          <Typography sx={{ fontFamily: "monospace", fontSize: 13 }}>v{cell.getValue<number>()}</Typography>
+        )
+      }
+    ],
+    []
+  );
+
+  const table = useMaterialReactTable({
+    columns,
+    data: rows,
+    layoutMode: "grid",
+    localization: MRT_Localization_ES,
+    enableColumnFilters: true,
+    enableColumnPinning: true,
+    enableColumnResizing: true,
+    enableDensityToggle: true,
+    enableExpanding: true,
+    enableFullScreenToggle: true,
+    enableRowActions: true,
+    enableStickyHeader: true,
+    getRowId: (row) => row.id,
+    initialState: {
+      density: "compact",
+      pagination: { pageIndex: 0, pageSize: 25 },
+      showColumnFilters: true,
+      sorting: [{ id: "createdAt", desc: true }],
+      columnPinning: { left: ["shortId", "statusLabel"], right: ["mrt-row-actions"] }
+    },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableContainerProps: { sx: brandedTableContainerSx("calc(100vh - 275px)") },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
+    renderRowActions: ({ row }) => (
+      <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
+        {row.getIsExpanded() ? "Cerrar" : "Detalle"}
+      </Button>
+    ),
+    renderDetailPanel: ({ row }) => <CustomerOrderDetail row={row} />,
+    renderTopToolbarCustomActions: () => (
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
+        {orders.length} pedidos
+      </Typography>
+    )
+  });
+
   if (orders.length === 0) {
     return (
       <div className="rounded-[var(--r)] border border-dashed border-[var(--linea-fuerte)] bg-[rgba(255,255,255,.45)] p-8 text-center text-sm text-[var(--muted)]">
@@ -21,119 +210,54 @@ export function OrderList({ orders, mode }: OrderListProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {orders.map((order) => (
-        <OrderCard key={order.id} order={order} mode={mode} />
-      ))}
-    </div>
+    <BrandedMuiThemeProvider>
+      <MaterialReactTable table={table} />
+    </BrandedMuiThemeProvider>
   );
 }
 
-function OrderCard({ order, mode }: { order: OrderRow; mode: OrderListMode }) {
-  const summary = getOrderSnapshotSummary(order.snapshot);
-
+function CustomerOrderDetail({ row }: { row: MRT_Row<CustomerOrderTableRow> }) {
   return (
-    <article className="overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-white">
-      <div className="flex flex-col gap-3 border-b border-[var(--line)] px-4 py-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="font-mono text-xs text-[var(--muted)]">{order.id.slice(0, 8)}</div>
-          <h2 className="mt-1 text-[20px] font-bold">{summary.projectName}</h2>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">{orderStatusLabels[order.status]}</span>
-            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">Version {order.version}</span>
-            <span className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f8f6] px-2 py-1">{formatDateTimeEsAr(order.created_at)}</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--line)] text-sm md:grid-cols-6">
-          <Metric label="Placas" value={summary.boardCount.toString()} />
-          <Metric label="Piezas" value={summary.totalPieces.toString()} />
-          <Metric label="Aprov." value={`${summary.utilizationPercentage.toFixed(1)}%`} />
-          <Metric label="Filas" value={summary.itemRows.toString()} />
-          <Metric label="Canto 0,45" value={`${summary.edgeBand045Meters.toFixed(2)} m`} />
-          <Metric label="Canto 2 mm" value={`${summary.edgeBand2mmMeters.toFixed(2)} m`} />
-        </div>
+    <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <dl className="grid gap-3 text-sm md:grid-cols-2">
+        <Detail label="Material" value={row.original.materialDescription} />
+        <Detail label="Filas" value={`${row.original.itemRows}`} />
+        <Detail label="Canto 0,45" value={`${row.original.edgeBand045Meters.toFixed(2)} m`} />
+        <Detail label="Canto 2 mm" value={`${row.original.edgeBand2mmMeters.toFixed(2)} m`} />
+        <Detail label="Enviado" value={formatDateTimeEsAr(row.original.submittedAt)} />
+        <Detail label="Pedido" value={row.original.id} mono />
+      </dl>
+
+      <div className="space-y-3">
+        <Note label="Nota cliente" value={row.original.notesCustomer || "Sin nota"} />
+        <Note label="Nota vendedor" value={row.original.notesSeller || "Sin nota"} />
       </div>
-
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <dl className="grid gap-3 text-sm md:grid-cols-2">
-          <Detail label="Material" value={summary.materialDescription} />
-          <Detail label="Cliente" value={customerLabel(summary.customerName, summary.customerEmail)} />
-          <Detail label="Canto 0,45" value={`${summary.edgeBand045Meters.toFixed(2)} m`} />
-          <Detail label="Canto 2 mm" value={`${summary.edgeBand2mmMeters.toFixed(2)} m`} />
-          <Detail label="Nota cliente" value={order.notes_customer || "Sin nota"} />
-          <Detail label="Nota vendedor" value={order.notes_seller || "Sin nota"} />
-        </dl>
-
-        <OrderActions order={order} mode={mode} />
-      </div>
-    </article>
-  );
-}
-
-function OrderActions({ order, mode }: { order: OrderRow; mode: OrderListMode }) {
-  if (mode === "pending" || mode === "review") {
-    return (
-      <form action={approveOrderAction} className="space-y-3">
-        <input type="hidden" name="orderId" value={order.id} />
-        <input type="hidden" name="expectedOrderVersion" value={order.version} />
-        <TextArea label="Comentario de validacion" name="comment" />
-        <PendingSubmitButton
-          pendingLabel="Aprobando pedido..."
-          className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
-        >
-          Aprobar pedido
-        </PendingSubmitButton>
-      </form>
-    );
-  }
-
-  return (
-    <div className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f9f7] p-4 text-sm text-[var(--muted)]">
-      Pedido disponible para la siguiente etapa del flujo.
     </div>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Detail({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="min-w-[68px] bg-white px-3 py-2 text-center">
-      <div className="font-mono text-[17px] font-semibold leading-none tracking-[-0.02em]">{value}</div>
-      <div className="mt-1 text-[9.5px] uppercase tracking-[0.11em] text-[var(--muted)]">{label}</div>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
+    <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] p-3">
       <dt className="text-xs uppercase tracking-[0.14em] text-[var(--muted)]">{label}</dt>
-      <dd className="mt-1 font-semibold">{value}</dd>
+      <dd className={`mt-1 break-all font-semibold ${mono ? "font-mono text-xs" : ""}`}>{value}</dd>
     </div>
   );
 }
 
-function TextArea({
-  label,
-  name,
-  required = false
-}: {
-  label: string;
-  name: string;
-  required?: boolean;
-}) {
+function Note({ label, value }: { label: string; value: string }) {
   return (
-    <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{label}</span>
-      <textarea
-        name={name}
-        rows={3}
-        required={required}
-        className="mt-2 w-full rounded border border-[var(--line)] px-3 py-2 text-sm focus-ring"
-      />
-    </label>
+    <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3 text-sm">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{label}</div>
+      <div className="mt-2 text-[var(--ink)]">{value}</div>
+    </div>
   );
 }
 
-function customerLabel(name: string, email: string) {
-  return email ? `${name} - ${email}` : name;
+function statusColor(status: OrderRow["status"]): "default" | "primary" | "success" | "warning" | "error" {
+  if (status === "cancelled" || status === "changes_requested") return "error";
+  if (status === "submitted" || status === "under_review" || status === "pending") return "warning";
+  if (status === "production" || status === "edgebanding") return "primary";
+  if (status === "completed" || status === "delivered") return "success";
+  return "default";
 }

@@ -13,7 +13,7 @@ export function MaterialImage({ src, alt }: MaterialImageProps) {
 
   if (!src || failed) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-[#dfe5df] text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+      <div className="flex h-full w-full items-center justify-center bg-[var(--md-surface-container)] text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
         Sin imagen
       </div>
     );

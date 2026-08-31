@@ -12,8 +12,14 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableContainerSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
 import { approveOrderAction, requestOrderChangesAction } from "@/lib/orders/actions";
@@ -62,25 +68,6 @@ const modeLabels: Record<SalesOrdersTableMode, { count: string; empty: string }>
 };
 
 export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          primary: { main: "#0f766e" },
-          background: { default: "#dde6e3", paper: "#ffffff" },
-          text: { primary: "#17201f", secondary: "#5f6f6c" }
-        },
-        shape: { borderRadius: 8 },
-        typography: { fontFamily: "inherit" },
-        components: {
-          MuiButton: {
-            styleOverrides: { root: { textTransform: "none", fontWeight: 700 } }
-          }
-        }
-      }),
-    []
-  );
-
   const rows = useMemo<SalesOrderTableRow[]>(
     () =>
       orders.map((order) => {
@@ -145,7 +132,7 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
           <Stack spacing={0.25}>
             <Typography sx={{ fontSize: 14, fontWeight: 800 }}>{row.original.customerName}</Typography>
             {row.original.customerEmail ? (
-              <Typography sx={{ color: "#5f6f6c", fontSize: 12 }}>{row.original.customerEmail}</Typography>
+              <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 12 }}>{row.original.customerEmail}</Typography>
             ) : null}
           </Stack>
         )
@@ -215,6 +202,7 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
   const table = useMaterialReactTable({
     columns,
     data: rows,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnFilters: true,
     enableColumnPinning: true,
@@ -232,27 +220,10 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
       sorting: [{ id: mode === "approved" ? "approvedAt" : "reviewedAt", desc: true }],
       columnPinning: { left: ["shortId", "statusLabel"], right: ["mrt-row-actions"] }
     },
-    muiTablePaperProps: {
-      sx: {
-        border: "1px solid var(--line)",
-        borderRadius: "8px",
-        overflow: "hidden"
-      }
-    },
-    muiTableContainerProps: {
-      sx: { maxHeight: "calc(100vh - 285px)", backgroundColor: "#fff" }
-    },
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: "#eef3f1",
-        color: "#17201f",
-        fontSize: 12,
-        fontWeight: 800
-      }
-    },
-    muiTableBodyCellProps: {
-      sx: { borderColor: "var(--line)", fontSize: 13 }
-    },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableContainerProps: { sx: brandedTableContainerSx("calc(100vh - 285px)") },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
       <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
         {row.getIsExpanded() ? "Cerrar" : "Detalle"}
@@ -260,7 +231,7 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
     ),
     renderDetailPanel: ({ row }) => <SalesOrderDetail row={row} mode={mode} />,
     renderTopToolbarCustomActions: () => (
-      <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {orders.length} {modeLabels[mode].count}
       </Typography>
     )
@@ -275,9 +246,9 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
   }
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
-    </ThemeProvider>
+    </BrandedMuiThemeProvider>
   );
 }
 
@@ -288,7 +259,7 @@ function SalesOrderDetail({ row, mode }: { row: MRT_Row<SalesOrderTableRow>; mod
     return (
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <OrderNotes row={row.original} />
-        <div className="rounded-[var(--r)] border border-[var(--line)] bg-white p-3 text-sm">
+        <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3 text-sm">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Validacion</div>
           <div className="mt-2 font-semibold text-[var(--ink)]">Listo para produccion</div>
           <div className="mt-1 text-[var(--muted)]">
@@ -303,7 +274,7 @@ function SalesOrderDetail({ row, mode }: { row: MRT_Row<SalesOrderTableRow>; mod
     <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px_320px]">
       <OrderNotes row={row.original} />
 
-      <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-white p-3">
+      <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3">
         <input type="hidden" name="orderId" value={order.id} />
         <input type="hidden" name="expectedOrderVersion" value={order.version} />
         <TextArea label="Comentario aprobacion" name="comment" />
@@ -315,7 +286,7 @@ function SalesOrderDetail({ row, mode }: { row: MRT_Row<SalesOrderTableRow>; mod
         </PendingSubmitButton>
       </form>
 
-      <form action={requestOrderChangesAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-white p-3">
+      <form action={requestOrderChangesAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3">
         <input type="hidden" name="orderId" value={order.id} />
         <input type="hidden" name="expectedOrderVersion" value={order.version} />
         <TextArea label="Correcciones solicitadas" name="comment" required />
@@ -345,7 +316,7 @@ function OrderNotes({ row }: { row: SalesOrderTableRow }) {
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[var(--r)] border border-[var(--line)] bg-[#f7f9f7] p-3">
+    <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] p-3">
       <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{label}</div>
       <div className="mt-2 text-[var(--ink)]">{value}</div>
     </div>

@@ -7,7 +7,11 @@ import {
   type MRT_ColumnDef
 } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableHeadCellSx
+} from "@/components/ui/branded-mui-theme";
 import { edgeLabel, type CutPlanView } from "@/lib/optimizations/plan-view";
 import type { ManualPiecePosition } from "@/lib/optimizations/manual-placement";
 import { BoardPlan } from "./board-plan";
@@ -314,7 +318,7 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
 
           <div className="flex flex-wrap items-center gap-2">
             {visualPlan.boards.length > 1 ? (
-              <div className="flex flex-wrap gap-1 rounded-[var(--r-md)] border border-[var(--line)] bg-[#f6f8f5] p-1">
+              <div className="flex flex-wrap gap-1 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--md-surface-container)] p-1">
                 {visualPlan.boards.map((item) => (
                   <button
                     key={item.index}
@@ -324,7 +328,7 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
                     className={`focus-ring rounded-[var(--r)] px-2.5 py-1.5 font-mono text-[11.5px] ${
                       item.index === board.index
                         ? "bg-[var(--grafito)] text-white"
-                        : "text-[var(--muted)] hover:bg-white"
+                        : "text-[var(--muted)] hover:bg-[var(--md-surface-container-lowest)]"
                     }`}
                   >
                     {item.index + 1}
@@ -371,7 +375,7 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
         </div>
 
         <div className={`grid gap-0 ${diagMode ? "xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
-          <div className={`overflow-auto bg-[#f4f5f3] p-3 ${zoom > 1 ? "max-h-[70vh]" : ""}`}>
+          <div className={`overflow-auto bg-[var(--md-surface-container)] p-3 ${zoom > 1 ? "max-h-[70vh]" : ""}`}>
             <div style={{ width: `${zoom * 100}%` }}>
               <BoardPlan
                 board={board}
@@ -398,21 +402,21 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
           </div>
 
           {diagMode ? (
-            <div className="no-print border-t border-[var(--line)] bg-[#0b1420] p-3 xl:border-l xl:border-t-0">
+            <div className="no-print border-t border-[var(--line)] bg-[var(--rail)] p-3 xl:border-l xl:border-t-0">
               <DiagPanel target={target} meta={visualPlan.meta} onClose={() => setDiagMode(false)} />
             </div>
           ) : null}
         </div>
 
         {manualMode ? (
-          <div className="no-print border-t border-[var(--line)] bg-[#fbfcfa] px-3 py-2.5 text-[12px] text-[var(--muted)]">
+          <div className="no-print border-t border-[var(--line)] bg-[var(--md-surface-container-low)] px-3 py-2.5 text-[12px] text-[var(--muted)]">
             Modo manual activo: arrastra una pieza hacia un hueco libre o selecciona una pieza o un recorte para editar
             su familia o clasificacion. Los cambios son visuales y no modifican el arbol ni el XML.
             {manualPlacementNotice ? <strong className="ml-2 text-[var(--grafito)]">{manualPlacementNotice}</strong> : null}
           </div>
         ) : null}
 
-        <div className="no-print flex flex-wrap items-center gap-3 border-t border-[var(--line)] bg-white px-3 py-2.5">
+        <div className="no-print flex flex-wrap items-center gap-3 border-t border-[var(--line)] bg-[var(--md-surface-container-lowest)] px-3 py-2.5">
           <button
             type="button"
             onClick={togglePlay}
@@ -465,7 +469,7 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
                 onClick={() => setSpeedIndex(index)}
                 aria-pressed={index === speedIndex}
                 className={`focus-ring rounded-[var(--r)] px-2 py-1 font-mono text-[11px] ${
-                  index === speedIndex ? "bg-[var(--grafito)] text-white" : "text-[var(--muted)] hover:bg-[#f1f3f0]"
+                  index === speedIndex ? "bg-[var(--grafito)] text-white" : "text-[var(--muted)] hover:bg-[var(--md-surface-container)]"
                 }`}
               >
                 {speed.label}
@@ -909,7 +913,6 @@ function CutGroupsTable({
   highlightedGroup: string | null;
   onHighlight: (key: string | null) => void;
 }) {
-  const theme = useCompactTableTheme();
   const columns = useMemo<MRT_ColumnDef<VisualGroup>[]>(
     () => [
       {
@@ -960,6 +963,7 @@ function CutGroupsTable({
   const table = useMaterialReactTable({
     columns,
     data: groups,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnActions: false,
     enableColumnFilters: true,
@@ -976,21 +980,20 @@ function CutGroupsTable({
       onMouseEnter: () => onHighlight(row.original.key),
       onMouseLeave: () => onHighlight(null),
       sx: {
-        backgroundColor: highlightedGroup === row.original.key ? "#edf7f4" : undefined,
+        backgroundColor: highlightedGroup === row.original.key ? "var(--brand-primary-hover-surface)" : undefined,
         cursor: "default"
       }
     })
   });
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
-    </ThemeProvider>
+    </BrandedMuiThemeProvider>
   );
 }
 
 function StockRemnantsTable({ stock }: { stock: CutPlanView["stock"] }) {
-  const theme = useCompactTableTheme();
   const columns = useMemo<MRT_ColumnDef<CutPlanView["stock"][number]>[]>(
     () => [
       {
@@ -1019,6 +1022,7 @@ function StockRemnantsTable({ stock }: { stock: CutPlanView["stock"] }) {
   const table = useMaterialReactTable({
     columns,
     data: stock,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnActions: false,
     enableColumnFilters: true,
@@ -1034,25 +1038,9 @@ function StockRemnantsTable({ stock }: { stock: CutPlanView["stock"] }) {
   });
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
-    </ThemeProvider>
-  );
-}
-
-function useCompactTableTheme() {
-  return useMemo(
-    () =>
-      createTheme({
-        palette: {
-          primary: { main: "#0f766e" },
-          background: { default: "#ffffff", paper: "#ffffff" },
-          text: { primary: "#17201f", secondary: "#5f6f6c" }
-        },
-        shape: { borderRadius: 8 },
-        typography: { fontFamily: "inherit" }
-      }),
-    []
+    </BrandedMuiThemeProvider>
   );
 }
 
@@ -1065,19 +1053,11 @@ const tablePaperProps = {
 };
 
 const tableHeadCellProps = {
-  sx: {
-    backgroundColor: "#eef3f1",
-    color: "#17201f",
-    fontSize: 12,
-    fontWeight: 800
-  }
+  sx: brandedTableHeadCellSx
 };
 
 const tableBodyCellProps = {
-  sx: {
-    borderColor: "var(--line)",
-    fontSize: 13
-  }
+  sx: brandedTableBodyCellSx
 };
 
 function Metric({ value, label, strong = false }: { value: string; label: string; strong?: boolean }) {

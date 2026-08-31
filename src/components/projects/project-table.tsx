@@ -8,7 +8,12 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import { projectStatusLabels } from "@/lib/domain/projects";
 import { formatDateOnlyEsAr } from "@/lib/format/dates";
 import { toScopedPath } from "@/lib/routing/routes";
@@ -21,25 +26,6 @@ type ProjectTableProps = {
 
 export function ProjectTable({ projects, basePath }: ProjectTableProps) {
   const router = useRouter();
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          primary: { main: "#0f766e" },
-          background: { default: "#dde6e3", paper: "#ffffff" },
-          text: { primary: "#17201f", secondary: "#5f6f6c" }
-        },
-        shape: { borderRadius: 8 },
-        typography: { fontFamily: "inherit" },
-        components: {
-          MuiButton: {
-            styleOverrides: { root: { textTransform: "none", fontWeight: 700 } }
-          }
-        }
-      }),
-    []
-  );
-
   const columns = useMemo<MRT_ColumnDef<ProjectListItem>[]>(
     () => [
       {
@@ -49,7 +35,7 @@ export function ProjectTable({ projects, basePath }: ProjectTableProps) {
         Cell: ({ row }) => (
           <Stack spacing={0.25}>
             <Typography sx={{ fontSize: 14, fontWeight: 800 }}>{row.original.name}</Typography>
-            <Typography sx={{ color: "#5f6f6c", fontSize: 12 }}>
+            <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 12 }}>
               Actualizado {formatDateOnlyEsAr(row.original.updated_at)}
             </Typography>
           </Stack>
@@ -101,6 +87,7 @@ export function ProjectTable({ projects, basePath }: ProjectTableProps) {
   const table = useMaterialReactTable({
     columns,
     data: projects,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnFilters: true,
     enableColumnPinning: true,
@@ -115,31 +102,16 @@ export function ProjectTable({ projects, basePath }: ProjectTableProps) {
       pagination: { pageIndex: 0, pageSize: 20 },
       sorting: [{ id: "updated_at", desc: true }]
     },
-    muiTablePaperProps: {
-      sx: {
-        border: "1px solid var(--line)",
-        borderRadius: "8px",
-        overflow: "hidden"
-      }
-    },
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: "#eef3f1",
-        color: "#17201f",
-        fontSize: 12,
-        fontWeight: 800
-      }
-    },
-    muiTableBodyCellProps: {
-      sx: { fontSize: 13, borderColor: "var(--line)" }
-    },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
       <Button size="small" variant="contained" onClick={() => router.push(toScopedPath(basePath, `/projects/${row.original.id}`))}>
         Abrir
       </Button>
     ),
     renderTopToolbarCustomActions: () => (
-      <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {projects.length} proyectos
       </Typography>
     )
@@ -154,8 +126,8 @@ export function ProjectTable({ projects, basePath }: ProjectTableProps) {
   }
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
-    </ThemeProvider>
+    </BrandedMuiThemeProvider>
   );
 }

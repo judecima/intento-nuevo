@@ -236,7 +236,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
 
         <aside className="no-print h-fit space-y-5 xl:sticky xl:top-[86px]">
           <section className="card overflow-hidden">
-            <div className="relative aspect-[4/3] overflow-hidden border-b border-[var(--line)] bg-[#dfe5df]">
+            <div className="relative aspect-[4/3] overflow-hidden border-b border-[var(--line)] bg-[var(--md-surface-container)]">
               <MaterialImage src={data.material?.displayImageUrl ?? null} alt={data.material?.description ?? "Material"} />
             </div>
             <div className="space-y-3 p-4">

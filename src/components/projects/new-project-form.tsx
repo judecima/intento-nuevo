@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
 import { BoardPicker, type BoardMaterialOption } from "@/components/materials/board-picker";
 import { MaterialImage } from "@/components/materials/material-image";
+import { MtCard, MtCardBody, MtCardHeader, MtChip, MtInput, MtTextarea, MtTypography } from "@/components/ui/material";
 import { createProjectAction } from "@/lib/projects/actions";
 import type { CustomerOption } from "@/lib/customers/queries";
 import type { MachineCutSettings } from "@/lib/production/queries";
@@ -47,18 +48,22 @@ export function NewProjectForm({
       {organizationId ? <input type="hidden" name="organizationId" value={organizationId} /> : null}
       {requiresCustomer && customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
 
-      <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow-muted">Paso 1</div>
-            <h2 className="mt-1 text-[19px] font-bold">Tablero base</h2>
-            <p className="hint mt-1.5">
-              El material fija medida, espesor y veta del proyecto. Se puede cambiar despues desde el editor.
-            </p>
-          </div>
-        </div>
+      <MtCard className="rounded-lg border border-[var(--line)] bg-[var(--md-surface-container-lowest)] text-[var(--ink)] shadow-md">
+        <MtCardHeader
+          floated={false}
+          shadow={false}
+          className="m-0 rounded-none border-b border-[var(--line)] bg-transparent px-5 py-4"
+        >
+          <MtChip value="Paso 1" size="sm" variant="ghost" color="teal" className="w-fit rounded-md" />
+          <MtTypography as="h2" variant="h5" className="mt-2 font-medium text-[var(--ink)]">
+            Tablero base
+          </MtTypography>
+          <MtTypography as="p" variant="small" className="mt-1.5 max-w-2xl font-normal leading-5 text-[var(--muted)]">
+            El material fija medida, espesor y veta del proyecto. Se puede cambiar despues desde el editor.
+          </MtTypography>
+        </MtCardHeader>
 
-        <div className="space-y-4 p-4">
+        <MtCardBody className="space-y-4 p-4">
           <div>
             <span className="field-label">Material / tablero</span>
             <div className="mt-1.5">
@@ -67,8 +72,10 @@ export function NewProjectForm({
           </div>
 
           <div className="border-t border-[var(--line)] pt-4">
-            <div className="eyebrow-muted">Paso 2</div>
-            <h3 className="mt-1 text-[16px] font-bold">Datos del proyecto</h3>
+            <MtChip value="Paso 2" size="sm" variant="ghost" color="blue-gray" className="w-fit rounded-md" />
+            <MtTypography as="h3" variant="h6" className="mt-2 font-medium text-[var(--ink)]">
+              Datos del proyecto
+            </MtTypography>
 
             <div className="mt-3 grid gap-3">
               {requiresCustomer ? (
@@ -76,32 +83,40 @@ export function NewProjectForm({
                   <span className="field-label">Cliente</span>
                   <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="input mt-1.5" required>
                     <option value="">Selecciona un cliente</option>
-                    {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.fullName} - {customer.email}</option>)}
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.fullName} - {customer.email}
+                      </option>
+                    ))}
                   </select>
                   <span className="hint mt-1 block">Si no existe, cargalo desde Clientes antes de crear el pedido.</span>
                 </label>
               ) : null}
-              <label className="block">
-                <span className="field-label">Nombre</span>
-                <input
-                  name="name"
-                  value={nameValue}
-                  onChange={(event) => {
-                    setNameEdited(true);
-                    setName(event.target.value);
-                  }}
-                  className="input mt-1.5"
-                  required
-                  minLength={2}
-                />
-              </label>
 
-              <label className="block">
-                <span className="field-label">Descripcion</span>
-                <textarea name="description" rows={3} className="textarea mt-1.5" />
-              </label>
+              <MtInput
+                name="name"
+                label="Nombre"
+                value={nameValue}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                  setNameEdited(true);
+                  setName(event.target.value);
+                }}
+                color="teal"
+                required
+                minLength={2}
+                crossOrigin={undefined}
+                containerProps={{ className: "min-w-0" }}
+              />
 
-              <div className="border border-[var(--line)] bg-[#f7f9f7] p-3 text-sm">
+              <MtTextarea
+                name="description"
+                label="Descripcion"
+                rows={3}
+                color="teal"
+                containerProps={{ className: "min-w-0" }}
+              />
+
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--md-surface-container)] p-3 text-sm">
                 <div className="field-label">Parametros de corte del perfil de maquina</div>
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
                   <Detail label="Kerf" value={`${machineSettings.kerf} mm`} />
@@ -114,22 +129,24 @@ export function NewProjectForm({
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </MtCardBody>
+      </MtCard>
 
-      <aside className="card h-fit overflow-hidden">
-        <div className="relative aspect-[4/3] border-b border-[var(--line)] bg-[#dfe5df]">
+      <MtCard className="h-fit overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--md-surface-container-lowest)] text-[var(--ink)] shadow-md">
+        <div className="relative aspect-[4/3] border-b border-[var(--line)] bg-[var(--md-surface-container)]">
           <MaterialImage src={selected?.imageUrl ?? null} alt={selected?.description ?? "Tablero"} />
         </div>
-        <div className="space-y-3 p-4">
+        <MtCardBody className="space-y-3 p-4">
           <div>
             <div className="font-mono text-[10.5px] text-[var(--muted)]">{selected?.code ?? "Sin codigo"}</div>
-            <h2 className="mt-1 text-[16px] font-bold leading-tight">{selected?.description ?? "Sin seleccion"}</h2>
+            <MtTypography as="h2" variant="h6" className="mt-1 font-medium leading-tight text-[var(--ink)]">
+              {selected?.description ?? "Sin seleccion"}
+            </MtTypography>
           </div>
           <dl className="grid grid-cols-2 gap-3 text-[13px]">
-            <Detail label="Medida" value={selected ? selected.dimensionsLabel : "—"} />
-            <Detail label="Espesor" value={selected ? `${selected.thickness} mm` : "—"} />
-            <Detail label="Veta" value={selected ? (selected.hasGrain ? "Con veta" : "Sin veta") : "—"} />
+            <Detail label="Medida" value={selected ? selected.dimensionsLabel : "-"} />
+            <Detail label="Espesor" value={selected ? `${selected.thickness} mm` : "-"} />
+            <Detail label="Veta" value={selected ? (selected.hasGrain ? "Con veta" : "Sin veta") : "-"} />
             <Detail label="Catalogo" value={`${materials.length} tableros`} />
           </dl>
           {selected?.hasGrain ? (
@@ -140,8 +157,8 @@ export function NewProjectForm({
           <PendingSubmitButton pendingLabel="Creando proyecto..." className="btn btn-primary focus-ring w-full">
             Crear proyecto
           </PendingSubmitButton>
-        </div>
-      </aside>
+        </MtCardBody>
+      </MtCard>
     </form>
   );
 }

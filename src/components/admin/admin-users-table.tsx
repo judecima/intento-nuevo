@@ -12,8 +12,13 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import {
+  BrandedMuiThemeProvider,
+  brandedTableBodyCellSx,
+  brandedTableHeadCellSx,
+  brandedTablePaperSx
+} from "@/components/ui/branded-mui-theme";
 import { updateOrganizationMemberAction } from "@/lib/admin/actions";
 import type { AdminOrganizationMember } from "@/lib/admin/queries";
 import { organizationRoles, roleLabels } from "@/lib/domain/roles";
@@ -24,25 +29,6 @@ type AdminUsersTableProps = {
 };
 
 export function AdminUsersTable({ members }: AdminUsersTableProps) {
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          primary: { main: "#0f766e" },
-          background: { default: "#dde6e3", paper: "#ffffff" },
-          text: { primary: "#17201f", secondary: "#5f6f6c" }
-        },
-        shape: { borderRadius: 8 },
-        typography: { fontFamily: "inherit" },
-        components: {
-          MuiButton: {
-            styleOverrides: { root: { textTransform: "none", fontWeight: 700 } }
-          }
-        }
-      }),
-    []
-  );
-
   const columns = useMemo<MRT_ColumnDef<AdminOrganizationMember>[]>(
     () => [
       {
@@ -55,7 +41,7 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
             <Typography sx={{ fontSize: 14, fontWeight: 800 }}>
               {row.original.profile?.full_name ?? "Sin nombre"}
             </Typography>
-            <Typography sx={{ color: "#5f6f6c", fontSize: 12 }}>
+            <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 12 }}>
               {row.original.profile?.email ?? row.original.user_id}
             </Typography>
           </Stack>
@@ -93,6 +79,7 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
   const table = useMaterialReactTable({
     columns,
     data: members,
+    layoutMode: "grid",
     localization: MRT_Localization_ES,
     enableColumnFilters: true,
     enableColumnPinning: true,
@@ -108,24 +95,9 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
       pagination: { pageIndex: 0, pageSize: 20 },
       sorting: [{ id: "created_at", desc: false }]
     },
-    muiTablePaperProps: {
-      sx: {
-        border: "1px solid var(--line)",
-        borderRadius: "8px",
-        overflow: "hidden"
-      }
-    },
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: "#eef3f1",
-        color: "#17201f",
-        fontSize: 12,
-        fontWeight: 800
-      }
-    },
-    muiTableBodyCellProps: {
-      sx: { fontSize: 13, borderColor: "var(--line)" }
-    },
+    muiTablePaperProps: { sx: brandedTablePaperSx },
+    muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
+    muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
       <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
         {row.getIsExpanded() ? "Cerrar" : "Actualizar"}
@@ -133,16 +105,16 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
     ),
     renderDetailPanel: ({ row }) => <MemberUpdateForm row={row} />,
     renderTopToolbarCustomActions: () => (
-      <Typography sx={{ color: "#5f6f6c", fontSize: 13, fontWeight: 700 }}>
+      <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {members.length} usuarios
       </Typography>
     )
   });
 
   return (
-    <ThemeProvider theme={theme}>
+    <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
-    </ThemeProvider>
+    </BrandedMuiThemeProvider>
   );
 }
 

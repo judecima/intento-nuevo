@@ -10,7 +10,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const signUpSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
-  password: z.string().min(8).max(128)
+  password: z.string().min(8).max(128),
+  confirmPassword: z.string().min(8).max(128)
+}).refine((value) => value.password === value.confirmPassword, {
+  path: ["confirmPassword"],
+  message: "PASSWORD_MISMATCH"
 });
 
 export async function signUpCustomerWithPassword(formData: FormData): Promise<void> {
@@ -21,11 +25,12 @@ export async function signUpCustomerWithPassword(formData: FormData): Promise<vo
   const parsed = signUpSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
-    password: formData.get("password")
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword")
   });
 
   if (!parsed.success) {
-    redirect("/register?error=invalid_input");
+    redirect(`/register?error=${signUpErrorCode(parsed.error)}`);
   }
 
   const supabase = createSupabaseServerClient();
@@ -63,6 +68,7 @@ export async function signUpCustomerForOrganization(formData: FormData): Promise
   scopedForm.set("fullName", String(formData.get("fullName") ?? ""));
   scopedForm.set("email", String(formData.get("email") ?? ""));
   scopedForm.set("password", String(formData.get("password") ?? ""));
+  scopedForm.set("confirmPassword", String(formData.get("confirmPassword") ?? ""));
 
   const { getPublicOrganization } = await import("@/lib/organizations/public-access");
   const organization = await getPublicOrganization(String(scopedForm.get("slug"))).catch(() => null);
@@ -72,9 +78,12 @@ export async function signUpCustomerForOrganization(formData: FormData): Promise
   const parsed = signUpSchema.safeParse({
     fullName: scopedForm.get("fullName"),
     email: scopedForm.get("email"),
-    password: scopedForm.get("password")
+    password: scopedForm.get("password"),
+    confirmPassword: scopedForm.get("confirmPassword")
   });
-  if (!parsed.success) redirect(`/${encodeURIComponent(organization.slug)}/register?error=invalid_input`);
+  if (!parsed.success) {
+    redirect(`/${encodeURIComponent(organization.slug)}/register?error=${signUpErrorCode(parsed.error)}`);
+  }
 
   const created = await createOrganizationCustomerAuthUser({
     organizationId: organization.id,
@@ -104,4 +113,8 @@ export async function signUpCustomerForOrganization(formData: FormData): Promise
 
 function isRegistrationConfigured(): boolean {
   return isSupabaseServerConfigured();
+}
+
+function signUpErrorCode(error: z.ZodError): "invalid_input" | "password_mismatch" {
+  return error.issues.some((issue) => issue.path[0] === "confirmPassword") ? "password_mismatch" : "invalid_input";
 }

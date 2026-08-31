@@ -1,6 +1,9 @@
 /* eslint-disable @next/next/no-img-element -- logo URL is tenant-configured and may be external. */
 import { notFound, redirect } from "next/navigation";
+import { BrandAuthShell } from "@/components/auth/brand-auth-shell";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import { PasswordConfirmationFields } from "@/components/forms/password-field";
+import { NoticeAlert } from "@/components/ui/material";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { getPublicOrganization, organizationAccessNotices } from "@/lib/organizations/public-access";
 import { organizationPath } from "@/lib/routing/routes";
@@ -12,29 +15,47 @@ export default async function OrganizationRegisterPage({ params, searchParams }:
   const organization = await getPublicOrganization(params.organization).catch(() => null);
   if (!organization) notFound();
   if (!organization.allowCustomerSignup) redirect(`/${organization.slug}/login?error=signup_disabled`);
+
   const context = await getCurrentUserContext(organization.slug);
   const membership = context.memberships.find((item) => item.organizationId === organization.id) ?? null;
   if (context.user && membership) redirect(organizationPath(organization.slug, "/dashboard"));
-  const error = searchParams?.error ? (organizationAccessNotices[searchParams.error] ?? "No se pudo crear la cuenta.") : null;
-  const brandStyle = { "--brand-primary": organization.primaryColor, "--brand-secondary": organization.secondaryColor } as React.CSSProperties;
+
+  const error = searchParams?.error
+    ? organizationAccessNotices[searchParams.error] ?? "No se pudo crear la cuenta."
+    : null;
+  const brand = {
+    name: organization.name,
+    primaryColor: organization.primaryColor,
+    secondaryColor: organization.secondaryColor,
+    logoUrl: organization.logoUrl
+  };
 
   return (
-    <main style={brandStyle} className="grid min-h-screen place-items-center bg-[var(--bg)] px-5 py-10">
-      <section className="w-full max-w-md border border-[var(--line)] bg-white p-6">
-        {organization.logoUrl ? <img src={organization.logoUrl} alt={`Logo de ${organization.name}`} className="mb-4 h-12 max-w-[220px] object-contain object-left" /> : null}
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">{organization.name}</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Crear cuenta de cliente</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">Tu cuenta quedará asociada a esta organización.</p>
-        {error ? <div className="mt-4 border-l-4 border-[var(--danger)] bg-red-50 px-3 py-2 text-sm text-red-900">{error}</div> : null}
-        <form action={signUpCustomerForOrganization} className="mt-6 space-y-4">
-          <input type="hidden" name="organizationSlug" value={organization.slug} />
-          <label className="block text-sm font-medium">Nombre<input name="fullName" required minLength={2} className="focus-ring mt-2 w-full border border-[var(--line)] px-3 py-2" autoComplete="name" /></label>
-          <label className="block text-sm font-medium">Email<input name="email" type="email" required className="focus-ring mt-2 w-full border border-[var(--line)] px-3 py-2" autoComplete="email" /></label>
-          <label className="block text-sm font-medium">Password<input name="password" type="password" required minLength={8} className="focus-ring mt-2 w-full border border-[var(--line)] px-3 py-2" autoComplete="new-password" /></label>
-          <PendingSubmitButton pendingLabel="Creando cuenta..." className="focus-ring w-full bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--ink)]">Registrarme</PendingSubmitButton>
-        </form>
-        <a className="mt-4 block text-sm font-semibold text-[var(--teal)]" href={`/${organization.slug}/login`}>Ya tengo cuenta</a>
-      </section>
-    </main>
+    <BrandAuthShell
+      brand={brand}
+      eyebrow="Alta de cliente"
+      title="Crear cuenta"
+      description="Tu cuenta quedara asociada a esta organizacion."
+    >
+      {error ? <NoticeAlert className="mb-4">{error}</NoticeAlert> : null}
+      <form action={signUpCustomerForOrganization} className="space-y-4">
+        <input type="hidden" name="organizationSlug" value={organization.slug} />
+        <label className="block">
+          <span className="field-label">Nombre</span>
+          <input name="fullName" required minLength={2} className="input focus-ring mt-2" autoComplete="name" />
+        </label>
+        <label className="block">
+          <span className="field-label">Email</span>
+          <input name="email" type="email" required className="input focus-ring mt-2" autoComplete="email" />
+        </label>
+        <PasswordConfirmationFields />
+        <PendingSubmitButton pendingLabel="Creando cuenta..." className="btn btn-accent focus-ring w-full">
+          Registrarme
+        </PendingSubmitButton>
+      </form>
+      <a className="mt-4 block text-sm font-semibold text-[var(--teal)]" href={`/${organization.slug}/login`}>
+        Ya tengo cuenta
+      </a>
+    </BrandAuthShell>
   );
 }
