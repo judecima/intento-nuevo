@@ -1,0 +1,2480 @@
+[
+  {
+    "structural_fp": "c2fa485205b39f2225e8",
+    "cases": 21,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 21
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF MEL CHARDONNAY FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "06e34f78222aab540ce3",
+    "cases": 18,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 15,
+      "2": 3
+    },
+    "piece_types": 18,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA NEGRO 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "e8414ec866c3751f2a17",
+    "cases": 17,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 17
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF NOGAL PAKAN TEXT BRETT 15MM 2C"
+  },
+  {
+    "structural_fp": "7b460603b0e45a0962e2",
+    "cases": 14,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 14
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF ENCINO CALIZA TEX M07 15MM 2C 4X8"
+  },
+  {
+    "structural_fp": "b4c9a6b83fa54745f73e",
+    "cases": 13,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 12,
+      "2": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF SMART GRIS OBSCURO 15MM 2C"
+  },
+  {
+    "structural_fp": "cbd65d6f2a5cfa4afc4a",
+    "cases": 13,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 11,
+      "3": 2
+    },
+    "piece_types": 8,
+    "directional": true,
+    "material_example": "MELAMINA FAPLAC NATURE CARVALHO MEZZO 18mm 2.75 X"
+  },
+  {
+    "structural_fp": "d22a1c8dc972c2bc1d11",
+    "cases": 12,
+    "exact_variants": 4,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 10,
+      "2": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF TURMALINA MATE 15MM 2C"
+  },
+  {
+    "structural_fp": "e7a0dc6da447c48c03bc",
+    "cases": 12,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 10,
+      "3": 2
+    },
+    "piece_types": 6,
+    "directional": true,
+    "material_example": "MELAMINA FAPLAC NORDICO OLMO FINLANDES 18mm 2.75 X"
+  },
+  {
+    "structural_fp": "f5d71e38000a064d5965",
+    "cases": 12,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 12
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF RANURADO BLANCO 18MM"
+  },
+  {
+    "structural_fp": "4f3dd5d202268f237fde",
+    "cases": 11,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "6": 11
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA NEGRO 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "571ca61d6b12ba643c78",
+    "cases": 10,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 10
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TRIPLAY ENCINO 4.2MM (1/4) 4X8"
+  },
+  {
+    "structural_fp": "31f17c0870cf919b0d88",
+    "cases": 10,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 10
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "258b851e932cbfc98f59",
+    "cases": 10,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 10
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "MDF BLANCO CRISTAL TEXT SOFT 15MM 1C"
+  },
+  {
+    "structural_fp": "7c47491448ba6840d0ab",
+    "cases": 9,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 9
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "TRUPAN MDF MELAMINA MESOP PARAISO 18MM 2.75 X 0.91"
+  },
+  {
+    "structural_fp": "2bc314e8572879b5aaaa",
+    "cases": 8,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 8
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "e818a488988b2e22947b",
+    "cases": 7,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 7
+    },
+    "piece_types": 6,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA GRIS CENIZA 18mm 2.75X0.91"
+  },
+  {
+    "structural_fp": "e5ba9cc8a649aa7fb449",
+    "cases": 7,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 7
+    },
+    "piece_types": 6,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA BLANCO TUNDRA 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "1c0f8fbcb7cb23cd533f",
+    "cases": 7,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 7
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF NOGAL NEO FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "00d455d4ebda4f4a10ae",
+    "cases": 7,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "4": 6,
+      "6": 1
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "MDF MEL ANAHUAC FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "611c1989377914a65d3f",
+    "cases": 6,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "7": 6
+    },
+    "piece_types": 27,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO 18MM 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "0a9777ade18e62c47291",
+    "cases": 6,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 5,
+      "3": 1
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA ETNICA EVEREST 18mm 2.75 X 1.8"
+  },
+  {
+    "structural_fp": "3863ac4900867c258e08",
+    "cases": 6,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 6
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO TUNDRA 18MM S.AGLOM"
+  },
+  {
+    "structural_fp": "87924f537168ddf04f09",
+    "cases": 5,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 3,
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRUPAN MDF STD 12mm 2.75X1.83 1RA"
+  },
+  {
+    "structural_fp": "a2e29c097fa76ee3193e",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 3,
+      "4": 2
+    },
+    "piece_types": 13,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA GRAFITO 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "efa2c040dc7fd079d3a9",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 5
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF NATURAL 3MM 4X8 (1/8)"
+  },
+  {
+    "structural_fp": "09ba5db1948e2b082874",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 5
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "MDF ROBLE SAMANO TEXT BRET 15MM 2C"
+  },
+  {
+    "structural_fp": "af0ec312f5a7cc650f13",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 5
+    },
+    "piece_types": 7,
+    "directional": true,
+    "material_example": "TRUPAN MDF MELAMINA NATURE GAUDI 18mm 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "848fc4e2db0edee4eb37",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 5
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRUPAN MDF STD 15MM 2.75X1.83 1RA"
+  },
+  {
+    "structural_fp": "3b7f94935ef34554e38c",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 1,
+      "2": 4
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "MEL EN MDF BLANCO TUNDRA FAPLAC"
+  },
+  {
+    "structural_fp": "17150053b3556285fabf",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 5
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF SMART BLANCO MATE 15MM 1C"
+  },
+  {
+    "structural_fp": "4519aa3a2809e98653da",
+    "cases": 5,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 5
+    },
+    "piece_types": 8,
+    "directional": true,
+    "material_example": "MELAMINA FAPLAC NATURE CARVALHO MEZZO 18mm 2.75 X"
+  },
+  {
+    "structural_fp": "b343abcea104359ee229",
+    "cases": 4,
+    "exact_variants": 4,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 3,
+      "1": 1
+    },
+    "piece_types": 4,
+    "directional": true,
+    "material_example": "MDF NATURAL TSCA 15MM"
+  },
+  {
+    "structural_fp": "fd08b4192cf037f4da1a",
+    "cases": 4,
+    "exact_variants": 4,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 4
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FIBROFACIL MDF 03MM 1.83 X 2.60"
+  },
+  {
+    "structural_fp": "46cc58a84ec7c204d258",
+    "cases": 4,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 3
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA BLANCO 18MM 2.75X1.83"
+  },
+  {
+    "structural_fp": "00a241a3a78239448493",
+    "cases": 4,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 4
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRIPLAY CHILENO BC 15MM (5/8) 4X8"
+  },
+  {
+    "structural_fp": "200cb05b46f389db6c74",
+    "cases": 4,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 4
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "AGLOMERADO NATURAL 15 MM 4 X 8"
+  },
+  {
+    "structural_fp": "0c956b3983b43ad374a7",
+    "cases": 4,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "9": 1,
+      "8": 3
+    },
+    "piece_types": 8,
+    "directional": true,
+    "material_example": "MDF MEL GREIGE CASTELL OAK K357 2.80X2.07 15MM 2C"
+  },
+  {
+    "structural_fp": "702c0ab7956673081c3f",
+    "cases": 4,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 4
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF NATURAL 5.5 MM 4X8"
+  },
+  {
+    "structural_fp": "2b58c1e3e3aac2894f94",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 3,
+      "1": 1
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TABLERO EUCA 20MM 1.22 X 3.05"
+  },
+  {
+    "structural_fp": "044c4c4bcb533aae771e",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "4": 4
+    },
+    "piece_types": 17,
+    "directional": true,
+    "material_example": "MDF MEL BRANDY CASTELL OAK K359 1.22X2.44 15MM 2C"
+  },
+  {
+    "structural_fp": "d35fe2a402e4ed87302f",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 4
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "EMDF9DESNUDO PINO 9X183X260 [SKU:4004]"
+  },
+  {
+    "structural_fp": "b13268cd59c27738c8a4",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 1,
+      "6": 3
+    },
+    "piece_types": 6,
+    "directional": false,
+    "material_example": "TRUPAN MDF MELAMINA NEGRO 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "33efad2a579ca072c923",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 3,
+      "4": 1
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO 18MM 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "070969b5db8a1cdc9d36",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 4
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TRIPLAY NOGAL 4.2MM(1/4)"
+  },
+  {
+    "structural_fp": "6ddf927774f6a12b671d",
+    "cases": 4,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 4
+    },
+    "piece_types": 7,
+    "directional": false,
+    "material_example": "TRUPAN MDF FOLIO BLANCO 3mm 2.60X1.83"
+  },
+  {
+    "structural_fp": "3ae251da3e53e8d9148d",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FIBROFACIL MDF 15MM 1.83 X 2.75"
+  },
+  {
+    "structural_fp": "7670a1c87d619190facf",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "7": 1,
+      "5": 2
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "MDP MEL WALNUT 0729 2.80x2.07 15MM 2C"
+  },
+  {
+    "structural_fp": "77ed44e17ef15b3bf6e7",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "MDF MEL MONARCA FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "b4df05be469061ffe23b",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FONDO FAPLAC 3MM BLANCO 135"
+  },
+  {
+    "structural_fp": "18c98840331dd8e7efe8",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FONDO FAPLAC 3MM BLANCO 135"
+  },
+  {
+    "structural_fp": "0dc1fa965660e578e1f4",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 2,
+      "2": 1
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO TUNDRA 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "1dc56f095520d5c25fc2",
+    "cases": 3,
+    "exact_variants": 3,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 2,
+      "4": 1
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "MELAMINA FAPLAC 18MM VENEZIA 160 S.AGLOM"
+  },
+  {
+    "structural_fp": "276249269015e4a04b7c",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 2,
+      "4": 1
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "LISTON OKUME PLUS 16MM 4X8"
+  },
+  {
+    "structural_fp": "4d5d8968b323b6ad5eee",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 2,
+      "1": 1
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "c2b40b93b4e13c36b8dc",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "MDF BLANCO REGIO 8685 1.22 X 2.44 15MM 2C"
+  },
+  {
+    "structural_fp": "eeda2ae89edf3120b0ed",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRUPAN MDF STD 25mm 2.75X1.83 1RA"
+  },
+  {
+    "structural_fp": "dd18cf272c4be66192f7",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 2,
+      "2": 1
+    },
+    "piece_types": 9,
+    "directional": false,
+    "material_example": "EMDF18U999ST20 NEGROST20 18X183X260 [SKU:8154]"
+  },
+  {
+    "structural_fp": "8db2de729441380693f5",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 2,
+      "2": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "MDF NATURAL 11 MM 4X8"
+  },
+  {
+    "structural_fp": "55dfa724e23f36853ca1",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "AGLOMERADO NATURAL 15 MM 4 X 8"
+  },
+  {
+    "structural_fp": "c2cc0d7a3b00b177c454",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "11": 3
+    },
+    "piece_types": 23,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO 18MM 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "a5ddc128ac9692b482e9",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRIPLAY CHILENO BC 9.0MM (3/8) 4X8"
+  },
+  {
+    "structural_fp": "97d67f3efd3131af138e",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "6": 2,
+      "4": 1
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "MDF MEL RIOJA FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "0a283590cfd351b3fc02",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRIPLAY CHILENO BC 18MM (3/4)"
+  },
+  {
+    "structural_fp": "7737a92c4039fbee03e8",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 1,
+      "2": 2
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "FAPLAC FONDO BLANCO 3MM 2.60X1.83"
+  },
+  {
+    "structural_fp": "4718a2f17a3adf8a39b5",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC 18MM BLANCO TUNDRA S.MDF"
+  },
+  {
+    "structural_fp": "a87f9a9f88565fd84e34",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 2,
+      "2": 1
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF MEL NIQUEL MATE 15MM 2C"
+  },
+  {
+    "structural_fp": "5c3ce675a0695d038a09",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 2,
+      "3": 1
+    },
+    "piece_types": 2,
+    "directional": true,
+    "material_example": "MDF NOGAL ALBURA NAVETTA"
+  },
+  {
+    "structural_fp": "115492f8a3ff3a180bb4",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 3
+    },
+    "piece_types": 14,
+    "directional": true,
+    "material_example": "MDF NOGAL PARAMO TEXT BRETT 15MM 2C"
+  },
+  {
+    "structural_fp": "5dddba7e3658f0499479",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "MDF NATURAL 3MM 4X8 (1/8)"
+  },
+  {
+    "structural_fp": "55fff816b7deb4ee51c4",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MELAMINA SADEPAN 18MM FAGGIO 896 S.AGLOM"
+  },
+  {
+    "structural_fp": "e126e6241b05a8954f88",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "17": 3
+    },
+    "piece_types": 103,
+    "directional": false,
+    "material_example": "TRUPAN MELAMINA GRAFITO 18MM 2.75X1.83"
+  },
+  {
+    "structural_fp": "796a80b8d9b34497b938",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 2,
+      "3": 1
+    },
+    "piece_types": 18,
+    "directional": true,
+    "material_example": "MEL EN MDF HELSINKI FAPLAC"
+  },
+  {
+    "structural_fp": "1140a7c34c813b50db0c",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 2,
+      "1": 1
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "EDK AGL W954ST14 Blanco 18mmx2.60m1419285 (419285)"
+  },
+  {
+    "structural_fp": "f789fb83ca31f5fa470e",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 2,
+      "1": 1
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "PLACA OSB 18.3MM 2.44X1.22 MTS."
+  },
+  {
+    "structural_fp": "06688fd78d7e457229f8",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC 18MM BLANCO TUNDRA S.MDF"
+  },
+  {
+    "structural_fp": "4781c448d6b8891c2826",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 3
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "TRIPLAY OKUME NACIONAL 12MM (1/2) 4X8"
+  },
+  {
+    "structural_fp": "645dad0a87e2ae8aebb7",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 2,
+      "2": 1
+    },
+    "piece_types": 7,
+    "directional": true,
+    "material_example": "MEL EN MDF TEKA ARTICO FAPLAC"
+  },
+  {
+    "structural_fp": "c5492b748223fc58411a",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 2,
+      "6": 1
+    },
+    "piece_types": 30,
+    "directional": false,
+    "material_example": "MDF BLANCO CALIDO TEXT SOFT 15MM 2C"
+  },
+  {
+    "structural_fp": "51e4ad6342fe02eadc24",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "00a9b35e3d26d82d0c79",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "6": 2,
+      "11": 1
+    },
+    "piece_types": 14,
+    "directional": true,
+    "material_example": "EURODEKOR MDF ROBLE TERMO NEGRO 18MM"
+  },
+  {
+    "structural_fp": "745c00c0a349ce2317b3",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF NATURAL 2.5MM 4X8"
+  },
+  {
+    "structural_fp": "40e46f32447b036e747c",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "BLANCO 18 agl 2600x1830"
+  },
+  {
+    "structural_fp": "a225055a4789d624eca6",
+    "cases": 3,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 3
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MEL EN MDF AMBERES URBAN FAPLAC"
+  },
+  {
+    "structural_fp": "30788a8ffb8f91d2d1cb",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 7,
+    "directional": false,
+    "material_example": "EMDF18W954ST14 BLANCO ABSOLUTO 18X183X260 [SKU:2008]"
+  },
+  {
+    "structural_fp": "75667aae9b395c510141",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF MEL MONARCA FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "3c7a75566b594d245329",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 7,
+    "directional": false,
+    "material_example": "MDF MEL NIQUEL MATE 15MM 2C"
+  },
+  {
+    "structural_fp": "f00757af45b85cc7e2b6",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 13,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "76274279864afaf227dd",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "4": 2
+    },
+    "piece_types": 41,
+    "directional": false,
+    "material_example": "MEL EN MDF CENIZA FAPLAC"
+  },
+  {
+    "structural_fp": "e9018aabef5fb33278d4",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "5": 2
+    },
+    "piece_types": 6,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO TUNDRA 18mm 2.75X1.83"
+  },
+  {
+    "structural_fp": "48520b5f78041507ff69",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "E18U999ST9 NEGRO LISO AGLO 18X183X260 [SKU:8069]"
+  },
+  {
+    "structural_fp": "c5f13a0b8f7779360ef4",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "4": 2
+    },
+    "piece_types": 29,
+    "directional": false,
+    "material_example": "MEL EN MDF BLANCO TEXTURA FAPLAC"
+  },
+  {
+    "structural_fp": "32f010d343b44bed7766",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "4": 1,
+      "3": 1
+    },
+    "piece_types": 7,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "4e63ce158b81ac6ab537",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "LISTON ENCINO 19MM"
+  },
+  {
+    "structural_fp": "2205734c93671b53c1f5",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "11": 2
+    },
+    "piece_types": 12,
+    "directional": false,
+    "material_example": "LISTON OKUME PLUS 18MM 4X8"
+  },
+  {
+    "structural_fp": "531a21746fc2ea318f6d",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "7": 1,
+      "8": 1
+    },
+    "piece_types": 39,
+    "directional": false,
+    "material_example": "E18W954ST14 BLANCO ABSOLUTO AGLO 18X183X260 [SKU:1055]"
+  },
+  {
+    "structural_fp": "16c2f8c12cf78a1a982f",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "3": 1
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "SMDF 18 1830 X 2750 SUPERMT - 217 JADE"
+  },
+  {
+    "structural_fp": "307db461d730e6845000",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "MDF TULUM 15 MM 4X8"
+  },
+  {
+    "structural_fp": "7c89556153c2c8682e39",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "FENOLICO 25MM 1.22 X 2.44 PINO 4-IND"
+  },
+  {
+    "structural_fp": "ec6c6f68746e8310000c",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "8": 2
+    },
+    "piece_types": 21,
+    "directional": false,
+    "material_example": "TRIPLAY OKUME IMPORTADO 12 MM (1/2) 4X8"
+  },
+  {
+    "structural_fp": "f4ce94ba4d2f5da2b400",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "6": 1,
+      "7": 1
+    },
+    "piece_types": 33,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO 18MM 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "453a7fc6d675da10638c",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "MDF NATURAL 09MM 4X8 (3/8)"
+  },
+  {
+    "structural_fp": "ba3b4c7dd9fe5ff20d67",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF ENCHAPADO ENCINO 12MM 2C"
+  },
+  {
+    "structural_fp": "dc0b978cfdf22c168006",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 4,
+    "directional": true,
+    "material_example": "MDF SMART EBANO INDI FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "c105b8c6ac5f18db613f",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "FIBROFACIL ENCHAPADO CEDRO BOL. 18MM 2.75X1.83"
+  },
+  {
+    "structural_fp": "fe165f43965d70aa9364",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 1,
+      "7": 1
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "MDF MEL GREIGE CASTELL OAK K357 2.80X2.07 15MM 2C"
+  },
+  {
+    "structural_fp": "0283c00cc86a7a18eed7",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF SMART VISON MATE 15MM 2C"
+  },
+  {
+    "structural_fp": "1edac557bf41e2191d15",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 2,
+    "directional": true,
+    "material_example": "EDK MDF H3730ST10 Hickory nat 5.5mmx2.60m1419668 ("
+  },
+  {
+    "structural_fp": "0547974ffade748cca10",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "11": 1,
+      "10": 1
+    },
+    "piece_types": 41,
+    "directional": true,
+    "material_example": "EDK MDF H3700ST10 N pacifico nat 18mmx2.60m (68885"
+  },
+  {
+    "structural_fp": "9c09fd4e22da051f6715",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "Mdf Roble Kaiserberg 18mm 2.60x1.83m H3349 ST19 (121204)"
+  },
+  {
+    "structural_fp": "6e941e6eb7e5e7d760c1",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "MDF FAPLAC FONDO BLANCO 3MM"
+  },
+  {
+    "structural_fp": "49bde4824e325da70736",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "E18W954ST14 BLANCO ABSOLUTO AGLO 18X183X260 [SKU:1055]"
+  },
+  {
+    "structural_fp": "bd11e48436b6bdbfd5a5",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FIBROPLUS BLANCO 2.60X1.83"
+  },
+  {
+    "structural_fp": "02503a15cbe2490e36f4",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "PANELART PRECOMPUESTO CENIZA FORESTA 16M"
+  },
+  {
+    "structural_fp": "b5977414969c6048aea8",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF NATURAL 09MM 4X8 (3/8)"
+  },
+  {
+    "structural_fp": "bc4eddea2fa46a3479ad",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 1,
+      "7": 1
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "FIBROFACIL 12 MM (2.60X1.83)"
+  },
+  {
+    "structural_fp": "a3efd02ee7ae9199e801",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "GUILLERMINA NOVA 12MM 3.66X1.83"
+  },
+  {
+    "structural_fp": "f84520d737e482f70bbe",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MEL EN MDF BLANCO TUNDRA FAPLAC"
+  },
+  {
+    "structural_fp": "a40224a85d11883a1ef2",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "AGLOMERADO NATURAL 15 MM 4 X 8"
+  },
+  {
+    "structural_fp": "5d2963aedfc4c8896496",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FIBROFACIL MDF 03MM 1.83 X 2.60"
+  },
+  {
+    "structural_fp": "0116e455f304d930b0a3",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRIPLAY CHILENO BC 15MM (5/8) 4X8"
+  },
+  {
+    "structural_fp": "83b8466f8e9b26497de1",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 21,
+    "directional": false,
+    "material_example": "AGL ECO 2C BLANCO 15MM S"
+  },
+  {
+    "structural_fp": "9646c0183a47b3d154c5",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 8,
+    "directional": false,
+    "material_example": "MDF MEL NIQUEL MATE 15MM 2C"
+  },
+  {
+    "structural_fp": "0f950f15a67299624e27",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "MDF NATURAL 12MM 4X8 (1/2)"
+  },
+  {
+    "structural_fp": "eacb40ceabbf1630cf0b",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRIPLAY OKUME IMPORTADO 16MM (5/8) 4X8"
+  },
+  {
+    "structural_fp": "928f0d9376530f39426f",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 14,
+    "directional": false,
+    "material_example": "FIB MEL BLANCO 18MM 2.60X1.83"
+  },
+  {
+    "structural_fp": "bef25e660b78524dea0b",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "5": 2
+    },
+    "piece_types": 13,
+    "directional": false,
+    "material_example": "EDK AGL U732ST9 G Macadan 18mmx2.60 1419192 (41919"
+  },
+  {
+    "structural_fp": "7db06adc9f7bc0fcfc33",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 21,
+    "directional": false,
+    "material_example": "EDK MDF W954ST14 Blanco 18mmx2.60m 1419782 (419782"
+  },
+  {
+    "structural_fp": "0eb36867932d4850e6c8",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 4,
+    "directional": true,
+    "material_example": "MDF NATURAL 12MM 4X8 (1/2)"
+  },
+  {
+    "structural_fp": "c25ce996f79434768b54",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF SMART NEGRO 15MM 2C"
+  },
+  {
+    "structural_fp": "d9decc56a16c55327f14",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "MDF BLANCO REGIO 8685 1.22 X 2.44 15MM 2C"
+  },
+  {
+    "structural_fp": "c00045004c847b90bad1",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 13,
+    "directional": true,
+    "material_example": "LISTON ENCINO 16MM"
+  },
+  {
+    "structural_fp": "e2218895510b07a68dd5",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC 18MM BLANCO TUNDRA S.MDF"
+  },
+  {
+    "structural_fp": "e6d3665f65618d86afeb",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "TRIPLAY CHILENO BC 12MM (1/2) 4X8"
+  },
+  {
+    "structural_fp": "b4947b99f8aef31e5dd5",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "10": 2
+    },
+    "piece_types": 40,
+    "directional": true,
+    "material_example": "AGL 2C TITANIO 15MM S"
+  },
+  {
+    "structural_fp": "20f26c110629127347f1",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF NOGAL NEO FORESTA 15MM 2C"
+  },
+  {
+    "structural_fp": "26cac215ec4a142921df",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "3": 1
+    },
+    "piece_types": 8,
+    "directional": true,
+    "material_example": "FEELNESS CASHMERE 5981 MA 2.80X1.22 18MM"
+  },
+  {
+    "structural_fp": "9d74e62c00fb073099ba",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "4": 2
+    },
+    "piece_types": 16,
+    "directional": false,
+    "material_example": "MDF BLANCO CRISTAL TEXT SOFT 15MM 1C"
+  },
+  {
+    "structural_fp": "7c4ad22713409c70260e",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 6,
+    "directional": true,
+    "material_example": "SUPERPLAC TEKA ARTICO 18MM 2.75X1.83"
+  },
+  {
+    "structural_fp": "29968e8eb0a540cf2367",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "10": 1,
+      "11": 1
+    },
+    "piece_types": 26,
+    "directional": true,
+    "material_example": "MDF FRESNO INVIERNO TEXT BRETT 15MM 2C"
+  },
+  {
+    "structural_fp": "72488403379dc58563da",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC 18MM BLANCO TUNDRA S.MDF"
+  },
+  {
+    "structural_fp": "4bc3ee102dbe1e072230",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FIBROFACIL MDF 03MM 1.83 X 2.60"
+  },
+  {
+    "structural_fp": "3793f5a0ddabe13fa5cc",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "EURODEKOR MDF R DE NEBRASKA GRIS 18MM"
+  },
+  {
+    "structural_fp": "cf346be5e55ffabac61b",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "EDK AGL W954ST14 Blanco 18mmx2.60m1419285 (419285)"
+  },
+  {
+    "structural_fp": "080b65843cdf8ab03014",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 10,
+    "directional": false,
+    "material_example": "SUPERPLAC BLANCO 18MM 2.75X1.83"
+  },
+  {
+    "structural_fp": "f61b8a110b2042d42d68",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TRUPAN MDF MELAMINA BARK MERLOT 18MM 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "c1a42e8aec7de724d539",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF NOVA GUILLERMINA 15MM 1.83 X 3.66 S.MDF"
+  },
+  {
+    "structural_fp": "08458090692c85ff0018",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "3": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "MDF NATURAL 5 MM 4 X 8"
+  },
+  {
+    "structural_fp": "883ebe4985fa67622690",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 10,
+    "directional": false,
+    "material_example": "Mdf Blanco 18mm 2.60x1.83m W954 ST14 (22314)"
+  },
+  {
+    "structural_fp": "29bd404211a8f40ef8a4",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "AGLOMERADO ENCHAPADO PARAISO 18MM 2.75X0.91"
+  },
+  {
+    "structural_fp": "aa9f9e49026103484251",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "AGLOMERADO NATURAL 15 MM 4 X 8"
+  },
+  {
+    "structural_fp": "3b2ace19ee83dc11766d",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "GRIS ARCILLA"
+  },
+  {
+    "structural_fp": "f2ba66a38d688b2db9cd",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "8": 1,
+      "9": 1
+    },
+    "piece_types": 18,
+    "directional": true,
+    "material_example": "MDF ROBLE SANTANA 15 MM 2 CARAS 4 X 8 ARAU"
+  },
+  {
+    "structural_fp": "6180456c447b173d2833",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "3603c04335f97bfadf65",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 1,
+      "2": 1
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "E18U727ST9 GRISARCILLA AGLO 18X183X260 [SKU:8064]"
+  },
+  {
+    "structural_fp": "071d0cf4537ebe734b2f",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "MELAMINA SADEPAN 18MM BIANCO 780 S.AGLOM"
+  },
+  {
+    "structural_fp": "eae6dc3e125c8c7fc67c",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "6": 2
+    },
+    "piece_types": 11,
+    "directional": false,
+    "material_example": "FONDO CENIZA FAPLAC 3MM 2600X1830"
+  },
+  {
+    "structural_fp": "bdea0415b7facfcc89e1",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "5": 2
+    },
+    "piece_types": 6,
+    "directional": false,
+    "material_example": "AGLO BCO FROSTY 16 MM"
+  },
+  {
+    "structural_fp": "a866cdade3e05b0f82f4",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 1,
+      "2": 1
+    },
+    "piece_types": 6,
+    "directional": false,
+    "material_example": "TRIPLAY CHILENO BC 15MM (5/8) 4X8"
+  },
+  {
+    "structural_fp": "3cc6dc8f719fe66d8d45",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TRUPAN MDF MELAMINA URBAN AMBERES 18MM 2.75 X 1.83"
+  },
+  {
+    "structural_fp": "d9fdd844b52d7851963b",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "MDF SMART MWENGE 15MM 2C"
+  },
+  {
+    "structural_fp": "922e788b673f9a67e97a",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "MELAMINA SADEPAN 18MM BIANCO 780 S.AGLOM"
+  },
+  {
+    "structural_fp": "990bacebecc298bd63e0",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 4,
+    "directional": true,
+    "material_example": "E18H3171ST12 ROBLEKENDALENCERADO AGLO 18X183X260 [SKU:8135]"
+  },
+  {
+    "structural_fp": "b838cde93ad63d768b1b",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "6": 2
+    },
+    "piece_types": 24,
+    "directional": true,
+    "material_example": "Mdf Roble Nebraska Gris 18mm 2.60x1.83m H3332 ST10 (121111)"
+  },
+  {
+    "structural_fp": "76760e0a09c8928eb471",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "5": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "AGLO BCO FROSTY 16 MM"
+  },
+  {
+    "structural_fp": "47e2f5cec911943b5212",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "3": 1,
+      "4": 1
+    },
+    "piece_types": 11,
+    "directional": true,
+    "material_example": "MDF OLMO AMAZONIA TEX M10 15MM 2C"
+  },
+  {
+    "structural_fp": "fb95695261588cec48b2",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "7": 1,
+      "8": 1
+    },
+    "piece_types": 16,
+    "directional": false,
+    "material_example": "MDF SMART CAIRO LINO TOUCH 15MM 2C"
+  },
+  {
+    "structural_fp": "34e408af65e599accacc",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC 18MM GRAFITO 107 S.AGLOM"
+  },
+  {
+    "structural_fp": "187405063f96e09d1014",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "MDF NATURAL 12MM 4X8 (1/2)"
+  },
+  {
+    "structural_fp": "8e50a22aa6c66ed6a32d",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "Mdf Enchapado Lenga 3mm 260x183 (1415)"
+  },
+  {
+    "structural_fp": "ba3dcb984443b4b5af53",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TABLERO EUCA 20MM 1.22 X 3.05"
+  },
+  {
+    "structural_fp": "9d9943d58af2ef6cae85",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "FONDO BLANCO FAPLAC 3MM 2600X1830"
+  },
+  {
+    "structural_fp": "8a43fd2ae3e91065022d",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 12,
+    "directional": true,
+    "material_example": "ROBLE KENDAL ENCERADO MDF 18mm260x183 H3171"
+  },
+  {
+    "structural_fp": "702c7a21b5573e4c7f61",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "88d5177612f322f07612",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 13,
+    "directional": true,
+    "material_example": "EURODEKOR MDF ROBLE KENDAL NATURAL 18MM"
+  },
+  {
+    "structural_fp": "14dadc452de155828e83",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "3": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "Mdf Roble Nebraska Nat 5.5mm 2.60x1.83m H3331 ST10 (123757)"
+  },
+  {
+    "structural_fp": "2cc4df956d6af86ea275",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "FONDO FAPLAC 3MM BLANCO 135"
+  },
+  {
+    "structural_fp": "41a1c922862849fff841",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "5": 2
+    },
+    "piece_types": 19,
+    "directional": true,
+    "material_example": "Ench Euca MDF Guatambu 19mm 2.60x1.83m LN (832319)"
+  },
+  {
+    "structural_fp": "8031d296ce578decf818",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "6": 1,
+      "5": 1
+    },
+    "piece_types": 4,
+    "directional": false,
+    "material_example": "MELAMINA SADEPAN 18MM BIANCO 780 S.AGLOM"
+  },
+  {
+    "structural_fp": "a3f14b68af2c42d25082",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "5": 1,
+      "1": 1
+    },
+    "piece_types": 3,
+    "directional": true,
+    "material_example": "MDF POLAR NAVETTA 15 MM 4X8"
+  },
+  {
+    "structural_fp": "6dd1521a5300b407414a",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "Mdf Crudo Pino 9mm 2.60x1.83m (22304)"
+  },
+  {
+    "structural_fp": "a0988290d6acb864f5bf",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 5,
+    "directional": true,
+    "material_example": "TRUPAN MEL OLMO FINLANDES 18MM 2.75X1.83"
+  },
+  {
+    "structural_fp": "77ccf48cff4024af7382",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "MDF BLANCO REGIO 8685 1.22 X 2.44 15MM 2C"
+  },
+  {
+    "structural_fp": "46fa7a2be6b043e7885b",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "TRIPLAY ENCINO 15MM (5/8) 4X8"
+  },
+  {
+    "structural_fp": "c6459fd6eb69889e6366",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 11,
+    "directional": true,
+    "material_example": "MDP MEL BCO REGIO 8685 1.22 x 2.44 15MM"
+  },
+  {
+    "structural_fp": "e1bf829c0019037145f4",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "69": 1,
+      "65": 1
+    },
+    "piece_types": 69,
+    "directional": false,
+    "material_example": "EDK AGL W954ST14 Blanco 18mmx2.60m1419285 (419285)"
+  },
+  {
+    "structural_fp": "87c590e6ad42377c47e7",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "6": 1,
+      "5": 1
+    },
+    "piece_types": 16,
+    "directional": true,
+    "material_example": "EGGER MDF FINELINE CREMA H1424 ST22 PG03"
+  },
+  {
+    "structural_fp": "79461f2829433fd40e0f",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "4": 1,
+      "3": 1
+    },
+    "piece_types": 17,
+    "directional": true,
+    "material_example": "EMDF18H3398ST12 ROBLEKENDALCONAC 18X183X260 [SKU:8151]"
+  },
+  {
+    "structural_fp": "4491b854af1c99d23bd2",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "90c4e9ff293fd3326b18",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "3": 1
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF NEGRO 15 MM 2 CARAS 4 X 8 ARAUCO"
+  },
+  {
+    "structural_fp": "b977a115bd074c0a3cae",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 3,
+    "directional": false,
+    "material_example": "Fibroplus BLANCO 3mm 2600x1830"
+  },
+  {
+    "structural_fp": "6a2e3100213b13ad9a84",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 5,
+    "directional": false,
+    "material_example": "MDF BLANCO FROSTY LABRADA 15MM 2C"
+  },
+  {
+    "structural_fp": "401f9f9ff931776243f8",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "2": 2
+    },
+    "piece_types": 7,
+    "directional": true,
+    "material_example": "AGL 2C ROBLE NAT 15MM N"
+  },
+  {
+    "structural_fp": "56ebda0406cf21d5d8b7",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 2,
+    "directional": false,
+    "material_example": "MELAMINA FAPLAC BLANCO TUNDRA 18MM S.AGLOM"
+  },
+  {
+    "structural_fp": "736dd3e5997ce77664f6",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "PLUS NEGRO BRILLANTE 3MM 1.22 X 1.83 MTS"
+  },
+  {
+    "structural_fp": "9a995be767a04d73889f",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "1": 2
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MELAMINA FAPLAC 18MM BLANCO NATURE 135 S.MDF"
+  },
+  {
+    "structural_fp": "38bf39143244ca748652",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "1": 1,
+      "2": 1
+    },
+    "piece_types": 1,
+    "directional": false,
+    "material_example": "TRUPAN MDF STD 9mm 2.75X1.83 1RA"
+  },
+  {
+    "structural_fp": "ad5265d827b0920fe567",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "22": 2
+    },
+    "piece_types": 21,
+    "directional": false,
+    "material_example": "EDK MDF W954ST14 Blanco 5.5mmx2.60m1419785 (419785"
+  },
+  {
+    "structural_fp": "1b0c7df90f63853f055a",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "8": 1,
+      "9": 1
+    },
+    "piece_types": 14,
+    "directional": false,
+    "material_example": "MDF BLANCO REGIO 8685 1.22 X 2.44 15MM 2C"
+  },
+  {
+    "structural_fp": "bf3b449307e135ae14b3",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": true,
+    "reference_panels": {
+      "3": 2
+    },
+    "piece_types": 7,
+    "directional": true,
+    "material_example": "MDF ENCHAPADO OKUME CO 16MM"
+  },
+  {
+    "structural_fp": "62461f36412e520d1ccb",
+    "cases": 2,
+    "exact_variants": 2,
+    "reference_consistent": false,
+    "reference_panels": {
+      "2": 1,
+      "1": 1
+    },
+    "piece_types": 1,
+    "directional": true,
+    "material_example": "MDF SMART ROBLE SANTANA FORESTA 15MM 2C"
+  }
+]

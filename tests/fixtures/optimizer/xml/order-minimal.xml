@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Minimizado de 4015469__gabriela_meroni4015469.xml (corpus Lepton).
+     Formato real: atributos con comillas simples, Parts colgando de WorkList y
+     un Job/Board por programa de corte. Board Grain='1' = material SIN veta. -->
+<Order ID='2' Code='4015469'>
+<WorkList ID='1' Code='4015469' Released='2025-03-28 12:36:51' Due='2025-03-28 12:36:51' MaterialID='1' Comment='gabriela meroni'>
+<Part id='P1' Code='1' L='784.00' W='668.00' qMin='2' Grain='0' IDesc='PISO TECHO A DORM2' IIDesc='12000001|||'  MatEdgeL=''  MatEdgeR='' MatEdgeUp='12000001' MatEdgeLo=''  />
+<Part id='P2' Code='2' L='1005.00' W='668.00' qMin='4' Grain='0' IDesc='PISO TECHO B DORM 2' IIDesc='12000001|||'  MatEdgeL=''  MatEdgeR='' MatEdgeUp='12000001' MatEdgeLo=''  />
+<Job ID='1' Code='4015469.001' Type='PROGRAM' ToWork='1' QBoards='1' ExeOrder='1'>
+<Board id='1' Code='Default' L='2500.00' W='1830.00' Thickness='18.00' MatNo='1' MatCode='FIB MEL BLANCO 18MM 2.50X1.83' Grain='1'/>
+<Program />
+</Job>
+</WorkList>
+</Order>

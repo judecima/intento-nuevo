@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Minimized from project XML shape observed in 4015508__VENTAS_EGGER RG4015508.xml. -->
+<project>
+  <panel1 l="2600" w="1830" material="Mdf Blanco 18mm 2.60x1.83m W954 ST14 (22314)" thickness="18" saw="4.4" num="1">
+    <no.1 l="2600" w="1830" trim="5" x="0" y="0" layer="1" id="0">
+      <part cut="230" num="1" type="1" id="1" code="A" />
+      <part cut="560" num="2" type="1" id="2" code="B" />
+    </no.1>
+    <no.2 l="1830" w="230" trim="5" x="0" y="0" layer="2" id="1" />
+    <no.3 l="410" w="560" trim="5" x="234.4" y="0" layer="2" id="2" />
+  </panel1>
+</project>

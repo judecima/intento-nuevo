@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Minimizado de 4015557__juan_rivero4015557.xml (corpus Lepton).
+     Caso discriminante de la direccion del nodo raiz:
+       panel l=1830 w=1300  y  root l=1830 w=1300  (identicos)
+     Comparar root l/w contra panel l/w diria direccion x, pero los hijos del raiz
+     avanzan sobre y (y=0 y y=1284 con el mismo x), asi que la direccion real es y.
+     Con direccion x el terminal id=5 quedaria en y=1284..1437 sobre un alto de 1300:
+     fuera del tablero. Con direccion y queda en 1284..1821 sobre un alto de 1830. -->
+<project>
+<panel1 l="1830" w="1300" material="Mdf Roble Nebraska Gris 18mm 1.30x1.83m H3332 ST10 (121109)" thickness="18" saw="4.4" num="1">
+<no.1 l="1830" w="1300" trim="5" x="0" y="0" layer="1" id="0">
+<part cut="429.6" num="1" type="2" id="1" code="" />
+<part cut="537.2" num="1" type="2" id="4" code="" />
+</no.1>
+<no.2 l="1300" w="537.2" trim="5" x="0" y="1284" layer="2" id="4">
+<part cut="153.2" num="1" type="1" id="5" code="6" />
+</no.2>
+<no.8 l="537.2" w="153.2" trim="0" x="0" y="1284" layer="3" id="5">
+</no.8>
+<no.17 l="1300" w="429.6" trim="5" x="0" y="0" layer="2" id="1">
+<part cut="659" num="1" type="1" id="17" code="2" />
+</no.17>
+<no.19 l="429.6" w="659" trim="0" x="0" y="0" layer="3" id="17">
+</no.19>
+</panel1>
+</project>

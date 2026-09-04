@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Copia minima y verbatim de 4015611__CAOBA_CAOBA4015611.xml (corpus Lepton).
+     Caso direccional: el nodo raiz arranca con direccion y (root l/w invertidos
+     respecto del panel), por lo que l/w locales NO son ancho/alto globales.
+     Terminal id=5: l=95 w=2588 -> global 2588x95. -->
+<project>
+<panel1 l="2600" w="1830" material="TEXTIL GRIS 18 mm" thickness="18" saw="5" num="1">
+<no.1 l="1830" w="2600" trim="5" x="0" y="0" layer="1" id="0">
+<part cut="1240" num="1" type="2" id="1" code="" />
+<part cut="120" num="1" type="2" id="2" code="" />
+<part cut="120" num="1" type="2" id="3" code="" />
+<part cut="95" num="1" type="2" id="4" code="" />
+</no.1>
+<no.2 l="2600" w="95" trim="5" x="0" y="1495" layer="2" id="4">
+<part cut="2588" num="1" type="1" id="5" code="3" />
+</no.2>
+<no.3 l="95" w="2588" trim="0" x="0" y="1495" layer="3" id="5">
+</no.3>
+<no.4 l="2600" w="120" trim="5" x="0" y="1370" layer="2" id="3">
+<part cut="2590" num="1" type="1" id="6" code="2" />
+</no.4>
+<no.5 l="120" w="2590" trim="0" x="0" y="1370" layer="3" id="6">
+</no.5>
+<no.6 l="2600" w="120" trim="5" x="0" y="1245" layer="2" id="2">
+<part cut="2590" num="1" type="1" id="7" code="2" />
+</no.6>
+<no.7 l="120" w="2590" trim="0" x="0" y="1245" layer="3" id="7">
+</no.7>
+<no.8 l="2600" w="1240" trim="5" x="0" y="0" layer="2" id="1">
+<part cut="2537" num="1" type="1" id="8" code="1" />
+</no.8>
+<no.9 l="1240" w="2537" trim="0" x="0" y="0" layer="3" id="8">
+</no.9>
+</panel1>
+<panel2 l="2600" w="1830" material="TEXTIL GRIS 18 mm" thickness="18" saw="5" num="1">
+<no.10 l="1830" w="2600" trim="5" x="0" y="0" layer="1" id="0">
+<part cut="1240" num="1" type="2" id="9" code="" />
+</no.10>
+<no.11 l="2600" w="1240" trim="5" x="0" y="0" layer="2" id="9">
+<part cut="2537" num="1" type="1" id="10" code="1" />
+</no.11>
+<no.12 l="1240" w="2537" trim="0" x="0" y="0" layer="3" id="10">
+</no.12>
+</panel2>
+</project>

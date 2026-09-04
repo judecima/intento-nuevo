@@ -1,0 +1,39 @@
+{
+  "sample": {
+    "n": 60,
+    "exact_hits": 25,
+    "timeouts": 6,
+    "errors": 0
+  },
+  "completed": {
+    "n": 54,
+    "avg_ms": 522.0,
+    "median_ms": 476.0,
+    "p95_ms": 1154,
+    "sum_ms": 28188
+  },
+  "exact_hit_completed": {
+    "n": 24,
+    "avg_ms": 451.2,
+    "median_ms": 421.0,
+    "p95_ms": 1099,
+    "sum_ms": 10830
+  },
+  "miss_completed": {
+    "n": 30,
+    "avg_ms": 578.6,
+    "median_ms": 476.0,
+    "p95_ms": 1235,
+    "sum_ms": 17358
+  },
+  "quality_vs_reference": {
+    "equal": 54
+  },
+  "exact_cache_simulation": {
+    "assumed_lookup_plus_validation_ms": 5,
+    "baseline_cpu_proxy_ms": 37336,
+    "memory_cpu_proxy_ms": 25093,
+    "saving_pct": 32.8,
+    "exact_hit_timeouts_avoided_if_cached": 1
+  }
+}
