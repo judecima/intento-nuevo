@@ -36,17 +36,6 @@ function nuevasMetricas() {
       cheapValue: 0,
       cheapReason: null,
     },
-    v21: {
-      familyRuns: 0,
-      familyCertified: 0,
-      familyMs: 0,
-      familySeeds: 0,
-      familyPatterns: 0,
-      randomPatterns: 0,
-      fastPoolSize: 0,
-      fallbackRuns: 0,
-      errors: 0,
-    },
     total: { casos: 0, ms: 0 }
   };
 }
@@ -66,11 +55,6 @@ function usarCotaBarataPostBaseline(config) {
   // El flag V20 es independiente del pipeline staged para poder hacer un A/B
   // contra el V10 legacy cambiando una sola variable.
   return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
-}
-
-function usarV21Familias(config) {
-  if (config.usarV21FamilyPatterns === true) return true;
-  return envFlag('OPTIMIZER_V21_FAMILY_PATTERNS_EXPERIMENTAL');
 }
 
 function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
@@ -361,47 +345,6 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
     const res = rescatarUnaPlaca(lineas, config);
     if (res.exito) probar('oneboard', res.plan, Date.now() - t);
     else registrar(metricas.oneboard, Date.now() - t, false, 0, false);
-  }
-
-  // ---- V21: intento rápido por familias geométricas + 4 rondas random.
-  // Sólo puede cortar el Master legacy cuando alcanza la cota activa y el plan
-  // físico pasa el validador. Si no certifica, el Master histórico corre igual.
-  if (
-    usarV21Familias(config) &&
-    config.usarMaster !== false &&
-    mejor.resumen.placas > cota
-  ) {
-    metricas.v21.familyRuns++;
-    try {
-      const { runV21FamilyMaster } = require('../experimental/v21-family-master.cjs');
-      const fast = runV21FamilyMaster(lineas, config, {
-        incumbentBoards: mejor.resumen.placas,
-        cota,
-        areaPlaca,
-        expectedPieces: piezasEsperadas,
-        baselineOpts: baseline.opts,
-        randomRounds: 4,
-        maxFamilies: 12,
-        maxSolveMs: 750,
-      });
-      const fm = fast.metrics || {};
-      metricas.v21.familyMs += +fm.ms || 0;
-      metricas.v21.familySeeds += +fm.familySeeds || 0;
-      metricas.v21.familyPatterns += +fm.familyPatterns || 0;
-      metricas.v21.randomPatterns += +fm.randomPatterns || 0;
-      metricas.v21.fastPoolSize += +fm.poolSize || 0;
-
-      if (fast.certified && fast.candidate?.resumen?.placas <= cota) {
-        metricas.v21.familyCertified++;
-        if (fast.candidate.resumen) fast.candidate.resumen.origen = 'v21-family-certified';
-        metricas.total.ms += Date.now() - t0;
-        return { plan: fast.candidate, metricas, cota, cotaArea };
-      }
-      metricas.v21.fallbackRuns++;
-    } catch (_) {
-      metricas.v21.errors++;
-      metricas.v21.fallbackRuns++;
-    }
   }
 
   // ---- pattern master: generar pool, resolver cobertura, materializar
