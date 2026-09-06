@@ -30,6 +30,26 @@ const v10 = require("../../src/lib/optimizer/legacy/v10.cjs") as {
   };
 };
 
+const staged = require("../../src/lib/optimizer/experimental/v10-hybrid-pipeline.cjs") as {
+  runV10HybridPipeline(
+    lines: Array<Record<string, unknown>>,
+    config: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ): {
+    plan: { resumen: { placas: number } };
+    cota: number;
+    areaCota?: number;
+    reason: string;
+    metrics: {
+      postBaselineCheapCertified: boolean;
+      postBaselineCheapValue: number;
+      multisliceMs: number;
+      rounds20GenMs: number;
+      fallbackGenMs: number;
+    };
+  };
+};
+
 const lines = [
   { ref: "A", detalle: "pieza angosta larga", cant: 1, base: 600, altura: 100, veta: false },
   { ref: "B", detalle: "pieza mas grande", cant: 1, base: 550, altura: 200, veta: false },
@@ -117,5 +137,34 @@ describe("V10 certified baseline fast path", () => {
     expect(result.metricas.lowerBound.cheapErrors).toBe(0);
     expect(result.metricas.lowerBound.cheapMs).toBeGreaterThanOrEqual(0);
     expect(result.metricas.compactacion.activaciones).toBe(0);
+  });
+
+  it("stops the staged pipeline immediately after cheap F1 certification", () => {
+    const result = staged.runV10HybridPipeline(
+      f1Lines,
+      {
+        ...f1Config,
+        usarCotaBarataAntesCompactacion: true,
+        usarMaster: true,
+        usarMultiSlice: true,
+      },
+      {
+        enableStrongLowerBound: false,
+        enablePreMultisliceCertification: false,
+        enableRepair: false,
+        enableIncrementalMaster: false,
+        masterMs: 10,
+      },
+    );
+
+    expect(result.areaCota).toBe(1);
+    expect(result.cota).toBe(2);
+    expect(result.plan.resumen.placas).toBe(2);
+    expect(result.reason).toBe("cheap-lower-bound-certified-post-baseline");
+    expect(result.metrics.postBaselineCheapCertified).toBe(true);
+    expect(result.metrics.postBaselineCheapValue).toBe(2);
+    expect(result.metrics.multisliceMs).toBe(0);
+    expect(result.metrics.rounds20GenMs).toBe(0);
+    expect(result.metrics.fallbackGenMs).toBe(0);
   });
 });
