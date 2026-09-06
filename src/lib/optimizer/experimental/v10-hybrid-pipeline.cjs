@@ -130,6 +130,12 @@ function runV10HybridPipeline(lineas, config, options = {}) {
     cota,
     preMasterMs: 0,
     baselineCompactMs: 0,
+    postBaselineCheapRuns: 0,
+    postBaselineCheapMs: 0,
+    postBaselineCheapValue: 0,
+    postBaselineCheapReason: null,
+    postBaselineCheapCertified: false,
+    postBaselineCheapViolation: false,
     preMultisliceCertified: false,
     multisliceMs: 0,
     multisliceAccepted: false,
@@ -170,12 +176,47 @@ function runV10HybridPipeline(lineas, config, options = {}) {
     legacyV10.nuevasMetricas(),
   );
   metrics.baselineCompactMs = Date.now() - tp;
+  const preLb = pre?.metricas?.lowerBound || {};
+  metrics.postBaselineCheapRuns = +preLb.cheapRuns || 0;
+  metrics.postBaselineCheapMs = +preLb.cheapMs || 0;
+  metrics.postBaselineCheapValue = +preLb.cheapValue || 0;
+  metrics.postBaselineCheapReason = preLb.cheapReason || null;
+  metrics.postBaselineCheapCertified = (+preLb.cheapCertified || 0) > 0;
+  metrics.postBaselineCheapViolation = (+preLb.cheapViolation || 0) > 0;
+
   let best = pre.plan;
   const preMasterBoards = best?.resumen?.placas ?? null;
   if (!best || !best.resumen) {
     metrics.preMasterMs = Date.now() - tp;
     metrics.totalMs = Date.now() - started;
     return { plan: best, cota, metrics, reason: "no-pre-master-plan" };
+  }
+
+  // V20: legacyV10 puede certificar gap +1 con la cheap LB antes de compactar.
+  // Si pre.cota supera la cota de área y coincide con el incumbente físico, no
+  // hay nada que MultiSlice/Master puedan mejorar en cantidad de placas.
+  if (
+    metrics.postBaselineCheapCertified &&
+    Number.isFinite(pre.cota) &&
+    pre.cota > cota &&
+    best.resumen.placas <= pre.cota
+  ) {
+    metrics.preMasterMs = Date.now() - tp;
+    metrics.totalMs = Date.now() - started;
+    return {
+      plan: best,
+      cota: pre.cota,
+      areaCota: cota,
+      metrics,
+      reason: "cheap-lower-bound-certified-post-baseline",
+      strongLowerBound: {
+        lowerBound: pre.cota,
+        cheapLowerBound: pre.cota,
+        cheapCertified: true,
+        rasterRan: false,
+        reason: metrics.postBaselineCheapReason || "post-baseline-cheap",
+      },
+    };
   }
 
   if (best.resumen.placas <= cota || config.usarMaster === false) {

@@ -215,7 +215,7 @@ function cotaClique(items, W, H, s, maxTipos) {
 function computeLowerBound(lineas, opts, config = {}) {
   const cfg={...DEFAULTS,...config};
   const s=Math.max(0,+(opts.sierra??0));
-  const W=+opts.placaBase-(+opts.refiladoX??0), H=+opts.placaAltura-(+opts.refiladoY??0);
+  const W=+opts.placaBase-+(opts.refiladoX??0), H=+opts.placaAltura-+(opts.refiladoY??0);
   const vacio={area:0,kerf:0,raster:0,dff:0,proyeccion:0,clique:0,best:0,binding:"area",ancho:W,alto:H,anchoEfectivo:W,altoEfectivo:H,rasterAplicado:false,factible:true};
   if (!(W>0) || !(H>0) || !lineas.length) return vacio;
   const items=[];
