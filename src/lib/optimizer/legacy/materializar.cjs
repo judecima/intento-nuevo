@@ -13,6 +13,32 @@
    son intercambiables, se reasignan por indice de tipo. Si algun tipo no
    alcanza, se devuelve null en vez de un plan silenciosamente incorrecto. */
 
+function resumirTrazaPatrones(planPatrones) {
+  const origins = {};
+  let roundFound = null;
+  let maxSourceRound = null;
+  let untraced = 0;
+
+  for (const pat of planPatrones || []) {
+    const meta = pat?._patternMeta;
+    if (!meta) { untraced++; continue; }
+    const origin = meta.origin || 'unknown';
+    origins[origin] = (origins[origin] || 0) + 1;
+    if (Number.isInteger(meta.firstSeenRound))
+      roundFound = roundFound === null ? meta.firstSeenRound : Math.max(roundFound, meta.firstSeenRound);
+    if (Number.isInteger(meta.sourceRound))
+      maxSourceRound = maxSourceRound === null ? meta.sourceRound : Math.max(maxSourceRound, meta.sourceRound);
+  }
+
+  return {
+    selectedPatterns: (planPatrones || []).length,
+    roundFound,
+    maxSourceRound,
+    origins,
+    untraced
+  };
+}
+
 function materializar(planPatrones, lineas, opts) {
   // piezas reales del pedido, agrupadas por tipo
   const porTipo = new Map();
@@ -62,6 +88,7 @@ function materializar(planPatrones, lineas, opts) {
   // toda la demanda tiene que quedar consumida: si sobra, el plan no es exacto
   for (const [, libres] of porTipo) if (libres.length) return null;
 
+  const patternTrace = resumirTrazaPatrones(planPatrones);
   const cortado = placas.reduce((s, p) => s + p.colocadas.reduce((a, c) => a + c.base * c.altura, 0), 0);
   const bruto = placas.length * opts.placaBase * opts.placaAltura;
   return {
@@ -74,6 +101,7 @@ function materializar(planPatrones, lineas, opts) {
       desperdicio: (1 - cortado / bruto) * 100,
       cortes: placas.reduce((s, p) => s + (p.cortes ? p.cortes.length : 0), 0),
       origen: 'pattern-master',
+      patternTrace,
     },
   };
 }
