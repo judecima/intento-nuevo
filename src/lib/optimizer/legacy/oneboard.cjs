@@ -23,6 +23,16 @@ function rescatarUnaPlaca(lineas, config = {}) {
   // Todo parametro leido con opts.x necesita su default aca mismo: sin esto
   // el rescate no ejecuta ninguna corrida y falla en silencio.
   const opts = { pases: 40, semillasRescate: 6, msRescate: 20000, ...config };
+  // Presupuesto determinista, mismo patron que Beam y el B&B de cobertura.
+  // Con maxIntentosRescate el contador decide la busqueda y el reloj queda solo
+  // como fusible; sin el, se conserva exactamente el comportamiento legacy.
+  const maxIntentos = Number.isFinite(opts.maxIntentosRescate)
+    ? Math.max(0, Math.floor(opts.maxIntentosRescate))
+    : Infinity;
+  const watchdogMs = Number.isFinite(opts.maxIntentosRescate)
+    ? (opts.watchdogRescateMs || Math.max(opts.msRescate || 20000, 60000))
+    : (opts.msRescate || 20000);
+  let intentos = 0;
   const base = M.optimizar(lineas, { ...config });
   const areaTotal = lineas.reduce((s, l) => s + l.cant * l.base * l.altura, 0);
   const areaPlaca = (config.placaBase - (config.refiladoX || 0)) *
@@ -48,11 +58,12 @@ function rescatarUnaPlaca(lineas, config = {}) {
   ];
 
   let corrida = 0;
-  for (let s = 0; s < opts.semillasRescate && Date.now() - t0 < opts.msRescate; s++) {
+  for (let s = 0; s < opts.semillasRescate && intentos < maxIntentos && Date.now() - t0 < watchdogMs; s++) {
     for (const c1 of CR) for (const c2 of CR)
       for (const dir of [M.DIR_Y, M.DIR_X])
         for (const multi of [false, true]) {
-          if (Date.now() - t0 > opts.msRescate) break;
+          if (intentos >= maxIntentos || Date.now() - t0 > watchdogMs) break;
+          intentos++;
           const cfg = { criterios: [c1, c2], criterio: c1, dirInicial: dir,
                         ruido: s === 0 ? 0 : 0.3, multiRebanada: multi };
           cfg._id = M.hashTexto(c1 + '>' + c2 + '|' + dir + '|' + multi);
@@ -67,13 +78,13 @@ function rescatarUnaPlaca(lineas, config = {}) {
           if (restan === 0) {
             const plan = comoPlan(res, opts);
             return { plan, baseline: base, activado: true, exito: true,
-                     restante: 0, historial, corridas: corrida,
+                     restante: 0, historial, corridas: corrida, intentos,
                      ms: Date.now() - t0 };
           }
         }
   }
   return { plan: base, baseline: base, activado: true, exito: false,
-           restante: mejorRestante, historial, corridas: corrida,
+           restante: mejorRestante, historial, corridas: corrida, intentos,
            ms: Date.now() - t0 };
 }
 
