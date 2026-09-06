@@ -52,8 +52,9 @@ function envFlag(name) {
 
 function usarCotaBarataPostBaseline(config) {
   if (config.usarCotaBarataAntesCompactacion === true) return true;
-  return envFlag('OPTIMIZER_V10_STAGED_EXPERIMENTAL') &&
-         envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+  // El flag V20 es independiente del pipeline staged para poder hacer un A/B
+  // contra el V10 legacy cambiando una sola variable.
+  return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
 }
 
 function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
