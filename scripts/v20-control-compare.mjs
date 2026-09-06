@@ -7,7 +7,7 @@
  * finito.
  *
  * Timing-comparability gate (exit 3): suma totalMs de los mismos casos y exige
- * que la deriva relativa entre arneses no supere --maxTimeDriftPct (5% por
+ * que la deriva relativa entre arneses no supere --maxTimeDriftPct (3% por
  * defecto). Esto evita atribuir al V20 una mejora que provenga del arnes.
  *
  * Uso:
@@ -15,7 +15,7 @@
  *     --baseline experiencia/v6/hotspot-all.jsonl \
  *     --candidate experiencia/v6/hotspot-v20-control.jsonl \
  *     --limit 20 \
- *     --maxTimeDriftPct 5
+ *     --maxTimeDriftPct 3
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -24,13 +24,13 @@ const args = parseArgs(process.argv.slice(2));
 if (typeof args.baseline !== "string" || typeof args.candidate !== "string") {
   console.error(
     "uso: node scripts/v20-control-compare.mjs --baseline <marker.jsonl> " +
-    "--candidate <control.jsonl> [--limit 20] [--maxTimeDriftPct 5]",
+    "--candidate <control.jsonl> [--limit 20] [--maxTimeDriftPct 3]",
   );
   process.exit(2);
 }
 
 const limit = Number(args.limit ?? 20);
-const maxTimeDriftPct = Number(args.maxTimeDriftPct ?? 5);
+const maxTimeDriftPct = Number(args.maxTimeDriftPct ?? 3);
 if (!(limit > 0) || !(maxTimeDriftPct >= 0)) {
   console.error("--limit debe ser > 0 y --maxTimeDriftPct debe ser >= 0");
   process.exit(2);
