@@ -11,12 +11,20 @@ const v10 = require("../../src/lib/optimizer/legacy/v10.cjs") as {
   ): {
     plan: { resumen: { placas: number } };
     cota: number;
+    cotaArea?: number;
     metricas: {
       compactacion: { activaciones: number };
       lowerBound: {
         externalUsed: number;
         externalViolation: number;
         certifiedAfterBaseline: number;
+        cheapRuns: number;
+        cheapCertified: number;
+        cheapViolation: number;
+        cheapErrors: number;
+        cheapMs: number;
+        cheapValue: number;
+        cheapReason: string | null;
       };
     };
   };
@@ -45,6 +53,17 @@ const config = {
   usarCompactacion: true,
 };
 
+const f1Lines = [
+  { ref: "A", detalle: "cuadrado grande", cant: 1, base: 600, altura: 600, veta: false },
+  { ref: "B", detalle: "rectangulo incompatible", cant: 1, base: 600, altura: 500, veta: false },
+];
+
+const f1Config = {
+  ...config,
+  placaBase: 1000,
+  placaAltura: 1000,
+};
+
 describe("V10 certified baseline fast path", () => {
   it("keeps legacy compaction with the flag off", () => {
     const result = v10.optimizarV10(lines, config);
@@ -53,6 +72,7 @@ describe("V10 certified baseline fast path", () => {
     expect(result.cota).toBe(1);
     expect(result.metricas.compactacion.activaciones).toBe(1);
     expect(result.metricas.lowerBound.certifiedAfterBaseline).toBe(0);
+    expect(result.metricas.lowerBound.cheapRuns).toBe(0);
   });
 
   it("skips compaction when baseline already equals a valid lower bound", () => {
@@ -65,6 +85,7 @@ describe("V10 certified baseline fast path", () => {
     expect(result.cota).toBe(1);
     expect(result.metricas.compactacion.activaciones).toBe(0);
     expect(result.metricas.lowerBound.certifiedAfterBaseline).toBe(1);
+    expect(result.metricas.lowerBound.cheapRuns).toBe(0);
   });
 
   it("records and ignores an external lower bound above the physical incumbent", () => {
@@ -77,5 +98,24 @@ describe("V10 certified baseline fast path", () => {
     expect(result.cota).toBe(1);
     expect(result.metricas.lowerBound.externalUsed).toBe(0);
     expect(result.metricas.lowerBound.externalViolation).toBe(1);
+  });
+
+  it("certifies an F1 case with the cheap LB before any rescue stage", () => {
+    const result = v10.optimizarV10(f1Lines, {
+      ...f1Config,
+      usarCotaBarataAntesCompactacion: true,
+    });
+
+    expect(result.cotaArea).toBe(1);
+    expect(result.plan.resumen.placas).toBe(2);
+    expect(result.cota).toBe(2);
+    expect(result.metricas.lowerBound.cheapRuns).toBe(1);
+    expect(result.metricas.lowerBound.cheapValue).toBe(2);
+    expect(result.metricas.lowerBound.cheapCertified).toBe(1);
+    expect(result.metricas.lowerBound.certifiedAfterBaseline).toBe(1);
+    expect(result.metricas.lowerBound.cheapViolation).toBe(0);
+    expect(result.metricas.lowerBound.cheapErrors).toBe(0);
+    expect(result.metricas.lowerBound.cheapMs).toBeGreaterThanOrEqual(0);
+    expect(result.metricas.compactacion.activaciones).toBe(0);
   });
 });
