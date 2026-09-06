@@ -60,12 +60,20 @@ function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
   const t0 = process.hrtime.bigint();
   metricas.lowerBound.cheapRuns++;
   try {
+    const optsLB = baseline?.opts || config;
+    const trimValido = (v) => v !== null && v !== '' && Number.isFinite(+v);
+    if (!trimValido(optsLB?.refiladoX) || !trimValido(optsLB?.refiladoY)) {
+      metricas.lowerBound.cheapErrors++;
+      metricas.lowerBound.cheapReason = 'invalid-trim';
+      return 0;
+    }
+
     // Require dinamico: el legacy productivo no carga codigo experimental salvo
     // que el flag V20 este activado explicitamente.
     const { computeHybridLowerBound } = require('../experimental/hybrid-lower-bound.cjs');
     const r = computeHybridLowerBound(
       lineas,
-      baseline?.opts || config,
+      optsLB,
       baseline?.resumen?.placas,
       {
         useRaster: false,
