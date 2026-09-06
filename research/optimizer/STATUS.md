@@ -12,9 +12,9 @@ Base branch: `feature/agregar_configuracion_organizacion`
 Status: **CLOSED / MERGED**
 
 Result on frozen 213-hotspot cohort:
-- baseline total: 14,247,507 ms
+- pre-V20 total: 14,247,507 ms
 - boards: 2,371
-- lower-bound / fast-path estimated benefit: 1,886,016 ms
+- avoided work: 1,886,016 ms
 - relative benefit: ~13.24%
 - board regressions observed: 0
 - invalid plans observed: 0
@@ -34,31 +34,57 @@ Reason: the dominant hotspot is Pattern Master, not lower-bound computation.
 
 ## OPEN — V21 Pattern Master generation
 
-Single objective: reduce Pattern Master latency without losing a board.
+Single objective: reduce end-to-end post-V20 latency without losing a board.
 
-Frozen baseline on 213 hotspot cases:
-- Pattern Master: 10,624,131 ms
-- total: 14,247,507 ms
+Measurement mode:
+- V20 ON: `OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL=1`
+- staged OFF: `OPTIMIZER_V10_STAGED_EXPERIMENTAL=0`
+
+Frozen historical post-V20 baseline on 213 hotspot cases:
+- total: 12,361,491 ms
+- remaining Pattern Master: 9,149,864 ms
+- non-Master remainder: 3,211,627 ms
 - boards: 2,371
 
-### Acceptance gates
+The pre-V20 Master number 10,624,131 ms is historical context only and is not the V21 baseline.
+
+### Acceptance gate — single performance verdict
+
 Correctness:
 - board regressions: 0
 - invalid plans: 0
 - new exceptions: 0
 
-Performance target:
-- Pattern Master <= 6,500,000 ms on the 213 hotspot cohort
-- total <= 9,000,000 ms on the same cohort
+Performance is normalized for hardware and must be measured against V20 control on the **same machine**:
+- `V21 total / V20 total <= 0.7280675`
+- equivalent to at least **27.193% end-to-end reduction**
+- on the historical machine this corresponds to `<= 9,000,000 ms`
 
-If V21 does not reach these targets, stop tuning family thresholds and move to V22 (adaptive Master budget).
+Do not compare raw milliseconds across different machines.
 
-### V21 scope
+Diagnostic Master KPI, not a second gate:
+- historical equivalent Master `<= 5,788,373 ms`
+- approximately **36.74% reduction** of remaining post-V20 Master
+
+### V21 preflight — CLOSED
+
+The historical non-Master floor is ~3.212M ms, therefore the 9.0M historical-equivalent target is mathematically reachable through Master reduction.
+
+Extreme case `4048571` remains Master-bound in the frozen profile:
+- ~96,009 ms baseline
+- ~950,067 ms Pattern Master
+- 2,439 pieces
+
+### V21 implementation
+
 Allowed:
-- family-base candidate generation
-- family-height candidate generation
-- random fallback
-- pattern provenance and roundFound/firstSeenRound instrumentation
+- exact same-axis `family-base` generation
+- exact same-axis `family-height` generation
+- four-round random exploration
+- physically validated family patterns
+- early return only if the fast pool reaches the active lower bound
+- otherwise full legacy Pattern Master fallback
+- V21 provenance and metrics
 
 Not allowed in V21:
 - new lower bounds
@@ -66,6 +92,10 @@ Not allowed in V21:
 - new clique/projection research
 - solver objective changes
 - remnant tradeoffs that add boards
+- rewriting the gate after measurement
+
+If V21 misses the normalized target, close it as FAIL and move to V22 instead of tuning arbitrary thresholds indefinitely.
 
 ## Rule
+
 No new optimizer change enters the roadmap unless the expected metric movement and acceptance threshold are written before implementation.
