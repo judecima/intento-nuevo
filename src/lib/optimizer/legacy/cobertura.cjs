@@ -15,7 +15,16 @@
    Se resuelve con ramificacion y acotacion, usando el plan de V8 como
    incumbente inicial: nunca puede devolver algo peor. */
 
-function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 20000) {
+function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limite = 20000) {
+  // Compatibilidad: historicamente el quinto argumento era un numero de ms.
+  // El nuevo formato acepta { maxNodos, watchdogMs }. Cuando maxNodos existe,
+  // la decision algoritmica es determinista; watchdogMs queda solo como fusible.
+  const budget = typeof limite === 'number'
+    ? { maxNodos: Infinity, watchdogMs: limite }
+    : {
+        maxNodos: Number.isFinite(limite?.maxNodos) ? Math.max(0, Math.floor(limite.maxNodos)) : Infinity,
+        watchdogMs: Number.isFinite(limite?.watchdogMs) ? Math.max(0, limite.watchdogMs) : Infinity
+      };
   const T = demanda.length;
   // area de cada tipo, para la cota inferior
   // Conservar la placa fisica: sin ella el plan no se puede materializar,
@@ -47,10 +56,19 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   }
 
   function dfs(rest, areaRest, usadas, plan) {
-    if (Date.now() - t0 > limiteMs) { agotado = true; return; }
+    // Con presupuesto por nodos, un estado terminal no consume expansion: se
+    // registra la solucion que encontro el ultimo nodo admitido. En modo legacy
+    // el orden original se conserva intacto, para que la ruta con el flag
+    // apagado siga siendo identica bit a bit.
+    const modoLegacy = !Number.isFinite(budget.maxNodos);
+    if (modoLegacy && Date.now() - t0 > budget.watchdogMs) { agotado = true; return; }
     if (areaRest <= 1e-9) {
       if (usadas < mejor) { mejor = usadas; mejorPlan = plan.slice(); }
       return;
+    }
+    if (!modoLegacy) {
+      if (nodos >= budget.maxNodos) { agotado = true; return; }
+      if (Date.now() - t0 > budget.watchdogMs) { agotado = true; return; }
     }
     if (usadas + cota(rest, areaRest) >= mejor) return;
 
@@ -86,7 +104,9 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       plan.push(p);
       dfs(nr, areaRest - da, usadas + 1, plan);
       plan.pop();
-      if (Date.now() - t0 > limiteMs) return;
+      if (agotado) return;
+      // En legacy este corte no marcaba `agotado`; se conserva esa semantica.
+      if (Date.now() - t0 > budget.watchdogMs) { if (!modoLegacy) agotado = true; return; }
     }
   }
 
