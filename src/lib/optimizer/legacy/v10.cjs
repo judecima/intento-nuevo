@@ -28,6 +28,13 @@ function nuevasMetricas() {
       externalUsed: 0,
       externalViolation: 0,
       certifiedAfterBaseline: 0,
+      cheapRuns: 0,
+      cheapCertified: 0,
+      cheapViolation: 0,
+      cheapErrors: 0,
+      cheapMs: 0,
+      cheapValue: 0,
+      cheapReason: null,
     },
     total: { casos: 0, ms: 0 }
   };
@@ -37,6 +44,44 @@ function registrar(m, ms, gano, ahorro, invalido) {
   m.activaciones++; m.ms += ms; m.peorMs = Math.max(m.peorMs, ms);
   if (gano) { m.ganancias++; m.placasAhorradas += ahorro; }
   if (invalido) m.invalidos++;
+}
+
+function envFlag(name) {
+  return /^(1|true|yes|on)$/i.test(String(process.env[name] || ''));
+}
+
+function usarCotaBarataPostBaseline(config) {
+  if (config.usarCotaBarataAntesCompactacion === true) return true;
+  return envFlag('OPTIMIZER_V10_STAGED_EXPERIMENTAL') &&
+         envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+}
+
+function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
+  const t0 = process.hrtime.bigint();
+  metricas.lowerBound.cheapRuns++;
+  try {
+    // Require dinamico: el legacy productivo no carga codigo experimental salvo
+    // que el flag V20 este activado explicitamente.
+    const { computeHybridLowerBound } = require('../experimental/hybrid-lower-bound.cjs');
+    const r = computeHybridLowerBound(
+      lineas,
+      baseline?.opts || config,
+      baseline?.resumen?.placas,
+      {
+        useRaster: false,
+        claude: { usarRaster: false },
+      },
+    );
+    const value = Math.max(0, Math.floor(Number(r?.cheapLowerBound ?? r?.lowerBound ?? 0)));
+    metricas.lowerBound.cheapValue = value;
+    metricas.lowerBound.cheapReason = r?.reason || null;
+    return value;
+  } catch (_) {
+    metricas.lowerBound.cheapErrors++;
+    return 0;
+  } finally {
+    metricas.lowerBound.cheapMs += Number(process.hrtime.bigint() - t0) / 1e6;
+  }
 }
 
 /* Multi-rebanada como PLAN ALTERNATIVO completo, nunca mezclada dentro del
@@ -180,18 +225,43 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
     }
   }
 
-  // Fast path EXPERIMENTAL: si el objetivo primario es minimizar placas y el
-  // baseline ya iguala una cota válida, ninguna etapa posterior puede reducir
-  // placas. Se evita compactación (que puede pulir remanente con mismas placas)
-  // sólo cuando el caller lo pide explícitamente.
+  const usarCheap = usarCotaBarataPostBaseline(config);
+  const certificarTemprano = config.certificarAntesCompactacion === true || usarCheap;
+
+  // Primer corte: si area/external LB ya certifican, ni siquiera calculamos la
+  // cheap LB. Esto cubre los casos baratos baseline == areaLB.
   if (
-    config.certificarAntesCompactacion === true &&
+    certificarTemprano &&
     baseline?.resumen &&
     baseline.resumen.placas <= cota
   ) {
     metricas.lowerBound.certifiedAfterBaseline++;
     metricas.total.ms += Date.now() - t0;
     return { plan: baseline, metricas, cota, cotaArea };
+  }
+
+  // V20 experimental: sólo para los que NO cerraron por área. Calcula la misma
+  // Hybrid Cheap LB validada en V15-V19, explícitamente sin Raster. Si iguala
+  // al incumbente físico, el número de placas queda certificado y cortamos
+  // compactación + MultiSlice + OneBoard + Master.
+  if (usarCheap && baseline?.resumen) {
+    const cheap = calcularCotaBarataPostBaseline(lineas, config, baseline, metricas);
+    if (cheap > 0) {
+      if (cheap <= baseline.resumen.placas) {
+        cota = Math.max(cota, cheap);
+      } else {
+        // Una cota inferior no puede superar una solución física factible.
+        // No se usa: queda registrada para detectar cualquier bug de la cota.
+        metricas.lowerBound.cheapViolation++;
+      }
+    }
+
+    if (baseline.resumen.placas <= cota) {
+      metricas.lowerBound.cheapCertified++;
+      metricas.lowerBound.certifiedAfterBaseline++;
+      metricas.total.ms += Date.now() - t0;
+      return { plan: baseline, metricas, cota, cotaArea };
+    }
   }
 
   const probar = (mod, candidato, ms, permitirMismas=false) => {
