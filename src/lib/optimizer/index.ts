@@ -1,4 +1,6 @@
 export { optimizationInputSchema } from "./schema";
+export { analyzeFurnitureStructure } from "./analysis/furniture-structure";
+export type * from "./analysis/furniture-structure";
 export { canonicalizeOptimizationInput, serializeCanonicalOptimizationCase } from "./canonical-case";
 export { CanonicalXmlParseError, parseCanonicalXml } from "./canonical-xml";
 export { EXACT_FINGERPRINT_VERSION, exactFingerprint, exactFingerprintPayload, exactPieceKey } from "./fingerprints";
