@@ -20,13 +20,39 @@ const { computeHybridLowerBound } = require("./hybrid-lower-bound.cjs");
 
 const { optimizar } = motor;
 
+function minRound(a, b) {
+  if (!Number.isInteger(a)) return Number.isInteger(b) ? b : null;
+  if (!Number.isInteger(b)) return a;
+  return Math.min(a, b);
+}
+
+function mergePatternMeta(selected, prev, incoming) {
+  const prevMeta = prev?._patternMeta || null;
+  const incomingMeta = incoming?._patternMeta || null;
+  const selectedMeta = selected?._patternMeta || null;
+  const firstSeenRound = minRound(prevMeta?.firstSeenRound, incomingMeta?.firstSeenRound);
+  if (!selectedMeta && firstSeenRound === null) return selected;
+  return {
+    ...selected,
+    _patternMeta: {
+      ...(selectedMeta || {}),
+      firstSeenRound,
+    },
+  };
+}
+
 function dedupPatterns(patterns) {
   const byKey = new Map();
   for (const p of patterns || []) {
     if (!p || !p.uso || !p.placa) continue;
     const k = claveVector(p.uso);
     const prev = byKey.get(k);
-    if (!prev || (+p.area || 0) > (+prev.area || 0)) byKey.set(k, p);
+    if (!prev) {
+      byKey.set(k, p);
+      continue;
+    }
+    const selected = (+p.area || 0) > (+prev.area || 0) ? p : prev;
+    byKey.set(k, mergePatternMeta(selected, prev, p));
   }
   return [...byKey.values()];
 }
@@ -40,7 +66,7 @@ function generarPatronesRango(lineas, O, startRound, endRound, semilla = 7) {
   const conRef = lineas.map((l, i) => ({ ...l, ref: i, _refOriginal: l.ref }));
   const porVector = new Map();
 
-  const registrar = (placa) => {
+  const registrar = (placa, meta = null) => {
     const uso = new Map();
     for (const c of placa.colocadas || []) {
       const t = c.pieza?.ref;
@@ -51,7 +77,23 @@ function generarPatronesRango(lineas, O, startRound, endRound, semilla = 7) {
     const area = (placa.colocadas || []).reduce((a, c) => a + c.base * c.altura, 0);
     const k = claveVector(uso);
     const prev = porVector.get(k);
-    if (!prev || area > prev.area) porVector.set(k, { uso, area, placa });
+    const round = Number.isInteger(meta?.round) ? meta.round : null;
+    const origin = meta?.origin || "unknown";
+    const candidate = {
+      uso,
+      area,
+      placa,
+      _patternMeta: {
+        origin,
+        firstSeenRound: minRound(prev?._patternMeta?.firstSeenRound, round),
+        sourceRound: round,
+      },
+    };
+    if (!prev || area > prev.area) {
+      porVector.set(k, candidate);
+    } else if (prev._patternMeta && candidate._patternMeta.firstSeenRound !== prev._patternMeta.firstSeenRound) {
+      prev._patternMeta = { ...prev._patternMeta, firstSeenRound: candidate._patternMeta.firstSeenRound };
+    }
   };
 
   const warn = console.warn;
@@ -64,7 +106,7 @@ function generarPatronesRango(lineas, O, startRound, endRound, semilla = 7) {
       if (r < startRound || !sub.length) continue;
       try {
         const res = optimizar(sub.map((l) => ({ ...l })), { ...O, semilla: 1000 + r, pases: 2 });
-        for (const p of res.placas || []) registrar(p);
+        for (const p of res.placas || []) registrar(p, { origin: r === 0 ? "full" : "random", round: r });
       } catch (_) {}
     }
   } finally {
@@ -141,11 +183,13 @@ function runV10HybridPipeline(lineas, config, options = {}) {
     rounds20Nodes: 0,
     rounds20Exhausted: false,
     rounds20Accepted: false,
+    rounds20PatternTrace: null,
     repairMs: 0,
     repairImproved: false,
     repairReason: null,
     repairRadius: null,
     repairPhysicalAdded: 0,
+    repairPatternTrace: null,
     fallbackNeeded: false,
     fallbackGenMs: 0,
     fallbackExtraPool: 0,
@@ -154,6 +198,7 @@ function runV10HybridPipeline(lineas, config, options = {}) {
     fallbackNodes: 0,
     fallbackExhausted: false,
     fallbackAccepted: false,
+    fallbackPatternTrace: null,
     strongLowerBoundEnabled: enableStrongLowerBound,
     preMultisliceCertificationEnabled: enablePreMultisliceCertification,
     repairEnabled: enableRepair,
@@ -273,6 +318,7 @@ function runV10HybridPipeline(lineas, config, options = {}) {
   metrics.rounds20Exhausted = !!s20.sol?.agotado;
   if (s20.sol?.plan && s20.sol.placas < best.resumen.placas) {
     const cand20 = materializar(s20.sol.plan, lineas, best.opts || config);
+    metrics.rounds20PatternTrace = cand20?.resumen?.patternTrace || null;
     const acc20 = acceptBoardsOnly(best, cand20, expectedPieces);
     best = acc20.plan;
     metrics.rounds20Accepted = acc20.accepted;
@@ -313,6 +359,7 @@ function runV10HybridPipeline(lineas, config, options = {}) {
     metrics.repairReason = repair.reason || null;
     metrics.repairRadius = repair.radius || null;
     metrics.repairPhysicalAdded = repair.physicalAdded || 0;
+    metrics.repairPatternTrace = repair.plan?.resumen?.patternTrace || null;
 
     if (repair.improved && repair.plan) {
       const accRepair = acceptBoardsOnly(best, repair.plan, expectedPieces);
@@ -368,6 +415,7 @@ function runV10HybridPipeline(lineas, config, options = {}) {
   metrics.fallbackExhausted = !!sf.sol?.agotado;
   if (sf.sol?.plan) {
     const cand40 = materializar(sf.sol.plan, lineas, best.opts || config);
+    metrics.fallbackPatternTrace = cand40?.resumen?.patternTrace || null;
     const acc40 = acceptLexicographic(best, cand40, expectedPieces);
     best = acc40.plan;
     metrics.fallbackAccepted = acc40.accepted;
