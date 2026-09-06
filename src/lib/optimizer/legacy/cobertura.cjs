@@ -23,7 +23,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   const pats = patrones.map(p => {
     const v = new Array(T).fill(0);
     for (const [i, q] of p.uso) if (i >= 0 && i < T) v[i] = q;
-    return { v, area: p.area, uso: p.uso, placa: p.placa };
+    return { v, area: p.area, uso: p.uso, placa: p.placa, _patternMeta: p._patternMeta || null };
   }).filter(p => p.v.some(x => x > 0));
 
   // cobertura maxima de cada tipo en un solo patron: da una segunda cota
