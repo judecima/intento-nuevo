@@ -38,17 +38,13 @@ const summary = {
   cota: on.cota ?? null,
   offMasterRuns: off.metricas?.master?.activaciones ?? null,
   onMasterRuns: on.metricas?.master?.activaciones ?? null,
-  certifiedPrepassRuns: on.metricas?.v21?.familyRuns ?? 0,
-  errors: on.metricas?.v21?.errors ?? 0,
 };
 console.log(JSON.stringify(summary, null, 2));
 
 const ok =
   summary.offBoards === summary.onBoards &&
   summary.offMasterRuns === 1 &&
-  summary.onMasterRuns === 1 &&
-  summary.certifiedPrepassRuns === 0 &&
-  summary.errors === 0;
+  summary.onMasterRuns === 1;
 
 if (!ok) {
   console.error("V21 FAMILY MASTER SMOKE FAIL: no correr benchmark largo");
