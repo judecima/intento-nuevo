@@ -41,10 +41,41 @@ interface LegacyV10Module {
   validarPlanIndustrial(plan: LegacyPlan, expectedPieceCount?: number): LegacyIndustrialValidation;
 }
 
+interface ExperimentalStagedModule {
+  runV10HybridPipeline(
+    lineas: LegacyLineInput[],
+    config: LegacyOptimizerOptions,
+    options?: {
+      enableStrongLowerBound?: boolean;
+      enablePreMultisliceCertification?: boolean;
+      enableRasterLowerBound?: boolean;
+      enableRepair?: boolean;
+      repairMaxTypes?: number;
+      enableIncrementalMaster?: boolean;
+      rasterMaxPieces?: number;
+      rasterMaxTypes?: number;
+    },
+  ): { plan: LegacyPlan; metrics?: unknown; cota?: number };
+}
+
+interface ExperimentalStagedConfig {
+  enabled: true;
+  enableStrongLowerBound: boolean;
+  enablePreMultisliceCertification: boolean;
+  enableRasterLowerBound: boolean;
+  enableRepair: boolean;
+  repairMaxTypes: number;
+  enableIncrementalMaster: boolean;
+  rasterMaxPieces: number;
+  rasterMaxTypes: number;
+  cacheDiscriminator: string;
+}
+
 const legacyMotor = require("../legacy/motor.cjs") as LegacyMotorModule;
 const legacyV10 = require("../legacy/v10.cjs") as LegacyV10Module;
 
 export const LEGACY_OPTIMIZER_VERSION = "legacy-guillotine-v10-lepton-remnants-20260813";
+export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION}+hybrid-staged-v17`;
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
 
@@ -52,11 +83,83 @@ export function getOptimizationInputHash(input: OptimizationInput): string {
   return optimizationInputHash(optimizationInputSchema.parse(input));
 }
 
+function parseEnvFlag(name: string, defaultValue: boolean): boolean {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return defaultValue;
+  return /^(1|true|yes|on)$/i.test(raw);
+}
+
+function parseEnvPositiveInt(name: string, defaultValue: number): number {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return defaultValue;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : defaultValue;
+}
+
+function resolveExperimentalStagedConfig(strategy: OptimizerStrategy): ExperimentalStagedConfig | null {
+  if (strategy !== "v10" || !parseEnvFlag("OPTIMIZER_V10_STAGED_EXPERIMENTAL", false)) return null;
+
+  const enableStrongLowerBound = parseEnvFlag("OPTIMIZER_STRONG_LOWER_BOUND_EXPERIMENTAL", true);
+  const enablePreMultisliceCertification = parseEnvFlag("OPTIMIZER_PRE_MULTISLICE_LB_EXPERIMENTAL", true);
+  const enableRasterLowerBound = parseEnvFlag("OPTIMIZER_ADAPTIVE_RASTER_EXPERIMENTAL", true);
+  const enableRepair = parseEnvFlag("OPTIMIZER_INTEGRALITY_REPAIR_EXPERIMENTAL", true);
+  const repairMaxTypes = parseEnvPositiveInt("OPTIMIZER_REPAIR_MAX_TYPES", 16);
+  const enableIncrementalMaster = parseEnvFlag("OPTIMIZER_INCREMENTAL_MASTER_EXPERIMENTAL", true);
+  const rasterMaxPieces = parseEnvPositiveInt("OPTIMIZER_RASTER_MAX_PIECES", 40);
+  const rasterMaxTypes = parseEnvPositiveInt("OPTIMIZER_RASTER_MAX_TYPES", 16);
+  const cacheDiscriminator = [
+    "hybrid-staged-v17",
+    `slb=${enableStrongLowerBound ? 1 : 0}`,
+    `preMultiLB=${enablePreMultisliceCertification ? 1 : 0}`,
+    `raster=${enableRasterLowerBound ? 1 : 0}`,
+    `rmp=${rasterMaxPieces}`,
+    `rmt=${rasterMaxTypes}`,
+    `repair=${enableRepair ? 1 : 0}`,
+    `repairTypes=${repairMaxTypes}`,
+    `inc=${enableIncrementalMaster ? 1 : 0}`,
+  ].join("|");
+
+  return {
+    enabled: true,
+    enableStrongLowerBound,
+    enablePreMultisliceCertification,
+    enableRasterLowerBound,
+    enableRepair,
+    repairMaxTypes,
+    enableIncrementalMaster,
+    rasterMaxPieces,
+    rasterMaxTypes,
+    cacheDiscriminator,
+  };
+}
+
+function runExperimentalStagedV10(
+  lineas: LegacyLineInput[],
+  options: LegacyOptimizerOptions,
+  config: ExperimentalStagedConfig,
+): LegacyOptimizerReturn {
+  const staged = require("../experimental/v10-hybrid-pipeline.cjs") as ExperimentalStagedModule;
+  const result = staged.runV10HybridPipeline(lineas, options, {
+    enableStrongLowerBound: config.enableStrongLowerBound,
+    enablePreMultisliceCertification: config.enablePreMultisliceCertification,
+    enableRasterLowerBound: config.enableRasterLowerBound,
+    enableRepair: config.enableRepair,
+    repairMaxTypes: config.repairMaxTypes,
+    enableIncrementalMaster: config.enableIncrementalMaster,
+    rasterMaxPieces: config.rasterMaxPieces,
+    rasterMaxTypes: config.rasterMaxTypes,
+  });
+  return { plan: result.plan, metricas: result.metrics, cota: result.cota };
+}
+
 export function optimizeProject(input: OptimizationInput): OptimizationResult {
   const startedAt = Date.now();
   const parsed = optimizationInputSchema.parse(input);
   const inputHash = optimizationInputHash(parsed);
-  const cached = optimizationCache.get(inputHash);
+  const strategy = parsed.strategy ?? "baseline";
+  const stagedConfig = resolveExperimentalStagedConfig(strategy);
+  const cacheKey = stagedConfig ? `${inputHash}|${stagedConfig.cacheDiscriminator}` : inputHash;
+  const cached = optimizationCache.get(cacheKey);
 
   if (cached) {
     const result = cloneOptimizationResult(cached);
@@ -64,7 +167,6 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
     return result;
   }
 
-  const strategy = parsed.strategy ?? "baseline";
   const lineas = toLegacyLines(parsed);
   const options = toLegacyOptions(parsed, strategy);
   const profile = parsed.constraints.profile ?? "balanced";
@@ -72,7 +174,13 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
 
   const raw =
     strategy === "v10"
-      ? completeLegacyPlan(legacyV10.optimizarV10(lineas, options, legacyV10.nuevasMetricas()), lineas, "v10")
+      ? completeLegacyPlan(
+          stagedConfig
+            ? runExperimentalStagedV10(lineas, options, stagedConfig)
+            : legacyV10.optimizarV10(lineas, options, legacyV10.nuevasMetricas()),
+          lineas,
+          "v10",
+        )
       : completeLegacyPlan(
           {
             plan: legacyMotor.optimizar(lineas, { ...options, multiVariantes: false }),
@@ -88,7 +196,7 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
   const normalized = normalizeLegacyPlan(raw, expectedPieceCount, parsed.pieces);
 
   const result: OptimizationResult = {
-    algorithmVersion: LEGACY_OPTIMIZER_VERSION,
+    algorithmVersion: stagedConfig ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION : LEGACY_OPTIMIZER_VERSION,
     inputHash,
     strategy,
     profile,
@@ -104,7 +212,7 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
     raw
   };
 
-  rememberOptimizationResult(inputHash, result);
+  rememberOptimizationResult(cacheKey, result);
   return result;
 }
 
