@@ -24,6 +24,10 @@ const patrones = require("../../src/lib/optimizer/legacy/patrones.cjs") as {
     config: Record<string, unknown>,
     rounds?: number,
   ): Array<{ _patternMeta?: { origin?: string; firstSeenRound?: number | null } }>;
+  patronesMonotipo(
+    lines: Array<Record<string, unknown>>,
+    config: Record<string, unknown>,
+  ): Array<{ _patternMeta?: unknown }>;
 };
 
 const lines = [
@@ -67,6 +71,12 @@ describe("V21b family-seeded Pattern Master", () => {
 
     expect(legacy.some((pattern) => pattern._patternMeta?.origin?.startsWith("family-"))).toBe(false);
     expect(v21.some((pattern) => pattern._patternMeta?.origin?.startsWith("family-"))).toBe(true);
+  });
+
+  it("preserves the exact legacy monotype object shape", () => {
+    const monotypes = patrones.patronesMonotipo(lines, config);
+    expect(monotypes.length).toBeGreaterThan(0);
+    expect(monotypes.every((pattern) => pattern._patternMeta === undefined)).toBe(true);
   });
 
   it("preserves board count on the smoke case while still running Master", () => {
