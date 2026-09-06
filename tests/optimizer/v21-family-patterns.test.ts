@@ -3,51 +3,27 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-
 const v10 = require("../../src/lib/optimizer/legacy/v10.cjs") as {
   optimizarV10(
     lines: Array<Record<string, unknown>>,
     config: Record<string, unknown>,
   ): {
     plan: { resumen: { placas: number } };
-    cota: number;
-    metricas: {
-      v21: {
-        familyRuns: number;
-        familyCertified: number;
-        familyMs: number;
-        familySeeds: number;
-        familyPatterns: number;
-        randomPatterns: number;
-        fastPoolSize: number;
-        fallbackRuns: number;
-        errors: number;
-      };
-    };
+    metricas: { master: { activaciones: number } };
   };
 };
-
 const seeds = require("../../src/lib/optimizer/experimental/furniture-pattern-seeds.cjs") as {
   buildExactDimensionFamilies(
     lines: Array<Record<string, unknown>>,
     options?: Record<string, unknown>,
-  ): Array<{
-    origin: string;
-    axis: string;
-    dimension: number;
-    typeIndexes: number[];
-  }>;
+  ): Array<{ origin: string; axis: string; dimension: number; typeIndexes: number[] }>;
 };
-
-const generator = require("../../src/lib/optimizer/experimental/furniture-pattern-generator.cjs") as {
-  generateFurnitureFamilyPatterns(
+const patrones = require("../../src/lib/optimizer/legacy/patrones.cjs") as {
+  generarPatrones(
     lines: Array<Record<string, unknown>>,
     config: Record<string, unknown>,
-    options?: Record<string, unknown>,
-  ): {
-    patterns: Array<{ _patternMeta?: { origin?: string } }>;
-    metrics: { seeds: number; patterns: number; warnings: number; ms: number };
-  };
+    rounds?: number,
+  ): Array<{ _patternMeta?: { origin?: string; firstSeenRound?: number | null } }>;
 };
 
 const lines = [
@@ -71,14 +47,13 @@ const config = {
   usarMultiSlice: false,
   usarCompactacion: false,
   usarMaster: true,
-  msMaster: 25,
-  rondasPatrones: 4,
+  msMaster: 100,
+  rondasPatrones: 40,
 };
 
-describe("V21 furniture family Pattern Master", () => {
+describe("V21b family-seeded Pattern Master", () => {
   it("builds deterministic same-axis families", () => {
     const families = seeds.buildExactDimensionFamilies(lines);
-
     expect(families.length).toBeGreaterThan(0);
     expect(families[0].origin).toBe("family-base");
     expect(families[0].axis).toBe("base");
@@ -86,39 +61,20 @@ describe("V21 furniture family Pattern Master", () => {
     expect(families[0].typeIndexes).toEqual([0, 1]);
   });
 
-  it("materializes physical family patterns with provenance", () => {
-    const result = generator.generateFurnitureFamilyPatterns(lines, config, {
-      maxFamilies: 12,
-      passes: 1,
-    });
+  it("adds family provenance only when the V21b pool is enabled", () => {
+    const legacy = patrones.generarPatrones(lines, config, 40);
+    const v21 = patrones.generarPatrones(lines, { ...config, usarV21FamilyMaster: true }, 40);
 
-    expect(result.metrics.seeds).toBeGreaterThan(0);
-    expect(result.metrics.patterns).toBeGreaterThan(0);
-    expect(result.metrics.warnings).toBe(0);
-    expect(result.patterns.some((pattern) => pattern._patternMeta?.origin === "family-base")).toBe(true);
+    expect(legacy.some((pattern) => pattern._patternMeta?.origin?.startsWith("family-"))).toBe(false);
+    expect(v21.some((pattern) => pattern._patternMeta?.origin?.startsWith("family-"))).toBe(true);
   });
 
-  it("does nothing when the V21 flag is off", () => {
-    const result = v10.optimizarV10(lines, config);
-
-    expect(result.metricas.v21.familyRuns).toBe(0);
-    expect(result.metricas.v21.familyCertified).toBe(0);
-    expect(result.metricas.v21.fallbackRuns).toBe(0);
-  });
-
-  it("falls back to the legacy Master when the fast pool cannot certify the lower bound", () => {
+  it("preserves board count on the smoke case while still running Master", () => {
     const legacy = v10.optimizarV10(lines, config);
-    const result = v10.optimizarV10(lines, {
-      ...config,
-      usarV21FamilyPatterns: true,
-    });
+    const result = v10.optimizarV10(lines, { ...config, usarV21FamilyMaster: true });
 
     expect(result.plan.resumen.placas).toBe(legacy.plan.resumen.placas);
-    expect(result.metricas.v21.familyRuns).toBe(1);
-    expect(result.metricas.v21.familyCertified).toBe(0);
-    expect(result.metricas.v21.fallbackRuns).toBe(1);
-    expect(result.metricas.v21.errors).toBe(0);
-    expect(result.metricas.v21.familySeeds).toBeGreaterThan(0);
-    expect(result.metricas.v21.fastPoolSize).toBeGreaterThan(0);
+    expect(legacy.metricas.master.activaciones).toBe(1);
+    expect(result.metricas.master.activaciones).toBe(1);
   });
 });
