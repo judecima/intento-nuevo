@@ -113,8 +113,7 @@ function patronesMonotipo(lineas, O) {
       if (placa && placa.colocadas.length)
         out.push({ uso: new Map([[i, placa.colocadas.length]]),
                    area: placa.colocadas.reduce((a, c) => a + c.base * c.altura, 0),
-                   placa,
-                   _patternMeta: { origin: 'monotype', firstSeenRound: null, sourceRound: null } });
+                   placa });
     } catch (e) { /* tipo que no entra en la placa */ }
   }
   console.warn = warn;
