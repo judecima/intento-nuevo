@@ -30,7 +30,7 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
   const conRef = lineas.map((l, i) => ({ ...l, ref: i, _refOriginal: l.ref }));
   const porVector = new Map();
 
-  const registrar = (placa) => {
+  const registrar = (placa, meta = null) => {
     const uso = new Map();
     for (const c of placa.colocadas) {
       const t = c.pieza.ref;
@@ -41,7 +41,19 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
     const area = placa.colocadas.reduce((a, c) => a + c.base * c.altura, 0);
     const k = claveVector(uso);
     const previo = porVector.get(k);
-    if (!previo || area > previo.area) porVector.set(k, { uso, area, placa });
+    const round = Number.isInteger(meta?.round) ? meta.round : null;
+    const origin = meta?.origin || 'unknown';
+    const firstSeenRound = minRound(previo?._patternMeta?.firstSeenRound, round);
+    if (!previo || area > previo.area) {
+      porVector.set(k, {
+        uso, area, placa,
+        _patternMeta: { origin, firstSeenRound, sourceRound: round }
+      });
+    } else if (previo._patternMeta && firstSeenRound !== previo._patternMeta.firstSeenRound) {
+      // Sólo instrumentación: conservar la placa/área elegida y adelantar la
+      // primera ronda en la que ya existía este mismo vector de cobertura.
+      previo._patternMeta = { ...previo._patternMeta, firstSeenRound };
+    }
   };
 
   const warn = console.warn; console.warn = () => {};
@@ -50,7 +62,7 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
     if (!sub.length) continue;
     try {
       const res = optimizar(sub.map(l => ({ ...l })), { ...O, semilla: 1000 + r, pases: 2 });
-      for (const p of res.placas) registrar(p);
+      for (const p of res.placas) registrar(p, { origin: r === 0 ? 'full' : 'random', round: r });
     } catch (e) { /* subconjunto invalido: continuar */ }
   }
   console.warn = warn;
@@ -69,11 +81,18 @@ function patronesMonotipo(lineas, O) {
       if (placa && placa.colocadas.length)
         out.push({ uso: new Map([[i, placa.colocadas.length]]),
                    area: placa.colocadas.reduce((a, c) => a + c.base * c.altura, 0),
-                   placa });
+                   placa,
+                   _patternMeta: { origin: 'monotype', firstSeenRound: null, sourceRound: null } });
     } catch (e) { /* tipo que no entra en la placa */ }
   }
   console.warn = warn;
   return out;
+}
+
+function minRound(a, b) {
+  if (!Number.isInteger(a)) return Number.isInteger(b) ? b : null;
+  if (!Number.isInteger(b)) return a;
+  return Math.min(a, b);
 }
 
 module.exports = { generarPatrones, patronesMonotipo, claveVector };
