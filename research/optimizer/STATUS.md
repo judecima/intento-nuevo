@@ -11,7 +11,7 @@ Base branch: `feature/agregar_configuracion_organizacion`
 ### V20 — post-baseline certification
 Status: **CLOSED / MERGED**
 
-Result on frozen 213-hotspot cohort:
+Frozen 213-hotspot result:
 - pre-V20 total: 14,247,507 ms
 - boards: 2,371
 - avoided work: 1,886,016 ms
@@ -21,16 +21,14 @@ Result on frozen 213-hotspot cohort:
 - cheap-LB violations observed: 0
 - cheap-LB errors observed: 0
 
-Original performance gate was 15%. It was not reached and is not rewritten retrospectively. The miss is documented as a cohort-extrapolation error (trim/cohort mismatch), not as a correctness failure.
+Original performance gate was 15%. It was not reached and is not rewritten retrospectively.
 
 Runtime activation remains OFF by default:
 `OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL=0`
 
 ## FROZEN — lower-bound performance research
 
-No new DFF / projection / clique / raster work is allowed for the latency roadmap unless a new regression or correctness defect requires it.
-
-Reason: the dominant hotspot is Pattern Master, not lower-bound computation.
+No new DFF / projection / clique / raster work enters the latency roadmap unless a correctness defect requires it. Pattern Master is the dominant remaining hotspot.
 
 ## OPEN — V21 Pattern Master generation
 
@@ -46,55 +44,56 @@ Frozen historical post-V20 baseline on 213 hotspot cases:
 - non-Master remainder: 3,211,627 ms
 - boards: 2,371
 
-The pre-V20 Master number 10,624,131 ms is historical context only and is not the V21 baseline.
-
-### Acceptance gate — single performance verdict
+### Acceptance gate
 
 Correctness:
 - board regressions: 0
 - invalid plans: 0
 - new exceptions: 0
 
-Performance is normalized for hardware and must be measured against V20 control on the **same machine**:
+Performance, measured against V20 on the same machine:
 - `V21 total / V20 total <= 0.7280675`
-- equivalent to at least **27.193% end-to-end reduction**
-- on the historical machine this corresponds to `<= 9,000,000 ms`
+- at least **27.193% end-to-end reduction**
+- historical-machine equivalent: `<= 9,000,000 ms`
 
-Do not compare raw milliseconds across different machines.
+Diagnostic Master target, not a separate gate:
+- at least **36.74% reduction** of remaining post-V20 Master
+- historical equivalent `<= 5,788,373 ms`
 
-Diagnostic Master KPI, not a second gate:
-- historical equivalent Master `<= 5,788,373 ms`
-- approximately **36.74% reduction** of remaining post-V20 Master
+### V21a — certified family prepass
+Status: **CLOSED / FAIL EARLY**
 
-### V21 preflight — CLOSED
+A prepass was allowed to skip full Master only when its validated candidate reached the active lower bound. On the frozen hotspot only one Master-active case can satisfy that condition, so its theoretical maximum benefit is about 31,793 ms (~0.26% of post-V20 total). It cannot reach the V21 gate and is not part of the runtime candidate.
 
-The historical non-Master floor is ~3.212M ms, therefore the 9.0M historical-equivalent target is mathematically reachable through Master reduction.
+### V21b — family-seeded Pattern Master
+Status: **IMPLEMENTED / BENCHMARK PENDING**
 
-Extreme case `4048571` remains Master-bound in the frozen profile:
-- ~96,009 ms baseline
-- ~950,067 ms Pattern Master
-- 2,439 pieces
+Runtime flag, OFF by default:
+`OPTIMIZER_V21_FAMILY_MASTER_EXPERIMENTAL=0`
 
-### V21 implementation
+Pool generation changes only when the flag is ON:
+- deterministic exact `family-base` seeds
+- deterministic exact `family-height` seeds
+- 20 random rounds instead of 40
+- monotype fallback remains
+- same guillotine motor creates every physical family pattern
+- same coverage solver
+- same materialization
+- same industrial validator
 
-Allowed:
-- exact same-axis `family-base` generation
-- exact same-axis `family-height` generation
-- four-round random exploration
-- physically validated family patterns
-- early return only if the fast pool reaches the active lower bound
-- otherwise full legacy Pattern Master fallback
-- V21 provenance and metrics
+No V10 control-flow change is part of V21b; `v10.cjs` is identical to main/V20.
 
-Not allowed in V21:
-- new lower bounds
-- new raster experiments
-- new clique/projection research
-- solver objective changes
-- remnant tradeoffs that add boards
-- rewriting the gate after measurement
+Early paired signal on three exact hotspot XMLs:
+- total: 55,102 -> 42,425 ms = **-23.0%**
+- Pattern Master: 27,931 -> 14,780 ms = **-47.1%**
+- board regressions: **0/3**
+- the only historical Master board-win case tested (`4050594`) still reaches 7 boards
 
-If V21 misses the normalized target, close it as FAIL and move to V22 instead of tuning arbitrary thresholds indefinitely.
+This three-case sample is directional only. PASS/FAIL is decided by the frozen 213 same-machine A/B. If that passes, V21b must then pass the 8,669-case zero-board-regression gate before merge.
+
+### Stop rule
+
+The 20 random rounds are frozen before the full benchmark. If V21b misses the normalized target or loses any board, close it as FAIL and move to V22. Do not retune the round count after seeing the 213 result.
 
 ## Rule
 
