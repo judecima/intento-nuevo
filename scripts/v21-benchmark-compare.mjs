@@ -2,12 +2,16 @@
 /**
  * Compara V20-control vs V21 en la misma máquina.
  *
+ * El baseline puede ser la corrida V20 ya existente: si no trae el campo
+ * env.v21FamilyPatterns se interpreta como OFF porque esa corrida es anterior a V21.
+ * El único cache hit conocido queda fuera de la cohorte comparable.
+ *
  * PASS sólo si:
- * - mismos archivos
+ * - mismos archivos comparables
  * - 0 regresiones de placas
  * - 0 planes inválidos / errores
  * - V20 cheap ON, staged OFF en ambos lados
- * - V21 OFF en baseline y ON en candidate
+ * - V21 OFF/ausente en baseline y ON en candidate
  * - candidateTotal / baselineTotal <= 0.7280675
  */
 import { readFileSync } from "node:fs";
@@ -25,7 +29,8 @@ if (!(maxRatio > 0 && maxRatio <= 1)) {
   process.exit(2);
 }
 
-const baselineRows = readJsonl(args.baseline).filter((row) => row?.file);
+const baselineAll = readJsonl(args.baseline).filter((row) => row?.file);
+const baselineRows = baselineAll.filter((row) => row.cacheHit !== true && row.engineCacheHit !== true);
 const candidateRows = readJsonl(args.candidate).filter((row) => row?.file);
 const candidateByFile = new Map(candidateRows.map((row) => [row.file, row]));
 
@@ -33,6 +38,7 @@ const mismatches = [];
 let baselineTotalMs = 0;
 let candidateTotalMs = 0;
 let matched = 0;
+let betterBoards = 0;
 let familyRuns = 0;
 let familyCertified = 0;
 let familyMs = 0;
@@ -58,16 +64,23 @@ for (const old of baselineRows) {
   }
   if (+now.boards > +old.boards) {
     mismatches.push({ file: old.file, issue: "board-regression", baseline: old.boards, candidate: now.boards });
-  }
-  if (+now.boards < +old.boards) {
-    // Better is allowed and reported, but never required.
+  } else if (+now.boards < +old.boards) {
+    betterBoards += 1;
   }
 
-  if (old.env?.staged !== false || old.env?.cheapPostBaseline !== true || old.env?.v21FamilyPatterns !== false) {
+  const baselineV21 = old.env?.v21FamilyPatterns;
+  if (
+    old.env?.staged !== false ||
+    old.env?.cheapPostBaseline !== true ||
+    (baselineV21 !== undefined && baselineV21 !== false)
+  ) {
     mismatches.push({ file: old.file, issue: "wrong-baseline-env", env: old.env ?? null });
   }
   if (now.env?.staged !== false || now.env?.cheapPostBaseline !== true || now.env?.v21FamilyPatterns !== true) {
     mismatches.push({ file: old.file, issue: "wrong-candidate-env", env: now.env ?? null });
+  }
+  if (now.cacheHit === true || now.engineCacheHit === true) {
+    mismatches.push({ file: old.file, issue: "candidate-cache-hit" });
   }
   if ((+now.cheap?.errors || 0) !== 0 || (+now.cheap?.violation || 0) !== 0) {
     mismatches.push({ file: old.file, issue: "cheap-safety", cheap: now.cheap ?? null });
@@ -94,10 +107,11 @@ for (const old of baselineRows) {
   fastPoolSize += +now.v21?.fastPoolSize || 0;
 }
 
-if (matched !== baselineRows.length || candidateRows.length !== baselineRows.length) {
+if (matched !== baselineRows.length) {
   mismatches.push({
     issue: "row-count",
-    baseline: baselineRows.length,
+    baselineComparable: baselineRows.length,
+    baselineAll: baselineAll.length,
     candidate: candidateRows.length,
     matched,
   });
@@ -110,8 +124,12 @@ const correctnessOk = mismatches.length === 0;
 const performanceOk = ratio !== null && ratio <= maxRatio;
 
 const summary = {
+  baselineRowsAll: baselineAll.length,
   cases: baselineRows.length,
+  excludedBaselineCacheHits: baselineAll.length - baselineRows.length,
+  candidateRows: candidateRows.length,
   matched,
+  betterBoards,
   correctnessOk,
   performanceOk,
   baselineTotalMs,
