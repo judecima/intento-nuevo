@@ -33,7 +33,7 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
 
   const conRef = lineas.map((l, i) => ({ ...l, ref: i, _refOriginal: l.ref }));
   const porVector = new Map();
-  const usarV21 = O.usarV21FamilyPatterns === true || envFlag('OPTIMIZER_V21_FAMILY_PATTERNS_EXPERIMENTAL');
+  const usarV21 = O.usarV21FamilyMaster === true || envFlag('OPTIMIZER_V21_FAMILY_MASTER_EXPERIMENTAL');
   const rondasEfectivas = usarV21 ? Math.min(rondas, 20) : rondas;
 
   const registrar = (placa, meta = null) => {
@@ -59,10 +59,10 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
 
   const warn = console.warn; console.warn = () => {};
 
-  // V21: antes de las rondas aleatorias, generar columnas deterministas a partir
-  // de familias por base/altura exacta. El mismo motor guillotina construye la
-  // placa fisica, por lo que esta capa solo propone subconjuntos y no inventa
-  // factibilidad. Cuando el flag esta apagado, el comportamiento legacy es exacto.
+  // V21b: generar primero columnas deterministas por familias geométricas y
+  // reducir la exploración aleatoria de 40 a 20 rondas. El mismo motor
+  // guillotina construye cada placa; sólo cambia cómo se propone el pool.
+  // Con el flag apagado, el comportamiento legacy permanece exacto.
   if (usarV21) {
     try {
       const { buildFurniturePatternSeeds } = require('../experimental/furniture-pattern-seeds.cjs');
@@ -82,7 +82,7 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
           });
         } catch (e) { /* familia no materializable: continuar */ }
       }
-    } catch (e) { /* si falla instrumentacion V21, conservar las rondas random */ }
+    } catch (e) { /* conservar rondas random si falla instrumentacion V21 */ }
   }
 
   for (let r = 0; r < rondasEfectivas; r++) {
