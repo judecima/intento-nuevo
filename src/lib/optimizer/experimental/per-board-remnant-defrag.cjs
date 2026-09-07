@@ -17,6 +17,10 @@ const { validarPlanIndustrial } = require("../legacy/validador_industrial_v3.cjs
  *   2) the one-board candidate has strictly better industrial remnant quality;
  *   3) the final whole plan passes the industrial validator.
  *
+ * Global structural deltas may be supplied as read-only guidance. They do not
+ * change board membership; they only preserve the same geometric signal used
+ * by the skipped global compactation pass.
+ *
  * This module is intentionally not wired into v10.cjs yet. First it must prove
  * that it recovers the equal-board remnant improvements that V20 currently
  * loses by returning before global compactation.
@@ -40,6 +44,9 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
   let attemptedBoards = 0;
   let improvedBoards = 0;
   let rejectedBoards = 0;
+  const globalDeltas = Array.isArray(options.deltasEstructurales)
+    ? options.deltasEstructurales
+    : null;
 
   for (let i = 0; i < plan.placas.length; i++) {
     const original = plan.placas[i];
@@ -54,7 +61,7 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
     let candidato = null;
     try {
       const cfg = configLimpia(opts);
-      const deltasEstructurales = detectarDeltasEstructurales(lineas, cfg);
+      const deltasEstructurales = globalDeltas || detectarDeltasEstructurales(lineas, cfg);
       candidato = optimizar(lineas, {
         ...cfg,
         multiVariantes: false,
@@ -141,12 +148,14 @@ function compactacionGlobalReferencia(lineas, config) {
     });
     return {
       plan,
+      deltasEstructurales,
       ms: Number(process.hrtime.bigint() - started) / 1e6,
       error: null,
     };
   } catch (error) {
     return {
       plan: null,
+      deltasEstructurales: [],
       ms: Number(process.hrtime.bigint() - started) / 1e6,
       error: String(error && error.message ? error.message : error),
     };
