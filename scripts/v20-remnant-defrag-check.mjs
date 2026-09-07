@@ -12,6 +12,8 @@ const expected = {
   activations: optionalInt(args.expectActivations),
   referenceImprovements: optionalInt(args.expectRef),
 };
+const minRecovered = optionalInt(args.minRecovered);
+const requireLegacyParity = flag(args.requireLegacyParity);
 
 const referenceChecks = {
   certified: expected.certified === null || report.certified === expected.certified,
@@ -21,23 +23,41 @@ const referenceChecks = {
     report.referenceRemnantImprovements === expected.referenceImprovements,
 };
 
-const qualityChecks = {
+const certifiedRows = Array.isArray(report.rows)
+  ? report.rows.filter((row) => row?.ok === true && row?.certified === true)
+  : [];
+const worseThanCurrentV20 = certifiedRows.filter((row) => Number(row?.cVsA ?? 0) < 0);
+
+// SAFETY responde una pregunta distinta de la paridad contra compactacion legacy:
+// "¿la reparacion local empeora lo que V20 devuelve hoy?"
+// Una tecnica puede ser segura respecto de A y aun recuperar solo una parte de B.
+const safetyChecks = {
   boards: Number(report.boardRegressions || 0) === 0,
   validation: Number(report.invalidFinalPlans || 0) === 0,
-  remnant: Number(report.referenceImprovementsMissed || 0) === 0,
+  noWorseThanCurrentV20: worseThanCurrentV20.length === 0,
 };
 
+const recovered = Number(report.referenceImprovementsRecoveredOrBeaten || 0);
+const missed = Number(report.referenceImprovementsMissed || 0);
+const legacyParity = missed === 0;
+const recoveryCheck = minRecovered === null || recovered >= minRecovered;
+
 const referenceOk = Object.values(referenceChecks).every(Boolean);
-const qualityOk = Object.values(qualityChecks).every(Boolean);
-const pass = referenceOk && qualityOk;
+const safetyOk = Object.values(safetyChecks).every(Boolean);
 
 console.log(JSON.stringify({
   observed: {
     certified: report.certified,
     activations: report.compactationActivations,
     referenceImprovements: report.referenceRemnantImprovements,
-    recoveredOrBeaten: report.referenceImprovementsRecoveredOrBeaten,
-    missed: report.referenceImprovementsMissed,
+    recoveredOrBeaten: recovered,
+    missed,
+    recoveryRate:
+      Number(report.referenceRemnantImprovements || 0) > 0
+        ? recovered / Number(report.referenceRemnantImprovements)
+        : null,
+    worseThanCurrentV20: worseThanCurrentV20.length,
+    worseThanCurrentV20Files: worseThanCurrentV20.map((row) => row.file),
     boardRegressions: report.boardRegressions,
     invalidFinalPlans: report.invalidFinalPlans,
     globalCompactationMs: report.globalCompactationMs,
@@ -45,22 +65,45 @@ console.log(JSON.stringify({
     perBoardVsGlobalRatio: report.perBoardVsGlobalRatio,
   },
   expected,
+  minRecovered,
+  requireLegacyParity,
   referenceChecks,
-  qualityChecks,
-  pass,
+  safetyChecks,
+  recoveryCheck,
+  legacyParity,
 }, null, 2));
 
 if (!referenceOk) {
   console.error("V20 REMNANT REPAIR INCONCLUSIVE: la referencia no reproduce la cohorte medida.");
   process.exit(2);
 }
-if (!qualityOk) {
-  console.error("V20 REMNANT REPAIR FAIL: placas/validacion/remanente no preservados.");
+if (!safetyOk) {
+  console.error("V20 REMNANT REPAIR SAFETY FAIL: la reparacion empeora placas, validacion o el V20 actual.");
   process.exit(1);
 }
 
-console.log("V20 REMNANT REPAIR QUALITY GATE PASS");
+console.log("V20 REMNANT REPAIR SAFETY PASS");
+
+if (!recoveryCheck) {
+  console.error(`V20 REMNANT REPAIR RECOVERY BELOW PREDECLARED FLOOR: ${recovered} < ${minRecovered}`);
+  process.exit(3);
+}
+
+if (!legacyParity) {
+  console.log(`LEGACY REMNANT PARITY NOT REACHED: recuperadas ${recovered}/${report.referenceRemnantImprovements}.`);
+  console.log("Esto NO invalida la tecnica como reparacion parcial; los misses deben documentarse caso por caso.");
+  console.log("Pero V20 no puede declararse equivalente al legacy en objetivo #2 sin una decision explicita de producto.");
+  if (requireLegacyParity) process.exit(4);
+  process.exit(0);
+}
+
+console.log("V20 REMNANT REPAIR LEGACY PARITY PASS");
 console.log("Siguiente paso: medir ahorro neto end-to-end antes de integrar al runtime.");
+
+function flag(value) {
+  if (value === undefined || value === null || value === "") return false;
+  return /^(1|true|yes|on)$/i.test(String(value));
+}
 
 function optionalInt(value) {
   if (value === undefined || value === null || value === "") return null;
