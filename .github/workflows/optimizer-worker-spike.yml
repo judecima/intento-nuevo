@@ -30,7 +30,7 @@ jobs:
         run: npm run typecheck
 
       - name: Optimizer unit tests
-        run: npx vitest run tests/optimizer/optimizer.test.ts tests/optimizer/pattern-trace.test.ts
+        run: npx vitest run tests/optimizer/optimizer.test.ts tests/optimizer/pattern-trace.test.ts tests/optimizer/executor.test.ts
 
       - name: Direct vs Worker full-plan smoke
         run: node scripts/optimizer-worker-smoke.mjs
