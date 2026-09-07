@@ -1,8 +1,8 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-preflight-v2",
-  "generatedAt": "2026-09-07T23:49:42.789Z",
+  "schemaVersion": "kernel-v1-formal-certification-preflight-v3",
+  "generatedAt": "2026-09-07T23:53:56.556Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
-  "status": "TRACEABILITY_AND_CORRECTNESS_CONTRACT_COMPLETE_BUDGET_CALIBRATION_PENDING",
+  "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "traceabilityComplete": true,
   "runtimeMatchesCandidate": true,
   "cohort": {
@@ -10,6 +10,13 @@
     "distinctXml": 8650,
     "identitySetSha256": "36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3",
     "mixedBoardExcluded": 13
+  },
+  "correctnessExecutionSemantics": {
+    "ready": true,
+    "predicateId": "HISTORICAL_VALIDITY_V1",
+    "multisetId": "HISTORICAL_TERMINAL_DIMENSION_MULTISET_V1",
+    "usableBoardId": "HISTORICAL_PROJECT_ROOT_TRIM_V1",
+    "executionBindingId": "physical-xml-historical-validity-v1"
   },
   "policy": {
     "correctnessPredicateReady": true,
@@ -23,8 +30,13 @@
   "executionContract": {
     "strategy": "v10",
     "correctness": "HISTORICAL_VALIDITY_V1",
+    "executionBindingId": "physical-xml-historical-validity-v1",
+    "projectTrim": "first project root trim; historical default 10; applied to both axes",
+    "orderTrim": "canonical Order binding unchanged",
+    "demandMultiset": "rotation-normalized terminal dimensions only (min x max)",
     "referencePanelsRole": "quality comparison only; not an acceptance gate",
     "physicalCorpusRequiredForExecution": true,
-    "note": "The previous formal runner must not be used for long execution from experiencia/canonical_cases.json because that file is a provenance projection, not a runtime CanonicalOptimizationCase. Physical-XML execution binding is intentionally required before calibration/certification."
+    "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+    "supersededCalibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs"
   }
 }
