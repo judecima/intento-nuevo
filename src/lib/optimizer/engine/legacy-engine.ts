@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 
 import { optimizationInputSchema } from "../schema";
 import type {
+  LegacyDiagLink,
   LegacyDiagStep,
   LegacyBoard,
   LegacyIndustrialValidation,
@@ -29,6 +30,8 @@ const require = createRequire(import.meta.url);
 interface LegacyMotorModule {
   optimizar(lineas: LegacyLineInput[], config: LegacyOptimizerOptions): LegacyPlan;
   calidadPlanPlacas?(placas: LegacyBoard[], options: LegacyOptimizerOptions): LegacyRemnantQuality;
+  /** Aplana la traza enlazada del motor a un array. */
+  resolverDiagPath?(enlace: LegacyDiagLink | null | undefined): LegacyDiagStep[];
 }
 
 interface LegacyV10Module {
@@ -417,7 +420,9 @@ function normalizeLegacyPlan(
           right: Boolean(edges?.der)
         },
         edgeType: edgeTypeForPlacement(placement.pieza?.id, edgeTypesByLegacyId, edges),
-        trace: normalizeTrace(placement._diagPath)
+        trace: normalizeTrace(
+          placement._diagPath ?? legacyMotor.resolverDiagPath?.(placement._diagLink)
+        )
       };
       placements.push(normalized);
       return normalized;

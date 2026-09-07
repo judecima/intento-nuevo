@@ -185,10 +185,34 @@ function elegir(pool, region, restante, perp, opts, rnd, nivel){
   return m1;
 }
 
+/* Traza de diagnostico: lista enlazada y construccion diferida.
+   Antes se clonaba un array con spread en cada nodo del arbol y se armaba un
+   objeto `diagDecision` de doce campos en cada rebanada, para cada uno de los
+   millones de planes intermedios que el motor prueba y descarta. Solo sobreviven
+   las trazas del plan final.
+   Ahora el enlace es {prev, paso} en O(1), se aplana a array en el unico punto
+   que lo lee (legacy-engine), y con `opts.trazaDiag === false` no se construye
+   nada durante la busqueda.
+   Los objetos de paso se siguen creando igual cuando la traza esta activa, asi
+   que la mutacion in situ de actualizarDiagContraccion conserva exactamente la
+   misma semantica de comparticion que tenia el spread de arrays. */
+function enlaceDiag(prev,paso){ return paso ? {prev:prev||null, paso} : (prev||null); }
+
+function resolverDiagPath(enlace){
+  const out=[];
+  for(let n=enlace; n; n=n.prev) out.push(n.paso);
+  out.reverse();
+  return out;
+}
+
+function* pasosDiag(enlace){
+  for(let n=enlace; n; n=n.prev) yield n.paso;
+}
+
 function nuevoNodoArbol(region,nivel,diagPath=null){
   return {
     x:region.x,y:region.y,w:region.w,h:region.h,dir:region.dir,nivel,partes:[],
-    _diagPath:Array.isArray(diagPath)?diagPath.slice():[]
+    _diagLink:diagPath||null
   };
 }
 
@@ -328,7 +352,7 @@ function recortarRestosARebanada(restos,desde,dirPadre,limite){
 function actualizarDiagContraccion(colocadas,desde,nivel,bloque,tOriginal,tReal,dirPadre){
   if(!(tReal<tOriginal-1e-9)) return;
   for(let i=desde;i<colocadas.length;i++){
-    for(const d of colocadas[i]._diagPath||[]){
+    for(const d of pasosDiag(colocadas[i]._diagLink)){
       if(
         d &&
         d.nivel===nivel &&
@@ -355,7 +379,8 @@ function llenar(region, pool, colocadas, nivel, opts, rnd, cortes, restos, arbol
     const tPropuesto=sel.a;
     let t=tPropuesto;
     const piezaAncla = pool[sel.i] || null;
-    const diagDecision = {
+    const conTraza = opts.trazaDiag !== false;
+    const diagDecision = !conTraza ? null : {
       nivel,
       dir:region.dir,
       region:{x:region.x,y:region.y,w:region.w,h:region.h},
@@ -373,17 +398,17 @@ function llenar(region, pool, colocadas, nivel, opts, rnd, cortes, restos, arbol
     const bloque = region.dir===DIR_X
       ? {x:region.x+pos, y:region.y, w:t, h:perp}
       : {x:region.x, y:region.y+pos, w:perp, h:t};
-    diagDecision.bloque={x:bloque.x,y:bloque.y,w:bloque.w,h:bloque.h};
+    if(conTraza) diagDecision.bloque={x:bloque.x,y:bloque.y,w:bloque.w,h:bloque.h};
 
     if(sel.mult===1 && (sel.sobra<1e-9 || nivel>=opts.etapas)){
       const p=pool.splice(sel.i,1)[0];
       colocadas.push({
         x:bloque.x, y:bloque.y, base:sel.o.base, altura:sel.o.altura,
         rotada:sel.o.rotada, pieza:p, nivel,
-        _diagPath:[
-          ...((arbol&&Array.isArray(arbol._diagPath))?arbol._diagPath:[]),
+        _diagLink:!conTraza?null:enlaceDiag(
+          arbol?arbol._diagLink:null,
           {...diagDecision, tipo:'COLOCACIÓN FINAL', piezaFinal:p?.detalle||'', refFinal:p?.ref??''}
-        ]
+        )
       });
 
       if(arbol){
@@ -391,7 +416,7 @@ function llenar(region, pool, colocadas, nivel, opts, rnd, cortes, restos, arbol
         const hijo=nuevoNodoArbol(
           {...bloque,dir:dirHijo},
           nivel+1,
-          [...(arbol._diagPath||[]), {...diagDecision, tipo:'REBANADA PADRE'}]
+          conTraza?enlaceDiag(arbol._diagLink,{...diagDecision,tipo:'REBANADA PADRE'}):null
         );
         if(sel.sobra>1e-9 && nivel>=opts.etapas){
           // El XML <project> expresa el corte terminal como un nivel físico real:
@@ -402,13 +427,13 @@ function llenar(region, pool, colocadas, nivel, opts, rnd, cortes, restos, arbol
           const hoja=nuevoNodoArbol(
             {...piezaBloque,dir:region.dir},
             nivel+2,
-            [...(hijo._diagPath||[]), {
+            !conTraza?null:enlaceDiag(hijo._diagLink, {
               nivel:nivel+1, tipo:'CORTE TERMINAL', dir:dirHijo,
               region:{x:bloque.x,y:bloque.y,w:bloque.w,h:bloque.h},
               bloque:{x:piezaBloque.x,y:piezaBloque.y,w:piezaBloque.w,h:piezaBloque.h},
               rebanada:sel.b, piezaAncla:p?.detalle||'', refAncla:p?.ref??'',
               sierra:opts.sierra
-            }]
+            })
           );
           hijo.partes.push({cut:sel.b,type:1,pieza:p,bloque:piezaBloque,hijo:hoja,terminal:true});
           arbol.partes.push({cut:t,type:2,pieza:null,bloque,hijo,terminal:true});
@@ -458,7 +483,7 @@ function llenar(region, pool, colocadas, nivel, opts, rnd, cortes, restos, arbol
       const hijo=arbol?nuevoNodoArbol(
         sub,
         nivel+1,
-        [...(arbol._diagPath||[]), {...diagDecision, tipo:'REBANADA PADRE'}]
+        conTraza?enlaceDiag(arbol._diagLink,{...diagDecision,tipo:'REBANADA PADRE'}):null
       ):null;
 
       llenar(sub, pool, colocadas, nivel+1, opts, rnd, cortes, restos, hijo);
@@ -489,12 +514,14 @@ function llenar(region, pool, colocadas, nivel, opts, rnd, cortes, restos, arbol
           if(region.dir===DIR_X) bloque.w=t;
           else bloque.h=t;
 
-          diagDecision.rebanadaProvisional=tPropuesto;
-          diagDecision.rebanada=t;
-          diagDecision.contraida=tPropuesto-t;
-          diagDecision.bloque={
-            x:bloque.x,y:bloque.y,w:bloque.w,h:bloque.h
-          };
+          if(conTraza){
+            diagDecision.rebanadaProvisional=tPropuesto;
+            diagDecision.rebanada=t;
+            diagDecision.contraida=tPropuesto-t;
+            diagDecision.bloque={
+              x:bloque.x,y:bloque.y,w:bloque.w,h:bloque.h
+            };
+          }
         }
       }
 
@@ -1081,4 +1108,4 @@ function optimizar(lineas, config){
    ========================================================================== */
 
 
-module.exports = { optimizar, empacarPlaca, orientaciones, medidaCorte, hashTexto, DIR_X, DIR_Y, calidadRestos, compararCalidad, calidadPlanPlacas, mejorPlanIgualPlacas, mejorCandidatoPlaca };
+module.exports = { resolverDiagPath, optimizar, empacarPlaca, orientaciones, medidaCorte, hashTexto, DIR_X, DIR_Y, calidadRestos, compararCalidad, calidadPlanPlacas, mejorPlanIgualPlacas, mejorCandidatoPlaca };

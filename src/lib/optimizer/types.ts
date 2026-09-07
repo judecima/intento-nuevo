@@ -257,6 +257,11 @@ export interface LegacyPiece {
   [key: string]: unknown;
 }
 
+export interface LegacyDiagLink {
+  prev: LegacyDiagLink | null;
+  paso: LegacyDiagStep;
+}
+
 export interface LegacyDiagStep {
   nivel?: number;
   tipo?: string;
@@ -283,6 +288,8 @@ export interface LegacyPlacement {
   nivel?: number;
   pieza?: LegacyPiece;
   _diagPath?: LegacyDiagStep[];
+  /** Traza como lista enlazada. Se aplana con resolverDiagPath en el borde. */
+  _diagLink?: LegacyDiagLink | null;
   [key: string]: unknown;
 }
 
