@@ -39,7 +39,6 @@ jobs:
           git fetch --depth=1 origin optimizer-v20-remnant-defrag
           git show FETCH_HEAD:src/lib/optimizer/experimental/per-board-remnant-defrag.cjs > src/lib/optimizer/experimental/per-board-remnant-defrag.cjs
           git show FETCH_HEAD:scripts/v20-remnant-defrag-smoke.mjs > scripts/v20-remnant-defrag-smoke.mjs
-          git show FETCH_HEAD:scripts/v20-remnant-recovery-check.mjs > scripts/v20-remnant-recovery-check.mjs
       - name: Wire V20 fail-safe
         run: python3 scripts/kernel-stabilization/port-v20-safe.py
       - name: Add runtime wiring smoke
@@ -87,7 +86,7 @@ jobs:
           set -euo pipefail
           git config user.name 'optimizer-kernel-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add src/lib/optimizer/legacy/v10.cjs src/lib/optimizer/experimental/per-board-remnant-defrag.cjs scripts/v20-remnant-defrag-smoke.mjs scripts/v20-remnant-recovery-check.mjs scripts/v20-remnant-safe-smoke.mjs
+          git add src/lib/optimizer/legacy/v10.cjs src/lib/optimizer/experimental/per-board-remnant-defrag.cjs scripts/v20-remnant-defrag-smoke.mjs scripts/v20-remnant-safe-smoke.mjs
           git diff --cached --check
           git commit -m 'feat(optimizer): make V20 remnant-safe before certified return [v20-safe]'
           git push origin HEAD:optimizer-kernel-v1-stabilization
