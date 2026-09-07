@@ -50,11 +50,13 @@ jobs:
       - name: Fast optimizer regression contracts
         run: |
           npx vitest run \
-            src/lib/optimizer/__tests__/pattern-trace.test.ts \
-            src/lib/optimizer/__tests__/diag-trace-contract.test.ts \
-            src/lib/optimizer/__tests__/optimizer.test.ts \
-            src/lib/optimizer/__tests__/remnant-quality.test.ts \
-            src/lib/optimizer/__tests__/v10-cheap-lb-env.test.ts
+            tests/optimizer/pattern-trace.test.ts \
+            tests/optimizer/diag-trace.test.ts \
+            tests/optimizer/optimizer.test.ts \
+            tests/optimizer/remnant-quality.test.ts \
+            tests/optimizer/v20-cheap-env-isolation.test.ts \
+            tests/optimizer/v10-baseline-certification.test.ts \
+            tests/optimizer/fingerprints.test.ts
 
       - name: Show runtime diff
         run: git diff --check && git diff --stat && git diff -- src/lib/optimizer
