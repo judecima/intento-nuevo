@@ -14,13 +14,15 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = parseArgs(process.argv.slice(2));
 const corpus = resolve(String(args.corpus ?? "D:/proyectos asistidos/lepton/data/lepton-xml"));
 const manifestPath = resolve(String(args.manifest ?? "experiencia/master-quality-sentinels.json"));
+const filesPath = typeof args.files === "string" ? resolve(args.files) : null;
 const outPath = typeof args.out === "string" ? resolve(args.out) : null;
 const checkpoints = parseCheckpoints(args.checkpoints ?? "5,10,15,20,25,30,35,40");
 const includeCandidates = boolArg(args.includeCandidates);
 const oneFile = typeof args.archivo === "string" ? String(args.archivo) : null;
 
 if (!existsSync(corpus)) throw new Error(`no existe corpus: ${corpus}`);
-if (!existsSync(manifestPath)) throw new Error(`no existe manifest: ${manifestPath}`);
+if (!oneFile && !filesPath && !existsSync(manifestPath)) throw new Error(`no existe manifest: ${manifestPath}`);
+if (filesPath && !existsSync(filesPath)) throw new Error(`no existe files: ${filesPath}`);
 const bundlePath = join(REPO, "node_modules", ".cache", "experience-benchmark", "optimizer.mjs");
 if (!existsSync(bundlePath)) {
   console.error("falta el bundle; correr antes: node scripts/experience-benchmark.mjs report --rebuild");
@@ -33,13 +35,15 @@ process.env.OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL = "0";
 delete process.env.OPTIMIZER_V22_MASTER_GAP1_EXPERIMENTAL;
 
 const optimizer = await import(pathToFileURL(bundlePath).href + `?v22bprefix=${Date.now()}`);
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : { sentinels: [], calibrationCandidates: [] };
 const entries = oneFile
   ? [{ file: oneFile, sourceKind: "explicit" }]
-  : [
-      ...(manifest.sentinels ?? []).map((x) => ({ ...x, sourceKind: "sentinel" })),
-      ...(includeCandidates ? (manifest.calibrationCandidates ?? []).map((x) => ({ ...x, sourceKind: "candidate" })) : []),
-    ];
+  : filesPath
+    ? readFileSync(filesPath, "utf8").split(/\r?\n/).map((x) => x.trim()).filter(Boolean).map((file) => ({ file, sourceKind: "files" }))
+    : [
+        ...(manifest.sentinels ?? []).map((x) => ({ ...x, sourceKind: "sentinel" })),
+        ...(includeCandidates ? (manifest.calibrationCandidates ?? []).map((x) => ({ ...x, sourceKind: "candidate" })) : []),
+      ];
 
 const results = [];
 for (const entry of entries) {
@@ -51,11 +55,12 @@ for (const entry of entries) {
   }
   const result = await profileCase(entry, xmlPath, optimizer, checkpoints);
   results.push(result);
-  console.log(`${result.ok ? "OK" : "FAIL"} ${entry.file} pre=${result.preMasterBoards} checkpoints=${result.checkpoints.map((x) => `${x.rounds}:${x.boards}`).join(" ")}`);
+  console.log(`${result.ok ? "OK" : "FAIL"} ${entry.file} pre=${result.preMasterBoards} checkpoints=${result.checkpoints?.map((x) => `${x.rounds}:${x.boards}`).join(" ") ?? "-"} lastNew=${result.saturation?.lastNewVectorRound ?? "-"} zeroTail=${result.saturation?.roundsSinceLastNewVector ?? "-"}`);
 }
 
 const summary = {
-  manifest: manifestPath,
+  manifest: existsSync(manifestPath) ? manifestPath : null,
+  files: filesPath,
   corpus,
   checkpoints,
   cases: results.length,
@@ -65,7 +70,9 @@ const summary = {
   interpretation: [
     "This is a diagnostic profile, not a stopping policy.",
     "A long plateau followed by a later board improvement falsifies simple patience-on-board-count stopping.",
-    "newSelectedColumns reports selected patterns whose first appearance falls after the previous checkpoint; it is evidence about useful-column arrival, not a production-safe stopping rule by itself."
+    "newSelectedColumns reports selected patterns whose first appearance falls after the previous checkpoint; it is evidence about useful-column arrival, not a production-safe stopping rule by itself.",
+    "Pool saturation is empirical, not proof that no unseen vector can appear later. No zero-growth streak authorizes a runtime cutoff in this phase.",
+    "Exact per-round vector growth is recorded so saturation can be compared against actual canonical type count instead of being confused with small-order size."
   ],
 };
 
@@ -150,6 +157,8 @@ async function profileCase(entry, xmlPath, optimizer, checkpoints) {
       finalBoards: final?.boards ?? incumbent,
       parity40,
       generationMs: generated.generationMs,
+      saturation: summarizeGrowth(generated.growth),
+      poolGrowthByRound: generated.growth,
       checkpoints: profiles,
       ok: parity40 !== false,
     };
@@ -167,6 +176,7 @@ function generatePrefixSnapshots(lineas, O, checkpoints, semilla = 7) {
   const porVector = new Map();
   const firstSeen = new Map();
   const snapshots = new Map();
+  const growth = [];
   const t0 = performance.now();
 
   const registrar = (placa, round0) => {
@@ -188,6 +198,7 @@ function generatePrefixSnapshots(lineas, O, checkpoints, semilla = 7) {
   console.warn = () => {};
   try {
     for (let r = 0; r < maxRounds; r++) {
+      const before = porVector.size;
       const sub = r === 0 ? conRef : conRef.filter(() => R() > 0.45);
       if (sub.length) {
         try {
@@ -196,12 +207,42 @@ function generatePrefixSnapshots(lineas, O, checkpoints, semilla = 7) {
         } catch (_) { /* same behavior as legacy generator */ }
       }
       const roundCount = r + 1;
+      growth.push({ round: roundCount, newVectors: porVector.size - before, poolSize: porVector.size });
       if (wanted.has(roundCount)) snapshots.set(roundCount, [...porVector.values()]);
     }
   } finally {
     console.warn = warn;
   }
-  return { snapshots, firstSeen, generationMs: performance.now() - t0 };
+  return { snapshots, firstSeen, growth, generationMs: performance.now() - t0 };
+}
+
+function summarizeGrowth(growth) {
+  let currentZero = 0;
+  let maxZero = 0;
+  let lastNewVectorRound = null;
+  for (const row of growth) {
+    if (row.newVectors > 0) {
+      lastNewVectorRound = row.round;
+      currentZero = 0;
+    } else {
+      currentZero++;
+      if (currentZero > maxZero) maxZero = currentZero;
+    }
+  }
+  const maxRound = growth.at(-1)?.round ?? 0;
+  const totalVectors = growth.at(-1)?.poolSize ?? 0;
+  const addedLast = (n) => growth.filter((x) => x.round > maxRound - n).reduce((sum, x) => sum + x.newVectors, 0);
+  return {
+    totalVectors,
+    lastNewVectorRound,
+    roundsSinceLastNewVector: lastNewVectorRound === null ? maxRound : maxRound - lastNewVectorRound,
+    maxConsecutiveZeroGrowthRounds: maxZero,
+    vectorsAddedLast5Rounds: addedLast(5),
+    vectorsAddedLast10Rounds: addedLast(10),
+    vectorsAddedLast20Rounds: addedLast(20),
+    zeroGrowthRounds: growth.filter((x) => x.newVectors === 0).length,
+    growthRounds: growth.filter((x) => x.newVectors > 0).length,
+  };
 }
 
 function vectorSet(patterns) { return new Set(patterns.map((p) => claveVector(p.uso))); }
