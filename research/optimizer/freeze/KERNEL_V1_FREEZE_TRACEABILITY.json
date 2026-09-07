@@ -1,6 +1,6 @@
 {
   "schemaVersion": "kernel-v1-freeze-traceability-v2",
-  "generatedAt": "2026-09-07T23:21:08.281Z",
+  "generatedAt": "2026-09-07T23:22:14.245Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_COMPLETE_FORMAL_POLICY_BLOCKED",
   "kernelFrozen": false,
@@ -76,12 +76,11 @@
     "policy": "research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json",
     "harness": "scripts/kernel-freeze/formal-certification.mjs",
     "deterministicBudgetsReady": false,
-    "correctnessPredicateReady": false,
-    "correctnessPredicateId": null,
+    "correctnessPredicateReady": true,
+    "correctnessPredicateId": "HISTORICAL_VALIDITY_V1",
     "policyReady": false,
     "blockingReasons": [
-      "Production deterministic budgets/watchdogs are not calibrated/versioned.",
-      "The exact formal correctness predicate is not yet recovered or explicitly decided/versioned."
+      "Production deterministic budgets/watchdogs are not calibrated and versioned."
     ]
   },
   "sourceReports": [
