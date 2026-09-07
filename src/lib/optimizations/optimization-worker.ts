@@ -8,16 +8,17 @@ interface WorkerRequestMessage {
   input: OptimizationInput;
 }
 
-if (!parentPort) {
+const port = parentPort;
+if (!port) {
   throw new Error("OPTIMIZER_WORKER_PARENT_PORT_MISSING");
 }
 
-parentPort.on("message", (message: WorkerRequestMessage) => {
+port.on("message", (message: WorkerRequestMessage) => {
   const startedAt = performance.now();
 
   try {
     const result = optimizeProject(message.input);
-    parentPort.postMessage({
+    port.postMessage({
       id: message.id,
       ok: true,
       result,
@@ -25,7 +26,7 @@ parentPort.on("message", (message: WorkerRequestMessage) => {
     });
   } catch (error) {
     const normalized = error instanceof Error ? error : new Error(String(error));
-    parentPort.postMessage({
+    port.postMessage({
       id: message.id,
       ok: false,
       error: {
