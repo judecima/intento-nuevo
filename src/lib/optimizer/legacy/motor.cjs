@@ -665,14 +665,27 @@ function generarCandidatosPlaca(pool, opts, configs, pase, placa){
 function armarPlacasBeam(piezas, opts, configs, pase){
   const areaPlaca=opts.anchoUtil*opts.altoUtil;
   const t0=Date.now();
+  const step0=opts._step0Telemetry&&opts._step0Telemetry.beam;
+  if(step0) step0.calls++;
+  let expansiones=0, timeoutRegistrado=false;
+  const cerrarStep0=()=>{
+    if(!step0) return;
+    const ms=Date.now()-t0;
+    step0.expansionsTotal+=expansiones;
+    step0.expansionsMax=Math.max(step0.expansionsMax,expansiones);
+    step0.wallMsTotal+=ms;
+    step0.wallMsMax=Math.max(step0.wallMsMax,ms);
+  };
   let beam=[{pool:piezas.slice(), placas:[], util:0}];
   let completas=[];
   let guarda=0;
 
   while(beam.length && guarda++<300){
-    // El costo de Beam crece con el numero de placas; sin techo, un pedido
-    // grande lo multiplica por cuatro sin mejorar el resultado.
-    if(Date.now()-t0 > opts.presupuestoBeamMs) break;
+    // Step 0 sólo observa el mismo límite temporal existente.
+    if(Date.now()-t0 > opts.presupuestoBeamMs){
+      if(step0&&!timeoutRegistrado){ step0.timeoutHits++; timeoutRegistrado=true; }
+      break;
+    }
     const siguientes=[];
 
     for(const estado of beam){
@@ -684,6 +697,7 @@ function armarPlacasBeam(piezas, opts, configs, pase){
       for(const c of cands){
         const placa={ancho:opts.anchoUtil, alto:opts.altoUtil, colocadas:c.colocadas,
                      cortes:c.cortes, restos:c.restos, arbol:c.arbol};
+        expansiones++;
         siguientes.push({
           pool:c.restante,
           placas:estado.placas.concat(placa),
@@ -727,6 +741,7 @@ function armarPlacasBeam(piezas, opts, configs, pase){
 
   completas=completas.concat(beam.filter(e=>!e.pool.length));
   if(!completas.length){
+    cerrarStep0();
     const p=beam[0]?.pool?.[0] || piezas[0];
     throw new Error(`No se pudo completar el plan con Beam Search${p ? `; revisar la pieza "${p.detalle||'sin nombre'}" (${p.base}\u00d7${p.altura} mm)` : ''}.`);
   }
@@ -736,6 +751,7 @@ function armarPlacasBeam(piezas, opts, configs, pase){
     if(d) return d;
     return -compararCalidad(calidadPlanPlacas(a.placas,opts),calidadPlanPlacas(b.placas,opts));
   });
+  cerrarStep0();
   return completas[0].placas;
 }
 
@@ -866,6 +882,7 @@ const utilidadPlan=(placas,opts)=>calidadPlanPlacas(placas,opts).total;
    acepta una búsqueda global que use más placas; con igual número, gana el
    plan que deja más sobrante utilizable. */
 function armarPlacas(piezas, opts, configs, pase){
+  if(opts._step0Telemetry) opts._step0Telemetry.composition.armarPlacasCalls++;
   const greedy=armarPlacasGreedy(piezas,opts,configs,pase);
 
   // Cota inferior por area: si el greedy ya la alcanza, ninguna busqueda puede
@@ -903,6 +920,7 @@ function optimizar(lineas, config){
               // menores y, a igualdad de placas, gana el árbol más simple.
               preferirMenorProfundidad:true,
               usarRescue:true, maxPiezasRescue:30, presupuestoRescueMs:300, multiRebanada:false, multiVariantes:false, ...config};
+  if(opts._step0Telemetry) opts._step0Telemetry.composition.optimizarCalls++;
 
   const piezas=[]; let id=0;
   lineas.forEach((l,idx)=>{
@@ -1005,6 +1023,7 @@ function optimizar(lineas, config){
       // No reducimos la capacidad del motor: seguimos probando la profundidad
       // elegida por el usuario, pero también alternativas más simples.
       const oEtapas={...opts,etapas:etapasActual};
+      if(opts._step0Telemetry) opts._step0Telemetry.composition.stageCalls++;
       const placas=armarPlacas(
         piezas.slice().sort(ordenes[pase%ordenes.length]),
         oEtapas,configsUsadas,pase

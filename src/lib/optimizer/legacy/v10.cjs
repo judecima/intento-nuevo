@@ -19,6 +19,15 @@ const { materializar, aceptar } = require('./materializar.cjs');
 const { rescatarUnaPlaca } = require('./oneboard.cjs');
 const { validarPlanIndustrial } = require('./validador_industrial_v3.cjs');
 
+function nuevaTelemetriaStep0(){
+  return {
+    beam:{calls:0,expansionsTotal:0,expansionsMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0},
+    master:{runs:0,nodesTotal:0,nodesMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0},
+    oneboard:{runs:0,attemptsTotal:0,attemptsMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0},
+    composition:{optimizarCalls:0,armarPlacasCalls:0,stageCalls:0},
+  };
+}
+
 function nuevasMetricas() {
   const m = () => ({ activaciones: 0, ganancias: 0, placasAhorradas: 0,
                      invalidos: 0, ms: 0, peorMs: 0 });
@@ -257,6 +266,11 @@ function mejorRemanentePlan(candidato,base){
 
 function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   const t0 = Date.now();
+  if(config.instrumentarStep0===true){
+    const telemetry=config._step0Telemetry||nuevaTelemetriaStep0();
+    config={...config,_step0Telemetry:telemetry};
+    metricas.step0=telemetry;
+  }
   const piezasEsperadas = lineas.reduce((s, l) => s + l.cant, 0);
   const areaTotal = lineas.reduce((s, l) => s + l.cant * l.base * l.altura, 0);
   const areaPlaca = (config.placaBase - (config.refiladoX || 0)) *
@@ -422,7 +436,8 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       const pool = generarPatrones(lineas, config, config.rondasPatrones || 40)
         .concat(patronesMonotipo(lineas, config));
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
-                                  mejor.resumen.placas, config.msMaster || 8000);
+                                  mejor.resumen.placas, config.msMaster || 8000,
+                                  { telemetry: config._step0Telemetry || null });
       const sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
       const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
       if (cand) probar('master', cand, Date.now() - t);
@@ -436,4 +451,4 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   return { plan: mejor, metricas, cota, cotaArea };
 }
 
-module.exports = { optimizarV10, nuevasMetricas, validarPlanIndustrial };
+module.exports = { optimizarV10, nuevasMetricas, nuevaTelemetriaStep0, validarPlanIndustrial };

@@ -15,7 +15,7 @@
    Se resuelve con ramificacion y acotacion, usando el plan de V8 como
    incumbente inicial: nunca puede devolver algo peor. */
 
-function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 20000) {
+function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 20000, control = null) {
   const T = demanda.length;
   // area de cada tipo, para la cota inferior
   // Conservar la placa fisica: sin ella el plan no se puede materializar,
@@ -33,9 +33,15 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
     if (demanda[i] > 0 && maxCob[i] === 0) return null;   // tipo imposible de cubrir
 
   const t0 = Date.now();
+  const step0=control&&control.telemetry&&control.telemetry.master;
+  if(step0) step0.runs++;
   let mejor = incumbente, mejorPlan = null;
   const memo = new Map();
-  let nodos = 0, agotado = false;
+  let nodos = 0, agotado = false, timeoutRegistrado=false;
+  const marcarTimeout=()=>{
+    agotado=true;
+    if(step0&&!timeoutRegistrado){ step0.timeoutHits++; timeoutRegistrado=true; }
+  };
 
   const areaTipo = p => p;   // el area por tipo se pasa aparte
 
@@ -47,7 +53,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   }
 
   function dfs(rest, areaRest, usadas, plan) {
-    if (Date.now() - t0 > limiteMs) { agotado = true; return; }
+    if (Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
     if (areaRest <= 1e-9) {
       if (usadas < mejor) { mejor = usadas; mejorPlan = plan.slice(); }
       return;
@@ -86,7 +92,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       plan.push(p);
       dfs(nr, areaRest - da, usadas + 1, plan);
       plan.pop();
-      if (Date.now() - t0 > limiteMs) return;
+      if (Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
     }
   }
 
@@ -96,6 +102,13 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       areaPorTipo = areaTipos;
       const areaTotal = demanda.reduce((s, d, i) => s + d * areaTipos[i], 0);
       dfs(demanda.slice(), areaTotal, 0, []);
+      if(step0){
+        const ms=Date.now()-t0;
+        step0.nodesTotal+=nodos;
+        step0.nodesMax=Math.max(step0.nodesMax,nodos);
+        step0.wallMsTotal+=ms;
+        step0.wallMsMax=Math.max(step0.wallMsMax,ms);
+      }
       return { placas: mejor, plan: mejorPlan, nodos, agotado };
     }
   };

@@ -20,6 +20,18 @@
 const M = require('./motor.cjs');
 
 function rescatarUnaPlaca(lineas, config = {}) {
+  const step0=config._step0Telemetry&&config._step0Telemetry.oneboard;
+  const wallStart=Date.now();
+  let intentos=0, timeoutRegistrado=false;
+  if(step0) step0.runs++;
+  const terminarStep0=()=>{
+    if(!step0) return;
+    const ms=Date.now()-wallStart;
+    step0.attemptsTotal+=intentos;
+    step0.attemptsMax=Math.max(step0.attemptsMax,intentos);
+    step0.wallMsTotal+=ms;
+    step0.wallMsMax=Math.max(step0.wallMsMax,ms);
+  };
   // Todo parametro leido con opts.x necesita su default aca mismo: sin esto
   // el rescate no ejecuta ninguna corrida y falla en silencio.
   const opts = { pases: 40, semillasRescate: 6, msRescate: 20000, ...config };
@@ -29,8 +41,10 @@ function rescatarUnaPlaca(lineas, config = {}) {
                     (config.placaAltura - (config.refiladoY || 0));
   const cota = Math.ceil(areaTotal / areaPlaca - 1e-9);
 
-  if (base.resumen.placas <= 1 || cota !== 1)
-    return { plan: base, baseline: base, activado: false, historial: [] };
+  if (base.resumen.placas <= 1 || cota !== 1){
+    terminarStep0();
+    return { plan: base, baseline: base, activado: false, historial: [], intentos };
+  }
 
   const total = lineas.reduce((s, l) => s + l.cant, 0);
   const historial = [];
@@ -56,6 +70,7 @@ function rescatarUnaPlaca(lineas, config = {}) {
           const cfg = { criterios: [c1, c2], criterio: c1, dirInicial: dir,
                         ruido: s === 0 ? 0 : 0.3, multiRebanada: multi };
           cfg._id = M.hashTexto(c1 + '>' + c2 + '|' + dir + '|' + multi);
+          intentos++;
           const res = intentar(lineas, cfg, ordenes[s % ordenes.length], opts, 1000 + s * 97);
           if (!res) continue;
           corrida++;
@@ -66,14 +81,20 @@ function rescatarUnaPlaca(lineas, config = {}) {
           }
           if (restan === 0) {
             const plan = comoPlan(res, opts);
+            terminarStep0();
             return { plan, baseline: base, activado: true, exito: true,
-                     restante: 0, historial, corridas: corrida,
+                     restante: 0, historial, corridas: corrida, intentos,
                      ms: Date.now() - t0 };
           }
         }
   }
+  if(Date.now()-t0>=opts.msRescate){
+    timeoutRegistrado=true;
+    if(step0) step0.timeoutHits++;
+  }
+  terminarStep0();
   return { plan: base, baseline: base, activado: true, exito: false,
-           restante: mejorRestante, historial, corridas: corrida,
+           restante: mejorRestante, historial, corridas: corrida, intentos,
            ms: Date.now() - t0 };
 }
 

@@ -258,7 +258,8 @@ function toLegacyOptions(input: OptimizationInput, strategy: OptimizerStrategy):
     usarOneBoard: strategy === "v10" ? input.constraints.allowOneBoard !== false : false,
     usarMaster: strategy === "v10" ? input.constraints.allowPatternMaster !== false : false,
     usarMultiSlice: strategy === "v10" ? input.constraints.allowMultiSlice !== false : false,
-    usarCompactacion: strategy === "v10" ? input.constraints.allowDeadStripCompaction !== false : false
+    usarCompactacion: strategy === "v10" ? input.constraints.allowDeadStripCompaction !== false : false,
+    instrumentarStep0: strategy === "v10" && parseEnvFlag("OPTIMIZER_STEP0_TELEMETRY", false)
   };
 
   return {
