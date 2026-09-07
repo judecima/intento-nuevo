@@ -129,9 +129,14 @@ function evenlySpaced(xs, n) {
 }
 function dedupeByFile(xs) {
   const seen = new Set();
-  return xs.filter((x) => !seen.has(x.file) && seen.add(x.file));
+  return xs.filter((x) => {
+    if (seen.has(x.file)) return false;
+    seen.add(x.file);
+    return true;
+  });
 }
 function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
