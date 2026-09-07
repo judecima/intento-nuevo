@@ -155,7 +155,11 @@ function quantile(xs, q) {
   return xs[lo] + (xs[hi] - xs[lo]) * (pos - lo);
 }
 function pct(a, b) { return b ? a / b * 100 : 0; }
-function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
+function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 function parseInts(value) {
   const xs = String(value).split(",").map((x) => Number.parseInt(x.trim(), 10)).filter((x) => Number.isFinite(x) && x > 0);
   return [...new Set(xs)].sort((a, b) => a - b);
