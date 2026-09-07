@@ -24,19 +24,31 @@ jobs:
           fetch-depth: 0
           ref: optimizer-kernel-v1-freeze
 
-      - name: Inspect embedded canonical corpus
+      - name: Inspect embedded canonical corpus and historical lineage
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           const fs = require('fs');
-          const p = 'experiencia/canonical_cases.json';
-          const s = fs.statSync(p);
-          const raw = fs.readFileSync(p, 'utf8');
-          const data = JSON.parse(raw);
-          const type = Array.isArray(data) ? 'array' : typeof data;
-          const count = Array.isArray(data) ? data.length : (data && typeof data === 'object' ? Object.keys(data).length : null);
-          const first = Array.isArray(data) ? data[0] : (data && typeof data === 'object' ? data[Object.keys(data)[0]] : null);
-          const firstKey = !Array.isArray(data) && data && typeof data === 'object' ? Object.keys(data)[0] : null;
-          console.log(JSON.stringify({bytes:s.size,type,count,firstKey,firstKeys:first&&typeof first==='object'?Object.keys(first):[],firstSample:first&&typeof first==='object'?Object.fromEntries(Object.entries(first).slice(0,8)):first}, null, 2));
+          const data = JSON.parse(fs.readFileSync('experiencia/canonical_cases.json','utf8'));
+          const first = data[0];
+          const piece = first?.pieces?.[0] ?? null;
+          const counts = {
+            total: data.length,
+            referencePositive: data.filter(x => Number(x.reference_panels) > 0).length,
+            refFinite: data.filter(x => Number.isFinite(Number(x.reference_panels))).length,
+            directional: data.filter(x => x.directional === true).length,
+            pieceLe30: data.filter(x => Number(x.piece_count) <= 30).length,
+            pieceLe100: data.filter(x => Number(x.piece_count) <= 100).length,
+            piece101to300: data.filter(x => Number(x.piece_count) >= 101 && Number(x.piece_count) <= 300).length,
+          };
+          console.log('CANONICAL_SUMMARY='+JSON.stringify({bytes:fs.statSync('experiencia/canonical_cases.json').size,counts,first,firstPiece:piece}));
+          const files = ['experiencia/v7/all20.jsonl','experiencia/v7/repro20.jsonl','experiencia/v7/w1.jsonl','experiencia/v7/w2.jsonl'];
+          for (const p of files) {
+            if (!fs.existsSync(p)) continue;
+            const lines = fs.readFileSync(p,'utf8').split(/\r?\n/).filter(Boolean);
+            console.log('HIST_FILE='+JSON.stringify({path:p,lines:lines.length,first:lines.slice(0,2).map(x=>{try{return JSON.parse(x)}catch{return x.slice(0,300)}})}));
+          }
           NODE
+          echo '--- lineage grep ---'
+          grep -RniE 'canonical_cases|8669|8,669|213 hotspot|hotspot.*213|sentinel' scripts research experiencia --exclude='canonical_cases.json' --exclude='*.bundle' | head -n 200 || true
