@@ -33,10 +33,12 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
+          node scripts/kernel-freeze/analyze-correctness-partitions.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           node <<'NODE'
           const fs = require('fs');
           const p = 'research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json';
           const r = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const cp = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json', 'utf8'));
           console.log('FREEZE_TRACEABILITY=' + JSON.stringify(r.freezeTraceability));
           console.log('CANONICAL_IDENTITY=' + JSON.stringify({
             count: r.embeddedCanonical.count,
@@ -45,6 +47,11 @@ jobs:
             hotspots: r.hotspots,
             sentinels: r.sentinels.exact5,
             fullPlanHash: r.fullPlanHash.status,
+          }));
+          console.log('CORRECTNESS_PARTITIONS=' + JSON.stringify({
+            partitions: cp.partitionCount,
+            strongCandidates: cp.subsetSearch.strongCandidates.length,
+            conclusion: cp.conclusion,
           }));
           if (r.embeddedCanonical.count !== 20844) throw new Error('Embedded canonical corpus drifted from 20,844');
           if (!r.hotspots.exact213) throw new Error('Historical 213-hotspot cohort is not exact');
@@ -59,8 +66,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
+          git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           if git diff --cached --quiet; then
-            echo "Provenance report unchanged"
+            echo "Provenance reports unchanged"
             exit 0
           fi
           git commit -m "docs(optimizer): checkpoint Kernel V1 freeze provenance [skip ci]"
