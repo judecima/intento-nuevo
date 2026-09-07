@@ -1,0 +1,476 @@
+{
+  "schemaVersion": "kernel-v1-freeze-provenance-v1",
+  "generatedAt": "2026-09-07T22:10:37.610Z",
+  "inputs": {
+    "canonical": "experiencia/canonical_cases.json",
+    "canonicalSha256": "a6af8b4f312105560ef8cd47c26c083dc314c6d19fe68bfd5ecc70bd29106329",
+    "hotspot": "experiencia/v6/hotspot-all.jsonl",
+    "hotspotSha256": "33c98e736cd448d945ba731965b8c27774d20430b9153977d08ced822a7214bd",
+    "traceGate": "scripts/deferred-trace-gate.mjs",
+    "traceGateSha256": "09ffa357325949853c8e0c1e63629f3b1ae7d18ba673f2638a7bcf962792b298",
+    "historicalTruth": "EXPERIENCE_OPTIMIZER_TRUTH.md",
+    "historicalTruthSha256": "5f2d36f4d812892aff416c8c94fbb9795a3817207bc22f2af9f00889dbfa2fd4"
+  },
+  "expected": {
+    "canonicalEmbedded": 20844,
+    "historicalXml": 8669,
+    "historicalProject": 7320,
+    "historicalOrder": 1346,
+    "historicalParseErrors": 3,
+    "historicalCanonical": 8650,
+    "hotspots": 213,
+    "sentinels": {
+      "4050594": 7,
+      "4056900": 6,
+      "4057401": 4,
+      "4058501": 8,
+      "4059200": 17
+    },
+    "referenceFullPlanHash4050594": "e858a3bfd89f69b7165954039f3f809752250712736316239f349d8fafbdcd42"
+  },
+  "embeddedCanonical": {
+    "count": 20844,
+    "countMatchesExpected": true,
+    "topLevelKeys": [
+      "case_id",
+      "directional",
+      "exact_fp",
+      "grain_confidence",
+      "grain_source",
+      "material",
+      "piece_count",
+      "piece_types",
+      "pieces",
+      "ratio_fp",
+      "reference_panels",
+      "saw",
+      "source_format",
+      "source_path",
+      "stock_height",
+      "stock_width",
+      "structural_fp",
+      "thickness"
+    ],
+    "scalarPaths": [
+      {
+        "path": "case_id",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "Eliu_Perez4129132",
+          "Federico_Tion4102140",
+          "Dinorah_Contreras4075383",
+          "emporio_madera4086712"
+        ]
+      },
+      {
+        "path": "directional",
+        "count": 20844,
+        "types": [
+          "boolean"
+        ],
+        "samples": [
+          true,
+          false,
+          true,
+          false
+        ]
+      },
+      {
+        "path": "exact_fp",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "2cf7b82cd8525a09f9a2",
+          "b8eda7df109447a2150a",
+          "2d020b11005ab6de3d0f",
+          "4dc680abf28f1ae8a198"
+        ]
+      },
+      {
+        "path": "grain_confidence",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          1,
+          1,
+          0.83,
+          1
+        ]
+      },
+      {
+        "path": "grain_source",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "xml-board-grain",
+          "xml-board-grain",
+          "name-classifier",
+          "xml-board-grain"
+        ]
+      },
+      {
+        "path": "material",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "FENOLICO 18MM 1.22 X 2.44 GRANDIS III . III",
+          "AGLOMERADO 18MM (2.75X1.83) APSA",
+          "MDF MEL BRANDY CASTELL OAK K359 1.22X2.44 15MM 2C",
+          "EDK AGL W954ST14 Blanco 18mmx2.60m1419285 (419285)"
+        ]
+      },
+      {
+        "path": "piece_count",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          1,
+          39,
+          13,
+          14
+        ]
+      },
+      {
+        "path": "piece_types",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          1,
+          16,
+          2,
+          11
+        ]
+      },
+      {
+        "path": "pieces[].altura",
+        "count": 265276,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          700,
+          374,
+          384,
+          384
+        ]
+      },
+      {
+        "path": "pieces[].base",
+        "count": 265276,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          2000,
+          50,
+          50,
+          60
+        ]
+      },
+      {
+        "path": "pieces[].cant",
+        "count": 265276,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          1,
+          4,
+          3,
+          1
+        ]
+      },
+      {
+        "path": "pieces[].xmlPartGrain",
+        "count": 44237,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "1",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "path": "ratio_fp",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "2cf7b82cd8525a09f9a2",
+          "b8eda7df109447a2150a",
+          "2d020b11005ab6de3d0f",
+          "4dc680abf28f1ae8a198"
+        ]
+      },
+      {
+        "path": "reference_panels",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "path": "saw",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          4.5,
+          4.5,
+          4.5,
+          4.5
+        ]
+      },
+      {
+        "path": "source_format",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "order",
+          "order",
+          "project",
+          "order"
+        ]
+      },
+      {
+        "path": "source_path",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "/mnt/data/xml_experience/parte5/parte5/Eliu_Perez4129132.xml",
+          "/mnt/data/xml_experience/parte5/parte5/Federico_Tion4102140.xml",
+          "/mnt/data/xml_experience/parte5/parte5/Dinorah_Contreras4075383.xml",
+          "/mnt/data/xml_experience/parte5/parte5/emporio_madera4086712.xml"
+        ]
+      },
+      {
+        "path": "stock_height",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          1215,
+          1830,
+          1215,
+          1820
+        ]
+      },
+      {
+        "path": "stock_width",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          2435,
+          2750,
+          2435,
+          2590
+        ]
+      },
+      {
+        "path": "structural_fp",
+        "count": 20844,
+        "types": [
+          "string"
+        ],
+        "samples": [
+          "7d2ebd7b11d3780175c1",
+          "7279b6c051c06d830b39",
+          "fe05e2735a3ade69f814",
+          "4b12cb52ba069bb20ae9"
+        ]
+      },
+      {
+        "path": "thickness",
+        "count": 20844,
+        "types": [
+          "number"
+        ],
+        "samples": [
+          18,
+          18,
+          15,
+          18
+        ]
+      }
+    ],
+    "xmlIdentityPaths": [
+      {
+        "path": "source_path",
+        "count": 20844,
+        "samples": [
+          "Eliu_Perez4129132.xml",
+          "Federico_Tion4102140.xml",
+          "Dinorah_Contreras4075383.xml",
+          "emporio_madera4086712.xml",
+          "Fernando Rey_Garcia Martinez4117625.xml",
+          "Erica _Dominguez4070768.xml",
+          "gloria adriana_cortines4113522.xml",
+          "di.lmcohen_di.lmcohen4124232.xml"
+        ]
+      }
+    ],
+    "distinctXmlIdentities": 20811,
+    "xmlIdentitySetSha256": "4296e1c6e3c1dae29673ea85918f53066d9b03f6cae2dc7fd5778318536c92a9",
+    "recordXmlIdentityCounts": {
+      "1": 20844
+    },
+    "orderLikeStringCount": 10258,
+    "xmlIdentitySamples": [
+      "4000012__gloria adriana_cortines4000012.xml",
+      "4000022__Diego_Morlino4000022.xml",
+      "4000032__gloria adriana_cortines4000032.xml",
+      "4000040__Martin_Quiroga4000040.xml",
+      "4000044__Andrea_Almada4000044.xml",
+      "4000052__Martin_Quiroga4000052.xml",
+      "4000053__Mega_Maderas4000053.xml",
+      "4000056__Ramiro_Hernandez4000056.xml",
+      "4000060__Cesar_Carpintero4000060.xml",
+      "4000062__Antonio_Franco4000062.xml",
+      "4000074__ELSA_M4000074.xml",
+      "4000076__Ramiro_Hernandez4000076.xml",
+      "4000079__Dinorah_Contreras4000079.xml",
+      "4000122__CARELY MARIA_MARTINEZ HERRERA4000122.xml",
+      "4000145__Jose_Nava4000145.xml",
+      "4000195__Agustin _Fortunato 4000195.xml",
+      "4000259__Mega_Maderas4000259.xml",
+      "4000270__Mega_Maderas4000270.xml",
+      "4000310__Andrea_Almada4000310.xml",
+      "4000325__Adrian _Ferrer4000325.xml"
+    ]
+  },
+  "historicalCorrectness": {
+    "sourceCorpus": "D:/proyectos asistidos/lepton/data/lepton-xml",
+    "inventoryEvidence": {
+      "xml8669": true,
+      "project7320": true,
+      "order1346": true,
+      "parseErrors3": true,
+      "canonical8650": true
+    },
+    "identityStatus": "EXACT_8669_IDENTITIES_NOT_PRESENT_IN_EMBEDDED_CANONICAL_RECORDS",
+    "recoveredIdentityCount": 20811,
+    "exact8669Recovered": false,
+    "identitySetSha256": "4296e1c6e3c1dae29673ea85918f53066d9b03f6cae2dc7fd5778318536c92a9"
+  },
+  "hotspots": {
+    "exactSource": "experiencia/v6/hotspot-all.jsonl filtered by ok !== false && !engineCacheHit",
+    "count": 213,
+    "uniqueCount": 213,
+    "exact213": true,
+    "fileSetSha256": "34b867a789d0abf62818eae305a095f3e3f01a439d25df372e522fecd9ada5f1",
+    "presentInEmbeddedCanonicalIdentities": 213,
+    "missingFromEmbeddedCanonicalIdentities": 0,
+    "missingSamples": []
+  },
+  "sentinels": {
+    "exact5": true,
+    "cases": [
+      {
+        "order": "4050594",
+        "expectedBoards": 7,
+        "hotspotMatches": [
+          "4050594__Mega_Maderas4050594.xml"
+        ],
+        "canonicalMatches": [
+          "4050594__Mega_Maderas4050594.xml"
+        ]
+      },
+      {
+        "order": "4056900",
+        "expectedBoards": 6,
+        "hotspotMatches": [],
+        "canonicalMatches": [
+          "4056900__Alfredo_Arrua4056900.xml"
+        ]
+      },
+      {
+        "order": "4057401",
+        "expectedBoards": 4,
+        "hotspotMatches": [],
+        "canonicalMatches": [
+          "4057401__GABRIEL_TUMBACO CRUZ4057401.xml"
+        ]
+      },
+      {
+        "order": "4058501",
+        "expectedBoards": 8,
+        "hotspotMatches": [],
+        "canonicalMatches": [
+          "4058501__Marcos _Cumini Londero4058501.xml"
+        ]
+      },
+      {
+        "order": "4059200",
+        "expectedBoards": 17,
+        "hotspotMatches": [
+          "4059200__ALEJANDRA_RUIZ4059200.xml"
+        ],
+        "canonicalMatches": [
+          "4059200__ALEJANDRA_RUIZ4059200.xml"
+        ]
+      }
+    ]
+  },
+  "fullPlanHash": {
+    "status": "HISTORICAL_CONTRACT_RECOVERED",
+    "checks": {
+      "frozen213Assertion": true,
+      "sentinelsLiteral": true,
+      "referenceFullPlanHash": true,
+      "fullPlanConstruction": true,
+      "sha256StableJson": true
+    },
+    "contract": {
+      "algorithm": "sha256",
+      "serialization": "JSON.stringify(stable(value))",
+      "stableObjects": "object keys recursively sorted by code-point/default Array.sort semantics in the versioned runner",
+      "stableArrays": "array order preserved",
+      "fullPlan": "{ geometry, traces, quality }",
+      "geometry": "{ boards, placements, cuts, remnants, trees } with trace/_diagLink/_diagPath recursively excluded",
+      "traces": "result.placements.map(placement => placement.trace)",
+      "quality": "result.metrics excluding engineMs and cacheHit",
+      "referenceCase": "4050594",
+      "referenceHash": "e858a3bfd89f69b7165954039f3f809752250712736316239f349d8fafbdcd42"
+    }
+  },
+  "freezeTraceability": {
+    "sentinels": "RECOVERED",
+    "hotspots": "RECOVERED",
+    "fullPlanHash": "RECOVERED",
+    "correctness8669": "BLOCKED",
+    "readyForFormalFreeze": false
+  }
+}
