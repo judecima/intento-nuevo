@@ -79,7 +79,7 @@ However, release equivalence is a separate claim: if C misses any accepted B imp
 
 No recovery threshold will be moved after observing the run. `--minRecovered` may be supplied only if a floor is declared before the run; otherwise recovery remains descriptive.
 
-## Commands
+## Canonical command
 
 ```powershell
 git checkout optimizer-v20-remnant-defrag
@@ -87,30 +87,32 @@ git pull
 
 node scripts/experience-benchmark.mjs report --rebuild
 
-node scripts/v20-remnant-defrag-eval.mjs `
+node scripts/v20-remnant-defrag-run.mjs `
   --v20 <ACTUAL_V20_CHECKPOINT_JSONL> `
   --corpus "D:\proyectos asistidos\lepton\data\lepton-xml" `
-  --out experiencia/v20-remnant-defrag-eval.json
-
-node scripts/v20-remnant-defrag-check.mjs `
-  --result experiencia/v20-remnant-defrag-eval.json `
+  --out experiencia/v20-remnant-defrag-eval.json `
   --expectCertified 89 `
   --expectActivations 52 `
   --expectRef 20
 ```
 
+`v20-remnant-defrag-run.mjs` always runs the decision checker if the evaluator produced a report. This matters because the original evaluator predates the safety/parity split and may return a non-zero exit when legacy parity is incomplete even though the local repair itself is safe.
+
+Optional predeclared continuation floor:
+
+```powershell
+  --minRecovered 12
+```
+
+Only use this if that floor is fixed before seeing the run. Otherwise recovery remains descriptive.
+
 Optional strict release-equivalence check:
 
 ```powershell
-node scripts/v20-remnant-defrag-check.mjs `
-  --result experiencia/v20-remnant-defrag-eval.json `
-  --expectCertified 89 `
-  --expectActivations 52 `
-  --expectRef 20 `
   --requireLegacyParity 1
 ```
 
-Possible outcomes:
+Possible outcomes from the authoritative checker:
 - exit 2 / INCONCLUSIVE: A/B reference does not reproduce 89/52/20;
 - exit 1 / SAFETY FAIL: board, validation, or current-V20 remnant quality regresses;
 - exit 3 / RECOVERY BELOW PREDECLARED FLOOR: only when `--minRecovered` was declared before the run;
