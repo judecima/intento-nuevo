@@ -1,0 +1,551 @@
+[
+  {
+    "case_id": "Dario_Piancino4098088",
+    "mode": "v10",
+    "directional": false,
+    "wall_ms": 2976,
+    "placas": 1,
+    "cota": 1,
+    "reference_panels": 2,
+    "origin": null,
+    "metrics": {
+      "oneboard": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "master": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "multislice": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "compactacion": {
+        "activaciones": 1,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 2084,
+        "peorMs": 2084
+      },
+      "total": {
+        "casos": 1,
+        "ms": 2976
+      }
+    },
+    "resumen": {
+      "placas": 1,
+      "piezas": 14,
+      "m2Totales": 4.7138,
+      "m2Cortados": 4.143571,
+      "aprovechamiento": 87.90298697441554,
+      "desperdicio": 12.097013025584458,
+      "mlCanto": 0,
+      "ladosCanto": 0,
+      "cortes": 27,
+      "metrosSierra": 21.7665,
+      "cacheHits": 0,
+      "cacheFallos": 0,
+      "sobrantes": 0,
+      "m2Sobrantes": 0,
+      "mayorSobranteM2": 0,
+      "segundoSobranteM2": 0,
+      "fragmentosComerciales": 0,
+      "maxXmlLayer": 6,
+      "maxType2Layer": 4,
+      "maxType1Layer": 5,
+      "type2Nodes": 30,
+      "etapasUsadas": 4,
+      "rescueIntentado": false,
+      "rescueGano": false,
+      "rescueMs": 0
+    },
+    "placements": [
+      [
+        {
+          "base": 990,
+          "altura": 632,
+          "rotada": true
+        },
+        {
+          "base": 568,
+          "altura": 70,
+          "rotada": true
+        },
+        {
+          "base": 363,
+          "altura": 70,
+          "rotada": true
+        },
+        {
+          "base": 990,
+          "altura": 632,
+          "rotada": true
+        },
+        {
+          "base": 532,
+          "altura": 643,
+          "rotada": false
+        },
+        {
+          "base": 682,
+          "altura": 643,
+          "rotada": false
+        },
+        {
+          "base": 679,
+          "altura": 661,
+          "rotada": false
+        },
+        {
+          "base": 632,
+          "altura": 405,
+          "rotada": false
+        },
+        {
+          "base": 830,
+          "altura": 220,
+          "rotada": false
+        },
+        {
+          "base": 300,
+          "altura": 550,
+          "rotada": false
+        },
+        {
+          "base": 682,
+          "altura": 400,
+          "rotada": false
+        },
+        {
+          "base": 682,
+          "altura": 400,
+          "rotada": false
+        },
+        {
+          "base": 632,
+          "altura": 405,
+          "rotada": false
+        },
+        {
+          "base": 550,
+          "altura": 350,
+          "rotada": true
+        }
+      ]
+    ],
+    "material": "EDK MDF W954ST14 Blanco 18mmx2.60m 1419782 (419782",
+    "source_format": "order",
+    "piece_count": 14,
+    "piece_types": 11,
+    "directional_input": false,
+    "grain_confidence": 1.0,
+    "exact_fp": "1e690275ad356e1ee601",
+    "structural_fp": "cfbb75555835928ee7f6",
+    "ratio_fp": "1e690275ad356e1ee601"
+  },
+  {
+    "case_id": "4062816__Nicolas_Mestre4062816",
+    "mode": "v10",
+    "directional": false,
+    "wall_ms": 1988,
+    "placas": 1,
+    "cota": 1,
+    "reference_panels": 1,
+    "origin": null,
+    "metrics": {
+      "oneboard": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "master": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "multislice": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "compactacion": {
+        "activaciones": 1,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 1090,
+        "peorMs": 1090
+      },
+      "total": {
+        "casos": 1,
+        "ms": 1988
+      }
+    },
+    "resumen": {
+      "placas": 1,
+      "piezas": 28,
+      "m2Totales": 5.0875,
+      "m2Cortados": 3.457714,
+      "aprovechamiento": 67.96489434889435,
+      "desperdicio": 32.03510565110565,
+      "mlCanto": 0,
+      "ladosCanto": 0,
+      "cortes": 40,
+      "metrosSierra": 25.916,
+      "cacheHits": 0,
+      "cacheFallos": 0,
+      "sobrantes": 1,
+      "m2Sobrantes": 1.15775,
+      "mayorSobranteM2": 1.15775,
+      "segundoSobranteM2": 0,
+      "fragmentosComerciales": 1,
+      "maxXmlLayer": 4,
+      "maxType2Layer": 2,
+      "maxType1Layer": 3,
+      "type2Nodes": 12,
+      "etapasUsadas": 2,
+      "rescueIntentado": false,
+      "rescueGano": false,
+      "rescueMs": 0
+    },
+    "placements": [
+      [
+        {
+          "base": 314,
+          "altura": 400,
+          "rotada": false
+        },
+        {
+          "base": 882,
+          "altura": 400,
+          "rotada": true
+        },
+        {
+          "base": 882,
+          "altura": 400,
+          "rotada": true
+        },
+        {
+          "base": 314,
+          "altura": 400,
+          "rotada": false
+        },
+        {
+          "base": 150,
+          "altura": 380,
+          "rotada": true
+        },
+        {
+          "base": 150,
+          "altura": 380,
+          "rotada": false
+        },
+        {
+          "base": 900,
+          "altura": 420,
+          "rotada": true
+        },
+        {
+          "base": 809,
+          "altura": 334,
+          "rotada": true
+        },
+        {
+          "base": 802,
+          "altura": 400,
+          "rotada": true
+        },
+        {
+          "base": 150,
+          "altura": 380,
+          "rotada": false
+        },
+        {
+          "base": 864,
+          "altura": 80,
+          "rotada": true
+        },
+        {
+          "base": 864,
+          "altura": 80,
+          "rotada": true
+        },
+        {
+          "base": 558,
+          "altura": 199,
+          "rotada": true
+        },
+        {
+          "base": 558,
+          "altura": 199,
+          "rotada": true
+        },
+        {
+          "base": 558,
+          "altura": 199,
+          "rotada": true
+        },
+        {
+          "base": 558,
+          "altura": 199,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 470,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 380,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 380,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 380,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 380,
+          "altura": 150,
+          "rotada": true
+        },
+        {
+          "base": 380,
+          "altura": 150,
+          "rotada": true
+        }
+      ]
+    ],
+    "material": "MELAMINA BLANCA 18mm FIBRAPLAC",
+    "source_format": "project",
+    "piece_count": 28,
+    "piece_types": 10,
+    "directional_input": false,
+    "grain_confidence": 0.9556,
+    "exact_fp": "07ee2421beb99a42557f",
+    "structural_fp": "3c9e8e4a2a36f105a301",
+    "ratio_fp": "07ee2421beb99a42557f"
+  },
+  {
+    "case_id": "4066881__mariano_cenzano4066881",
+    "mode": "v10",
+    "directional": false,
+    "wall_ms": 2513,
+    "placas": 1,
+    "cota": 1,
+    "reference_panels": 1,
+    "origin": "compactacion-franjas",
+    "metrics": {
+      "oneboard": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "master": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "multislice": {
+        "activaciones": 0,
+        "ganancias": 0,
+        "placasAhorradas": 0,
+        "invalidos": 0,
+        "ms": 0,
+        "peorMs": 0
+      },
+      "compactacion": {
+        "activaciones": 1,
+        "ganancias": 1,
+        "placasAhorradas": 1,
+        "invalidos": 0,
+        "ms": 1522,
+        "peorMs": 1522
+      },
+      "total": {
+        "casos": 1,
+        "ms": 2513
+      }
+    },
+    "resumen": {
+      "placas": 1,
+      "piezas": 12,
+      "m2Totales": 4.758,
+      "m2Cortados": 4.28225,
+      "aprovechamiento": 90.0010508617066,
+      "desperdicio": 9.998949138293401,
+      "mlCanto": 0,
+      "ladosCanto": 0,
+      "cortes": 21,
+      "metrosSierra": 18.946399999999997,
+      "cacheHits": 0,
+      "cacheFallos": 0,
+      "sobrantes": 0,
+      "m2Sobrantes": 0,
+      "mayorSobranteM2": 0,
+      "segundoSobranteM2": 0,
+      "fragmentosComerciales": 0,
+      "maxXmlLayer": 5,
+      "maxType2Layer": 3,
+      "maxType1Layer": 4,
+      "type2Nodes": 11,
+      "etapasUsadas": 4,
+      "rescueIntentado": true,
+      "rescueGano": true,
+      "rescueMs": 366,
+      "deltasEstructurales": [
+        {
+          "delta": 100,
+          "n": 2
+        },
+        {
+          "delta": 200,
+          "n": 2
+        },
+        {
+          "delta": 220,
+          "n": 2
+        }
+      ],
+      "origen": "compactacion-franjas"
+    },
+    "placements": [
+      [
+        {
+          "base": 875,
+          "altura": 850,
+          "rotada": false
+        },
+        {
+          "base": 200,
+          "altura": 850,
+          "rotada": true
+        },
+        {
+          "base": 80,
+          "altura": 850,
+          "rotada": false
+        },
+        {
+          "base": 590,
+          "altura": 875,
+          "rotada": true
+        },
+        {
+          "base": 590,
+          "altura": 875,
+          "rotada": true
+        },
+        {
+          "base": 850,
+          "altura": 80,
+          "rotada": true
+        },
+        {
+          "base": 600,
+          "altura": 1200,
+          "rotada": true
+        },
+        {
+          "base": 390,
+          "altura": 875,
+          "rotada": true
+        },
+        {
+          "base": 850,
+          "altura": 300,
+          "rotada": true
+        },
+        {
+          "base": 850,
+          "altura": 300,
+          "rotada": false
+        },
+        {
+          "base": 400,
+          "altura": 1200,
+          "rotada": false
+        },
+        {
+          "base": 350,
+          "altura": 425,
+          "rotada": false
+        }
+      ]
+    ],
+    "material": "BLANCO 25mm aglo. 2600x1830",
+    "source_format": "project",
+    "piece_count": 12,
+    "piece_types": 10,
+    "directional_input": false,
+    "grain_confidence": 0.9795,
+    "exact_fp": "deb00af9615069094916",
+    "structural_fp": "f31375081067cf7787e6",
+    "ratio_fp": "deb00af9615069094916"
+  }
+]

@@ -1,0 +1,510 @@
+{
+  "generatedAt": "2026-09-03T20:25:21.119Z",
+  "strategy": "baseline",
+  "tag": "baseline-5000-2000",
+  "corpus": "D:/proyectos asistidos/lepton/data/lepton-xml",
+  "dataset": {
+    "files": 8669,
+    "skipped": {
+      "parseError": 5,
+      "excluded": 9,
+      "adapterError": 0
+    },
+    "trainCases": 5000,
+    "holdoutCases": 2000,
+    "pairedCases": 2000,
+    "okPairs": 2000,
+    "trainStoreEntries": 4544,
+    "orderCriterion": "numero de pedido del nombre de archivo como proxy de orden temporal; sin fecha real"
+  },
+  "runs": {
+    "criterion": "por caso se toma el menor totalMs entre corridas del mismo modo",
+    "baseline": [
+      {
+        "file": "baseline-baseline-5000-2000-r1.json",
+        "cases": 2000,
+        "wallClockMs": 290494
+      },
+      {
+        "file": "baseline-baseline-5000-2000-r2.json",
+        "cases": 2000,
+        "wallClockMs": 245768
+      }
+    ],
+    "experience": [
+      {
+        "file": "experience-baseline-5000-2000-r1.json",
+        "cases": 2000,
+        "wallClockMs": 272856
+      },
+      {
+        "file": "experience-baseline-5000-2000-r2.json",
+        "cases": 2000,
+        "wallClockMs": 248070
+      }
+    ],
+    "baselineRunToRunSpreadPercent": 18.184,
+    "experienceRunToRunSpreadPercent": 9.798
+  },
+  "measurement": {
+    "mode": "completo",
+    "experienceFileFilter": null,
+    "experienceCasesMeasured": 2000,
+    "baselineCases": 2000,
+    "derived": []
+  },
+  "counters": {
+    "cases": 2000,
+    "errors": 0,
+    "exactHits": 29,
+    "exactHitRate": 1.45,
+    "misses": 1971,
+    "missesMeasured": 1971,
+    "invalidCacheEntries": 0,
+    "fallbacks": 0,
+    "invalidReasons": {},
+    "baselineEngineCacheHits": 82,
+    "experienceEngineCacheHits": 82,
+    "errorsBaseline": 0,
+    "errorsExperience": 0
+  },
+  "latency": {
+    "baseline": {
+      "count": 2000,
+      "avg": 121.925,
+      "p50": 22.058,
+      "p90": 226.485,
+      "p95": 388.005,
+      "p99": 1055.703,
+      "max": 38793.815,
+      "totalMs": 243850.122
+    },
+    "experienceMeasured": {
+      "count": 2000,
+      "avg": 122.421,
+      "p50": 21.864,
+      "p90": 227.844,
+      "p95": 391.648,
+      "p99": 1066.871,
+      "max": 39098.146,
+      "totalMs": 244841.072
+    },
+    "baselineHitsOnly": {
+      "count": 29,
+      "avg": 113.651,
+      "p50": 27.582,
+      "p90": 228.433,
+      "p95": 760.386,
+      "p99": 920.792,
+      "max": 920.792,
+      "totalMs": 3295.882
+    },
+    "experienceHitsOnly": {
+      "count": 29,
+      "avg": 6.6,
+      "p50": 3,
+      "p90": 18.035,
+      "p95": 22.166,
+      "p99": 32.002,
+      "max": 32.002,
+      "totalMs": 191.406
+    }
+  },
+  "experienceOverhead": {
+    "fingerprintMs": {
+      "count": 2000,
+      "avg": 0.404,
+      "p50": 0.234,
+      "p90": 0.792,
+      "p95": 1.261,
+      "p99": 3.137,
+      "max": 15.802,
+      "totalMs": 807.92
+    },
+    "lookupMs": {
+      "count": 2000,
+      "avg": 0.19,
+      "p50": 0.148,
+      "p90": 0.197,
+      "p95": 0.225,
+      "p99": 1.038,
+      "max": 12.545,
+      "totalMs": 379.605
+    },
+    "deserializeMs": {
+      "count": 29,
+      "avg": 3.311,
+      "p50": 1.458,
+      "p90": 8.439,
+      "p95": 12.07,
+      "p99": 17.774,
+      "max": 17.774,
+      "totalMs": 96.028
+    },
+    "validationMs": {
+      "count": 29,
+      "avg": 0.432,
+      "p50": 0.18,
+      "p90": 1.061,
+      "p95": 1.917,
+      "p99": 3.561,
+      "max": 3.561,
+      "totalMs": 12.534
+    },
+    "missPairedDeltaAvgMs": 2.078,
+    "missPairedDeltaMedianMs": 0.424,
+    "missOverheadAvgMs": 0.561
+  },
+  "cpu": {
+    "measured": {
+      "baselineTotalMs": 243850.122,
+      "baselineMsExactHits": 3295.882,
+      "experienceMsExactHits": 191.406,
+      "netSavingOnHits": 3104.476,
+      "savingPercentOnHits": 94.193,
+      "globalExperienceMs": 244841.072,
+      "globalSavingMs": -990.95,
+      "globalSavingPercent": -0.406
+    },
+    "derived": null
+  },
+  "expensiveCases": {
+    "bands": [
+      {
+        "thresholdMs": 500,
+        "hits": 2,
+        "baselineTotalMs": 1681.178,
+        "baselineAvgMs": 840.589,
+        "experienceAvgMs": 23.707,
+        "msSaved": 1633.764,
+        "speedupMedian": 41.753,
+        "speedupMax": 59.745,
+        "boardsBaseline": 22,
+        "boardsExperience": 22
+      },
+      {
+        "thresholdMs": 1000,
+        "hits": 0,
+        "baselineTotalMs": 0,
+        "baselineAvgMs": 0,
+        "experienceAvgMs": 0,
+        "msSaved": 0,
+        "speedupMedian": 0,
+        "speedupMax": 0,
+        "boardsBaseline": 0,
+        "boardsExperience": 0
+      },
+      {
+        "thresholdMs": 3000,
+        "hits": 0,
+        "baselineTotalMs": 0,
+        "baselineAvgMs": 0,
+        "experienceAvgMs": 0,
+        "msSaved": 0,
+        "speedupMedian": 0,
+        "speedupMax": 0,
+        "boardsBaseline": 0,
+        "boardsExperience": 0
+      },
+      {
+        "thresholdMs": 5000,
+        "hits": 0,
+        "baselineTotalMs": 0,
+        "baselineAvgMs": 0,
+        "experienceAvgMs": 0,
+        "msSaved": 0,
+        "speedupMedian": 0,
+        "speedupMax": 0,
+        "boardsBaseline": 0,
+        "boardsExperience": 0
+      },
+      {
+        "thresholdMs": 10000,
+        "hits": 0,
+        "baselineTotalMs": 0,
+        "baselineAvgMs": 0,
+        "experienceAvgMs": 0,
+        "msSaved": 0,
+        "speedupMedian": 0,
+        "speedupMax": 0,
+        "boardsBaseline": 0,
+        "boardsExperience": 0
+      }
+    ],
+    "topSavings": [
+      {
+        "case": "4047636__Martin_Pisoni4047636.xml",
+        "boards": 6,
+        "boardsBaseline": 6,
+        "baselineMs": 920.792,
+        "experienceMs": 15.412,
+        "fingerprintMs": 3.183,
+        "lookupMs": 4.505,
+        "deserializeMs": 5.799,
+        "validationMs": 1.917,
+        "speedup": 59.745,
+        "msSaved": 905.38
+      },
+      {
+        "case": "4055118__federico_mercado4055118.xml",
+        "boards": 16,
+        "boardsBaseline": 16,
+        "baselineMs": 760.386,
+        "experienceMs": 32.002,
+        "fingerprintMs": 0.712,
+        "lookupMs": 12.545,
+        "deserializeMs": 17.774,
+        "validationMs": 0.967,
+        "speedup": 23.761,
+        "msSaved": 728.384
+      },
+      {
+        "case": "4047665__Dana_Zimmer4047665.xml",
+        "boards": 5,
+        "boardsBaseline": 5,
+        "baselineMs": 228.433,
+        "experienceMs": 18.035,
+        "fingerprintMs": 0.718,
+        "lookupMs": 5.824,
+        "deserializeMs": 7.926,
+        "validationMs": 3.561,
+        "speedup": 12.666,
+        "msSaved": 210.398
+      },
+      {
+        "case": "4060744__Mega_Maderas4060744.xml",
+        "boards": 16,
+        "boardsBaseline": 16,
+        "baselineMs": 209.215,
+        "experienceMs": 22.166,
+        "fingerprintMs": 0.099,
+        "lookupMs": 9.328,
+        "deserializeMs": 12.07,
+        "validationMs": 0.664,
+        "speedup": 9.439,
+        "msSaved": 187.049
+      },
+      {
+        "case": "4049264__Horacio Jose _Godoy 4049264.xml",
+        "boards": 4,
+        "boardsBaseline": 4,
+        "baselineMs": 190.944,
+        "experienceMs": 6.077,
+        "fingerprintMs": 0.506,
+        "lookupMs": 2.455,
+        "deserializeMs": 2.855,
+        "validationMs": 0.258,
+        "speedup": 31.421,
+        "msSaved": 184.867
+      },
+      {
+        "case": "4050051__REMODELACIONES ORTEGA_ORTEGA4050051.xml",
+        "boards": 20,
+        "boardsBaseline": 20,
+        "baselineMs": 180.712,
+        "experienceMs": 13.83,
+        "fingerprintMs": 0.378,
+        "lookupMs": 5.249,
+        "deserializeMs": 7.734,
+        "validationMs": 0.463,
+        "speedup": 13.067,
+        "msSaved": 166.882
+      },
+      {
+        "case": "4059495__Cesar_Carpintero4059495.xml",
+        "boards": 7,
+        "boardsBaseline": 7,
+        "baselineMs": 130.05,
+        "experienceMs": 7.065,
+        "fingerprintMs": 0.062,
+        "lookupMs": 2.666,
+        "deserializeMs": 3.954,
+        "validationMs": 0.38,
+        "speedup": 18.408,
+        "msSaved": 122.985
+      },
+      {
+        "case": "4047676__Dana_Zimmer4047676.xml",
+        "boards": 3,
+        "boardsBaseline": 3,
+        "baselineMs": 122.634,
+        "experienceMs": 16.088,
+        "fingerprintMs": 0.228,
+        "lookupMs": 6.355,
+        "deserializeMs": 8.439,
+        "validationMs": 1.061,
+        "speedup": 7.623,
+        "msSaved": 106.546
+      },
+      {
+        "case": "4053420__LUCAS_RODRIGUEZ4053420.xml",
+        "boards": 5,
+        "boardsBaseline": 5,
+        "baselineMs": 116.618,
+        "experienceMs": 10.8,
+        "fingerprintMs": 0.643,
+        "lookupMs": 4.256,
+        "deserializeMs": 5.433,
+        "validationMs": 0.464,
+        "speedup": 10.798,
+        "msSaved": 105.818
+      },
+      {
+        "case": "4047714__BRENDA MEDINA_medina4047714.xml",
+        "boards": 6,
+        "boardsBaseline": 6,
+        "baselineMs": 83.098,
+        "experienceMs": 2.917,
+        "fingerprintMs": 0.266,
+        "lookupMs": 1.082,
+        "deserializeMs": 1.376,
+        "validationMs": 0.191,
+        "speedup": 28.487,
+        "msSaved": 80.181
+      }
+    ]
+  },
+  "expensiveWithoutHit": {
+    "cases": 1971,
+    "totalMs": 240554.24,
+    "shareOfGlobalBaselinePercent": 98.648,
+    "top20TotalMs": 96262.315,
+    "top20ShareOfGlobalBaselinePercent": 39.476,
+    "top20": [
+      {
+        "case": "4048571__JORGE_Tortoroglio4048571.xml",
+        "baselineMs": 38793.815,
+        "boards": 112,
+        "pieces": 2439
+      },
+      {
+        "case": "4059795__diego_primo4059795.xml",
+        "baselineMs": 11900.143,
+        "boards": 63,
+        "pieces": 950
+      },
+      {
+        "case": "4056720__pablo cesar_alejo morales4056720.xml",
+        "baselineMs": 7934.158,
+        "boards": 28,
+        "pieces": 1428
+      },
+      {
+        "case": "4056676__pablo cesar_alejo morales4056676.xml",
+        "baselineMs": 7887.387,
+        "boards": 28,
+        "pieces": 1417
+      },
+      {
+        "case": "4059352__victor_moneta4059352.xml",
+        "baselineMs": 4336.811,
+        "boards": 29,
+        "pieces": 430
+      },
+      {
+        "case": "4061531__BEATRIZ ADRIANA_SILVA VARGAS4061531.xml",
+        "baselineMs": 3218.239,
+        "boards": 42,
+        "pieces": 470
+      },
+      {
+        "case": "4057806__Ramiro_Ferrando4057806.xml",
+        "baselineMs": 2778.215,
+        "boards": 9,
+        "pieces": 990
+      },
+      {
+        "case": "4057583__Damian Ponce_ponce4057583.xml",
+        "baselineMs": 2575.033,
+        "boards": 36,
+        "pieces": 448
+      },
+      {
+        "case": "4053522__Juan Carlos_Rojas4053522.xml",
+        "baselineMs": 2496.349,
+        "boards": 41,
+        "pieces": 518
+      },
+      {
+        "case": "4053333__Ramiro_Portela4053333.xml",
+        "baselineMs": 1736.156,
+        "boards": 25,
+        "pieces": 304
+      },
+      {
+        "case": "4055106__Estudio Pear_David Apaza Yanarico4055106.xml",
+        "baselineMs": 1640.217,
+        "boards": 14,
+        "pieces": 283
+      },
+      {
+        "case": "4057789__Nicolas_Figuerdo4057789.xml",
+        "baselineMs": 1466.448,
+        "boards": 12,
+        "pieces": 233
+      },
+      {
+        "case": "4052458__Hernan_Giufrida4052458.xml",
+        "baselineMs": 1391.22,
+        "boards": 26,
+        "pieces": 293
+      },
+      {
+        "case": "4052383__JESSICA BELINDA_GARCIA ANGUIANO4052383.xml",
+        "baselineMs": 1340.301,
+        "boards": 33,
+        "pieces": 223
+      },
+      {
+        "case": "4055099__ELSA_M4055099.xml",
+        "baselineMs": 1178.128,
+        "boards": 60,
+        "pieces": 326
+      },
+      {
+        "case": "4050509__Gonzalo_Hormaechea4050509.xml",
+        "baselineMs": 1161.807,
+        "boards": 18,
+        "pieces": 249
+      },
+      {
+        "case": "4060529__MONICA JANETH_ALMANZA MORENO4060529.xml",
+        "baselineMs": 1138.054,
+        "boards": 28,
+        "pieces": 228
+      },
+      {
+        "case": "4050029__ALEJANDRA_RUIZ4050029.xml",
+        "baselineMs": 1136.399,
+        "boards": 28,
+        "pieces": 245
+      },
+      {
+        "case": "4050817__Leonardo_Hansen4050817.xml",
+        "baselineMs": 1097.708,
+        "boards": 14,
+        "pieces": 276
+      },
+      {
+        "case": "4048607__JORGE_Tortoroglio4048607.xml",
+        "baselineMs": 1055.727,
+        "boards": 44,
+        "pieces": 438
+      }
+    ]
+  },
+  "quality": {
+    "qualityRegressions": 0,
+    "boardsRegressions": 0,
+    "regressionFiles": [],
+    "pieceCountDifferences": 0,
+    "placementDifferences": 0,
+    "invalidPlans": 0,
+    "sampledMissesBoardsEqual": 1971,
+    "sampledMissesLayoutEqual": 1971,
+    "sampledMisses": 1971,
+    "boardsBetterThanBaseline": 0,
+    "totalBoardsBaseline": 6992,
+    "totalBoardsExperience": 6992
+  }
+}

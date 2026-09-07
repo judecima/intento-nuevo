@@ -1,0 +1,6 @@
+{
+  "name": "Plan de corte SaaS",
+  "description": "Gestión, optimización y producción de cortes de tableros melamínicos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

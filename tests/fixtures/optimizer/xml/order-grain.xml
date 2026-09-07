@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Minimizado de 4054005__Mostrador_San Martin 34054005.xml (corpus Lepton).
+     Caso con veta explicita: Board Grain='0' = material CON veta (decor direccional),
+     Part Grain='1' = la pieza respeta la veta, Part Grain='0' = pieza libre.
+     Incluye dos Job/Board identicos, como aparece en el corpus real. -->
+<Order ID='2' Code='4054005'>
+<WorkList ID='1' Code='4054005' Released='2025-04-9 15:21:31' Due='2025-04-9 15:21:31' MaterialID='1' Comment='Mostrador San Martin 3'>
+<Part id='P1' Code='1' L='964.00' W='299.60' qMin='1' Grain='0' IDesc='' IIDesc='1380268|||'  MatEdgeL=''  MatEdgeR='' MatEdgeUp='1380268' MatEdgeLo=''  />
+<Part id='P5' Code='5' L='569.60' W='494.20' qMin='2' Grain='1' IDesc='' IIDesc='1380268|1380268|1380268|'  MatEdgeL=''  MatEdgeR='1380268' MatEdgeUp='1380268' MatEdgeLo='1380268'  />
+<Job ID='1' Code='4054005.001' Type='PROGRAM' ToWork='1' QBoards='1' ExeOrder='1'>
+<Board id='1' Code='Default' L='2600.00' W='1830.00' Thickness='18.00' MatNo='1' MatCode='EURODEKOR MDF FINLINE METALLIC ANTRACITA' Grain='0'/>
+<Program />
+</Job>
+<Job ID='2' Code='4054005.002' Type='PROGRAM' ToWork='1' QBoards='1' ExeOrder='2'>
+<Board id='1' Code='Default' L='2600.00' W='1830.00' Thickness='18.00' MatNo='1' MatCode='EURODEKOR MDF FINLINE METALLIC ANTRACITA' Grain='0'/>
+<Program />
+</Job>
+</WorkList>
+</Order>

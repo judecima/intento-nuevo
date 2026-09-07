@@ -1,0 +1,217 @@
+{
+  "experiment": "Rescue / Experience Memory validation",
+  "exact_cache_demos": [
+    {
+      "source_case": "4029715__Luis_Mendez4029715",
+      "future_case": "4034911__Luis_Mendez4034911",
+      "boards": 5,
+      "source_optimization_ms": 3416,
+      "reuse_validation_ms": 1,
+      "valid": true,
+      "speedup_compute_vs_validation": 3416.0
+    },
+    {
+      "source_case": "4046466__karla_villarreal ortega4046466",
+      "future_case": "karla_villarreal ortega4096661",
+      "boards": 6,
+      "source_optimization_ms": 3262,
+      "reuse_validation_ms": 1,
+      "valid": true,
+      "speedup_compute_vs_validation": 3262.0
+    }
+  ],
+  "structural_only_findings": {
+    "hard_cases_tested_long_baseline": [
+      {
+        "case_id": "4041142__Rolando Rene_Rodriguez Cisneros4041142",
+        "strategy": "baseline",
+        "wall_ms": 3013,
+        "placas": 5,
+        "cota": 4,
+        "reference_panels": 5,
+        "origin": null,
+        "metrics": {
+          "compactacion": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          },
+          "multislice": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          },
+          "oneboard": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          },
+          "master": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          }
+        },
+        "family": 2,
+        "timeout": false
+      },
+      {
+        "case_id": "4046466__karla_villarreal ortega4046466",
+        "strategy": "baseline",
+        "wall_ms": 3286,
+        "placas": 6,
+        "cota": 5,
+        "reference_panels": 6,
+        "origin": null,
+        "metrics": {
+          "compactacion": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          },
+          "multislice": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          },
+          "oneboard": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          },
+          "master": {
+            "activaciones": 0,
+            "ganancias": 0,
+            "placasAhorradas": 0,
+            "ms": 0,
+            "invalidos": 0
+          }
+        },
+        "family": 3,
+        "timeout": false
+      }
+    ],
+    "direct_strategy_tests": [
+      {
+        "case_id": "4041142__Rolando Rene_Rodriguez Cisneros4041142",
+        "strategy": "multislice",
+        "wall_ms": 5716,
+        "placas": 5,
+        "cota": 4,
+        "reference_panels": 5,
+        "valid": true,
+        "validation": {
+          "ok": true,
+          "placas": 5,
+          "piezasEsperadas": 29,
+          "piezasColocadas": 29,
+          "idsUnicos": 29,
+          "duplicados": [],
+          "coberturaCompleta": true,
+          "geometriaValida": true,
+          "secuenciaCompleta": true,
+          "cortesTerminales": 0,
+          "detallePlacas": [
+            {
+              "geometriaValida": true,
+              "errores": [],
+              "secuenciaValida": true,
+              "secuenciaCompleta": true,
+              "liberadas": 10,
+              "piezas": 10,
+              "corteFallido": -1,
+              "terminales": 0
+            },
+            {
+              "geometriaValida": true,
+              "errores": [],
+              "secuenciaValida": true,
+              "secuenciaCompleta": true,
+              "liberadas": 7,
+              "piezas": 7,
+              "corteFallido": -1,
+              "terminales": 0
+            },
+            {
+              "geometriaValida": true,
+              "errores": [],
+              "secuenciaValida": true,
+              "secuenciaCompleta": true,
+              "liberadas": 7,
+              "piezas": 7,
+              "corteFallido": -1,
+              "terminales": 0
+            },
+            {
+              "geometriaValida": true,
+              "errores": [],
+              "secuenciaValida": true,
+              "secuenciaCompleta": true,
+              "liberadas": 3,
+              "piezas": 3,
+              "corteFallido": -1,
+              "terminales": 0
+            },
+            {
+              "geometriaValida": true,
+              "errores": [],
+              "secuenciaValida": true,
+              "secuenciaCompleta": true,
+              "liberadas": 2,
+              "piezas": 2,
+              "corteFallido": -1,
+              "terminales": 0
+            }
+          ]
+        },
+        "origin": null,
+        "family": 2,
+        "timeout": false
+      },
+      {
+        "case_id": "4041142__Rolando Rene_Rodriguez Cisneros4041142",
+        "family": 2,
+        "strategy": "master",
+        "timeout": true,
+        "wall_ms": 6000,
+        "reference_panels": 5
+      },
+      {
+        "case_id": "4046466__karla_villarreal ortega4046466",
+        "family": 3,
+        "strategy": "multislice",
+        "timeout": true,
+        "wall_ms": 6000,
+        "reference_panels": 6
+      },
+      {
+        "case_id": "4046466__karla_villarreal ortega4046466",
+        "family": 3,
+        "strategy": "master",
+        "timeout": true,
+        "wall_ms": 6000,
+        "reference_panels": 6
+      }
+    ],
+    "conclusion": "Structural fingerprint alone is too coarse for rescue routing; quantities/ratios and load features must participate."
+  },
+  "safety": {
+    "cached_plan_revalidated": true,
+    "quality_regressions_in_cache_demos": 0,
+    "note": "Lookup/network/storage overhead is not included in the 1 ms validation measurement."
+  }
+}
