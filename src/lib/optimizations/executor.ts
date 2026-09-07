@@ -98,8 +98,8 @@ export async function executeOptimization(
   context: OptimizationExecutionContext
 ): Promise<OptimizationExecutionOutcome> {
   if (getOptimizationExecutionMode() === "direct") {
-    const startedAt = performance.now();
     await context.onStarted?.();
+    const hostStartedAt = performance.now();
     const engineStartedAt = performance.now();
     const result = optimizeProject(input);
     const endedAt = performance.now();
@@ -109,10 +109,10 @@ export async function executeOptimization(
       result,
       telemetry: {
         mode: "direct",
-        queueMs: engineStartedAt - startedAt,
-        hostMs: endedAt - startedAt,
+        queueMs: 0,
+        hostMs: endedAt - hostStartedAt,
         engineMs,
-        overheadMs: Math.max(0, endedAt - startedAt - engineMs),
+        overheadMs: Math.max(0, endedAt - hostStartedAt - engineMs),
         deduplicated: false
       }
     };
@@ -223,7 +223,7 @@ class OptimizationWorkerQueue {
   }
 
   private async start(task: QueuedTask) {
-    const startedAt = performance.now();
+    const dispatchedAt = performance.now();
 
     try {
       await task.onStarted?.();
@@ -232,18 +232,19 @@ class OptimizationWorkerQueue {
       const workerOptions = this.maxOldGenerationSizeMb
         ? { resourceLimits: { maxOldGenerationSizeMb: this.maxOldGenerationSizeMb } }
         : undefined;
+      const hostStartedAt = performance.now();
       const worker = new Worker(new URL("./optimization-worker.ts", import.meta.url), workerOptions);
       task.worker = worker;
-      const hostStartedAt = performance.now();
 
       const fail = (error: unknown) => {
         if (task.settled) return;
         this.rejectTask(task, error);
+        if (task.worker) void task.worker.terminate();
       };
 
       worker.once("error", fail);
       worker.once("exit", (code) => {
-        if (!task.settled && code !== 0) fail(new Error(`OPTIMIZER_WORKER_EXIT:${code}`));
+        if (!task.settled) fail(new Error(`OPTIMIZER_WORKER_EXIT_WITHOUT_RESULT:${code}`));
       });
       worker.once("message", (message: WorkerResponseMessage) => {
         if (task.settled || message.id !== task.id) return;
@@ -262,7 +263,7 @@ class OptimizationWorkerQueue {
           result: message.result,
           telemetry: {
             mode: "worker",
-            queueMs: startedAt - task.enqueuedAt,
+            queueMs: dispatchedAt - task.enqueuedAt,
             hostMs: endedAt - hostStartedAt,
             engineMs: message.engineMs,
             overheadMs: Math.max(0, endedAt - hostStartedAt - message.engineMs),
