@@ -1,0 +1,389 @@
+{
+  "schemaVersion": "kernel-v1-correctness-contract-v1",
+  "generatedAt": "2026-09-07T23:28:02.637Z",
+  "source": {
+    "file": "benchmark_project_v10.csv",
+    "rows": 2000,
+    "role": "Historical V10 benchmark evidence. estado and delta are independently recorded columns."
+  },
+  "contingency": {
+    "OK": {
+      "negative": 61,
+      "zero": 1386,
+      "positive": 10,
+      "na": 0
+    },
+    "ERROR": {
+      "negative": 3,
+      "zero": 30,
+      "positive": 0,
+      "na": 60
+    },
+    "SKIP": {
+      "negative": 0,
+      "zero": 0,
+      "positive": 0,
+      "na": 450
+    }
+  },
+  "details": {
+    "errorMultiset": 33,
+    "errorInfeasible": 60,
+    "errorOther": 0,
+    "skipUnsupportedRoot": 449,
+    "skipMixedBoard": 1,
+    "skipOther": 0
+  },
+  "proofs": {
+    "boardsComparisonIsAcceptanceGate": false,
+    "okWithDeltaPositive": 10,
+    "errorWithDeltaNonPositive": 33,
+    "explanation": "10 rows are estado=OK while delta>0, and 33 rows are estado=ERROR while delta<=0. Therefore board delta versus Lepton is not the acceptance predicate."
+  },
+  "recoveredPredicate": {
+    "status": "RECOVERED",
+    "id": "HISTORICAL_VALIDITY_V1",
+    "feasiblePlanRule": "A feasible case is correct when the produced plan covers exactly the demanded piece multiset and the plan is valid for the usable board geometry.",
+    "infeasibleInputRule": "A case containing a demanded piece that cannot fit the usable board in any orientation allowed by the case is an expected infeasible instance, not an optimizer regression.",
+    "referenceBoardsRole": "reference_panels / delta is a quality comparison metric versus Lepton, not a correctness acceptance gate.",
+    "formalFreezeRule": "For feasible inputs require a fresh, validated, exact-demand plan. Classify physically infeasible inputs separately and exclude them from plan-hash determinism denominators."
+  },
+  "evidenceExamples": {
+    "okWorseThanReference": [
+      {
+        "file": "4002432__ignacio_vocouber4002432.xml",
+        "delta": 1
+      },
+      {
+        "file": "4002657__Marcelo_Gauna diaz4002657.xml",
+        "delta": 1
+      },
+      {
+        "file": "4002840__Miguel Angel_Montiel4002840.xml",
+        "delta": 1
+      },
+      {
+        "file": "4003844__Luis_Arriaga4003844.xml",
+        "delta": 1
+      },
+      {
+        "file": "4003990__Luis_Mendez4003990.xml",
+        "delta": 1
+      },
+      {
+        "file": "4005093__Damian Ponce_ponce4005093.xml",
+        "delta": 1
+      },
+      {
+        "file": "4007651__joel_kibich4007651.xml",
+        "delta": 1
+      },
+      {
+        "file": "4008070__Ezequiel_Lanus urrets4008070.xml",
+        "delta": 1
+      },
+      {
+        "file": "4010265__Ramon_Mata4010265.xml",
+        "delta": 1
+      },
+      {
+        "file": "4014788__Mega_Maderas4014788.xml",
+        "delta": 1
+      }
+    ],
+    "errorNonWorseThanReference": [
+      {
+        "file": "4000808__Mega_Maderas4000808.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4000853__Mega_Maderas4000853.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4000855__Mega_Maderas4000855.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4001284__Andrea_Almada4001284.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4001923__Mario_Fuentes4001923.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4002934__Guillermo nicolas_Diaz4002934.xml",
+        "delta": -1,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4003158__Matias Guillermo_Mattus Fernandez Cendoya4003158.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4005055__Miriam_Dominguez4005055.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4006648__Matias_Arias4006648.xml",
+        "delta": -1,
+        "detail": "multiset piezas;"
+      },
+      {
+        "file": "4007256__Damian Ponce_ponce4007256.xml",
+        "delta": 0,
+        "detail": "multiset piezas;"
+      }
+    ],
+    "infeasible": [
+      {
+        "file": "4000530__alexandra_de la fuente hernandez4000530.xml",
+        "detail": "La pieza \"P1\" (2440×400 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4000864__Nelly_Araujo4000864.xml",
+        "detail": "La pieza \"P11\" (2440×70 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4001039__Nayla_Augier4001039.xml",
+        "detail": "La pieza \"P3\" (2600×600 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4001463__Carmen_Canet4001463.xml",
+        "detail": "La pieza \"P1\" (2750×80 mm) no entra en una placa útil de 2745×1825 mm."
+      },
+      {
+        "file": "4001746__Richard_Torres4001746.xml",
+        "detail": "La pieza \"P1\" (2600×456 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4001882__Jesus Alejandro Blancas Flores_Blancas Flores4001882.xml",
+        "detail": "La pieza \"P25\" (2440×105 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4002507__JAVIER DELGADO_DELGADO4002507.xml",
+        "detail": "La pieza \"P2\" (2600×600 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4003038__gloria adriana_cortines4003038.xml",
+        "detail": "La pieza \"P3\" (2440×139 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4003118__gloria adriana_cortines4003118.xml",
+        "detail": "La pieza \"P8\" (2440×400 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4003235__Nelly_Araujo4003235.xml",
+        "detail": "La pieza \"P4\" (2790×524 mm) no entra en una placa útil de 2785×2055 mm."
+      },
+      {
+        "file": "4003243__Nelly_Araujo4003243.xml",
+        "detail": "La pieza \"P4\" (2790×524 mm) no entra en una placa útil de 2785×2055 mm."
+      },
+      {
+        "file": "4004149__alexandra_de la fuente hernandez4004149.xml",
+        "detail": "La pieza \"P1\" (2440×99.6 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4005032__VENTAS_EGGER RG4005032.xml",
+        "detail": "La pieza \"P1\" (2440×430 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4005457__Nelly_Araujo4005457.xml",
+        "detail": "La pieza \"P13\" (2440×799 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4005826__Nelly_Araujo4005826.xml",
+        "detail": "La pieza \"P8\" (2440×550 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4005861__Luis_Mendez4005861.xml",
+        "detail": "La pieza \"P1\" (2440×260 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4005880__Luis_Mendez4005880.xml",
+        "detail": "La pieza \"P1\" (2440×260 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4006105__lupita_lopez4006105.xml",
+        "detail": "La pieza \"P1\" (2435×299.2 mm) no entra en una placa útil de 2430×1210 mm."
+      },
+      {
+        "file": "4006734__JAVIER DELGADO_DELGADO4006734.xml",
+        "detail": "La pieza \"P2\" (2600×600 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4006934__jjosem.2016_jjosem.20164006934.xml",
+        "detail": "La pieza \"P20\" (2750×100 mm) no entra en una placa útil de 2740×1820 mm."
+      },
+      {
+        "file": "4007141__VENTAS_EGGER RG4007141.xml",
+        "detail": "La pieza \"P2\" (2600×600 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4008540__lupita_lopez4008540.xml",
+        "detail": "La pieza \"P1\" (2435×400 mm) no entra en una placa útil de 2430×1210 mm."
+      },
+      {
+        "file": "4008672__gloria adriana_cortines4008672.xml",
+        "detail": "La pieza \"P17\" (2440×99.2 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4008719__francisco_villarreal4008719.xml",
+        "detail": "La pieza \"P9\" (2440×100 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4008738__lupita_lopez4008738.xml",
+        "detail": "La pieza \"P2\" (2435×675 mm) no entra en una placa útil de 2430×1210 mm."
+      },
+      {
+        "file": "4008742__gloria adriana_cortines4008742.xml",
+        "detail": "La pieza \"P10\" (2440×99.6 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4008922__lupita_lopez4008922.xml",
+        "detail": "La pieza \"P2\" (2435×675 mm) no entra en una placa útil de 2430×1210 mm."
+      },
+      {
+        "file": "4009526__Nelly_Araujo4009526.xml",
+        "detail": "La pieza \"P11\" (2440×130 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4009556__CAOBA_CAOBA4009556.xml",
+        "detail": "La pieza \"P4\" (2600×600 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4009588__Nelly_Araujo4009588.xml",
+        "detail": "La pieza \"P1\" (2440×129 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4009608__Nelly_Araujo4009608.xml",
+        "detail": "La pieza \"P1\" (2440×129 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4009746__Nelly_Araujo4009746.xml",
+        "detail": "La pieza \"P6\" (2440×400 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4009889__FANY_PUENTE4009889.xml",
+        "detail": "La pieza \"P1\" (2440×90 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4010051__Dinorah_Contreras4010051.xml",
+        "detail": "La pieza \"P1\" (2440×300 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4010053__Dinorah_Contreras4010053.xml",
+        "detail": "La pieza \"P1\" (2440×950 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4010211__VENTAS_EGGER RG4010211.xml",
+        "detail": "La pieza \"P3\" (2600×780 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4010891__Alfredo_Lentijo4010891.xml",
+        "detail": "La pieza \"P8\" (2600×49.6 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4011085__Walter_Monzon4011085.xml",
+        "detail": "La pieza \"P18\" (2800×250 mm) no entra en una placa útil de 2795×2065 mm."
+      },
+      {
+        "file": "4011092__agustin aj amoblamientos_juri4011092.xml",
+        "detail": "La pieza \"P28\" (2600×700 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4011497__jjosem.2016_jjosem.20164011497.xml",
+        "detail": "La pieza \"P5\" (2750×250 mm) no entra en una placa útil de 2740×1820 mm."
+      },
+      {
+        "file": "4011511__jjosem.2016_jjosem.20164011511.xml",
+        "detail": "La pieza \"P6\" (2750×100 mm) no entra en una placa útil de 2740×1820 mm."
+      },
+      {
+        "file": "4011519__jjosem.2016_jjosem.20164011519.xml",
+        "detail": "La pieza \"P4\" (2750×60 mm) no entra en una placa útil de 2740×1820 mm."
+      },
+      {
+        "file": "4011525__jjosem.2016_jjosem.20164011525.xml",
+        "detail": "La pieza \"P4\" (2750×60 mm) no entra en una placa útil de 2740×1820 mm."
+      },
+      {
+        "file": "4012490__FANY_PUENTE4012490.xml",
+        "detail": "La pieza \"P1\" (2440×600 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4012582__FANY_PUENTE4012582.xml",
+        "detail": "La pieza \"P5\" (2440×699.2 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4012652__Nelly_Araujo4012652.xml",
+        "detail": "La pieza \"P2\" (2440×50 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4012712__ELSA_M4012712.xml",
+        "detail": "La pieza \"P1\" (2795×100 mm) no entra en una placa útil de 2790×2055 mm."
+      },
+      {
+        "file": "4012905__ELSA_M4012905.xml",
+        "detail": "La pieza \"P1\" (2500×505 mm) no entra en una placa útil de 2495×1825 mm."
+      },
+      {
+        "file": "4012908__ELSA_M4012908.xml",
+        "detail": "La pieza \"P1\" (2500×602 mm) no entra en una placa útil de 2495×1825 mm."
+      },
+      {
+        "file": "4013045__CAOBA_CAOBA4013045.xml",
+        "detail": "La pieza \"P3\" (2600×530 mm) no entra en una placa útil de 2595×1825 mm."
+      },
+      {
+        "file": "4013445__FANY_PUENTE4013445.xml",
+        "detail": "La pieza \"P2\" (2440×460 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4013541__alexandra_de la fuente hernandez4013541.xml",
+        "detail": "La pieza \"P6\" (2440×300 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4013552__FANY_PUENTE4013552.xml",
+        "detail": "La pieza \"P1\" (2440×700 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4013769__Ramon_Mata4013769.xml",
+        "detail": "La pieza \"P1\" (2440×605 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4014329__DIANA_DIAZ4014329.xml",
+        "detail": "La pieza \"P4\" (2440×130 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4014471__Nelly_Araujo4014471.xml",
+        "detail": "La pieza \"P8\" (2440×550 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4014618__Nelly_Araujo4014618.xml",
+        "detail": "La pieza \"P6\" (2440×50 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4014644__Nelly_Araujo4014644.xml",
+        "detail": "La pieza \"P6\" (2440×50 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4015037__Sergio_Garcia Martinez4015037.xml",
+        "detail": "La pieza \"P1\" (2440×620 mm) no entra en una placa útil de 2435×1215 mm."
+      },
+      {
+        "file": "4015052__Sergio_Garcia Martinez4015052.xml",
+        "detail": "La pieza \"P1\" (2440×620 mm) no entra en una placa útil de 2435×1215 mm."
+      }
+    ]
+  }
+}
