@@ -1,0 +1,33 @@
+name: Optimizer kernel stabilization
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-stabilization
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover-candidate-a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Recover deferred-trace bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone experiencia/traza-diferida.bundle "$RUNNER_TEMP/deferred-trace"
+          echo '=== BUNDLE HEAD ==='
+          git -C "$RUNNER_TEMP/deferred-trace" log -1 --oneline --decorate
+          echo '=== BUNDLE COMMIT STAT ==='
+          git -C "$RUNNER_TEMP/deferred-trace" show --stat --oneline --decorate HEAD
+          echo '=== BUNDLE OPTIMIZER DIFF ==='
+          git -C "$RUNNER_TEMP/deferred-trace" diff HEAD^ HEAD -- src/lib/optimizer || true
+          git -C "$RUNNER_TEMP/deferred-trace" apply "$GITHUB_WORKSPACE/research/optimizer/trace-candidate-a.patch"
+          echo '=== CANDIDATE A PATCH ON TOP ==='
+          git -C "$RUNNER_TEMP/deferred-trace" diff HEAD -- src/lib/optimizer || true
