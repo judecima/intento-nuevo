@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "purpose": "Mandatory cross-cohort quality sentinels for every future Pattern Master budget/activation policy. These cases are intentionally not limited to the 213 hotspot cohort.",
   "sentinels": [
     {
@@ -47,6 +47,18 @@
       "round20Boards": 17,
       "round40Boards": 17,
       "note": "Known Master win at gap=5. This falsifies any claim that large gap alone makes Master unable to win."
+    }
+  ],
+  "calibrationCandidates": [
+    {
+      "file": "4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+      "expectedBoardsAt20": 4,
+      "preMasterBoardsAt20": 5,
+      "cotaAt20": 4,
+      "gapAt20": 1,
+      "source": "experiencia/v7/all20.jsonl",
+      "masterSavedBoardsAt20": 1,
+      "note": "Fourth distinct Pattern Master win found in the 2,000-row 20-round ablation. Keep as calibration candidate until 40-round current/legacy reproduction confirms the expected board count."
     }
   ]
 }
