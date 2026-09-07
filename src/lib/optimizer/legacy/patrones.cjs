@@ -29,8 +29,9 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
 
   const conRef = lineas.map((l, i) => ({ ...l, ref: i, _refOriginal: l.ref }));
   const porVector = new Map();
+  const instrumentar = O && O._instrumentarPatrones === true;
 
-  const registrar = (placa) => {
+  const registrar = (placa, round = null, visibleTypes = null) => {
     const uso = new Map();
     for (const c of placa.colocadas) {
       const t = c.pieza.ref;
@@ -41,16 +42,31 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
     const area = placa.colocadas.reduce((a, c) => a + c.base * c.altura, 0);
     const k = claveVector(uso);
     const previo = porVector.get(k);
-    if (!previo || area > previo.area) porVector.set(k, { uso, area, placa });
+    if (!previo || area > previo.area) {
+      const patron = { uso, area, placa };
+      if (instrumentar) {
+        patron._patternMeta = {
+          origin: 'random',
+          firstSeenRound: previo && previo._patternMeta
+            ? previo._patternMeta.firstSeenRound
+            : round,
+          sourceRound: round,
+          visibleTypeCount: Array.isArray(visibleTypes) ? visibleTypes.length : null,
+          visibleTypes: Array.isArray(visibleTypes) ? visibleTypes.slice() : null,
+        };
+      }
+      porVector.set(k, patron);
+    }
   };
 
   const warn = console.warn; console.warn = () => {};
   for (let r = 0; r < rondas; r++) {
     const sub = r === 0 ? conRef : conRef.filter(() => R() > 0.45);
     if (!sub.length) continue;
+    const visibleTypes = instrumentar ? sub.map((l) => l.ref) : null;
     try {
       const res = optimizar(sub.map(l => ({ ...l })), { ...O, semilla: 1000 + r, pases: 2 });
-      for (const p of res.placas) registrar(p);
+      for (const p of res.placas) registrar(p, r, visibleTypes);
     } catch (e) { /* subconjunto invalido: continuar */ }
   }
   console.warn = warn;
