@@ -10,7 +10,7 @@ Base remota usada: `ec63965bab1599a191f03eeca01151eb92ac8384` (`optimizer-kernel
 
 Rama: `optimizer-worker-isolation-spike`.
 
-Gate CI de referencia: GitHub Actions run `34149966903`, commit `ce9a5fbef429351ef28661ada305fe1bf9c9203a`.
+Gate CI de referencia para código: GitHub Actions run `34150268063`, commit `1ab431cafc592bbc7b4147f5943790064110cf54`.
 
 ## Arquitectura implementada
 
@@ -93,7 +93,7 @@ El smoke compila dos entradas Node aisladas, ejecuta el mismo `OptimizationInput
 
 La identidad usa el mismo contrato del gate de Candidate A: geometría + trazas + métricas de calidad, excluyendo sólo `engineMs` y `cacheHit`.
 
-Resultado en GitHub Actions run `34149966903`:
+Resultado en GitHub Actions run `34150268063`:
 
 ```json
 {
@@ -108,23 +108,35 @@ Resultado en GitHub Actions run `34149966903`:
   "geometryHash": "4cfb2484d5c20502f9b09275cb58531f95607ec01d229dc8947a9975b596374e",
   "traceHash": "ebc4b724088e8b4dcdd0c5a4adcf9c0cea6b7dc767acdc3768ef5eb2414d2ca6",
   "fullPlanHash": "603ad2498a60568712fe490b69a84b421d23fce83565f37a7fce194f3dc2a69f",
-  "directWallMs": 36.62035,
-  "workerWallMs": 88.75567,
-  "workerEngineMs": 35.308833,
-  "workerTransportOverheadMs": 53.446837
+  "directWallMs": 30.173238,
+  "workerWallMs": 80.550007,
+  "workerEngineMs": 33.737809,
+  "workerTransportOverheadMs": 46.812198
 }
 ```
 
 Los tiempos son una sola muestra sintética y sólo sirven para comprobar que el overhead se está midiendo. No deben usarse para dimensionar producción.
 
+## Gate de contratos de cola
+
+Se agregó `tests/optimizer/executor.test.ts` con cuatro contratos:
+
+1. `direct` sigue siendo el modo default;
+2. dos inputs idénticos in-flight comparten una ejecución Worker;
+3. la concurrencia y `OPTIMIZER_QUEUE_MAX_PENDING` se respetan;
+4. una versión nueva cancela y termina el Worker activo de la versión anterior.
+
+Resultado: **4/4 PASS**.
+
 ## Gates de CI actuales
 
-En el mismo commit/run:
+En GitHub Actions run `34150268063`:
 
 - `tsc --noEmit`: PASS.
-- `tests/optimizer/pattern-trace.test.ts`: PASS.
-- `tests/optimizer/optimizer.test.ts`: PASS.
-- 8 tests totales: PASS.
+- `tests/optimizer/pattern-trace.test.ts`: 2/2 PASS.
+- `tests/optimizer/executor.test.ts`: 4/4 PASS.
+- `tests/optimizer/optimizer.test.ts`: 6/6 PASS.
+- 12 tests totales: PASS.
 - direct vs Worker full-plan smoke: PASS.
 - `next build` con Next 14.2.16: PASS.
 
@@ -155,4 +167,4 @@ Después de que los commits locales de Candidate A / V20 / Step0 / determinismo 
 
 ## Conclusión
 
-La separación `Next -> executor -> worker -> optimizeProject` es técnicamente viable en el proyecto actual y el primer gate de identidad completa pasa. El spike queda deliberadamente fuera del Kernel V1 hasta cerrar los puntos 1–5 del roadmap.
+La separación `Next -> executor -> worker -> optimizeProject` es técnicamente viable en el proyecto actual. El primer gate de identidad completa y los contratos de cola pasan. El spike queda deliberadamente fuera del Kernel V1 hasta cerrar los puntos 1–5 del roadmap.
