@@ -1,71 +1,70 @@
 # Optimizer status
 
-## CLOSED — V19/V20 integration
-
 Base branch: `feature/agregar_configuracion_organizacion`
 
-### V19
+## CLOSED — V19
 - integrated in main line
-- experimental features remain behind flags
+- staged experimental features remain behind disabled flags
 
-### V20 — post-baseline certification
-Status: **CLOSED / MERGED**
+## CLOSED / MERGED — V20 post-baseline certification
 
-Result on frozen 213-hotspot cohort:
+Result on the frozen 213-hotspot cohort:
 - baseline total: 14,247,507 ms
 - boards: 2,371
-- lower-bound / fast-path estimated benefit: 1,886,016 ms
+- deterministic historical stages avoided by certification: 1,886,016 ms
 - relative benefit: ~13.24%
 - board regressions observed: 0
 - invalid plans observed: 0
 - cheap-LB violations observed: 0
 - cheap-LB errors observed: 0
 
-Original performance gate was 15%. It was not reached and is not rewritten retrospectively. The miss is documented as a cohort-extrapolation error (trim/cohort mismatch), not as a correctness failure.
+Original performance gate was 15%. It was not reached and is not rewritten retrospectively.
 
-Runtime activation remains OFF by default:
+Runtime flag remains OFF by default in the repository:
 `OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL=0`
+
+Release status: **READY FOR CONTROLLED CANARY**. The recommended production experiment is to enable only this flag while keeping `OPTIMIZER_V10_STAGED_EXPERIMENTAL=0`, with rollback by setting the V20 flag back to `0` and restarting the service.
+
+V20 does not search for a better plan. It strengthens the lower bound after the physical baseline and returns early only when the baseline board count is mathematically certified. If a computed cheap lower bound ever exceeds the physical incumbent, it is ignored and recorded as `cheapViolation`.
 
 ## FROZEN — lower-bound performance research
 
-No new DFF / projection / clique / raster work is allowed for the latency roadmap unless a new regression or correctness defect requires it.
+No new DFF / projection / clique / raster work is allowed for the latency roadmap unless a new correctness defect requires it.
 
-Reason: the dominant hotspot is Pattern Master, not lower-bound computation.
+## CLOSED — V21 generation experiments
 
-## OPEN — V21 Pattern Master generation
+Rejected before integration:
+- V21a certified fast prepass: insufficient performance ceiling.
+- V21b fixed 20-round/family candidate: correctness failure on `4058501` (9 boards vs legacy 8).
+- geometric/repetition families: did not generate the late heterogeneous columns required by the critical holdout.
 
-Single objective: reduce Pattern Master latency without losing a board.
+## OPEN — V22 Pattern Master generation budget evidence
 
-Frozen baseline on 213 hotspot cases:
-- Pattern Master: 10,624,131 ms
-- total: 14,247,507 ms
-- boards: 2,371
+Stable cost finding:
+- generation + monotype: 96.24% of historical Master wall time
+- coverage solver: 3.76%
 
-### Acceptance gates
-Correctness:
-- board regressions: 0
-- invalid plans: 0
-- new exceptions: 0
+Rejected by evidence:
+- hard gap cutoff: real Master wins exist at gap 1, 2 and 5
+- blind fixed-round cutoff
+- patience on board-count improvement
+- patience on currently selected/useful columns
 
-Performance target:
-- Pattern Master <= 6,500,000 ms on the 213 hotspot cohort
-- total <= 9,000,000 ms on the same cohort
+Mandatory cross-corpus quality sentinels:
+- `4050594` => 7 boards
+- `4056900` => 6 boards
+- `4057401` => 4 boards
+- `4058501` => 8 boards
+- `4059200` => 17 boards
 
-If V21 does not reach these targets, stop tuning family thresholds and move to V22 (adaptive Master budget).
+`4058501` is the critical late-win holdout: no board improvement or selected-column signal through round 30; the 8-board solution appears at round 35.
 
-### V21 scope
-Allowed:
-- family-base candidate generation
-- family-height candidate generation
-- random fallback
-- pattern provenance and roundFound/firstSeenRound instrumentation
+Current open signal: **empirical pool saturation**. This is diagnostic only, not a runtime policy. The current evidence branch is `optimizer-v22b-progressive-master-evidence` and profiles 40 stratified Master non-wins against the 5 mandatory wins while controlling for order/type complexity.
 
-Not allowed in V21:
-- new lower bounds
-- new raster experiments
-- new clique/projection research
-- solver objective changes
-- remnant tradeoffs that add boards
+## Governance rule
 
-## Rule
-No new optimizer change enters the roadmap unless the expected metric movement and acceptance threshold are written before implementation.
+No optimizer runtime change is accepted unless:
+1. its expected metric movement and gate are written before implementation;
+2. all mandatory Master quality sentinels preserve board count;
+3. any benchmark cohort is explicitly identified and cannot silently stand in for a different holdout/corpus;
+4. a failed threshold is not moved after observing the result.
