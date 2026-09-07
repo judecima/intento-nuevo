@@ -8,6 +8,7 @@ const canonicalPath = resolve(repo, "experiencia/canonical_cases.json");
 const outPath = resolve(repo, process.argv[2] ?? "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json");
 const TARGET_XML = 8669;
 const TARGET_CANONICAL = 8650;
+const HISTORICAL_FORMATS = { project: 7320, order: 1346, parseError: 3 };
 
 const canonical = JSON.parse(readFileSync(canonicalPath, "utf8"));
 if (!Array.isArray(canonical)) throw new Error("canonical_cases.json must be an array");
@@ -20,7 +21,14 @@ for (const record of canonical) {
   const key = partitionKey(source);
   let p = partitions.get(key);
   if (!p) {
-    p = { key, records: 0, identities: new Set(), formats: new Map(), samples: [] };
+    p = {
+      key,
+      records: 0,
+      identities: new Set(),
+      formats: new Map(),
+      identitiesByFormat: new Map(),
+      samples: [],
+    };
     partitions.set(key, p);
   }
   p.records++;
@@ -28,6 +36,9 @@ for (const record of canonical) {
   p.identities.add(file);
   const format = String(record?.source_format ?? "unknown").toLowerCase();
   p.formats.set(format, (p.formats.get(format) ?? 0) + 1);
+  let formatSet = p.identitiesByFormat.get(format);
+  if (!formatSet) p.identitiesByFormat.set(format, formatSet = new Set());
+  formatSet.add(file);
   if (p.samples.length < 5) p.samples.push(source);
 
   let owners = identityOwners.get(file);
@@ -41,6 +52,9 @@ const parts = [...partitions.values()]
     records: p.records,
     distinctXml: p.identities.size,
     formats: Object.fromEntries([...p.formats.entries()].sort(([a], [b]) => cmp(a, b))),
+    distinctXmlByFormat: Object.fromEntries([...p.identitiesByFormat.entries()]
+      .map(([format, values]) => [format, values.size])
+      .sort(([a], [b]) => cmp(a, b))),
     identitySha256: hashList([...p.identities]),
     samples: p.samples,
   }))
@@ -66,8 +80,11 @@ const candidateCombos = dedupeCombos([
 const strongCandidates = candidateCombos.filter((c) =>
   c.records === TARGET_CANONICAL && c.actualDistinctXml === TARGET_CANONICAL);
 
+const resto = parts.find((part) => part.key === "resto") ?? null;
+const restoLineage = resto ? characterizeResto(resto) : null;
+
 const report = {
-  schemaVersion: "kernel-v1-correctness-partitions-v1",
+  schemaVersion: "kernel-v1-correctness-partitions-v2",
   generatedAt: new Date().toISOString(),
   input: {
     canonical: "experiencia/canonical_cases.json",
@@ -77,12 +94,15 @@ const report = {
   historicalTargets: {
     xmlFiles: TARGET_XML,
     canonicalCases: TARGET_CANONICAL,
-    missingNonCanonicalXml: TARGET_XML - TARGET_CANONICAL,
+    rootFormats: HISTORICAL_FORMATS,
+    parseableRootXml: HISTORICAL_FORMATS.project + HISTORICAL_FORMATS.order,
+    historicalXmlWithoutCanonicalCase: TARGET_XML - TARGET_CANONICAL,
   },
   partitions: parts,
   partitionCount: parts.length,
   crossPartitionDuplicateIdentityCount: crossPartitionDuplicates.length,
   crossPartitionDuplicateSamples: crossPartitionDuplicates.slice(0, 50),
+  restoHistoricalLineage: restoLineage,
   subsetSearch: {
     exactCanonicalRecordCombinationCount: exactCanonicalRecordCombos.length,
     exactXmlRecordCombinationCount: exactXmlRecordCombos.length,
@@ -91,11 +111,13 @@ const report = {
     candidates: candidateCombos.slice(0, 100),
     strongCandidates,
   },
-  conclusion: strongCandidates.length === 1
-    ? "UNIQUE_8650_CANONICAL_PARTITION_SET_RECOVERED"
-    : strongCandidates.length > 1
-      ? "MULTIPLE_8650_CANONICAL_PARTITION_SETS_REQUIRE_DISAMBIGUATION"
-      : "NO_EXACT_8650_CANONICAL_PARTITION_SET_FROM_SOURCE_DIRECTORIES",
+  conclusion: restoLineage?.coherentSixFileGap
+    ? "RESTO_RECOVERS_8663_OF_8669_HISTORICAL_XML_WITH_FORMAT_COHERENT_SIX_FILE_GAP"
+    : strongCandidates.length === 1
+      ? "UNIQUE_8650_CANONICAL_PARTITION_SET_RECOVERED"
+      : strongCandidates.length > 1
+        ? "MULTIPLE_8650_CANONICAL_PARTITION_SETS_REQUIRE_DISAMBIGUATION"
+        : "NO_EXACT_HISTORICAL_PARTITION_SET_RECOVERED",
 };
 
 mkdirSync(dirname(outPath), { recursive: true });
@@ -103,9 +125,46 @@ writeFileSync(outPath, JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify({
   out: relative(outPath),
   partitions: parts.length,
-  strongCandidates: strongCandidates.length,
+  restoLineage: restoLineage ? {
+    distinctXml: restoLineage.distinctXml,
+    distinctXmlByFormat: restoLineage.distinctXmlByFormat,
+    missingToHistorical8669: restoLineage.missingToHistorical8669,
+    coherentSixFileGap: restoLineage.coherentSixFileGap,
+  } : null,
   conclusion: report.conclusion,
 }));
+
+function characterizeResto(part) {
+  const project = Number(part.distinctXmlByFormat.project ?? 0);
+  const order = Number(part.distinctXmlByFormat.order ?? 0);
+  const other = Object.entries(part.distinctXmlByFormat)
+    .filter(([format]) => !["project", "order"].includes(format))
+    .reduce((sum, [, count]) => sum + Number(count), 0);
+  const missingProject = HISTORICAL_FORMATS.project - project;
+  const missingOrder = HISTORICAL_FORMATS.order - order;
+  const missingParseable = missingProject + missingOrder;
+  const missingToHistorical8669 = TARGET_XML - part.distinctXml;
+  const coherentGap = missingProject >= 0 && missingOrder >= 0 && other === 0 &&
+    missingToHistorical8669 === missingParseable + HISTORICAL_FORMATS.parseError;
+  return {
+    partition: part.key,
+    records: part.records,
+    distinctXml: part.distinctXml,
+    duplicateCanonicalRecords: part.records - part.distinctXml,
+    distinctXmlByFormat: part.distinctXmlByFormat,
+    historicalRootFormats: { project: HISTORICAL_FORMATS.project, order: HISTORICAL_FORMATS.order },
+    deltaToHistoricalRootFormats: { project: missingProject, order: missingOrder },
+    missingParseableRootXml: missingParseable,
+    historicalParseErrors: HISTORICAL_FORMATS.parseError,
+    missingToHistorical8669,
+    arithmeticExplainsEntireGap: coherentGap,
+    coherentSixFileGap: coherentGap && missingToHistorical8669 === 6,
+    identitySha256: part.identitySha256,
+    interpretation: coherentGap
+      ? `The embedded 'resto' partition accounts for ${part.distinctXml}/${TARGET_XML} historical XML identities; the remaining ${missingToHistorical8669} are exactly ${missingParseable} parseable root XML plus ${HISTORICAL_FORMATS.parseError} historical parse errors by inventory arithmetic. Filenames of the missing XML are not recovered by this evidence.`
+      : "The 'resto' partition does not arithmetically reconcile with the historical root-format inventory.",
+  };
+}
 
 function characterize(keys, basis) {
   const selected = keys.map((key) => partitions.get(key)).filter(Boolean);
@@ -142,7 +201,6 @@ function dedupeCombos(items) {
 }
 
 function findSubsetCombos(parts, target, field, limit) {
-  // Dynamic programming: preserve only a bounded number of exact decompositions per sum.
   const dp = new Map([[0, [[]]]]);
   for (const part of parts) {
     const weight = Number(part[field] ?? 0);
@@ -171,7 +229,6 @@ function partitionKey(source) {
   const relative = source.slice(idx + marker.length);
   const segments = relative.split("/").filter(Boolean);
   segments.pop();
-  // Preserve the full imported directory lineage: it is provenance, not presentation.
   return segments.length ? segments.join("/") : ".";
 }
 
