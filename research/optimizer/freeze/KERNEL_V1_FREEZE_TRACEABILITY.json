@@ -1,16 +1,18 @@
 {
-  "schemaVersion": "kernel-v1-freeze-traceability-v1",
-  "generatedAt": "2026-09-07T22:32:42.823Z",
+  "schemaVersion": "kernel-v1-freeze-traceability-v2",
+  "generatedAt": "2026-09-07T22:59:57.481Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
-  "status": "READY_FOR_FORMAL_CERTIFICATION",
+  "status": "TRACEABILITY_COMPLETE_FORMAL_POLICY_BLOCKED",
   "kernelFrozen": false,
+  "traceabilityComplete": true,
   "checks": {
     "fiveSentinelsRecovered": true,
     "hotspots213Recovered": true,
     "fullPlanHashRecovered": true,
     "archive8669UniqueAudited": true,
     "restoReconciliationRecovered": true,
-    "exactCurrentCorrectness8650": true
+    "exactCurrentCorrectness8650": true,
+    "exactCurrentCorrectnessHash": true
   },
   "historicalCohorts": {
     "sentinels": 5,
@@ -24,6 +26,29 @@
     "distinctXml": 8650,
     "identitySetSha256": "36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3",
     "derivation": "embedded resto identities minus the 13 audited mixed-board-formats identities; the six other audited parser rejections are the six archive identities absent from embedded resto"
+  },
+  "parseAuditResolution": {
+    "earlyInventory": {
+      "status": "SUPERSEDED_FOR_CANONICAL_CLASSIFICATION",
+      "project": 7320,
+      "order": 1346,
+      "parseErrors": 3,
+      "source": "EXPERIENCE_OPTIMIZER_TRUTH.md baseline inventory"
+    },
+    "canonicalAudit20260902": {
+      "status": "AUTHORITATIVE_FOR_CANONICAL_CLASSIFICATION",
+      "xmlTotal": 8669,
+      "projectRoots": 7323,
+      "orderRoots": 1346,
+      "parseOk": 8650,
+      "parseErrors": 6,
+      "mixedBoardExcluded": 13,
+      "canonicalCases": 8650,
+      "canonicalProject": 7305,
+      "canonicalOrder": 1345,
+      "source": "EXPERIENCE_OPTIMIZER_TRUTH.md / Auditoria XML Etapa 1B 2026-09-02"
+    },
+    "decision": "The old 3-parse-error inventory is retained as historical evidence but does not define the canonical correctness cohort. The later canonical audit already records 6 parse errors plus 13 mixed-board exclusions and exactly 8,650 canonical cases."
   },
   "fullPlanHash": {
     "status": "HISTORICAL_CONTRACT_RECOVERED",
@@ -47,11 +72,23 @@
       "referenceHash": "e858a3bfd89f69b7165954039f3f809752250712736316239f349d8fafbdcd42"
     }
   },
+  "formalCertification": {
+    "policy": "research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json",
+    "harness": "scripts/kernel-freeze/formal-certification.mjs",
+    "deterministicBudgetsReady": false,
+    "correctnessPredicateReady": false,
+    "correctnessPredicateId": null,
+    "policyReady": false,
+    "blockingReasons": [
+      "Production deterministic budgets/watchdogs are not calibrated/versioned.",
+      "The exact formal correctness predicate is not yet recovered or explicitly decided/versioned."
+    ]
+  },
   "sourceReports": [
     "research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json",
     "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json",
     "research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json"
   ],
-  "supersedesForCorrectnessDecision": "The embedded-only correctness8669 status in KERNEL_V1_FREEZE_PROVENANCE.json is forensic legacy evidence. The final correctness traceability decision is the archive/embedded reconciliation in KERNEL_V1_RESTO_RECONCILIATION.json.",
-  "nextGate": "Run formal correctness + determinism certification over the exact 8,650 current-comparable cohort against the unchanged Kernel V1 candidate."
+  "supersedesForCorrectnessDecision": "The embedded-only correctness8669 status in KERNEL_V1_FREEZE_PROVENANCE.json is forensic legacy evidence. The correctness traceability decision is the archive/embedded reconciliation. The formal correctness acceptance predicate remains a separate policy contract and is not inferred from the cohort count.",
+  "nextGate": "Calibrate/version deterministic production budgets and recover or explicitly version the formal correctness predicate. The calibration harness may run with budgets OFF; formal correctness/determinism must not run yet."
 }
