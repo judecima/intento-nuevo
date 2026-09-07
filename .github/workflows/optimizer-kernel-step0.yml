@@ -1,0 +1,95 @@
+name: Optimizer kernel Step 0
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-stabilization
+    paths:
+      - .github/workflows/optimizer-kernel-step0.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  step0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Assert prerequisite kernel state
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '_diagLink' src/lib/optimizer/legacy/motor.cjs
+          grep -q 'function intentarPolishV20' src/lib/optimizer/legacy/v10.cjs
+      - name: Apply Step 0 instrumentation
+        run: python3 scripts/kernel-stabilization/port-step0.py
+      - name: Add Step 0 synthetic smoke
+        shell: bash
+        run: |
+          cat > scripts/kernel-step0-smoke.mjs <<'EOF'
+          #!/usr/bin/env node
+          import { createRequire } from 'node:module';
+          const require = createRequire(import.meta.url);
+          const { optimizarV10, nuevasMetricas, nuevaTelemetriaStep0, validarPlanIndustrial } = require('../src/lib/optimizer/legacy/v10.cjs');
+          const { resolverCobertura } = require('../src/lib/optimizer/legacy/cobertura.cjs');
+
+          const lines = [
+            { ref:'A', detalle:'A', cant:2, base:300, altura:300, veta:false },
+            { ref:'B', detalle:'B', cant:1, base:200, altura:200, veta:false },
+          ];
+          const cfg = {
+            placaBase:1000, placaAltura:1000, refiladoX:0, refiladoY:0,
+            sierra:5, etapas:4, materialConVeta:false, descontarCanto:false,
+            cantoEspesor:0, restoMin:100, restoMax:250, semilla:20260812,
+            usarMultiSlice:false, usarOneBoard:false, usarMaster:false,
+            usarCompactacion:false, instrumentarStep0:true,
+          };
+          const metrics = nuevasMetricas();
+          const run = optimizarV10(lines, cfg, metrics);
+          if (!validarPlanIndustrial(run.plan, 3).ok) throw new Error('Step0 synthetic plan invalid');
+          const s = run.metricas.step0;
+          if (!s || s.composition.optimizarCalls < 1 || s.composition.armarPlacasCalls < 1 || s.composition.stageCalls < 1)
+            throw new Error('Step0 composition counters were not populated');
+
+          const telemetry = nuevaTelemetriaStep0();
+          const pattern = { uso:[[0,1]], area:1, placa:{} };
+          const handle = resolverCobertura([pattern], [2], 1, 3, 1000, { telemetry });
+          const solved = handle.resolver([1]);
+          if (solved.placas !== 2 || !solved.plan || solved.plan.length !== 2 || solved.agotado)
+            throw new Error('Step0 coverage smoke solved an unexpected plan');
+          if (telemetry.master.runs !== 1 || telemetry.master.nodesTotal !== 2 || telemetry.master.timeoutHits !== 0)
+            throw new Error(`Step0 Master telemetry unexpected: ${JSON.stringify(telemetry.master)}`);
+
+          console.log(JSON.stringify({ composition:s.composition, master:telemetry.master }, null, 2));
+          console.log('STEP0 SYNTHETIC SMOKE OK');
+          EOF
+      - name: Install dependencies
+        run: npm ci
+      - name: Runner syntax
+        run: node --check scripts/kernel-step0.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Regression contracts with telemetry default-off
+        run: npx vitest run tests/optimizer/pattern-trace.test.ts tests/optimizer/diag-trace.test.ts tests/optimizer/optimizer.test.ts tests/optimizer/remnant-quality.test.ts tests/optimizer/v20-cheap-env-isolation.test.ts
+      - name: Step 0 synthetic smoke
+        run: node scripts/kernel-step0-smoke.mjs
+      - name: Commit Step 0 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'optimizer-kernel-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/lib/optimizer/legacy/motor.cjs src/lib/optimizer/legacy/cobertura.cjs src/lib/optimizer/legacy/oneboard.cjs src/lib/optimizer/legacy/v10.cjs src/lib/optimizer/engine/legacy-engine.ts scripts/kernel-step0-smoke.mjs
+          git diff --cached --check
+          git commit -m 'chore(optimizer): instrument Step 0 without decision changes [step0]'
+          git push origin HEAD:optimizer-kernel-v1-stabilization
