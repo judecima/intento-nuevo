@@ -1,0 +1,138 @@
+name: Optimizer kernel V20 safe port
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-stabilization
+    paths:
+      - .github/workflows/optimizer-kernel-v20-safe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  port-v20-safe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Assert Candidate A is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'diagLinkToArray' src/lib/optimizer/legacy/motor.cjs
+          grep -q '_diagLink' src/lib/optimizer/engine/legacy-engine.ts
+
+      - name: Import per-board repair from measured V20 branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin optimizer-v20-remnant-defrag
+          mkdir -p src/lib/optimizer/experimental
+          git show FETCH_HEAD:src/lib/optimizer/experimental/per-board-remnant-defrag.cjs > src/lib/optimizer/experimental/per-board-remnant-defrag.cjs
+          git show FETCH_HEAD:scripts/v20-remnant-defrag-smoke.mjs > scripts/v20-remnant-defrag-smoke.mjs
+          git show FETCH_HEAD:scripts/v20-remnant-recovery-check.mjs > scripts/v20-remnant-recovery-check.mjs
+
+      - name: Wire V20 fail-safe before certified fast return
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('src/lib/optimizer/legacy/v10.cjs')
+          s = p.read_text()
+
+          metrics_old = """    lowerBound: {\n      externalUsed: 0,\n      externalViolation: 0,\n      certifiedAfterBaseline: 0,\n      cheapRuns: 0,\n      cheapCertified: 0,\n      cheapViolation: 0,\n      cheapErrors: 0,\n      cheapMs: 0,\n      cheapValue: 0,\n      cheapReason: null,\n    },\n    total: { casos: 0, ms: 0 }\n"""
+          metrics_new = """    lowerBound: {\n      externalUsed: 0,\n      externalViolation: 0,\n      certifiedAfterBaseline: 0,\n      cheapRuns: 0,\n      cheapCertified: 0,\n      cheapViolation: 0,\n      cheapErrors: 0,\n      cheapMs: 0,\n      cheapValue: 0,\n      cheapReason: null,\n    },\n    remnantPolish: {\n      runs: 0,\n      valid: 0,\n      changed: 0,\n      attemptedBoards: 0,\n      improvedBoards: 0,\n      rejectedBoards: 0,\n      invalidFinal: 0,\n      errors: 0,\n      skipped: 0,\n      ms: 0,\n    },\n    total: { casos: 0, ms: 0 }\n"""
+          if metrics_old not in s:
+              raise SystemExit('metrics anchor not found')
+          s = s.replace(metrics_old, metrics_new, 1)
+
+          anchor = """function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {\n"""
+          helper = """function intentarPolishV20(plan, config, piezasEsperadas, metricas) {\n  const m = metricas.remnantPolish;\n  const t0 = process.hrtime.bigint();\n  m.runs++;\n  try {\n    // Explicit false is a rollback switch. Safety means falling through to the\n    // legacy compactation path, never returning early without objective #2.\n    if (config.usarDefragRemanentePorPlaca === false) {\n      m.skipped++;\n      return { valido: false, plan };\n    }\n    const { defragmentarPlanPorPlaca } = require('../experimental/per-board-remnant-defrag.cjs');\n    const r = defragmentarPlanPorPlaca(plan, { piezasEsperadas });\n    m.attemptedBoards += +r.attemptedBoards || 0;\n    m.improvedBoards += +r.improvedBoards || 0;\n    m.rejectedBoards += +r.rejectedBoards || 0;\n    if (r.invalidFinal) {\n      m.invalidFinal++;\n      return { valido: false, plan };\n    }\n    const v = validarPlanIndustrial(r.plan, piezasEsperadas);\n    if (!v || !v.ok) {\n      m.invalidFinal++;\n      return { valido: false, plan };\n    }\n    m.valid++;\n    if (r.changed) m.changed++;\n    return { valido: true, plan: r.plan };\n  } catch (_) {\n    m.errors++;\n    return { valido: false, plan };\n  } finally {\n    m.ms += Number(process.hrtime.bigint() - t0) / 1e6;\n  }\n}\n\n"""
+          if anchor not in s:
+              raise SystemExit('helper anchor not found')
+          s = s.replace(anchor, helper + anchor, 1)
+
+          block_old = """  const usarCheap = usarCotaBarataPostBaseline(config);\n  const certificarTemprano = config.certificarAntesCompactacion === true || usarCheap;\n\n  // Primer corte: si area/external LB ya certifican, ni siquiera calculamos la\n  // cheap LB. Esto cubre los casos baratos baseline == areaLB.\n  if (\n    certificarTemprano &&\n    baseline?.resumen &&\n    baseline.resumen.placas <= cota\n  ) {\n    metricas.lowerBound.certifiedAfterBaseline++;\n    metricas.total.ms += Date.now() - t0;\n    return { plan: baseline, metricas, cota, cotaArea };\n  }\n\n  // V20 experimental: sólo para los que NO cerraron por área. Calcula la misma\n  // Hybrid Cheap LB validada en V15-V19, explícitamente sin Raster. Si iguala\n  // al incumbente físico, el número de placas queda certificado y cortamos\n  // compactación + MultiSlice + OneBoard + Master.\n  if (usarCheap && baseline?.resumen) {\n"""
+          block_new = """  const usarCheap = usarCotaBarataPostBaseline(config);\n  const certificarTemprano = config.certificarAntesCompactacion === true || usarCheap;\n  const certificadoInicial = !!(\n    certificarTemprano &&\n    baseline?.resumen &&\n    baseline.resumen.placas <= cota\n  );\n  let polishCertificado = null;\n  const obtenerPolishCertificado = () => {\n    if (polishCertificado === null)\n      polishCertificado = intentarPolishV20(baseline, config, piezasEsperadas, metricas);\n    return polishCertificado;\n  };\n\n  // Primer corte: fuera de V20 conserva exactamente el retorno histórico.\n  // Con V20, una certificación de placas no puede saltarse silenciosamente el\n  // objetivo #2: primero se ejecuta el polish por placa; si falla, continuamos\n  // hacia compactación legacy en lugar de devolver el baseline.\n  if (certificadoInicial) {\n    metricas.lowerBound.certifiedAfterBaseline++;\n    if (!usarCheap) {\n      metricas.total.ms += Date.now() - t0;\n      return { plan: baseline, metricas, cota, cotaArea };\n    }\n    const polished = obtenerPolishCertificado();\n    if (polished.valido) {\n      metricas.total.ms += Date.now() - t0;\n      return { plan: polished.plan, metricas, cota, cotaArea };\n    }\n  }\n\n  // V20 experimental: sólo para los que NO cerraron por área. Calcula la misma\n  // Hybrid Cheap LB validada en V15-V19, explícitamente sin Raster. Si iguala\n  // al incumbente físico, el número de placas queda certificado. El fast return\n  // sólo se permite después de un polish válido; de lo contrario cae al camino\n  // legacy de compactación.\n  if (usarCheap && baseline?.resumen && !certificadoInicial) {\n"""
+          if block_old not in s:
+              raise SystemExit('early-cert anchor not found')
+          s = s.replace(block_old, block_new, 1)
+
+          return_old = """    if (baseline.resumen.placas <= cota) {\n      metricas.lowerBound.cheapCertified++;\n      metricas.lowerBound.certifiedAfterBaseline++;\n      metricas.total.ms += Date.now() - t0;\n      return { plan: baseline, metricas, cota, cotaArea };\n    }\n"""
+          return_new = """    if (baseline.resumen.placas <= cota) {\n      metricas.lowerBound.cheapCertified++;\n      metricas.lowerBound.certifiedAfterBaseline++;\n      const polished = obtenerPolishCertificado();\n      if (polished.valido) {\n        metricas.total.ms += Date.now() - t0;\n        return { plan: polished.plan, metricas, cota, cotaArea };\n      }\n    }\n"""
+          if return_old not in s:
+              raise SystemExit('cheap return anchor not found')
+          s = s.replace(return_old, return_new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Add V20 runtime smoke
+        shell: bash
+        run: |
+          cat > scripts/v20-remnant-safe-smoke.mjs <<'EOF'
+          #!/usr/bin/env node
+          import { createRequire } from 'node:module';
+          const require = createRequire(import.meta.url);
+          const { optimizarV10, validarPlanIndustrial } = require('../src/lib/optimizer/legacy/v10.cjs');
+
+          const lines = [
+            { ref:'A', detalle:'A', cant:2, base:420, altura:380, veta:false },
+            { ref:'B', detalle:'B', cant:1, base:510, altura:300, veta:false },
+            { ref:'C', detalle:'C', cant:2, base:280, altura:240, veta:false },
+          ];
+          const pieces = lines.reduce((n,l)=>n+l.cant,0);
+          const config = {
+            placaBase:1000, placaAltura:1000, refiladoX:0, refiladoY:0,
+            sierra:5, etapas:4, materialConVeta:false, descontarCanto:false,
+            cantoEspesor:0, restoMin:100, restoMax:250, semilla:20260812,
+            usarCotaBarataAntesCompactacion:true,
+            usarMultiSlice:false, usarOneBoard:false, usarMaster:false,
+          };
+          const r = optimizarV10(lines, config);
+          const v = validarPlanIndustrial(r.plan, pieces);
+          const m = r.metricas.remnantPolish;
+          console.log(JSON.stringify({ placas:r.plan.resumen.placas, valid:v.ok, polish:m }, null, 2));
+          if (!v.ok || m.runs !== 1 || m.valid !== 1 || m.invalidFinal !== 0 || m.errors !== 0) {
+            throw new Error('V20 safe runtime wiring failed');
+          }
+          console.log('V20 SAFE RUNTIME SMOKE OK');
+          EOF
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Optimizer regression tests
+        run: npx vitest run tests/optimizer/pattern-trace.test.ts tests/optimizer/diag-trace.test.ts tests/optimizer/optimizer.test.ts tests/optimizer/remnant-quality.test.ts tests/optimizer/v20-cheap-env-isolation.test.ts
+
+      - name: Per-board repair smoke
+        run: node scripts/v20-remnant-defrag-smoke.mjs
+
+      - name: V20 safe runtime smoke
+        run: node scripts/v20-remnant-safe-smoke.mjs
+
+      - name: Commit V20 safe runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'optimizer-kernel-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/lib/optimizer/legacy/v10.cjs src/lib/optimizer/experimental/per-board-remnant-defrag.cjs scripts/v20-remnant-defrag-smoke.mjs scripts/v20-remnant-recovery-check.mjs scripts/v20-remnant-safe-smoke.mjs
+          git diff --cached --check
+          git commit -m 'feat(optimizer): make V20 remnant-safe before certified return [v20-safe]'
+          git push origin HEAD:optimizer-kernel-v1-stabilization
