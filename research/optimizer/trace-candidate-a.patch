@@ -1,0 +1,22 @@
+diff --git a/src/lib/optimizer/legacy/patrones.cjs b/src/lib/optimizer/legacy/patrones.cjs
+index efd1ce8..078ed53 100644
+--- a/src/lib/optimizer/legacy/patrones.cjs
++++ b/src/lib/optimizer/legacy/patrones.cjs
+@@ -55,7 +55,7 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
+     const sub = r === 0 ? conRef : conRef.filter(() => R() > 0.45);
+     if (!sub.length) continue;
+     try {
+-      const res = optimizar(sub.map(l => ({ ...l })), { ...O, semilla: 1000 + r, pases: 2, trazaDiag: false });
++      const res = optimizar(sub.map(l => ({ ...l })), { ...O, semilla: 1000 + r, pases: 2 });
+       for (const p of res.placas) registrar(p);
+     } catch (e) { /* subconjunto invalido: continuar */ }
+   }
+@@ -70,7 +70,7 @@ function patronesMonotipo(lineas, O) {
+   const warn = console.warn; console.warn = () => {};
+   for (let i = 0; i < lineas.length; i++) {
+     try {
+-      const res = optimizar([{ ...lineas[i], ref: i }], { ...O, pases: 1, trazaDiag: false });
++      const res = optimizar([{ ...lineas[i], ref: i }], { ...O, pases: 1 });
+       const placa = res.placas[0];
+       if (placa && placa.colocadas.length)
+         out.push({ uso: new Map([[i, placa.colocadas.length]]),

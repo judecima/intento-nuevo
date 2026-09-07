@@ -2,6 +2,31 @@
 
 Base branch: `feature/agregar_configuracion_organizacion`
 
+## Active roadmap - user decision 2026-09-07
+
+The [frozen roadmap](ROADMAP_2026-09-07.md) supersedes earlier sequencing:
+1. deferred trace: complete the 213-case identity/trace gate; integrate only if it passes;
+2. V20 remnant repair: separate safety from legacy recovery, then net timing and canary decision;
+3. Step 0 telemetry, recover V19 deterministic budgets, calibrate per-order work and freeze hashes;
+4. isolate the current optimizer behind a queue and workers, before strategy facades;
+5. architecture/facade with separate board reduction, certification and remnant polish;
+6. interactive initial plan and background improvements;
+7. shared/subproblem memory, strategy ranking/ML and external challengers later.
+
+Deferred trace source: `experiencia/traza-diferida.bundle`, commit `e133e7e`.
+The reported 61/61 gate is user-provided evidence pending artifact linkage;
+the bundle itself records five measured cases. Neither implies a completed 213-case gate.
+Local review now reproduces a failing Master sentinel: `4050594` retains 7 boards
+and identical geometry but loses traces on all 103 final pieces (247 -> 0 steps).
+See [the gate report](DEFERRED_TRACE_GATE_2026-09-07.md). Candidate integration is
+blocked; repair trace preservation before continuing the full cohort.
+Repair experiment: [candidate A and conditional candidate B](TRACE_CANDIDATES_2026-09-07.md).
+A retains linked traces and removes the two Master trace-suppression overrides.
+Its two materialization contracts and `4050594` full-plan gate pass; remaining
+sentinel/cohort evidence must be completed before integration.
+V22 remains paused; local guided/family pattern generation remains closed.
+The ~31.9% combined saving is an orthogonality scenario, not a measured result.
+
 ## Governing objective — frozen
 1. minimize board count;
 2. with the same board count, maximize industrial/commercial remnant quality;
@@ -112,7 +137,11 @@ Open diagnostic signal when V22 resumes: empirical pool saturation.
 
 ## Generated legacy rule
 
-`src/lib/optimizer/legacy/*.cjs` is mechanically extracted from the legacy HTML. Deterministic-budget recovery must be owned by `scripts/extract-legacy-optimizer.mjs` / its patching stage, not by hand edits to generated files, otherwise regeneration can erase the work.
+The current Next runtime under `src/lib/optimizer/**` is the source of truth.
+Port recovered deterministic logic directly into that runtime as specified by
+`determinism/DETERMINISM_RECOVERY_AND_STEP0_2026-09-07.md`.
+The HTML and extractor are historical/comparison tools and must not overwrite
+active runtime modules. This supersedes the former generated-legacy ownership rule.
 
 New product/domain architecture must live outside `legacy/`.
 

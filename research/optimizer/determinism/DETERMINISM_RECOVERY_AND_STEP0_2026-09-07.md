@@ -184,10 +184,14 @@ Board-count certification may terminate the board-reduction phase, but must neve
 
 ## Current ordering
 
-1. finish V20 remnant repair evidence;
-2. Step 0 telemetry on the Next runtime;
-3. deterministic budget calibration using recovered V19 work;
-4. freeze deterministic reference + full-plan hashes;
-5. architecture/facade refactor in Next;
-6. domain separation;
-7. resume V22 / new optimization research.
+The [frozen roadmap](../ROADMAP_2026-09-07.md) sets the active sequence:
+
+1. finish deferred-trace 213-case hash/trace gate; integrate only if it passes;
+2. finish V20 remnant repair evidence, separating safety and legacy recovery;
+3. Step 0 telemetry on the Next runtime;
+4. deterministic budget calibration using recovered V19 work;
+5. freeze deterministic reference + full-plan hashes;
+6. isolate the current optimizeProject behind a queue and workers;
+7. architecture/facade refactor and domain separation in Next;
+8. initial interactive plan and background improvements;
+9. memory, ranking/ML and external challengers later. V22 remains paused.

@@ -47,13 +47,17 @@ The repair is intentionally local:
 Reference evaluator:
 `scripts/v20-remnant-defrag-eval.mjs`
 
-Release gate for the repair:
-- board regressions = 0;
-- invalid repaired plans = 0;
-- for every certified case where skipped global compactation improves remnant at equal boards, per-board repair must match or beat that remnant quality;
-- only after correctness/remnant parity is proven do we compare repair cost against the global compactation time saved.
+Experiment gates are separate:
+- SAFETY: 0 board regressions, 0 invalid repaired plans, and no remnant worse than current V20;
+- RECOVERY: count and describe which of the 20 accepted legacy remnant improvements the repair matches or beats.
 
-No partial recovery percentage is sufficient for release because remnant quality is objective #2. If one accepted reference improvement is lost, V20 remains blocked.
+Partial recovery (for example, 17/20) is not automatically an unsafe or failed
+repair. It does not demonstrate legacy equivalence either. Before canary, resolve
+or explicitly accept each remaining quality gap, then evaluate net runtime
+including polish. No such acceptance is implied by this roadmap update.
+
+Per the [active roadmap](../ROADMAP_2026-09-07.md), complete the deferred-trace
+213-case gate before advancing this repair. V20 remains OFF by default.
 
 ## Future canary configuration — only after repair passes
 
