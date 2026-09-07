@@ -1,4 +1,4 @@
-# Kernel V1 Freeze — Traceability Checkpoint
+# Kernel V1 Freeze — Traceability Complete Checkpoint
 
 Date: 2026-09-07
 
@@ -6,17 +6,13 @@ Date: 2026-09-07
 
 Do **not** declare `Kernel V1 FROZEN` yet.
 
-The freeze investigation has reached a stronger reproducible checkpoint without changing optimizer heuristics, search behavior, budgets, scoring, Worker behavior, or the Kernel V1 candidate.
+Historical traceability is now complete enough to start the formal freeze certification without changing the optimizer, parser policy, heuristics, search behavior, budgets, scoring, or Worker behavior.
 
-Kernel candidate remains:
+Kernel candidate remains unchanged:
 
 `4063963260abb10c8d68d0e553942899c925cc2f`
 
-Freeze provenance checkpoint before this document:
-
-`411b25735217ea96166fd25cc299f6cab1aef6c3`
-
-## Traceability recovered
+## Traceability status
 
 ### 1. Five sentinels — RECOVERED
 
@@ -28,8 +24,6 @@ Exact historical contract is versioned in `scripts/deferred-trace-gate.mjs`:
 - `4058501` -> 8 boards
 - `4059200` -> 17 boards
 
-The embedded canonical corpus resolves each sentinel to its XML identity.
-
 ### 2. 213 hotspots — RECOVERED
 
 Exact source is `experiencia/v6/hotspot-all.jsonl`, filtered by the historical gate as:
@@ -37,91 +31,106 @@ Exact source is `experiencia/v6/hotspot-all.jsonl`, filtered by the historical g
 - `ok !== false`
 - `!engineCacheHit`
 
-The result is exactly 213 rows and 213 unique XML files.
+Result: exactly 213 rows and 213 unique XML identities.
 
 Frozen identity-set SHA-256:
 
 `34b867a789d0abf62818eae305a095f3e3f01a439d25df372e522fecd9ada5f1`
 
-All 213 identities are present in the embedded canonical corpus.
+### 3. fullPlanHash — RECOVERED
 
-### 3. fullPlanHash contract — RECOVERED
-
-Historical runner semantics are versioned and now inspected by CI.
-
-Contract:
+Historical runner semantics are versioned and inspected by CI:
 
 - algorithm: SHA-256
 - serialization: `JSON.stringify(stable(value))`
 - object keys: recursively sorted
 - arrays: order preserved
 - full plan: `{ geometry, traces, quality }`
-- geometry: boards, placements, cuts, remnants and physical trees, excluding diagnostic representation fields `trace`, `_diagLink`, `_diagPath`
-- traces: final placement traces
-- quality: metrics excluding `engineMs` and `cacheHit`
+- geometry excludes diagnostic representation fields `trace`, `_diagLink`, `_diagPath`
+- quality excludes `engineMs` and `cacheHit`
 
-Reference sentinel `4050594` fullPlanHash:
+Reference case `4050594`:
 
 `e858a3bfd89f69b7165954039f3f809752250712736316239f349d8fafbdcd42`
 
-### 4. 8,669 correctness corpus — LINEAGE RECOVERED, SIX XML IDENTITIES STILL MISSING
+### 4. Correctness corpus — RECOVERED AND RECONCILED
 
-Historical inventory is independently versioned as:
+The earlier diagnosis that six historical XML filenames were missing was incomplete. The isolated local audit of `resto.zip` establishes:
 
-- source: `D:/proyectos asistidos/lepton/data/lepton-xml`
 - XML files: 8,669
-- root `project`: 7,320
-- root `Order`: 1,346
+- unique XML names: 8,669
+
+Current canonical parser classification:
+
+- `project`: 7,305
+- `Order`: 1,345
+- rejected: 19
+- accepted/current-comparable: 8,650
+
+Historical inventory was:
+
+- `project`: 7,320
+- `Order`: 1,346
 - parse errors: 3
 
-The 20,844-case embedded corpus preserves seven source partitions. The partition named `resto` is the historical-lineage match:
+The historical source-of-truth independently records that Etapa 1B produced **8,650 canonical cases over 8,669 XML** and that mixed-stock XML is excluded by design because one optimization case supports one board format.
+
+The 19 current rejections are versioned in:
+
+`research/optimizer/freeze/KERNEL_V1_RESTO_ARCHIVE_AUDIT_2026-09-07.json`
+
+Breakdown:
+
+- `mixed-board-formats`: 13
+- `unquoted-attribute`: 1
+- `text-outside-root`: 2
+- `unexpected-closing-tag`: 1
+- `invalid-attributes`: 2
+
+No parser relaxation is used for the freeze.
+
+## Reconciliation against the embedded corpus
+
+The embedded `resto` partition contains:
 
 - canonical records: 8,680
 - distinct XML identities: 8,663
-- distinct `project` XML: 7,318
-- distinct `Order` XML: 1,345
-- cross-partition duplicate identities: 0
 
-Historical delta from `resto`:
+Reproducible CI reconciliation proves:
 
-- missing `project`: 2
-- missing `Order`: 1
-- historical parse errors: 3
-- total unresolved XML identities: 6
+- all 13 `mixed-board-formats` identities resolve uniquely inside embedded `resto`: **13/13**
+- the other six current parser rejections are exactly absent from embedded `resto`: **6/6**
+- `8,663 + 6 = 8,669` reconstructs the complete archive identity count
+- removing the 13 mixed-board identities from embedded `resto` yields exactly **8,650 distinct XML identities**
+- after that exclusion there are exactly **8,650 canonical records**, i.e. one record per comparable XML identity
 
-Arithmetic:
+Current-comparable correctness identity-set SHA-256:
 
-`7,318 + 1,345 = 8,663`
+`36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3`
 
-`(7,320 - 7,318) + (1,346 - 1,345) + 3 = 6`
+This closes the correctness provenance problem without modifying `ensureSingleBoardFormat` or any production parser behavior.
 
-`8,663 + 6 = 8,669`
+## Reproducible evidence
 
-Therefore the original correctness corpus is no longer an unidentified 8,669-case population. Its surviving embedded lineage is isolated to `resto` with 8,663 exact XML identities, and the entire remaining gap is six filenames: two `project`, one `Order`, and three historical parse-error XMLs.
+Workflow:
 
-Frozen recovered `resto` identity-set SHA-256:
+`.github/workflows/optimizer-kernel-freeze.yml`
 
-`6052286b28a5b47637e69f16ad5755358d7772123c0d80a2b10d33d6a0b63f50`
-
-The six missing filenames are **not** inferred. Until their exact historical identities are recovered or an equally strong historical manifest proves them, the 8,669 correctness gate remains formally incomplete.
-
-## Reproducible CI
-
-Workflow: `.github/workflows/optimizer-kernel-freeze.yml`
-
-Versioned forensic scripts:
+Scripts:
 
 - `scripts/kernel-freeze/build-provenance.mjs`
 - `scripts/kernel-freeze/analyze-correctness-partitions.mjs`
+- `scripts/kernel-freeze/reconcile-resto-archive.mjs`
+- `scripts/kernel-freeze/finalize-traceability.mjs`
 
-Persisted evidence:
+Reports:
 
 - `research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json`
 - `research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json`
+- `research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json`
+- `research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json`
 
-CI hard-fails if the recovered 5-sentinel cohort, 213-hotspot cohort, embedded 20,844 corpus count, or historical fullPlanHash contract drifts.
-
-The source-partition analysis is descriptive and cannot promote the kernel merely because counts line up. It explicitly records that the six missing filenames have not been recovered.
+`KERNEL_V1_FREEZE_PROVENANCE.json` still contains the older embedded-only `correctness8669=BLOCKED` diagnostic. That field is intentionally treated as legacy forensic evidence: an embedded canonical projection cannot contain XML that the parser rejects. The final correctness traceability decision is the archive/embedded reconciliation report and the aggregate freeze traceability report.
 
 ## Stable state reached
 
@@ -133,17 +142,21 @@ Kernel V1 Candidate
             +-- 5 sentinels ............ RECOVERED
             +-- 213 hotspots ........... RECOVERED
             +-- fullPlanHash ........... RECOVERED
-            +-- correctness lineage .... 8,663 / 8,669 exact
-                +-- 2 project missing
-                +-- 1 Order missing
-                +-- 3 parse-error XML missing
+            +-- historical archive ..... 8,669 / 8,669 unique
+            +-- current parser rejects . 19 documented
+            +-- correctness cohort ..... 8,650 / 8,650 exact
 
-        => KERNEL V1 FREEZE TRACEABILITY CHECKPOINT
-        => NOT Kernel V1 FROZEN
+        => KERNEL V1 FREEZE TRACEABILITY COMPLETE
+        => READY FOR FORMAL CERTIFICATION
+        => NOT YET Kernel V1 FROZEN
 ```
 
-No Worker work is authorized by this checkpoint and no Kernel V1 algorithm change is justified by it.
+No Worker work is authorized by this checkpoint and no Kernel V1 algorithm or parser-policy change is justified by it.
 
 ## Next gate
 
-The next promotion condition is narrow and objective: recover the exact six historical XML filenames (or an authoritative historical 8,669-file manifest from which they can be derived), freeze the complete file-set hash, then run the formal correctness/determinism certification against the unchanged Kernel V1 candidate.
+Run the formal correctness + determinism certification over the exact 8,650 current-comparable cohort identified by SHA-256
+
+`36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3`
+
+against the unchanged Kernel V1 candidate. Only after that run is green should the project promote to `Kernel V1 FROZEN`.
