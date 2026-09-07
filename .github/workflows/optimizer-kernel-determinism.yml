@@ -1,0 +1,80 @@
+name: Optimizer Kernel Determinism Port
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-determinism-port
+    paths:
+      - .github/workflows/optimizer-kernel-determinism.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  port-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-determinism-port
+
+      - name: Apply deterministic work-budget port
+        run: python3 scripts/kernel-stabilization/port-determinism.py
+
+      - name: Verify expected deterministic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'maxExpansionesBeam' src/lib/optimizer/legacy/motor.cjs
+          grep -q 'maxNodosMaster' src/lib/optimizer/legacy/v10.cjs
+          grep -q 'maxIntentosRescate' src/lib/optimizer/legacy/oneboard.cjs
+          grep -q 'det-budget-v1' src/lib/optimizer/engine/legacy-engine.ts
+          grep -q 'budgetHits' src/lib/optimizer/legacy/v10.cjs
+          grep -q '_diagLink' src/lib/optimizer/types.ts
+          grep -q 'intentarPolishV20' src/lib/optimizer/legacy/v10.cjs
+          grep -q 'nuevaTelemetriaStep0' src/lib/optimizer/legacy/v10.cjs
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Deterministic budget contracts
+        run: node scripts/kernel-determinism-smoke.mjs
+
+      - name: Fast optimizer regression contracts
+        run: |
+          npx vitest run \
+            src/lib/optimizer/__tests__/pattern-trace.test.ts \
+            src/lib/optimizer/__tests__/diag-trace-contract.test.ts \
+            src/lib/optimizer/__tests__/optimizer.test.ts \
+            src/lib/optimizer/__tests__/remnant-quality.test.ts \
+            src/lib/optimizer/__tests__/v10-cheap-lb-env.test.ts
+
+      - name: Show runtime diff
+        run: git diff --check && git diff --stat && git diff -- src/lib/optimizer
+
+      - name: Commit deterministic runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Runtime already contains deterministic port.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/lib/optimizer/types.ts \
+            src/lib/optimizer/legacy/cobertura.cjs \
+            src/lib/optimizer/legacy/oneboard.cjs \
+            src/lib/optimizer/legacy/motor.cjs \
+            src/lib/optimizer/legacy/v10.cjs \
+            src/lib/optimizer/engine/legacy-engine.ts
+          git commit -m 'feat(optimizer): add deterministic work budgets [kernel-v1-candidate]'
+          git push origin HEAD:optimizer-kernel-v1-determinism-port
