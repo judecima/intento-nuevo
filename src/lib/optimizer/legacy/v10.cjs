@@ -24,6 +24,7 @@ function nuevasMetricas() {
                      invalidos: 0, ms: 0, peorMs: 0 });
   return {
     oneboard: m(), master: m(), multislice: m(), compactacion: m(),
+    masterPolicy: { evaluations: 0, skipped: 0, lastGap: null },
     lowerBound: {
       externalUsed: 0,
       externalViolation: 0,
@@ -55,6 +56,13 @@ function usarCotaBarataPostBaseline(config) {
   // El flag V20 es independiente del pipeline staged para poder hacer un A/B
   // contra el V10 legacy cambiando una sola variable.
   return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+}
+
+function debeEjecutarMasterPorGap(config, placas, cota) {
+  const usarPolitica = config.usarMasterSoloGap1 === true ||
+    envFlag('OPTIMIZER_V22_MASTER_GAP1_EXPERIMENTAL');
+  if (!usarPolitica) return true;
+  return Math.max(0, (+placas || 0) - (+cota || 0)) <= 1;
 }
 
 function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
@@ -348,7 +356,15 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   }
 
   // ---- pattern master: generar pool, resolver cobertura, materializar
+  const gapMaster = Math.max(0, mejor.resumen.placas - cota);
+  const permitirMaster = debeEjecutarMasterPorGap(config, mejor.resumen.placas, cota);
   if (config.usarMaster !== false && mejor.resumen.placas > cota) {
+    metricas.masterPolicy.evaluations++;
+    metricas.masterPolicy.lastGap = gapMaster;
+    if (!permitirMaster) metricas.masterPolicy.skipped++;
+  }
+
+  if (config.usarMaster !== false && mejor.resumen.placas > cota && permitirMaster) {
     const t = Date.now();
     try {
       const pool = generarPatrones(lineas, config, config.rondasPatrones || 40)
@@ -368,4 +384,4 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   return { plan: mejor, metricas, cota, cotaArea };
 }
 
-module.exports = { optimizarV10, nuevasMetricas, validarPlanIndustrial };
+module.exports = { optimizarV10, nuevasMetricas, validarPlanIndustrial, debeEjecutarMasterPorGap };
