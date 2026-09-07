@@ -86,8 +86,32 @@ export async function runAndStoreOptimization({
   });
 
   if (cachedResultId) {
+    try {
+      await assertProjectVersionCurrent({
+        supabase,
+        projectId: data.project.id,
+        expectedVersion: projectVersion
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof OptimizationSupersededError
+            ? optimizationDomainErrors.projectVersionConflict
+            : error instanceof Error
+              ? error.message
+              : String(error)
+      };
+    }
+
     if (data.project.status !== "optimized") {
-      await supabase.from("projects").update({ status: "optimized" }).eq("id", data.project.id);
+      const { error: projectUpdateError } = await supabase
+        .from("projects")
+        .update({ status: "optimized" })
+        .eq("id", data.project.id)
+        .eq("version", projectVersion);
+
+      if (projectUpdateError) return { ok: false, error: `PROJECT_STATUS_UPDATE_FAILED: ${projectUpdateError.message}` };
     }
 
     return { ok: true, resultId: cachedResultId, projectVersion };
@@ -206,6 +230,16 @@ async function runUncachedOptimization({
 
     await persistOptimizationDetails({ supabase, resultId, result });
 
+    // Una edicion puede ocurrir durante la persistencia de las tablas de detalle.
+    // No publicamos como completed un resultado que ya quedo obsoleto. Las filas
+    // eventualmente escritas quedan ligadas a un job cancelled y el cache solo
+    // considera jobs completed.
+    await assertProjectVersionCurrent({
+      supabase,
+      projectId: data.project.id,
+      expectedVersion: projectVersion
+    });
+
     const { error: jobCompleteError } = await supabase
       .from("optimization_jobs")
       .update({ status: "completed", completed_at: new Date().toISOString(), error: null })
@@ -214,12 +248,13 @@ async function runUncachedOptimization({
     if (jobCompleteError) throw new Error(`OPTIMIZATION_JOB_UPDATE_FAILED: ${jobCompleteError.message}`);
 
     if (data.project.status !== "optimized") {
-      // Marcar el estado ya no mueve la version (migracion 20260813210000),
-      // asi que el resultado recien guardado sigue siendo el vigente.
+      // El filtro por version evita que una corrida vieja marque como optimizado
+      // un proyecto que fue editado justo despues del ultimo chequeo.
       const { error: projectUpdateError } = await supabase
         .from("projects")
         .update({ status: "optimized" })
-        .eq("id", data.project.id);
+        .eq("id", data.project.id)
+        .eq("version", projectVersion);
 
       if (projectUpdateError) throw new Error(`PROJECT_STATUS_UPDATE_FAILED: ${projectUpdateError.message}`);
     }
