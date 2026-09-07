@@ -21,7 +21,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git clone experiencia/traza-diferida.bundle "$RUNNER_TEMP/deferred-trace"
+          echo '=== BUNDLE REFS ==='
+          git bundle list-heads experiencia/traza-diferida.bundle
+          git clone -b traza experiencia/traza-diferida.bundle "$RUNNER_TEMP/deferred-trace"
           echo '=== BUNDLE HEAD ==='
           git -C "$RUNNER_TEMP/deferred-trace" log -1 --oneline --decorate
           echo '=== BUNDLE COMMIT STAT ==='
