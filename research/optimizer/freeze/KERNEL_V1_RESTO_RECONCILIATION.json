@@ -1,0 +1,211 @@
+{
+  "schemaVersion": "kernel-v1-resto-reconciliation-v2",
+  "generatedAt": "2026-09-07T22:30:51.909Z",
+  "inputs": {
+    "canonical": "experiencia/canonical_cases.json",
+    "canonicalSha256": "a6af8b4f312105560ef8cd47c26c083dc314c6d19fe68bfd5ecc70bd29106329",
+    "archiveAudit": "research/optimizer/freeze/KERNEL_V1_RESTO_ARCHIVE_AUDIT_2026-09-07.json",
+    "archiveAuditSha256": "3809655b4df35eb3c76b41b3da6a8a84de9aaff0a210c837b41ebd29c755f27e",
+    "historicalTruth": "EXPERIENCE_OPTIMIZER_TRUTH.md",
+    "historicalTruthSha256": "5f2d36f4d812892aff416c8c94fbb9795a3817207bc22f2af9f00889dbfa2fd4"
+  },
+  "auditSummary": {
+    "archiveXml": 8669,
+    "uniqueNames": 8669,
+    "currentAccepted": 8650,
+    "currentRejected": 19,
+    "currentProject": 7305,
+    "currentOrder": 1345,
+    "rejectionCounts": {
+      "invalid-attributes": 2,
+      "mixed-board-formats": 13,
+      "text-outside-root": 2,
+      "unexpected-closing-tag": 1,
+      "unquoted-attribute": 1
+    }
+  },
+  "embeddedResto": {
+    "records": 8680,
+    "distinctXml": 8663,
+    "identitySetSha256": "6052286b28a5b47637e69f16ad5755358d7772123c0d80a2b10d33d6a0b63f50"
+  },
+  "rejectionResolution": {
+    "identityRule": "exact stem; numeric audit stems additionally resolve a unique embedded filename beginning with <order>__ or <order>_",
+    "mixedBoard": [
+      {
+        "stem": "4021121",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4021121__Alfredo_Lentijo4021121.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4039808",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4039808__Nayla_Augier4039808.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4040297",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4040297__Raul_Churquina4040297.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4040301",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4040301__Raul_Churquina4040301.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4045390",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4045390__DIEGO RICARDO_LAFUENTE4045390.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4046471",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4046471__Raul_Churquina4046471.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4048845",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4048845__Raul_Churquina4048845.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4053287",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4053287__Maximiliano_Santoro4053287.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4061910",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4061910__Maximiliano_Santoro4061910.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4061957",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4061957__Maximiliano_Santoro4061957.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4064338",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4064338__Maximiliano_Santoro4064338.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4064405",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4064405__Raul_Churquina4064405.xml"
+        ],
+        "matchCount": 1
+      },
+      {
+        "stem": "4067840",
+        "code": "mixed-board-formats",
+        "matches": [
+          "4067840__Raul_Churquina4067840.xml"
+        ],
+        "matchCount": 1
+      }
+    ],
+    "strict": [
+      {
+        "stem": "4023452__Dinorah_Contreras",
+        "code": "unquoted-attribute",
+        "matches": [],
+        "matchCount": 0
+      },
+      {
+        "stem": "4034323__Carlos_Mtz",
+        "code": "text-outside-root",
+        "matches": [],
+        "matchCount": 0
+      },
+      {
+        "stem": "Adrian_Blencio4102054",
+        "code": "text-outside-root",
+        "matches": [],
+        "matchCount": 0
+      },
+      {
+        "stem": "4042984__Mauricio_Bazan",
+        "code": "unexpected-closing-tag",
+        "matches": [],
+        "matchCount": 0
+      },
+      {
+        "stem": "4055251__joel_ramirez",
+        "code": "invalid-attributes",
+        "matches": [],
+        "matchCount": 0
+      },
+      {
+        "stem": "4060225__Diego_Villalba",
+        "code": "invalid-attributes",
+        "matches": [],
+        "matchCount": 0
+      }
+    ],
+    "mixedResolvedExactlyOnce": true,
+    "strictAbsentFromEmbeddedResto": true
+  },
+  "currentComparable": {
+    "records": 8650,
+    "distinctXml": 8650,
+    "identitySetSha256": "36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3",
+    "derivation": "embedded resto identities minus the 13 audited mixed-board-formats identities; the six other audited parser rejections are the six archive identities absent from embedded resto"
+  },
+  "checks": {
+    "archiveHas8669Xml": true,
+    "archiveHas8669UniqueNames": true,
+    "currentParserTotalIs8669": true,
+    "currentParserAcceptedIs8650": true,
+    "currentParserRejectedIs19": true,
+    "currentParserClassificationSums": true,
+    "acceptedPlusRejectedSumsToArchive": true,
+    "rejectionManifestHas19Entries": true,
+    "rejectionManifestHas13MixedBoard": true,
+    "rejectionManifestHas6Strict": true,
+    "embeddedRestoHas8663DistinctXml": true,
+    "embeddedRestoHas8680Records": true,
+    "all13MixedBoardResolveExactlyOnceInEmbeddedResto": true,
+    "all6StrictRejectionsAreAbsentFromEmbeddedResto": true,
+    "sixAbsentReconcile8663To8669": true,
+    "removing13MixedReconciles8663To8650": true,
+    "currentComparableHas8650DistinctXml": true,
+    "currentComparableHas8650CanonicalRecords": true,
+    "historicalTruthSays8650Canonical": true,
+    "historicalTruthExcludesMixedStockByDesign": true
+  },
+  "status": "RECOVERED",
+  "conclusion": "EXACT_8669_ARCHIVE_RECONCILED_AND_EXACT_CURRENT_8650_COMPARABLE_COHORT_RECOVERED"
+}
