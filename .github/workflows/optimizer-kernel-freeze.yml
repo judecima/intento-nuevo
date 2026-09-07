@@ -9,6 +9,8 @@ on:
       - scripts/kernel-freeze/**
       - research/optimizer/determinism/**
       - research/optimizer/freeze/**
+      - Optimizador_V11_Candidato_Prod_Benchmark_Project.html
+      - benchmark_project_v10.csv
   workflow_dispatch:
 
 permissions:
@@ -29,29 +31,35 @@ jobs:
           fetch-depth: 0
           ref: optimizer-kernel-v1-freeze
 
-      - name: Build reproducible freeze provenance, correctness contract, and formal preflight
+      - name: Build reproducible freeze provenance, correctness semantics, and formal preflight
         shell: bash
         run: |
           set -euo pipefail
-          node --check scripts/kernel-freeze/kernel-budget-calibration-v2.mjs
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v3.mjs
+          node --check scripts/kernel-freeze/formal-certification-v3.mjs
+          node --check scripts/kernel-freeze/recover-correctness-execution-semantics.mjs
           node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           node scripts/kernel-freeze/analyze-correctness-partitions.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           node scripts/kernel-freeze/reconcile-resto-archive.mjs research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
           node scripts/kernel-freeze/recover-correctness-contract.mjs benchmark_project_v10.csv research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json
+          node scripts/kernel-freeze/recover-correctness-execution-semantics.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json
           node scripts/kernel-freeze/finalize-traceability.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json
-          node scripts/kernel-freeze/formal-certification-v2.mjs preflight --report research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json
+          node scripts/kernel-freeze/formal-certification-v3.mjs preflight --report research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json
           node <<'NODE'
           const fs = require('fs');
           const r = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json', 'utf8'));
           const cp = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json', 'utf8'));
           const rr = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json', 'utf8'));
           const contract = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json', 'utf8'));
+          const semantics = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json', 'utf8'));
+          const policy = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json', 'utf8'));
           const final = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json', 'utf8'));
           const pre = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json', 'utf8'));
           console.log('FREEZE_TRACEABILITY_LEGACY_EMBEDDED=' + JSON.stringify(r.freezeTraceability));
           console.log('CORRECTNESS_PARTITIONS=' + JSON.stringify({ partitions: cp.partitionCount, strongCandidates: cp.subsetSearch.strongCandidates.length, conclusion: cp.conclusion }));
           console.log('RESTO_RECONCILIATION=' + JSON.stringify({ status: rr.status, audit: rr.auditSummary, currentComparable: rr.currentComparable }));
           console.log('CORRECTNESS_CONTRACT=' + JSON.stringify({ status: contract.recoveredPredicate?.status, id: contract.recoveredPredicate?.id, proofs: contract.proofs, details: contract.details }));
+          console.log('CORRECTNESS_EXECUTION_SEMANTICS=' + JSON.stringify({ status: semantics.status, checks: semantics.checks, multiset: semantics.multiset, usableBoard: semantics.usableBoard }));
           console.log('FINAL_TRACEABILITY=' + JSON.stringify(final));
           console.log('FORMAL_PREFLIGHT=' + JSON.stringify(pre));
           if (r.embeddedCanonical.count !== 20844) throw new Error('Embedded canonical corpus drifted from 20,844');
@@ -66,17 +74,27 @@ jobs:
           if (contract.proofs.okWithDeltaPositive !== 10 || contract.proofs.errorWithDeltaNonPositive !== 33) throw new Error('estado/delta independence evidence drifted');
           if (contract.details.errorMultiset !== 33 || contract.details.errorInfeasible !== 60) throw new Error('Historical ERROR semantics drifted');
           if (contract.details.skipUnsupportedRoot !== 449 || contract.details.skipMixedBoard !== 1) throw new Error('Historical SKIP semantics drifted');
+          if (semantics.status !== 'RECOVERED' || !Object.values(semantics.checks || {}).every(Boolean)) throw new Error('Historical correctness execution semantics not recovered');
+          if (semantics.multiset?.id !== 'HISTORICAL_TERMINAL_DIMENSION_MULTISET_V1' || semantics.multiset?.rotationNormalized !== true) throw new Error('Historical multiset semantics drifted');
+          if (semantics.usableBoard?.id !== 'HISTORICAL_PROJECT_ROOT_TRIM_V1' || semantics.usableBoard?.defaultWhenMissing !== 10) throw new Error('Historical usable-board semantics drifted');
+          if (policy.correctnessPredicate?.executionBinding?.id !== 'physical-xml-historical-validity-v1') throw new Error('Historical physical execution binding missing');
+          if (policy.deterministicBudgets?.calibrationProtocol?.authoritativeHarness !== 'scripts/kernel-freeze/kernel-budget-calibration-v3.mjs') throw new Error('v3 calibration harness is not authoritative');
           if (!final.traceabilityComplete || final.kernelFrozen) throw new Error('Aggregate traceability state invalid');
+          if (!final.checks?.historicalCorrectnessExecutionSemanticsRecovered) throw new Error('Aggregate traceability lost execution semantics');
           if (final.correctnessContract?.id !== 'HISTORICAL_VALIDITY_V1') throw new Error('Aggregate traceability lost correctness contract');
+          if (final.correctnessExecutionSemantics?.multisetId !== 'HISTORICAL_TERMINAL_DIMENSION_MULTISET_V1') throw new Error('Aggregate traceability lost multiset semantics');
           if (!pre.traceabilityComplete || !pre.runtimeMatchesCandidate) throw new Error('Formal preflight failed traceability/runtime identity');
           if (pre.cohort.records !== 8650 || pre.cohort.distinctXml !== 8650) throw new Error('Formal preflight did not re-derive 8,650 cohort');
           if (pre.cohort.identitySetSha256 !== rr.currentComparable.identitySetSha256) throw new Error('Preflight cohort hash differs from reconciliation');
+          if (!pre.correctnessExecutionSemantics?.ready || pre.correctnessExecutionSemantics?.executionBindingId !== 'physical-xml-historical-validity-v1') throw new Error('Formal preflight lost correctness execution binding');
           if (!pre.policy.correctnessPredicateReady || pre.policy.correctnessPredicateId !== 'HISTORICAL_VALIDITY_V1') throw new Error('Correctness policy not ready');
           if (pre.policy.deterministicBudgetsReady) throw new Error('Budgets unexpectedly ready without calibration');
           if (pre.policy.blockingReasons.length !== 1 || !pre.policy.blockingReasons[0].includes('budgets')) throw new Error('Budget calibration must be the only remaining policy blocker');
           if (pre.policy.formalCertificationReady || final.formalCertification.policyReady) throw new Error('Kernel must not be formally ready before budget calibration');
           console.log('FREEZE_TRACEABILITY_COMPLETE=true');
           console.log('HISTORICAL_CORRECTNESS_CONTRACT_RECOVERED=true');
+          console.log('HISTORICAL_CORRECTNESS_EXECUTION_SEMANTICS_RECOVERED=true');
+          console.log('AUTHORITATIVE_CALIBRATION_HARNESS=kernel-budget-calibration-v3.mjs');
           console.log('FORMAL_CERTIFICATION_ONLY_POLICY_BLOCKER=deterministic-budget-calibration');
           NODE
 
@@ -90,6 +108,7 @@ jobs:
           git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           git add research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
           git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json
+          git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json
           git add research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json
           git add research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json
           if git diff --cached --quiet; then

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v2",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v3",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -30,27 +30,63 @@
       "canonicalOrder": 1345,
       "source": "EXPERIENCE_OPTIMIZER_TRUTH.md / Auditoria XML Etapa 1B 2026-09-02"
     },
-    "decision": "The old 3-parse-error inventory is retained as historical evidence but does not define the canonical correctness cohort. The later canonical audit already records 6 parse errors plus 13 mixed-board exclusions and exactly 8,650 canonical cases."
+    "decision": "The old 3-parse-error inventory is retained as historical evidence but does not define the canonical correctness cohort. The later canonical audit records 6 parse errors plus 13 mixed-board exclusions and exactly 8,650 canonical cases."
   },
   "correctnessPredicate": {
     "status": "RESOLVED",
     "id": "HISTORICAL_VALIDITY_V1",
     "source": "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json",
-    "rule": "For a feasible input, correctness means a fresh plan that is geometrically/industrially valid and covers exactly the demanded piece multiset. A demanded piece that cannot fit the usable board in any allowed orientation makes the input expected-infeasible rather than an optimizer regression.",
+    "executionSemanticsSource": "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json",
+    "rule": "For a feasible input, correctness means a fresh geometrically/industrially valid plan whose terminal-dimension multiset exactly matches demand under the historical rotation-normalized comparison. A demanded piece that cannot fit the historically usable board in any allowed orientation is expected-infeasible rather than an optimizer regression.",
     "referencePanelsRole": "reference_panels / delta is a quality comparison versus Lepton and is reported, but it is not the historical correctness acceptance gate.",
     "evidence": [
       "benchmark_project_v10.csv records estado and delta independently.",
       "10 rows are estado=OK with delta>0, so using more boards than Lepton was still accepted as correct.",
       "33 rows are estado=ERROR with delta<=0, so non-worse board count did not make an invalid plan correct.",
-      "The 93 ERROR rows split into 33 exact-demand/multiset failures and 60 physically infeasible inputs; 450 SKIP rows are format-scope exclusions."
+      "The 93 ERROR rows split into 33 terminal-dimension multiset failures and 60 physically infeasible inputs; 450 SKIP rows are format-scope exclusions.",
+      "Optimizador_V11_Candidato_Prod_Benchmark_Project.html normalizes terminal dimensions as min(width,height) x max(width,height) before multiset comparison.",
+      "The same historical benchmark reads trim from the first project root node, defaults it to 10 when missing, and applies the value to refiladoX and refiladoY."
     ],
     "supportedRunnerPredicates": [
       "HISTORICAL_VALIDITY_V1"
     ],
+    "multisetSemantics": {
+      "id": "HISTORICAL_TERMINAL_DIMENSION_MULTISET_V1",
+      "key": "min(width,height) x max(width,height)",
+      "rotationNormalized": true,
+      "compare": "terminal dimensions and multiplicity only",
+      "ignoredForHistoricalAcceptance": [
+        "reference",
+        "pieceId",
+        "edges",
+        "edgeType"
+      ],
+      "reason": "The historical benchmark compared the semantic terminal dimensions parsed from the reference and generated project XML; it did not key the acceptance multiset by application metadata."
+    },
+    "executionBinding": {
+      "id": "physical-xml-historical-validity-v1",
+      "inputIdentity": "literal physical XML filename from the exact 8,650 accepted cohort",
+      "canonicalParser": "current src/lib/optimizer/canonical-xml.ts remains unchanged and defines canonical parsing/identity",
+      "projectUsableBoard": {
+        "id": "HISTORICAL_PROJECT_ROOT_TRIM_V1",
+        "trimSource": "first parsed project root trimReference",
+        "defaultWhenMissing": 10,
+        "apply": "same trim value to refiladoX and refiladoY"
+      },
+      "orderUsableBoard": "No project-benchmark provenance exists for Order trim; retain the canonical Order binding unchanged.",
+      "parserChange": "NONE",
+      "kernelChange": "NONE"
+    },
     "infeasibleClassification": {
-      "method": "Derive from the exact 8,650 physical XML cohort after parsing with the current canonical parser: a piece is impossible when neither its direct orientation nor any orientation allowed by rotation constraints fits the usable panel.",
+      "method": "Parse the exact physical 8,650 cohort with the unchanged current canonical parser, apply physical-xml-historical-validity-v1, then classify a piece as impossible when neither its direct orientation nor any allowed rotated orientation fits the historically usable panel.",
       "execution": "Expected-infeasible cases count toward correctness classification coverage but are not sent to optimizeProject and are excluded from fullPlanHash determinism denominators.",
-      "manifest": "test-results/kernel-v1-formal-certification/expected-infeasible.json"
+      "historicalReplayGate": {
+        "source": "benchmark_project_v10.csv",
+        "attemptedNonSkipCases": 1550,
+        "expectedInfeasibleCases": 60,
+        "requirement": "The v3 physical-corpus preflight must reproduce exactly the same 60 infeasible filenames within the historical attempted sample before calibration may start."
+      },
+      "manifest": "test-results/kernel-v1-formal-certification/expected-infeasible-v3.json"
     }
   },
   "deterministicBudgets": {
@@ -69,29 +105,41 @@
       "research/optimizer/determinism/DETERMINISM_RECOVERY_AND_STEP0_2026-09-07.md"
     ],
     "calibrationProtocol": {
+      "authoritativeHarness": "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+      "supersededHarness": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
+      "supersessionReason": "v2 used canonical project trim=0 for physical feasibility and a stronger-than-historical application-metadata multiset; its partial checkpoints must not be reused.",
+      "executionBindingId": "physical-xml-historical-validity-v1",
       "budgetsDuringCalibration": "OFF",
       "step0Telemetry": true,
       "checkpointPerCase": true,
-      "inputSource": "physical resto XML parsed through the current src/lib/optimizer/canonical-xml.ts runtime",
+      "checkpoint": "test-results/kernel-v1-formal-certification/calibration-v3.partial.jsonl",
+      "inputSource": "physical resto XML parsed through unchanged current canonical parser plus the versioned historical execution binding",
       "initialOrder": "cheap-to-expensive proxy; historical hotspot engineMs when known, then piece count; known extreme-tail orders forced last",
+      "telemetryWiringRule": "composition.optimizarCalls, composition.armarPlacasCalls, and composition.stageCalls must be positive for each calibrated run. beamCalls may legitimately be zero when greedy reaches the area lower bound.",
+      "telemetryProbeRule": "Before calibration, run valid historical hotspot probes until at least one case exercises Beam, Master, or OneBoard, proving budgeted-path counters are live.",
       "beamRule": "Calibrate maxExpansionesBeam from aggregate per-order Beam work, not by converting the historical presupuestoBeamMs=1500 per invocation into expansions.",
       "aggregateBudgetDecision": "Do not add a new aggregate request stop condition inside Kernel V1 freeze. That changes search semantics and requires a new Kernel V1 candidate plus all gates.",
       "promotionRequirement": "Version explicit positive integer production values with calibration evidence before formal correctness/determinism certification."
     }
   },
   "execution": {
-    "harness": "scripts/kernel-freeze/formal-certification-v2.mjs",
+    "staticPreflightHarness": "scripts/kernel-freeze/formal-certification-v3.mjs",
+    "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+    "supersededStaticPreflight": "scripts/kernel-freeze/formal-certification-v2.mjs",
+    "supersededCalibration": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
     "strategy": "v10",
     "strategyProvenance": "scripts/deferred-trace-gate.mjs historical freeze gate",
+    "executionBindingId": "physical-xml-historical-validity-v1",
     "experimentalFlags": "OFF",
     "physicalCorpusRequired": true,
     "currentCanonicalParserRequired": true,
     "freshProcessPerFeasibleCase": true,
     "checkpointPerCase": true,
     "phases": [
-      "physical-corpus-preflight",
-      "calibration",
-      "correctness",
+      "physical-corpus-preflight-v3",
+      "step0-telemetry-probe-v3",
+      "calibration-v3",
+      "formal-correctness",
       "determinism-repeat"
     ],
     "ordering": {
@@ -109,7 +157,7 @@
       "correctness: classified cases / 8650, including expected-infeasible classifications",
       "determinism-repeat: repeated feasible plan cases / feasible cases",
       "determinism-repeat timing mass: sum of baseline correctness wallMs for repeated feasible cases / total feasible correctness wallMs",
-      "calibration: completed feasible cases plus separately scoped historical-hotspot timing-mass coverage"
+      "calibration: completed feasible v3 cases plus separately scoped historical-hotspot timing-mass coverage"
     ]
   },
   "formalCertificationReady": false,
