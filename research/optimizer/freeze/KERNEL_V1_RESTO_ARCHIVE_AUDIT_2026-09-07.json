@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "kernel-v1-resto-archive-audit-v2",
+  "schemaVersion": "kernel-v1-resto-archive-audit-v3",
   "date": "2026-09-07",
   "sourceArchive": "resto.zip",
   "evidenceType": "local-isolated-archive-audit-plus-versioned-historical-reconciliation",
-  "note": "This manifest records an isolated local audit of resto.zip. The archive itself is not committed. CI reconciles these audited counts and rejection identities against the embedded canonical corpus and the historical source-of-truth.",
+  "note": "This manifest records an isolated local audit of resto.zip. The archive itself is not committed. Rejection identity is the literal physical XML filename in `file`; `stem` is retained only as historical/auxiliary audit metadata and MUST NOT be used to reconstruct identity.",
   "archive": {
     "xmlFiles": 8669,
     "uniqueNames": 8669
@@ -43,26 +43,27 @@
     "rejected": 19,
     "accepted": 8650,
     "total": 8669,
+    "identityRule": "The `file` field is the authoritative literal physical filename. No filename may be inferred from `stem`.",
     "rejections": [
-      { "stem": "4021121", "code": "mixed-board-formats" },
-      { "stem": "4039808", "code": "mixed-board-formats" },
-      { "stem": "4040297", "code": "mixed-board-formats" },
-      { "stem": "4040301", "code": "mixed-board-formats" },
-      { "stem": "4045390", "code": "mixed-board-formats" },
-      { "stem": "4046471", "code": "mixed-board-formats" },
-      { "stem": "4048845", "code": "mixed-board-formats" },
-      { "stem": "4053287", "code": "mixed-board-formats" },
-      { "stem": "4061910", "code": "mixed-board-formats" },
-      { "stem": "4061957", "code": "mixed-board-formats" },
-      { "stem": "4064338", "code": "mixed-board-formats" },
-      { "stem": "4064405", "code": "mixed-board-formats" },
-      { "stem": "4067840", "code": "mixed-board-formats" },
-      { "stem": "4023452__Dinorah_Contreras", "code": "unquoted-attribute" },
-      { "stem": "4034323__Carlos_Mtz", "code": "text-outside-root" },
-      { "stem": "Adrian_Blencio4102054", "code": "text-outside-root" },
-      { "stem": "4042984__Mauricio_Bazan", "code": "unexpected-closing-tag" },
-      { "stem": "4055251__joel_ramirez", "code": "invalid-attributes" },
-      { "stem": "4060225__Diego_Villalba", "code": "invalid-attributes" }
+      { "file": "4021121__Alfredo_Lentijo4021121.xml", "stem": "4021121", "code": "mixed-board-formats" },
+      { "file": "4039808__Nayla_Augier4039808.xml", "stem": "4039808", "code": "mixed-board-formats" },
+      { "file": "4040297__Raul_Churquina4040297.xml", "stem": "4040297", "code": "mixed-board-formats" },
+      { "file": "4040301__Raul_Churquina4040301.xml", "stem": "4040301", "code": "mixed-board-formats" },
+      { "file": "4045390__DIEGO RICARDO_LAFUENTE4045390.xml", "stem": "4045390", "code": "mixed-board-formats" },
+      { "file": "4046471__Raul_Churquina4046471.xml", "stem": "4046471", "code": "mixed-board-formats" },
+      { "file": "4048845__Raul_Churquina4048845.xml", "stem": "4048845", "code": "mixed-board-formats" },
+      { "file": "4053287__Maximiliano_Santoro4053287.xml", "stem": "4053287", "code": "mixed-board-formats" },
+      { "file": "4061910__Maximiliano_Santoro4061910.xml", "stem": "4061910", "code": "mixed-board-formats" },
+      { "file": "4061957__Maximiliano_Santoro4061957.xml", "stem": "4061957", "code": "mixed-board-formats" },
+      { "file": "4064338__Maximiliano_Santoro4064338.xml", "stem": "4064338", "code": "mixed-board-formats" },
+      { "file": "4064405__Raul_Churquina4064405.xml", "stem": "4064405", "code": "mixed-board-formats" },
+      { "file": "4067840__Raul_Churquina4067840.xml", "stem": "4067840", "code": "mixed-board-formats" },
+      { "file": "4023452__Dinorah_Contreras4023452.xml", "stem": "4023452__Dinorah_Contreras", "code": "unquoted-attribute" },
+      { "file": "4034323__Carlos_Mtz4034323.xml", "stem": "4034323__Carlos_Mtz", "code": "text-outside-root" },
+      { "file": "Adrian_Blencio4102054.xml", "stem": "Adrian_Blencio4102054", "code": "text-outside-root" },
+      { "file": "4042984__Mauricio_Bazan4042984.xml", "stem": "4042984__Mauricio_Bazan", "code": "unexpected-closing-tag" },
+      { "file": "4055251__joel_ramirez4055251.xml", "stem": "4055251__joel_ramirez", "code": "invalid-attributes" },
+      { "file": "4060225__Diego_Villalba4060225.xml", "stem": "4060225__Diego_Villalba", "code": "invalid-attributes" }
     ]
   }
 }
