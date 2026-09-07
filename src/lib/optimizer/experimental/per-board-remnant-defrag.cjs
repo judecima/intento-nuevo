@@ -17,9 +17,10 @@ const { validarPlanIndustrial } = require("../legacy/validador_industrial_v3.cjs
  *   2) the one-board candidate has strictly better industrial remnant quality;
  *   3) the final whole plan passes the industrial validator.
  *
- * Global structural deltas may be supplied as read-only guidance. They do not
- * change board membership; they only preserve the same geometric signal used
- * by the skipped global compactation pass.
+ * Structural deltas are detected once over the complete fixed-board plan, then
+ * reused as read-only guidance inside every one-board repack. This preserves
+ * the same order-level geometric signal used by global compactation without
+ * allowing any piece to move between boards.
  *
  * This module is intentionally not wired into v10.cjs yet. First it must prove
  * that it recovers the equal-board remnant improvements that V20 currently
@@ -46,7 +47,7 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
   let rejectedBoards = 0;
   const globalDeltas = Array.isArray(options.deltasEstructurales)
     ? options.deltasEstructurales
-    : null;
+    : detectarDeltasEstructurales(lineasDesdePlan(plan), configLimpia(opts));
 
   for (let i = 0; i < plan.placas.length; i++) {
     const original = plan.placas[i];
@@ -61,12 +62,11 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
     let candidato = null;
     try {
       const cfg = configLimpia(opts);
-      const deltasEstructurales = globalDeltas || detectarDeltasEstructurales(lineas, cfg);
       candidato = optimizar(lineas, {
         ...cfg,
         multiVariantes: false,
         penalizarFranjaMuerta: true,
-        deltasEstructurales,
+        deltasEstructurales: globalDeltas,
         // Deterministic but plate-specific seed. This avoids coupling the result
         // of one plate with how many plates preceded it in the order.
         semilla: (Number(cfg.semilla) || 20260812) + 700001 + i,
@@ -163,8 +163,20 @@ function compactacionGlobalReferencia(lineas, config) {
 }
 
 function lineasDesdePlaca(placa) {
+  return agruparLineasDesdeColocadas((placa && placa.colocadas) || []);
+}
+
+function lineasDesdePlan(plan) {
+  const colocadas = [];
+  for (const placa of (plan && plan.placas) || []) {
+    for (const colocada of (placa && placa.colocadas) || []) colocadas.push(colocada);
+  }
+  return agruparLineasDesdeColocadas(colocadas);
+}
+
+function agruparLineasDesdeColocadas(colocadas) {
   const grupos = new Map();
-  for (const colocada of (placa && placa.colocadas) || []) {
+  for (const colocada of colocadas || []) {
     const p = colocada && colocada.pieza ? colocada.pieza : null;
     if (!p) continue;
 
@@ -259,5 +271,6 @@ module.exports = {
   defragmentarPlanPorPlaca,
   compactacionGlobalReferencia,
   lineasDesdePlaca,
+  lineasDesdePlan,
   detectarDeltasEstructurales,
 };
