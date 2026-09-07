@@ -1,82 +1,77 @@
-# V20 controlled canary plan
+# V20 controlled canary plan — BLOCKED
 
 Date: 2026-09-07
 Base: `feature/agregar_configuracion_organizacion`
 Runtime flag: `OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL`
 
-## Purpose
+## Current release decision
 
-Validate the already-merged V20 post-baseline certification in a controlled production slice without changing optimizer quality rules.
+**DO NOT ENABLE THE V20 CANARY YET.**
 
-V20 only returns early when the physical baseline board count is certified by area/external/cheap lower bounds. It does not replace the baseline, Pattern Master, solver objective, materializer, or validator.
+The board-count certification is correct, but the current early return skips the global compactation stage before it has a chance to improve remnant quality at the same board count. That violates the frozen product objective ordering:
 
-## Why this is a real optimization
+1. minimize board count;
+2. with the same board count, maximize commercial/industrial remnant quality;
+3. never add a board for remnant;
+4. only then reduce computation time;
+5. zero regressions.
 
-The physical baseline is an upper bound: it proves that N boards are feasible.
-The lower bound is a mathematical floor: it proves that fewer than L boards are impossible.
+Measured on the currently available certified sample:
+- 89 certified cases;
+- 52 compactation activations skipped;
+- 0 compactation board gains;
+- 20 accepted equal-board remnant improvements lost by the current V20 early return.
 
-When `N == L`, the board count is proven optimal. Running compactation, MultiSlice, OneBoard or Pattern Master cannot reduce the primary objective any further. V20 detects that situation immediately after the baseline and returns before those expensive stages.
+Therefore V20 is a real latency optimization but **not yet a release-safe quality-preserving optimization**.
 
-This is a compute optimization, not a packing-quality heuristic: the board count does not change; unnecessary search is removed.
+## Why the board certification itself remains valid
 
-## Canary configuration
+The physical baseline is an upper bound: N boards are feasible.
+The lower bound is a mathematical floor: fewer than L boards are impossible.
+When `N == L`, the board count is proven optimal.
 
-Keep staged pipeline disabled:
+The defect is not board count. The defect is returning before objective #2 (equal-board remnant polish) is finished.
+
+## Required repair before canary
+
+Experimental branch: `optimizer-v20-remnant-defrag`.
+
+The repair is intentionally local:
+- keep the V20 lower-bound certification;
+- skip global searches that can no longer reduce board count;
+- re-pack pieces **within each already-used board only**;
+- never move pieces between boards;
+- accept a board replacement only if it still uses exactly one board and `calidadRestos` improves;
+- validate the whole repaired plan industrially.
+
+Reference evaluator:
+`scripts/v20-remnant-defrag-eval.mjs`
+
+Release gate for the repair:
+- board regressions = 0;
+- invalid repaired plans = 0;
+- for every certified case where skipped global compactation improves remnant at equal boards, per-board repair must match or beat that remnant quality;
+- only after correctness/remnant parity is proven do we compare repair cost against the global compactation time saved.
+
+No partial recovery percentage is sufficient for release because remnant quality is objective #2. If one accepted reference improvement is lost, V20 remains blocked.
+
+## Future canary configuration — only after repair passes
 
 ```env
 OPTIMIZER_V10_STAGED_EXPERIMENTAL=0
 OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL=1
 ```
 
-Repository defaults remain unchanged; this is an environment/deployment decision.
+Repository defaults remain OFF until the repair gate and canary are both clean.
 
-## Entry checks
-
-Before enabling the canary:
-- `node scripts/v20-cheap-lb-smoke.mjs` passes;
-- no unresolved optimizer correctness regression;
-- current deployment has a reversible environment-variable rollout path;
-- baseline production telemetry is available for latency comparison.
-
-## Canary acceptance
-
-Correctness — mandatory:
-- `cheapViolation = 0`;
-- `cheapErrors = 0`;
-- invalid plans = 0;
-- optimizer exceptions do not increase;
-- no observed board-count regression on replayed or paired requests when a comparison is available.
-
-Effectiveness — expected:
-- `cheapCertified > 0`;
-- p50/p95 optimizer latency do not regress;
-- certified requests show reduced downstream rescue work.
-
-The historical 213-case evidence estimates ~13.24% aggregate stage-time benefit. This is not a required production canary percentage because traffic/case mix differs from the benchmark cohort.
-
-## Rollback
-
-Set:
+## Rollback after eventual rollout
 
 ```env
 OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL=0
 ```
 
-and restart/redeploy the affected process. No data migration or result-format rollback is required.
-
-Immediate rollback triggers:
-- any `cheapViolation > 0`;
-- any reproducible board-count regression attributable to V20;
-- invalid-plan increase attributable to the canary;
-- sustained latency regression.
-
-## Rollout sequence
-
-1. Enable on one canary instance or the smallest reversible traffic slice available.
-2. Compare correctness counters and latency against the non-canary path.
-3. If clean, expand gradually.
-4. Keep the feature flag available until enough production evidence exists to make V20 the default.
+Restart/redeploy the affected process. No data migration is required.
 
 ## Non-goals
 
-This canary does not validate V21/V22 Pattern Master research. V22 remains a separate evidence track.
+This repair does not validate V21/V22 Pattern Master research. V22 remains paused while V20's objective-order regression is resolved.
