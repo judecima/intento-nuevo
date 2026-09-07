@@ -1,32 +1,200 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
-import {
-  Alert as RawAlert,
-  Card as RawCard,
-  CardBody as RawCardBody,
-  CardHeader as RawCardHeader,
-  Chip as RawChip,
-  IconButton as RawIconButton,
-  Input as RawInput,
-  Textarea as RawTextarea,
-  Typography as RawTypography
-} from "@material-tailwind/react";
+import React, { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode } from "react";
 
-type LooseMaterialProps = {
+type LooseProps = {
   [key: string]: any;
   children?: ReactNode;
+  className?: string;
 };
 
-export const MtAlert = RawAlert as unknown as ComponentType<LooseMaterialProps>;
-export const MtCard = RawCard as unknown as ComponentType<LooseMaterialProps>;
-export const MtCardBody = RawCardBody as unknown as ComponentType<LooseMaterialProps>;
-export const MtCardHeader = RawCardHeader as unknown as ComponentType<LooseMaterialProps>;
-export const MtChip = RawChip as unknown as ComponentType<LooseMaterialProps>;
-export const MtIconButton = RawIconButton as unknown as ComponentType<LooseMaterialProps>;
-export const MtInput = RawInput as unknown as ComponentType<LooseMaterialProps>;
-export const MtTextarea = RawTextarea as unknown as ComponentType<LooseMaterialProps>;
-export const MtTypography = RawTypography as unknown as ComponentType<LooseMaterialProps>;
+export const MtCard = forwardRef<HTMLDivElement, LooseProps>(function MtCard({ children, className = "", ...props }, ref) {
+  return (
+    <div ref={ref} className={`bg-white rounded-xl shadow-sm ${className}`} {...props}>
+      {children}
+    </div>
+  );
+});
+
+export const MtCardHeader = forwardRef<HTMLDivElement, LooseProps>(function MtCardHeader({ children, className = "", ...props }, ref) {
+  return (
+    <div ref={ref} className={className} {...props}>
+      {children}
+    </div>
+  );
+});
+
+export const MtCardBody = forwardRef<HTMLDivElement, LooseProps>(function MtCardBody({ children, className = "", ...props }, ref) {
+  return (
+    <div ref={ref} className={className} {...props}>
+      {children}
+    </div>
+  );
+});
+
+const CHIP_COLORS: Record<string, string> = {
+  teal: "bg-teal-50 text-teal-700 border-teal-200",
+  amber: "bg-amber-50 text-amber-700 border-amber-200",
+  "blue-gray": "bg-slate-100 text-slate-700 border-slate-200",
+  red: "bg-red-50 text-red-700 border-red-200",
+  green: "bg-emerald-50 text-emerald-700 border-emerald-200"
+};
+
+export function MtChip({
+  value,
+  color = "teal",
+  size = "sm",
+  className = "",
+  ...props
+}: {
+  value?: ReactNode;
+  color?: string;
+  size?: string;
+  className?: string;
+  [key: string]: any;
+}) {
+  const colorClass = CHIP_COLORS[color] || CHIP_COLORS["blue-gray"];
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 border text-xs font-medium rounded ${colorClass} ${className}`}
+      {...props}
+    >
+      {value}
+    </span>
+  );
+}
+
+export function MtIconButton({
+  children,
+  className = "",
+  onClick,
+  type = "button",
+  "aria-label": ariaLabel,
+  ...props
+}: {
+  children?: ReactNode;
+  className?: string;
+  onClick?: () => void;
+  type?: "button" | "submit" | "reset";
+  "aria-label"?: string;
+  [key: string]: any;
+}) {
+  return (
+    <button
+      type={type}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={`inline-flex items-center justify-center p-1.5 rounded text-sm hover:opacity-80 transition ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function MtTypography({
+  as: Component = "p",
+  variant = "paragraph",
+  children,
+  className = "",
+  ...props
+}: {
+  as?: any;
+  variant?: string;
+  children?: ReactNode;
+  className?: string;
+  [key: string]: any;
+}) {
+  const Tag = Component || "p";
+  return (
+    <Tag className={className} {...props}>
+      {children}
+    </Tag>
+  );
+}
+
+type MtInputProps = InputHTMLAttributes<HTMLInputElement> & {
+  label?: string;
+  containerProps?: { className?: string };
+  crossOrigin?: string;
+  color?: string;
+  [key: string]: any;
+};
+
+export const MtInput = forwardRef<HTMLInputElement, MtInputProps>(
+  function MtInput({ label, className = "", containerProps, id, crossOrigin: _co, color: _c, ...props }, ref) {
+    const inputId = id || (label ? `input-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
+    return (
+      <div className={`flex flex-col gap-1.5 ${containerProps?.className || ""}`}>
+        {label ? (
+          <label htmlFor={inputId} className="field-label">
+            {label}
+          </label>
+        ) : null}
+        <input
+          ref={ref}
+          id={inputId}
+          className={`input focus-ring ${className}`}
+          {...props}
+        />
+      </div>
+    );
+  }
+);
+
+type MtTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  label?: string;
+  containerProps?: { className?: string };
+  color?: string;
+  [key: string]: any;
+};
+
+export const MtTextarea = forwardRef<HTMLTextAreaElement, MtTextareaProps>(
+  function MtTextarea({ label, className = "", containerProps, id, color: _c, ...props }, ref) {
+    const textareaId = id || (label ? `textarea-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
+    return (
+      <div className={`flex flex-col gap-1.5 ${containerProps?.className || ""}`}>
+        {label ? (
+          <label htmlFor={textareaId} className="field-label">
+            {label}
+          </label>
+        ) : null}
+        <textarea
+          ref={ref}
+          id={textareaId}
+          className={`textarea focus-ring ${className}`}
+          {...props}
+        />
+      </div>
+    );
+  }
+);
+
+const ALERT_COLORS: Record<string, string> = {
+  red: "bg-red-50 border-red-500 text-red-800",
+  teal: "bg-teal-50 border-teal-500 text-teal-800",
+  amber: "bg-amber-50 border-amber-500 text-amber-800",
+  green: "bg-emerald-50 border-emerald-500 text-emerald-800"
+};
+
+export function MtAlert({
+  children,
+  color = "red",
+  className = "",
+  ...props
+}: {
+  children?: ReactNode;
+  color?: string;
+  className?: string;
+  [key: string]: any;
+}) {
+  const colorClass = ALERT_COLORS[color] || ALERT_COLORS.red;
+  return (
+    <div className={`p-3 rounded border-l-4 text-sm ${colorClass} ${className}`} {...props}>
+      {children}
+    </div>
+  );
+}
 
 type SurfaceCardProps = {
   children: ReactNode;
@@ -37,7 +205,6 @@ type SurfaceCardProps = {
 export function SurfaceCard({ children, className = "", bodyClassName = "" }: SurfaceCardProps) {
   return (
     <MtCard
-      shadow
       className={`rounded-lg border border-[var(--line)] bg-[var(--md-surface-container-lowest)] text-[var(--ink)] shadow-md ${className}`}
     >
       <MtCardBody className={bodyClassName}>{children}</MtCardBody>
@@ -80,7 +247,7 @@ export function StatusChip({
   color?: "teal" | "amber" | "blue-gray" | "red" | "green";
   className?: string;
 }) {
-  return <MtChip size="sm" variant="ghost" color={color} value={value} className={`rounded-md normal-case ${className}`} />;
+  return <MtChip size="sm" color={color} value={value} className={`rounded-md normal-case ${className}`} />;
 }
 
 export function NoticeAlert({
@@ -93,7 +260,7 @@ export function NoticeAlert({
   className?: string;
 }) {
   return (
-    <MtAlert variant="ghost" color={color} className={`rounded-lg border-l-4 text-sm ${className}`}>
+    <MtAlert color={color} className={`rounded-lg border-l-4 text-sm ${className}`}>
       {children}
     </MtAlert>
   );
