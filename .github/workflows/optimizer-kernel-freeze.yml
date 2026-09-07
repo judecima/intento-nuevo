@@ -8,6 +8,8 @@ on:
       - .github/workflows/optimizer-kernel-freeze.yml
       - scripts/kernel-freeze/**
       - research/optimizer/determinism/**
+      - research/optimizer/freeze/KERNEL_V1_RESTO_ARCHIVE_AUDIT_2026-09-07.json
+      - research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY_CHECKPOINT_2026-09-07.md
   workflow_dispatch:
 
 permissions:
@@ -34,12 +36,14 @@ jobs:
           set -euo pipefail
           node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           node scripts/kernel-freeze/analyze-correctness-partitions.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
+          node scripts/kernel-freeze/reconcile-resto-archive.mjs research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
           node <<'NODE'
           const fs = require('fs');
           const p = 'research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json';
           const r = JSON.parse(fs.readFileSync(p, 'utf8'));
           const cp = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json', 'utf8'));
-          console.log('FREEZE_TRACEABILITY=' + JSON.stringify(r.freezeTraceability));
+          const rr = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json', 'utf8'));
+          console.log('FREEZE_TRACEABILITY_LEGACY_EMBEDDED=' + JSON.stringify(r.freezeTraceability));
           console.log('CANONICAL_IDENTITY=' + JSON.stringify({
             count: r.embeddedCanonical.count,
             xmlIdentities: r.embeddedCanonical.distinctXmlIdentities,
@@ -53,10 +57,20 @@ jobs:
             strongCandidates: cp.subsetSearch.strongCandidates.length,
             conclusion: cp.conclusion,
           }));
+          console.log('RESTO_RECONCILIATION=' + JSON.stringify({
+            status: rr.status,
+            audit: rr.auditSummary,
+            embeddedResto: rr.embeddedResto,
+            currentComparable: rr.currentComparable,
+          }));
           if (r.embeddedCanonical.count !== 20844) throw new Error('Embedded canonical corpus drifted from 20,844');
           if (!r.hotspots.exact213) throw new Error('Historical 213-hotspot cohort is not exact');
           if (!r.sentinels.exact5) throw new Error('Historical five-sentinel cohort is not exact');
           if (r.fullPlanHash.status !== 'HISTORICAL_CONTRACT_RECOVERED') throw new Error('Historical fullPlanHash contract is incomplete');
+          if (rr.status !== 'RECOVERED') throw new Error('resto.zip historical/current-parser reconciliation is incomplete');
+          if (rr.auditSummary.archiveXml !== 8669 || rr.auditSummary.uniqueNames !== 8669) throw new Error('Historical archive is not exactly 8,669 unique XML identities');
+          if (rr.currentComparable.records !== 8650 || rr.currentComparable.distinctXml !== 8650) throw new Error('Current comparable correctness cohort is not exactly 8,650 one-record/one-identity cases');
+          console.log('FREEZE_TRACEABILITY_READY=true');
           NODE
 
       - name: Persist provenance checkpoint
@@ -67,6 +81,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
+          git add research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
           if git diff --cached --quiet; then
             echo "Provenance reports unchanged"
             exit 0

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "kernel-v1-resto-archive-audit-v1",
+  "date": "2026-09-07",
+  "sourceArchive": "resto.zip",
+  "evidenceType": "local-isolated-archive-audit",
+  "note": "This manifest records an isolated local audit of resto.zip. The archive itself is not committed. CI reconciles these audited counts and rejection identities against the embedded canonical corpus and the historical source-of-truth.",
+  "archive": {
+    "xmlFiles": 8669,
+    "uniqueNames": 8669
+  },
+  "historicalClassification": {
+    "project": 7320,
+    "order": 1346,
+    "parseError": 3,
+    "total": 8669
+  },
+  "currentParser": {
+    "project": 7305,
+    "order": 1345,
+    "rejected": 19,
+    "accepted": 8650,
+    "total": 8669,
+    "rejections": [
+      { "stem": "4021121", "code": "mixed-board-formats" },
+      { "stem": "4039808", "code": "mixed-board-formats" },
+      { "stem": "4040297", "code": "mixed-board-formats" },
+      { "stem": "4040301", "code": "mixed-board-formats" },
+      { "stem": "4045390", "code": "mixed-board-formats" },
+      { "stem": "4046471", "code": "mixed-board-formats" },
+      { "stem": "4048845", "code": "mixed-board-formats" },
+      { "stem": "4053287", "code": "mixed-board-formats" },
+      { "stem": "4061910", "code": "mixed-board-formats" },
+      { "stem": "4061957", "code": "mixed-board-formats" },
+      { "stem": "4064338", "code": "mixed-board-formats" },
+      { "stem": "4064405", "code": "mixed-board-formats" },
+      { "stem": "4067840", "code": "mixed-board-formats" },
+      { "stem": "4023452__Dinorah_Contreras", "code": "unquoted-attribute" },
+      { "stem": "4034323__Carlos_Mtz", "code": "text-outside-root" },
+      { "stem": "Adrian_Blencio4102054", "code": "text-outside-root" },
+      { "stem": "4042984__Mauricio_Bazan", "code": "unexpected-closing-tag" },
+      { "stem": "4055251__joel_ramirez", "code": "invalid-attributes" },
+      { "stem": "4060225__Diego_Villalba", "code": "invalid-attributes" }
+    ]
+  }
+}
