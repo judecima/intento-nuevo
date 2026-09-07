@@ -4,9 +4,23 @@ Date: 2026-09-07
 
 ## Why this is a prerequisite
 
-The legacy optimizer still uses wall-clock limits as algorithmic stop conditions in Beam, Pattern Master coverage and OneBoard. A refactor can change allocation/call overhead and therefore change how much search fits inside the same time budget even when decision logic is unchanged.
+The active Next optimizer still uses wall-clock limits as algorithmic stop conditions in Beam, Pattern Master coverage and OneBoard. A refactor can change allocation/call overhead and therefore change how much search fits inside the same time budget even when decision logic is unchanged.
 
 Consequently, exact plan-hash equivalence is not a reliable refactor gate until search budgets are deterministic.
+
+## Runtime source of truth — frozen
+
+The optimizer source of truth is the **Next project** under:
+
+```text
+src/lib/optimizer/**
+```
+
+The public typed entry point is `src/lib/optimizer/index.ts`; `engine/legacy-engine.ts` adapts the typed Next input to the CommonJS kernel under `src/lib/optimizer/legacy`.
+
+The HTML files in the repository root are historical/reference artifacts only. Do not use them as the source for current optimizer changes.
+
+`scripts/extract-legacy-optimizer.mjs` is now an archaeology/comparison tool. It writes outside the active runtime by default and must not overwrite `src/lib/optimizer/legacy` during normal development.
 
 ## Recovered work — do not rewrite from memory
 
@@ -17,7 +31,7 @@ The user-provided bundle `optimizer-v19-integration-reviewed.bundle` contains br
 
 ### Useful deterministic-budget logic in `fe9d246`
 
-Preserve/rebase these parts:
+Preserve/rebase these parts into the **current Next runtime**:
 
 - Beam: `maxExpansionesBeam` decides the normal search budget.
 - Beam: `watchdogBeamMs` remains a hard runaway fuse only.
@@ -31,7 +45,7 @@ Do **not** blindly port the old cheap-LB integration from `fe9d246`; lower-bound
 
 ### Useful logic in `2f2c202`
 
-Preserve/rebase exactly:
+Preserve/rebase exactly into the **current Next runtime**:
 
 - OneBoard: `maxIntentosRescate` decides normal search.
 - OneBoard: `watchdogRescateMs` is only a fuse when deterministic attempts are configured.
@@ -43,26 +57,27 @@ Preserve/rebase exactly:
 
 Important correctness fix in `cobertura.cjs`:
 
-- the legacy route must preserve the original ordering of the wall-clock check relative to terminal-state handling;
+- the legacy-compatible route must preserve the original ordering of the wall-clock check relative to terminal-state handling;
 - deterministic-node mode may register a terminal solution reached by the last admitted node;
-- legacy mode must retain the exact old behavior when deterministic budgets are disabled.
+- flags-OFF mode must retain the exact current Next/legacy behavior.
 
-This separation is required so `flags OFF` remains genuinely legacy-compatible.
+This separation is required so `flags OFF` remains genuinely compatible with the accepted Next baseline.
 
-## Generated legacy source rule
+## Porting rule
 
-`src/lib/optimizer/legacy/*.cjs` is mechanically regenerated from the HTML source by `scripts/extract-legacy-optimizer.mjs`.
+Recovered deterministic logic is ported **directly into the code consumed by Next** and the typed configuration/cache adapter around it.
 
-Therefore the recovered changes must **not** be reintroduced only as manual edits to generated files.
+Do not port new optimizer behavior into the root HTML and do not make the HTML extractor the owner of deterministic-budget logic.
 
-When determinism work resumes:
+For every deterministic port:
 
-1. port the transformations into `patchExtractedModule()` / extractor-owned post-processing;
-2. regenerate the legacy files;
-3. assert generated output contains the deterministic budget logic;
-4. add a regeneration-parity test so rerunning the extractor cannot silently erase determinism.
+1. start from the current Next runtime version, not the historical HTML;
+2. apply only the recovered deterministic-budget behavior that is still relevant;
+3. keep flags OFF exactly compatible with the accepted Next baseline;
+4. add tests beside the Next optimizer;
+5. benchmark through `src/lib/optimizer/index.ts` / `optimizeProject`, the same path used by the application and benchmark bundle.
 
-The new product/domain architecture must remain outside `legacy/`.
+The new product/domain architecture also remains under `src/lib/optimizer/**` and outside the root HTML artifacts.
 
 ## Beam calibration warning — budget is currently per invocation
 
@@ -74,7 +89,7 @@ Calibration must use aggregated per-order telemetry.
 
 ## Step 0 — telemetry only, no decision changes
 
-Before deterministic counters govern anything, instrument the current clock-governed path and run the frozen 213 cohort.
+Before deterministic counters govern anything, instrument the current clock-governed **Next runtime path** and run the frozen 213 cohort.
 
 No new counter may change a loop condition in Step 0.
 
@@ -160,7 +175,7 @@ Do not wrap the hot path in classes. Keep these functions untouched initially:
 - `mejorEncaje`
 - `armarPlacas`
 
-Refactor orchestration first, outside `legacy/`, using separate objective contracts:
+Refactor orchestration first, under `src/lib/optimizer/**`, using separate objective contracts:
 - `LowerBoundProvider`
 - `BoardReductionStrategy`
 - `RemnantPolishStrategy`
@@ -170,9 +185,9 @@ Board-count certification may terminate the board-reduction phase, but must neve
 ## Current ordering
 
 1. finish V20 remnant repair evidence;
-2. Step 0 telemetry;
+2. Step 0 telemetry on the Next runtime;
 3. deterministic budget calibration using recovered V19 work;
 4. freeze deterministic reference + full-plan hashes;
-5. architecture/facade refactor;
+5. architecture/facade refactor in Next;
 6. domain separation;
 7. resume V22 / new optimization research.
