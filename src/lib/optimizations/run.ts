@@ -5,15 +5,19 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   getOptimizationInputHash,
   LEGACY_OPTIMIZER_VERSION,
-  optimizeProject,
   type OptimizationBoardResult,
   type OptimizationCut,
+  type OptimizationInput,
   type OptimizationPlacement,
   type OptimizationRemnant,
   type OptimizationResult,
   type OptimizerProfile,
   type OptimizerStrategy
 } from "@/lib/optimizer";
+import {
+  executeOptimization,
+  OptimizationSupersededError
+} from "./executor";
 import { buildOptimizationInputFromProject, optimizerProfileForStrategy } from "./project-input";
 
 type OptimizationResultInsert = Database["public"]["Tables"]["optimization_results"]["Insert"];
@@ -21,16 +25,22 @@ type OptimizationBoardInsert = Database["public"]["Tables"]["optimization_boards
 type OptimizationPieceInsert = Database["public"]["Tables"]["optimization_pieces"]["Insert"];
 type OptimizationCutInsert = Database["public"]["Tables"]["optimization_cuts"]["Insert"];
 type OptimizationRemnantInsert = Database["public"]["Tables"]["optimization_remnants"]["Insert"];
+type OptimizationProjectData = Pick<ProjectEditorData, "project" | "material" | "items">;
 
 export type RunOptimizationOutcome =
   | { ok: true; resultId: string; projectVersion: number }
   | { ok: false; error: string };
+
+const inFlightOptimizationRuns = new Map<string, Promise<RunOptimizationOutcome>>();
 
 /**
  * Ejecuta y persiste la optimizacion contra el estado actual del proyecto.
  *
  * Lee la version desde la base en el momento de correr, para que un guardado
  * previo en la misma request quede reflejado y el resultado no nazca vencido.
+ * Los pedidos identicos concurrentes dentro del mismo proceso comparten una sola
+ * ejecucion/persistencia; el cache persistido sigue resolviendo repeticiones ya
+ * completadas.
  */
 export async function runAndStoreOptimization({
   projectId,
@@ -44,7 +54,7 @@ export async function runAndStoreOptimization({
   profile?: OptimizerProfile;
   requestedBy: string;
   /** Estado ya leido por quien llama, para no repetir la consulta. */
-  preloaded?: Pick<ProjectEditorData, "project" | "material" | "items">;
+  preloaded?: OptimizationProjectData;
 }): Promise<RunOptimizationOutcome> {
   const data = preloaded ?? (await getProjectEditorData(projectId));
 
@@ -83,6 +93,53 @@ export async function runAndStoreOptimization({
     return { ok: true, resultId: cachedResultId, projectVersion };
   }
 
+  const dedupeKey = [
+    data.project.organization_id,
+    data.project.id,
+    projectVersion,
+    strategy,
+    inputHash
+  ].join(":");
+  const existing = inFlightOptimizationRuns.get(dedupeKey);
+  if (existing) return existing;
+
+  const pending = runUncachedOptimization({
+    supabase,
+    data,
+    input,
+    inputHash,
+    projectVersion,
+    strategy,
+    requestedBy
+  });
+  inFlightOptimizationRuns.set(dedupeKey, pending);
+
+  try {
+    return await pending;
+  } finally {
+    if (inFlightOptimizationRuns.get(dedupeKey) === pending) {
+      inFlightOptimizationRuns.delete(dedupeKey);
+    }
+  }
+}
+
+async function runUncachedOptimization({
+  supabase,
+  data,
+  input,
+  inputHash,
+  projectVersion,
+  strategy,
+  requestedBy
+}: {
+  supabase: ReturnType<typeof createSupabaseServerClient>;
+  data: OptimizationProjectData;
+  input: OptimizationInput;
+  inputHash: string;
+  projectVersion: number;
+  strategy: OptimizerStrategy;
+  requestedBy: string;
+}): Promise<RunOptimizationOutcome> {
   let jobId: string | null = null;
 
   try {
@@ -92,11 +149,10 @@ export async function runAndStoreOptimization({
         organization_id: data.project.organization_id,
         project_id: data.project.id,
         project_version: projectVersion,
-        status: "running",
+        status: "queued",
         algorithm_version: LEGACY_OPTIMIZER_VERSION,
         strategy,
-        requested_by: requestedBy,
-        started_at: new Date().toISOString()
+        requested_by: requestedBy
       })
       .select("id")
       .single();
@@ -104,11 +160,40 @@ export async function runAndStoreOptimization({
     if (jobError) throw new Error(`${optimizationDomainErrors.jobCreateFailed}: ${jobError.message}`);
     jobId = job.id;
 
-    const result = optimizeProject(input);
+    const execution = await executeOptimization(input, {
+      projectId: data.project.id,
+      projectVersion,
+      onStarted: async () => {
+        const { error } = await supabase
+          .from("optimization_jobs")
+          .update({ status: "running", started_at: new Date().toISOString(), error: null })
+          .eq("id", job.id);
+
+        if (error) throw new Error(`OPTIMIZATION_JOB_UPDATE_FAILED: ${error.message}`);
+      }
+    });
+    const result = execution.result;
+
+    console.info(
+      "OPTIMIZER_EXECUTION",
+      JSON.stringify({
+        jobId,
+        projectId: data.project.id,
+        projectVersion,
+        inputHash,
+        ...execution.telemetry
+      })
+    );
 
     if (!result.validation.ok) {
       throw new Error(`${optimizationDomainErrors.invalidResult}: ${describeValidation(result)}`);
     }
+
+    await assertProjectVersionCurrent({
+      supabase,
+      projectId: data.project.id,
+      expectedVersion: projectVersion
+    });
 
     const resultId = await persistOptimizationResult({
       supabase,
@@ -141,20 +226,45 @@ export async function runAndStoreOptimization({
 
     return { ok: true, resultId, projectVersion };
   } catch (error) {
+    const superseded = error instanceof OptimizationSupersededError;
     const message = error instanceof Error ? error.message : String(error);
 
     if (jobId) {
       await supabase
         .from("optimization_jobs")
         .update({
-          status: "failed",
+          status: superseded ? "cancelled" : "failed",
           completed_at: new Date().toISOString(),
           error: message.slice(0, 2000)
         })
         .eq("id", jobId);
     }
 
-    return { ok: false, error: message };
+    return {
+      ok: false,
+      error: superseded ? optimizationDomainErrors.projectVersionConflict : message
+    };
+  }
+}
+
+async function assertProjectVersionCurrent({
+  supabase,
+  projectId,
+  expectedVersion
+}: {
+  supabase: ReturnType<typeof createSupabaseServerClient>;
+  projectId: string;
+  expectedVersion: number;
+}) {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("version")
+    .eq("id", projectId)
+    .single();
+
+  if (error) throw new Error(`PROJECT_VERSION_CHECK_FAILED: ${error.message}`);
+  if (Number(data.version) !== expectedVersion) {
+    throw new OptimizationSupersededError(projectId, expectedVersion);
   }
 }
 
