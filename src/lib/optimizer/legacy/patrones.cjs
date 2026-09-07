@@ -34,16 +34,16 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
   const conRef = lineas.map((l, i) => ({ ...l, ref: i, _refOriginal: l.ref }));
   const porVector = new Map();
   const usarV21 = O.usarV21FamilyMaster === true || envFlag('OPTIMIZER_V21_FAMILY_MASTER_EXPERIMENTAL');
-  const rondasEfectivas = usarV21 ? Math.min(rondas, 20) : rondas;
+  let patronesDirigidos = 0;
 
   const registrar = (placa, meta = null) => {
     const uso = new Map();
     for (const c of placa.colocadas) {
       const t = c.pieza.ref;
-      if (typeof t !== 'number') return;
+      if (typeof t !== 'number') return false;
       uso.set(t, (uso.get(t) || 0) + 1);
     }
-    if (!uso.size) return;
+    if (!uso.size) return false;
     const area = placa.colocadas.reduce((a, c) => a + c.base * c.altura, 0);
     const k = claveVector(uso);
     const previo = porVector.get(k);
@@ -54,36 +54,49 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
         placa,
         ...(meta ? { _patternMeta: meta } : {})
       });
+      return true;
     }
+    return false;
   };
 
   const warn = console.warn; console.warn = () => {};
 
-  // V21b: generar primero columnas deterministas por familias geométricas y
-  // reducir la exploración aleatoria de 40 a 20 rondas. El mismo motor
-  // guillotina construye cada placa; sólo cambia cómo se propone el pool.
-  // Con el flag apagado, el comportamiento legacy permanece exacto.
+  // V21b: construir una base geométrica DIRECTA de tiras repetitivas + fillers.
+  // No se vuelve a llamar `optimizar()` sobre subconjuntos "inteligentes": ese
+  // enfoque ya fue medido y no recupera el caso oro 4058501. Las placas aquí
+  // nacen de un constructor guillotina determinista de dos etapas.
   if (usarV21) {
     try {
-      const { buildFurniturePatternSeeds } = require('../experimental/furniture-pattern-seeds.cjs');
-      const seeds = buildFurniturePatternSeeds(lineas, { maxFamilies: 12, minTypes: 2, minPieces: 2 });
-      for (const seed of seeds) {
-        const sub = seed.typeIndexes.map((typeIndex) => ({ ...conRef[typeIndex] }));
-        if (!sub.length) continue;
+      const {
+        buildRepetitiveFamilyBasis,
+        materializeStripRecipe,
+      } = require('../experimental/repetitive-family-basis.cjs');
+      const recipes = buildRepetitiveFamilyBasis(lineas, O, {
+        minRepeat: 4,
+        maxFamilies: 12,
+        fillersPerFamily: 1,
+        maxPatterns: 24,
+      });
+      for (let i = 0; i < recipes.length; i++) {
+        const recipe = recipes[i];
         try {
-          const res = optimizar(sub, { ...O, semilla: 50000 + seed.ordinal, pases: 1 });
-          for (const p of res.placas) registrar(p, {
-            origin: seed.origin,
-            familyKey: seed.key,
-            familyAxis: seed.axis,
-            familyDimension: seed.dimension,
+          const placa = materializeStripRecipe(recipe, lineas, O);
+          if (registrar(placa, {
+            origin: recipe.origin,
+            dominantTypeIndex: recipe.dominantTypeIndex,
+            dominantRotated: !!recipe.dominantRotated,
             firstSeenRound: -1,
-            sourceRound: -1
-          });
-        } catch (e) { /* familia no materializable: continuar */ }
+            sourceRound: -1,
+          })) patronesDirigidos++;
+        } catch (_error) { /* receta no materializable: continuar */ }
       }
-    } catch (e) { /* conservar rondas random si falla instrumentacion V21 */ }
+    } catch (_error) { /* conservar las rondas legacy si falla V21 */ }
   }
+
+  // Reducir 40 -> 20 sólo si V21 pudo aportar columnas físicas directas.
+  // Si el pedido no tiene estructura repetitiva reconocida, el comportamiento
+  // permanece en las rondas legacy y no hereda el riesgo conocido de la ablación.
+  const rondasEfectivas = usarV21 && patronesDirigidos > 0 ? Math.min(rondas, 20) : rondas;
 
   for (let r = 0; r < rondasEfectivas; r++) {
     const sub = r === 0 ? conRef : conRef.filter(() => R() > 0.45);
