@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "kernel-v1-freeze-traceability-v1",
+  "generatedAt": "2026-09-07T22:32:42.823Z",
+  "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
+  "status": "READY_FOR_FORMAL_CERTIFICATION",
+  "kernelFrozen": false,
+  "checks": {
+    "fiveSentinelsRecovered": true,
+    "hotspots213Recovered": true,
+    "fullPlanHashRecovered": true,
+    "archive8669UniqueAudited": true,
+    "restoReconciliationRecovered": true,
+    "exactCurrentCorrectness8650": true
+  },
+  "historicalCohorts": {
+    "sentinels": 5,
+    "hotspots": 213,
+    "archiveXml": 8669,
+    "archiveUniqueNames": 8669,
+    "currentComparableCorrectness": 8650
+  },
+  "currentCorrectnessCohort": {
+    "records": 8650,
+    "distinctXml": 8650,
+    "identitySetSha256": "36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3",
+    "derivation": "embedded resto identities minus the 13 audited mixed-board-formats identities; the six other audited parser rejections are the six archive identities absent from embedded resto"
+  },
+  "fullPlanHash": {
+    "status": "HISTORICAL_CONTRACT_RECOVERED",
+    "checks": {
+      "frozen213Assertion": true,
+      "sentinelsLiteral": true,
+      "referenceFullPlanHash": true,
+      "fullPlanConstruction": true,
+      "sha256StableJson": true
+    },
+    "contract": {
+      "algorithm": "sha256",
+      "serialization": "JSON.stringify(stable(value))",
+      "stableObjects": "object keys recursively sorted by code-point/default Array.sort semantics in the versioned runner",
+      "stableArrays": "array order preserved",
+      "fullPlan": "{ geometry, traces, quality }",
+      "geometry": "{ boards, placements, cuts, remnants, trees } with trace/_diagLink/_diagPath recursively excluded",
+      "traces": "result.placements.map(placement => placement.trace)",
+      "quality": "result.metrics excluding engineMs and cacheHit",
+      "referenceCase": "4050594",
+      "referenceHash": "e858a3bfd89f69b7165954039f3f809752250712736316239f349d8fafbdcd42"
+    }
+  },
+  "sourceReports": [
+    "research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json",
+    "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json",
+    "research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json"
+  ],
+  "supersedesForCorrectnessDecision": "The embedded-only correctness8669 status in KERNEL_V1_FREEZE_PROVENANCE.json is forensic legacy evidence. The final correctness traceability decision is the archive/embedded reconciliation in KERNEL_V1_RESTO_RECONCILIATION.json.",
+  "nextGate": "Run formal correctness + determinism certification over the exact 8,650 current-comparable cohort against the unchanged Kernel V1 candidate."
+}
