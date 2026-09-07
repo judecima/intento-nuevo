@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "kernel-v1-correctness-partitions-v1",
-  "generatedAt": "2026-09-07T22:13:57.858Z",
+  "schemaVersion": "kernel-v1-correctness-partitions-v2",
+  "generatedAt": "2026-09-07T22:17:08.930Z",
   "input": {
     "canonical": "experiencia/canonical_cases.json",
     "sha256": "a6af8b4f312105560ef8cd47c26c083dc314c6d19fe68bfd5ecc70bd29106329",
@@ -9,7 +9,13 @@
   "historicalTargets": {
     "xmlFiles": 8669,
     "canonicalCases": 8650,
-    "missingNonCanonicalXml": 19
+    "rootFormats": {
+      "project": 7320,
+      "order": 1346,
+      "parseError": 3
+    },
+    "parseableRootXml": 8666,
+    "historicalXmlWithoutCanonicalCase": 19
   },
   "partitions": [
     {
@@ -19,6 +25,10 @@
       "formats": {
         "order": 1345,
         "project": 7335
+      },
+      "distinctXmlByFormat": {
+        "order": 1345,
+        "project": 7318
       },
       "identitySha256": "6052286b28a5b47637e69f16ad5755358d7772123c0d80a2b10d33d6a0b63f50",
       "samples": [
@@ -37,6 +47,10 @@
         "order": 276,
         "project": 1809
       },
+      "distinctXmlByFormat": {
+        "order": 276,
+        "project": 1807
+      },
       "identitySha256": "013e33f060b9adfc0782acc07b6c275d4fa0bb54774d09044598a2818f7f5874",
       "samples": [
         "/mnt/data/xml_experience/part6/part_6/Cristian_Bustos4095106.xml",
@@ -54,6 +68,10 @@
         "order": 441,
         "project": 1610
       },
+      "distinctXmlByFormat": {
+        "order": 441,
+        "project": 1607
+      },
       "identitySha256": "68389942573ef3521b7a61f8649d61af9afe3ed23e4dd1c172cd378cee57c667",
       "samples": [
         "/mnt/data/xml_experience/parte5/parte5/Eliu_Perez4129132.xml",
@@ -68,6 +86,10 @@
       "records": 2015,
       "distinctXml": 2015,
       "formats": {
+        "order": 305,
+        "project": 1710
+      },
+      "distinctXmlByFormat": {
         "order": 305,
         "project": 1710
       },
@@ -88,6 +110,10 @@
         "order": 259,
         "project": 1749
       },
+      "distinctXmlByFormat": {
+        "order": 259,
+        "project": 1743
+      },
       "identitySha256": "6d566e5ace5559d34dcc9f3f63502d0ed6977913aaed85a83b368834e851dfad",
       "samples": [
         "/mnt/data/xml_experience/parte2/parte2/MONICA JANETH_ALMANZA MORENO4124155.xml",
@@ -104,6 +130,10 @@
       "formats": {
         "order": 450,
         "project": 1554
+      },
+      "distinctXmlByFormat": {
+        "order": 450,
+        "project": 1550
       },
       "identitySha256": "0de5e029e1d76adebe0250c837059aadd0260fc64add5a36462d7063444aa4dd",
       "samples": [
@@ -122,6 +152,10 @@
         "order": 449,
         "project": 1552
       },
+      "distinctXmlByFormat": {
+        "order": 449,
+        "project": 1551
+      },
       "identitySha256": "fa92524da83c084aa93dba7441b70971ef1bfcb17fb6de13422db79c0b850711",
       "samples": [
         "/mnt/data/xml_experience/parte1/parte-1/4004162__Luis_Mendez4004162.xml",
@@ -135,6 +169,31 @@
   "partitionCount": 7,
   "crossPartitionDuplicateIdentityCount": 0,
   "crossPartitionDuplicateSamples": [],
+  "restoHistoricalLineage": {
+    "partition": "resto",
+    "records": 8680,
+    "distinctXml": 8663,
+    "duplicateCanonicalRecords": 17,
+    "distinctXmlByFormat": {
+      "order": 1345,
+      "project": 7318
+    },
+    "historicalRootFormats": {
+      "project": 7320,
+      "order": 1346
+    },
+    "deltaToHistoricalRootFormats": {
+      "project": 2,
+      "order": 1
+    },
+    "missingParseableRootXml": 3,
+    "historicalParseErrors": 3,
+    "missingToHistorical8669": 6,
+    "arithmeticExplainsEntireGap": true,
+    "coherentSixFileGap": true,
+    "identitySha256": "6052286b28a5b47637e69f16ad5755358d7772123c0d80a2b10d33d6a0b63f50",
+    "interpretation": "The embedded 'resto' partition accounts for 8663/8669 historical XML identities; the remaining 6 are exactly 3 parseable root XML plus 3 historical parse errors by inventory arithmetic. Filenames of the missing XML are not recovered by this evidence."
+  },
   "subsetSearch": {
     "exactCanonicalRecordCombinationCount": 0,
     "exactXmlRecordCombinationCount": 0,
@@ -143,5 +202,5 @@
     "candidates": [],
     "strongCandidates": []
   },
-  "conclusion": "NO_EXACT_8650_CANONICAL_PARTITION_SET_FROM_SOURCE_DIRECTORIES"
+  "conclusion": "RESTO_RECOVERS_8663_OF_8669_HISTORICAL_XML_WITH_FORMAT_COHERENT_SIX_FILE_GAP"
 }
