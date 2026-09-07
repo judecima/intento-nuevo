@@ -1,15 +1,33 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const LEGACY_HTML =
   process.env.LEGACY_OPTIMIZER_HTML || "Optimizador_V10_Interactivo_Modos_Validacion_XML_Lepton.html";
-const OUT_DIR = join("src", "lib", "optimizer", "legacy");
+
+// Source-of-truth policy (2026-09-07):
+// - the active optimizer lives in the Next project under src/lib/optimizer/**;
+// - root HTML files are historical/reference artifacts only;
+// - this extractor must not overwrite the active Next runtime by accident.
+const NEXT_RUNTIME_DIR = join("src", "lib", "optimizer", "legacy");
+const OUT_DIR = process.env.LEGACY_EXTRACT_OUT_DIR || join("research", "legacy-html-extracted");
+const ALLOW_RUNTIME_OVERWRITE = /^(1|true|yes|on)$/i.test(
+  process.env.ALLOW_LEGACY_RUNTIME_OVERWRITE || "",
+);
+
+if (resolve(OUT_DIR) === resolve(NEXT_RUNTIME_DIR) && !ALLOW_RUNTIME_OVERWRITE) {
+  throw new Error(
+    "Refusing to overwrite the active Next optimizer runtime. " +
+      "src/lib/optimizer/** is the source of truth. " +
+      "Use LEGACY_EXTRACT_OUT_DIR for historical extraction, or set " +
+      "ALLOW_LEGACY_RUNTIME_OVERWRITE=1 only for an explicit archaeology/comparison task.",
+  );
+}
 
 const html = readFileSync(LEGACY_HTML, "utf8");
 mkdirSync(OUT_DIR, { recursive: true });
 
-const generatedHeader = `// Generated mechanically from ${LEGACY_HTML}.
-// Do not edit these legacy files by hand; update the extractor if the source changes.
+const generatedHeader = `// Historical extraction from ${LEGACY_HTML}.
+// Reference snapshot only. The active Next optimizer source of truth lives under src/lib/optimizer/**.
 "use strict";
 `;
 
@@ -121,13 +139,8 @@ for (const moduleName of [
 
 writeFileSync(
   join(OUT_DIR, "README.md"),
-  `# Legacy Optimizer
-
-These CommonJS modules are mechanically extracted from \`${LEGACY_HTML}\` by \`scripts/extract-legacy-optimizer.mjs\`.
-
-The guillotine optimizer is treated as critical legacy logic. Do not edit these generated files manually. Add typed adapters, validators, and tests around them instead.
-`,
+  `# Historical HTML optimizer extraction\n\nThis directory was extracted from \`${LEGACY_HTML}\` by \`scripts/extract-legacy-optimizer.mjs\`.\n\nIt is a reference/archaeology snapshot only. The active optimizer source of truth is the Next project under \`src/lib/optimizer/**\`. Do not copy this snapshot over the active runtime as part of normal development.\n`,
   "utf8",
 );
 
-console.log("Legacy optimizer extracted into", OUT_DIR);
+console.log("Historical optimizer extracted into", OUT_DIR);

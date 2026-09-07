@@ -1,0 +1,25 @@
+{
+  "decision": "REJECTED",
+  "reason": "No consistent runtime improvement; cache overhead offsets or exceeds deterministic repacking cost.",
+  "gold4058501_40": {
+    "legacyMs": 19220.126,
+    "crossMs": 20169.871,
+    "savingPct": -4.941408812824634,
+    "legacyPool": 130,
+    "crossPool": 130,
+    "poolExact": true,
+    "hits": 528,
+    "misses": 1078,
+    "hitRate": 0.3287671232876712,
+    "cacheSize": 1078,
+    "minPool": 35
+  },
+  "sample20": [
+    {"order":4056775,"legacyMs":4742.119,"crossMs":4897.937,"savingPct":-3.2858306592474844,"exact":true,"hits":33,"misses":11,"hitRate":0.75},
+    {"order":4054508,"legacyMs":5099.422,"crossMs":4828.377,"savingPct":5.315210233630384,"exact":true,"hits":0,"misses":0,"hitRate":0},
+    {"order":4061148,"legacyMs":4011.245,"crossMs":4517.538,"savingPct":-12.621841847107312,"exact":true,"hits":0,"misses":0,"hitRate":0},
+    {"order":4054400,"legacyMs":3757.306,"crossMs":3503.521,"savingPct":6.754440548627125,"exact":true,"hits":0,"misses":0,"hitRate":0}
+  ],
+  "sampleAggregate": {"legacyMs":17610.092,"crossMs":17747.373,"savingPct":-0.7795586757865833,"exact":true},
+  "legacyDisabledGate": {"order":4058501,"rounds":20,"samePhysicalPool":true,"v18Pool":69,"v19LegacyPool":69}
+}

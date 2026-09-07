@@ -24,6 +24,18 @@ function nuevasMetricas() {
                      invalidos: 0, ms: 0, peorMs: 0 });
   return {
     oneboard: m(), master: m(), multislice: m(), compactacion: m(),
+    lowerBound: {
+      externalUsed: 0,
+      externalViolation: 0,
+      certifiedAfterBaseline: 0,
+      cheapRuns: 0,
+      cheapCertified: 0,
+      cheapViolation: 0,
+      cheapErrors: 0,
+      cheapMs: 0,
+      cheapValue: 0,
+      cheapReason: null,
+    },
     total: { casos: 0, ms: 0 }
   };
 }
@@ -32,6 +44,53 @@ function registrar(m, ms, gano, ahorro, invalido) {
   m.activaciones++; m.ms += ms; m.peorMs = Math.max(m.peorMs, ms);
   if (gano) { m.ganancias++; m.placasAhorradas += ahorro; }
   if (invalido) m.invalidos++;
+}
+
+function envFlag(name) {
+  return /^(1|true|yes|on)$/i.test(String(process.env[name] || ''));
+}
+
+function usarCotaBarataPostBaseline(config) {
+  if (config.usarCotaBarataAntesCompactacion === true) return true;
+  // El flag V20 es independiente del pipeline staged para poder hacer un A/B
+  // contra el V10 legacy cambiando una sola variable.
+  return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+}
+
+function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
+  const t0 = process.hrtime.bigint();
+  metricas.lowerBound.cheapRuns++;
+  try {
+    const optsLB = baseline?.opts || config;
+    const trimValido = (v) => v !== null && v !== '' && Number.isFinite(+v);
+    if (!trimValido(optsLB?.refiladoX) || !trimValido(optsLB?.refiladoY)) {
+      metricas.lowerBound.cheapErrors++;
+      metricas.lowerBound.cheapReason = 'invalid-trim';
+      return 0;
+    }
+
+    // Require dinamico: el legacy productivo no carga codigo experimental salvo
+    // que el flag V20 este activado explicitamente.
+    const { computeHybridLowerBound } = require('../experimental/hybrid-lower-bound.cjs');
+    const r = computeHybridLowerBound(
+      lineas,
+      optsLB,
+      baseline?.resumen?.placas,
+      {
+        useRaster: false,
+        claude: { usarRaster: false },
+      },
+    );
+    const value = Math.max(0, Math.floor(Number(r?.cheapLowerBound ?? r?.lowerBound ?? 0)));
+    metricas.lowerBound.cheapValue = value;
+    metricas.lowerBound.cheapReason = r?.reason || null;
+    return value;
+  } catch (_) {
+    metricas.lowerBound.cheapErrors++;
+    return 0;
+  } finally {
+    metricas.lowerBound.cheapMs += Number(process.hrtime.bigint() - t0) / 1e6;
+  }
 }
 
 /* Multi-rebanada como PLAN ALTERNATIVO completo, nunca mezclada dentro del
@@ -154,12 +213,65 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   const areaTotal = lineas.reduce((s, l) => s + l.cant * l.base * l.altura, 0);
   const areaPlaca = (config.placaBase - (config.refiladoX || 0)) *
                     (config.placaAltura - (config.refiladoY || 0));
-  const cota = Math.ceil(areaTotal / areaPlaca - 1e-9);
+  const cotaArea = Math.ceil(areaTotal / areaPlaca - 1e-9);
+  let cota = cotaArea;
 
   // ---- baseline V8, congelado
   const baseline = optimizar(lineas, { ...config, multiVariantes: false });
   let mejor = baseline;
   metricas.total.casos++;
+
+  // Cota externa opcional. Sólo se acepta si no supera al incumbente físico ya
+  // construido. Si lo supera, hay una violación de seguridad y se ignora.
+  const externaRaw = Number(config.cotaInferiorExterna);
+  if (Number.isFinite(externaRaw) && externaRaw > 0) {
+    const externa = Math.floor(externaRaw);
+    if (baseline?.resumen && externa <= baseline.resumen.placas) {
+      cota = Math.max(cota, externa);
+      metricas.lowerBound.externalUsed++;
+    } else {
+      metricas.lowerBound.externalViolation++;
+    }
+  }
+
+  const usarCheap = usarCotaBarataPostBaseline(config);
+  const certificarTemprano = config.certificarAntesCompactacion === true || usarCheap;
+
+  // Primer corte: si area/external LB ya certifican, ni siquiera calculamos la
+  // cheap LB. Esto cubre los casos baratos baseline == areaLB.
+  if (
+    certificarTemprano &&
+    baseline?.resumen &&
+    baseline.resumen.placas <= cota
+  ) {
+    metricas.lowerBound.certifiedAfterBaseline++;
+    metricas.total.ms += Date.now() - t0;
+    return { plan: baseline, metricas, cota, cotaArea };
+  }
+
+  // V20 experimental: sólo para los que NO cerraron por área. Calcula la misma
+  // Hybrid Cheap LB validada en V15-V19, explícitamente sin Raster. Si iguala
+  // al incumbente físico, el número de placas queda certificado y cortamos
+  // compactación + MultiSlice + OneBoard + Master.
+  if (usarCheap && baseline?.resumen) {
+    const cheap = calcularCotaBarataPostBaseline(lineas, config, baseline, metricas);
+    if (cheap > 0) {
+      if (cheap <= baseline.resumen.placas) {
+        cota = Math.max(cota, cheap);
+      } else {
+        // Una cota inferior no puede superar una solución física factible.
+        // No se usa: queda registrada para detectar cualquier bug de la cota.
+        metricas.lowerBound.cheapViolation++;
+      }
+    }
+
+    if (baseline.resumen.placas <= cota) {
+      metricas.lowerBound.cheapCertified++;
+      metricas.lowerBound.certifiedAfterBaseline++;
+      metricas.total.ms += Date.now() - t0;
+      return { plan: baseline, metricas, cota, cotaArea };
+    }
+  }
 
   const probar = (mod, candidato, ms, permitirMismas=false) => {
     let r;
@@ -217,7 +329,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   // ---- si ya esta en la cota, ningun rescate de PLACAS puede aportar
   if (mejor.resumen.placas <= cota) {
     metricas.total.ms += Date.now() - t0;
-    return { plan: mejor, metricas, cota };
+    return { plan: mejor, metricas, cota, cotaArea };
   }
 
   // ---- multi-rebanada: plan alternativo completo
@@ -228,7 +340,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   }
 
   // ---- rescate de una placa: solo cuando por area todo podria entrar en una
-  if (config.usarOneBoard !== false && cota === 1 && mejor.resumen.placas > 1) {
+  if (config.usarOneBoard !== false && cotaArea === 1 && mejor.resumen.placas > 1) {
     const t = Date.now();
     const res = rescatarUnaPlaca(lineas, config);
     if (res.exito) probar('oneboard', res.plan, Date.now() - t);
@@ -246,14 +358,14 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       const sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
       const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
       if (cand) probar('master', cand, Date.now() - t);
-      else registrar(metricas.master, Date.now() - t, false, 0, false);
+      else registrar(metricas.master, Date.now() - t, false,0,false);
     } catch (e) {
       registrar(metricas.master, Date.now() - t, false, 0, false);
     }
   }
 
   metricas.total.ms += Date.now() - t0;
-  return { plan: mejor, metricas, cota };
+  return { plan: mejor, metricas, cota, cotaArea };
 }
 
 module.exports = { optimizarV10, nuevasMetricas, validarPlanIndustrial };
