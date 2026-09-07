@@ -1,18 +1,41 @@
 {
-  "schemaVersion": "kernel-v1-resto-archive-audit-v1",
+  "schemaVersion": "kernel-v1-resto-archive-audit-v2",
   "date": "2026-09-07",
   "sourceArchive": "resto.zip",
-  "evidenceType": "local-isolated-archive-audit",
+  "evidenceType": "local-isolated-archive-audit-plus-versioned-historical-reconciliation",
   "note": "This manifest records an isolated local audit of resto.zip. The archive itself is not committed. CI reconciles these audited counts and rejection identities against the embedded canonical corpus and the historical source-of-truth.",
   "archive": {
     "xmlFiles": 8669,
     "uniqueNames": 8669
   },
-  "historicalClassification": {
+  "earlyHistoricalInventory": {
+    "status": "SUPERSEDED_FOR_CANONICAL_CLASSIFICATION",
     "project": 7320,
     "order": 1346,
     "parseError": 3,
-    "total": 8669
+    "total": 8669,
+    "note": "Retained as an earlier inventory. It is not the authoritative parser/canonical classification for the freeze cohort."
+  },
+  "canonicalAudit20260902": {
+    "status": "AUTHORITATIVE_FOR_CANONICAL_CLASSIFICATION",
+    "source": "EXPERIENCE_OPTIMIZER_TRUTH.md / Auditoria XML Etapa 1B 2026-09-02",
+    "xmlTotal": 8669,
+    "projectRoots": 7323,
+    "orderRoots": 1346,
+    "otherRoots": 0,
+    "unreadable": 0,
+    "parseOk": 8650,
+    "parseError": 6,
+    "mixedBoardExcluded": 13,
+    "canonicalCases": 8650,
+    "canonicalProject": 7305,
+    "canonicalOrder": 1345,
+    "parseErrorBreakdown": {
+      "text-outside-root": 2,
+      "invalid-attributes": 2,
+      "unquoted-attribute": 1,
+      "unexpected-closing-tag": 1
+    }
   },
   "currentParser": {
     "project": 7305,

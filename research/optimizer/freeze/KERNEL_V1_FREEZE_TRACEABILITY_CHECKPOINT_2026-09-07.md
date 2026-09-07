@@ -1,4 +1,4 @@
-# Kernel V1 Freeze — Traceability Complete Checkpoint
+# Kernel V1 Freeze — Traceability Complete / Formal Policy Checkpoint
 
 Date: 2026-09-07
 
@@ -6,131 +6,162 @@ Date: 2026-09-07
 
 Do **not** declare `Kernel V1 FROZEN` yet.
 
-Historical traceability is now complete enough to start the formal freeze certification without changing the optimizer, parser policy, heuristics, search behavior, budgets, scoring, or Worker behavior.
+Historical traceability is complete. The remaining blockers are no longer corpus archaeology: they are two formal certification contracts that must not be invented for convenience.
 
 Kernel candidate remains unchanged:
 
 `4063963260abb10c8d68d0e553942899c925cc2f`
 
-## Traceability status
+## Traceability complete
 
-### 1. Five sentinels — RECOVERED
+- 5 historical sentinels: recovered.
+- 213 historical hotspots: recovered.
+- historical `fullPlanHash` semantics: recovered.
+- physical `resto.zip`: 8,669 XML / 8,669 unique names.
+- exact current-comparable correctness cohort: 8,650 records / 8,650 XML identities.
+- correctness cohort identity-set SHA-256:
 
-Exact historical contract is versioned in `scripts/deferred-trace-gate.mjs`:
+`36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3`
 
-- `4050594` -> 7 boards
-- `4056900` -> 6 boards
-- `4057401` -> 4 boards
-- `4058501` -> 8 boards
-- `4059200` -> 17 boards
+No parser relaxation is used. The 13 `mixed-board-formats` XML are excluded because a canonical optimization case supports one board format. The six malformed XML never entered the embedded canonical corpus.
 
-### 2. 213 hotspots — RECOVERED
+## Parse-error history reconciled
 
-Exact source is `experiencia/v6/hotspot-all.jsonl`, filtered by the historical gate as:
-
-- `ok !== false`
-- `!engineCacheHit`
-
-Result: exactly 213 rows and 213 unique XML identities.
-
-Frozen identity-set SHA-256:
-
-`34b867a789d0abf62818eae305a095f3e3f01a439d25df372e522fecd9ada5f1`
-
-### 3. fullPlanHash — RECOVERED
-
-Historical runner semantics are versioned and inspected by CI:
-
-- algorithm: SHA-256
-- serialization: `JSON.stringify(stable(value))`
-- object keys: recursively sorted
-- arrays: order preserved
-- full plan: `{ geometry, traces, quality }`
-- geometry excludes diagnostic representation fields `trace`, `_diagLink`, `_diagPath`
-- quality excludes `engineMs` and `cacheHit`
-
-Reference case `4050594`:
-
-`e858a3bfd89f69b7165954039f3f809752250712736316239f349d8fafbdcd42`
-
-### 4. Correctness corpus — RECOVERED AND RECONCILED
-
-The earlier diagnosis that six historical XML filenames were missing was incomplete. The isolated local audit of `resto.zip` establishes:
-
-- XML files: 8,669
-- unique XML names: 8,669
-
-Current canonical parser classification:
-
-- `project`: 7,305
-- `Order`: 1,345
-- rejected: 19
-- accepted/current-comparable: 8,650
-
-Historical inventory was:
+The earlier source-of-truth inventory recorded:
 
 - `project`: 7,320
 - `Order`: 1,346
 - parse errors: 3
 
-The historical source-of-truth independently records that Etapa 1B produced **8,650 canonical cases over 8,669 XML** and that mixed-stock XML is excluded by design because one optimization case supports one board format.
+That inventory is retained as historical evidence, but it is **not** the authoritative canonical classification.
 
-The 19 current rejections are versioned in:
+The later `Auditoria XML Etapa 1B 2026-09-02` in the same source-of-truth already records the corrected canonical audit:
 
-`research/optimizer/freeze/KERNEL_V1_RESTO_ARCHIVE_AUDIT_2026-09-07.json`
+- XML total: 8,669
+- root `project`: 7,323
+- root `Order`: 1,346
+- parse OK / canonical candidates before mixed-stock exclusion accounting: 8,650
+- parse errors: 6
+- mixed-board exclusions: 13
+- canonical cases: 8,650
+  - project: 7,305
+  - Order: 1,345
 
-Breakdown:
+Parse-error breakdown:
 
-- `mixed-board-formats`: 13
-- `unquoted-attribute`: 1
 - `text-outside-root`: 2
-- `unexpected-closing-tag`: 1
 - `invalid-attributes`: 2
+- `unquoted-attribute`: 1
+- `unexpected-closing-tag`: 1
 
-No parser relaxation is used for the freeze.
+Therefore the previously noted `3 vs 6` discrepancy is not an unresolved missing-file problem. It is an older inventory superseded, for canonical classification, by the later Etapa 1B audit.
 
-## Reconciliation against the embedded corpus
+## Why 8,650 is not a chosen threshold
 
-The embedded `resto` partition contains:
+Two independent derivations converge:
 
-- canonical records: 8,680
-- distinct XML identities: 8,663
+```text
+physical archive -> current parser
+8,669 - 19 rejected = 8,650
 
-Reproducible CI reconciliation proves:
+embedded resto -> audited mixed-board exclusion
+8,663 distinct identities - 13 mixed-board identities = 8,650
+```
 
-- all 13 `mixed-board-formats` identities resolve uniquely inside embedded `resto`: **13/13**
-- the other six current parser rejections are exactly absent from embedded `resto`: **6/6**
-- `8,663 + 6 = 8,669` reconstructs the complete archive identity count
-- removing the 13 mixed-board identities from embedded `resto` yields exactly **8,650 distinct XML identities**
-- after that exclusion there are exactly **8,650 canonical records**, i.e. one record per comparable XML identity
+The six malformed XML are exactly the archive identities absent from embedded `resto`; all 13 mixed-board identities resolve uniquely inside embedded `resto`.
 
-Current-comparable correctness identity-set SHA-256:
+This is evidence, not a fitted gate.
 
-`36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3`
+## Formal certification policy — BLOCKED, explicitly
 
-This closes the correctness provenance problem without modifying `ensureSingleBoardFormat` or any production parser behavior.
+The previous aggregate status `READY_FOR_FORMAL_CERTIFICATION` was too strong. Traceability is ready; **formal execution policy is not**.
 
-## Reproducible evidence
+### Blocker A — production deterministic budgets are not calibrated/versioned
 
-Workflow:
+The Kernel V1 Candidate explicitly states that deterministic work budgets and their watchdogs are optional and OFF by default. With no deterministic work budget, historical wall-clock behavior is intentionally preserved for calibration.
 
-`.github/workflows/optimizer-kernel-freeze.yml`
+Formal freeze requires:
 
-Scripts:
+`same input + seed + deterministic budget => same fullPlanHash`
 
-- `scripts/kernel-freeze/build-provenance.mjs`
-- `scripts/kernel-freeze/analyze-correctness-partitions.mjs`
-- `scripts/kernel-freeze/reconcile-resto-archive.mjs`
-- `scripts/kernel-freeze/finalize-traceability.mjs`
+and:
 
-Reports:
+`watchdog hits = 0 under calibrated production budgets`
 
-- `research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json`
-- `research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json`
-- `research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json`
-- `research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json`
+No authoritative numeric production values were recovered for:
 
-`KERNEL_V1_FREEZE_PROVENANCE.json` still contains the older embedded-only `correctness8669=BLOCKED` diagnostic. That field is intentionally treated as legacy forensic evidence: an embedded canonical projection cannot contain XML that the parser rejects. The final correctness traceability decision is the archive/embedded reconciliation report and the aggregate freeze traceability report.
+- `OPTIMIZER_MAX_BEAM_EXPANSIONS`
+- `OPTIMIZER_BEAM_WATCHDOG_MS`
+- `OPTIMIZER_MAX_MASTER_NODES`
+- `OPTIMIZER_MASTER_WATCHDOG_MS`
+- `OPTIMIZER_MAX_RESCUE_ATTEMPTS`
+- `OPTIMIZER_RESCUE_WATCHDOG_MS`
+
+Smoke-test values are not production calibration and CI-convenience values are not acceptable substitutes.
+
+### Blocker B — exact formal correctness predicate is not yet proven/versioned
+
+The historical HTML benchmark classifies board deltas versus Lepton as better/equal/worse, and the frozen roadmap requires minimizing boards, never adding boards for remnant quality, and preserving validity/quality.
+
+However, the source-of-truth also says the versioned Node benchmark still lacked the ported Lepton reference-board comparison. Therefore a rule such as:
+
+`boards <= reference_panels`
+
+is plausible, but is **not** silently promoted to the formal freeze contract.
+
+The policy file keeps the predicate unresolved until its provenance is recovered or an explicit project decision is versioned.
+
+## Reproducible policy + harness
+
+Policy:
+
+`research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json`
+
+Harness:
+
+`scripts/kernel-freeze/formal-certification.mjs`
+
+The harness has four modes:
+
+```text
+preflight
+calibrate
+correctness
+determinism
+```
+
+### `preflight`
+
+Re-derives the exact 8,650 cohort from the embedded corpus + audited exclusions, checks its frozen SHA-256, verifies `src/lib/optimizer/**` is unchanged from the Kernel V1 candidate, and reports policy readiness.
+
+It succeeds as a traceability checkpoint while reporting `TRACEABILITY_COMPLETE_FORMAL_POLICY_BLOCKED`; `--require-ready` turns unresolved policy into a hard failure.
+
+### `calibrate`
+
+Allowed while formal policy is blocked. It:
+
+- forces deterministic budgets OFF;
+- enables Step 0 telemetry;
+- disables staged/experimental optimizer flags;
+- runs each case in a fresh process;
+- checkpoints one JSONL row immediately after every case;
+- supports `--maxNew N` for resumable batches;
+- starts with a cheap-to-expensive proxy;
+- pushes the known extreme-tail orders (`4048571`, `4056720`, `4056676`, `4059795`) to the end;
+- records Beam/Master/OneBoard work telemetry for production-budget calibration.
+
+### `correctness`
+
+Refuses to start until both deterministic budgets and the formal correctness predicate are resolved in policy. It uses the calibrated budgets, zero experimental flags, fresh processes and per-case checkpoints. Zero watchdog hits is mandatory.
+
+### `determinism`
+
+Requires a complete green correctness pass. It re-runs the exact same 8,650 inputs in fresh processes, ordered by measured correctness-pass wall time, and requires exact equality of the recovered `fullPlanHash` case by case.
+
+Partial progress reports both:
+
+- case coverage;
+- time-mass coverage, using the completed correctness pass as the denominator for the determinism repeat.
 
 ## Stable state reached
 
@@ -139,24 +170,30 @@ Kernel V1 Candidate
     4063963260abb10c8d68d0e553942899c925cc2f
         |
         +-- Freeze traceability
-            +-- 5 sentinels ............ RECOVERED
-            +-- 213 hotspots ........... RECOVERED
-            +-- fullPlanHash ........... RECOVERED
-            +-- historical archive ..... 8,669 / 8,669 unique
-            +-- current parser rejects . 19 documented
-            +-- correctness cohort ..... 8,650 / 8,650 exact
+        |   +-- 5 sentinels ............ RECOVERED
+        |   +-- 213 hotspots ........... RECOVERED
+        |   +-- fullPlanHash ........... RECOVERED
+        |   +-- archive ................ 8,669 / 8,669
+        |   +-- correctness cohort ..... 8,650 / 8,650 exact
+        |
+        +-- Formal certification policy
+            +-- resumable harness ...... PREPARED
+            +-- production budgets ..... BLOCKED / UNCALIBRATED
+            +-- correctness predicate .. BLOCKED / UNRESOLVED
 
-        => KERNEL V1 FREEZE TRACEABILITY COMPLETE
-        => READY FOR FORMAL CERTIFICATION
-        => NOT YET Kernel V1 FROZEN
+        => TRACEABILITY COMPLETE
+        => FORMAL CERTIFICATION HARNESS PREPARED
+        => FORMAL POLICY BLOCKED
+        => NOT Kernel V1 FROZEN
 ```
 
-No Worker work is authorized by this checkpoint and no Kernel V1 algorithm or parser-policy change is justified by it.
+No Worker work is authorized by this checkpoint. No optimizer heuristic, parser policy, scoring rule, search behavior or runtime default is changed.
 
 ## Next gate
 
-Run the formal correctness + determinism certification over the exact 8,650 current-comparable cohort identified by SHA-256
-
-`36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3`
-
-against the unchanged Kernel V1 candidate. Only after that run is green should the project promote to `Kernel V1 FROZEN`.
+1. Run resumable Step 0 calibration on production-representative hardware with deterministic budgets OFF.
+2. Version calibrated Beam/Master/OneBoard work budgets and emergency watchdogs.
+3. Recover or explicitly version the formal correctness predicate.
+4. Run the exact 8,650-case correctness pass.
+5. Run the exact 8,650-case determinism repeat and require identical `fullPlanHash` plus zero watchdog hits.
+6. Only then promote to `Kernel V1 FROZEN`.

@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "kernel-v1-formal-certification-policy-v1",
+  "date": "2026-09-07",
+  "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
+  "traceability": {
+    "status": "COMPLETE",
+    "currentComparableCases": 8650,
+    "currentComparableIdentitySetSha256": "36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3",
+    "archiveXml": 8669,
+    "archiveUniqueNames": 8669
+  },
+  "parseAudit": {
+    "earlyInventory": {
+      "status": "SUPERSEDED_FOR_CANONICAL_CLASSIFICATION",
+      "project": 7320,
+      "order": 1346,
+      "parseErrors": 3,
+      "source": "EXPERIENCE_OPTIMIZER_TRUTH.md baseline inventory"
+    },
+    "canonicalAudit20260902": {
+      "status": "AUTHORITATIVE_FOR_CANONICAL_CLASSIFICATION",
+      "xmlTotal": 8669,
+      "projectRoots": 7323,
+      "orderRoots": 1346,
+      "parseOk": 8650,
+      "parseErrors": 6,
+      "mixedBoardExcluded": 13,
+      "canonicalCases": 8650,
+      "canonicalProject": 7305,
+      "canonicalOrder": 1345,
+      "source": "EXPERIENCE_OPTIMIZER_TRUTH.md / Auditoria XML Etapa 1B 2026-09-02"
+    },
+    "decision": "The old 3-parse-error inventory is retained as historical evidence but does not define the canonical correctness cohort. The later canonical audit already records 6 parse errors plus 13 mixed-board exclusions and exactly 8,650 canonical cases."
+  },
+  "deterministicBudgets": {
+    "status": "BLOCKED_UNCALIBRATED",
+    "rule": "Do not run formal determinism certification with absent, guessed, smoke-test, or CI-convenience budgets. Calibrate on the production-representative workload first. Watchdog hits must be zero during formal certification.",
+    "values": {
+      "OPTIMIZER_MAX_BEAM_EXPANSIONS": null,
+      "OPTIMIZER_BEAM_WATCHDOG_MS": null,
+      "OPTIMIZER_MAX_MASTER_NODES": null,
+      "OPTIMIZER_MASTER_WATCHDOG_MS": null,
+      "OPTIMIZER_MAX_RESCUE_ATTEMPTS": null,
+      "OPTIMIZER_RESCUE_WATCHDOG_MS": null
+    },
+    "provenance": [
+      "research/optimizer/determinism/KERNEL_V1_CANDIDATE_2026-09-07.md",
+      "research/optimizer/determinism/DETERMINISM_RECOVERY_AND_STEP0_2026-09-07.md"
+    ],
+    "calibrationProtocol": {
+      "budgetsDuringCalibration": "OFF",
+      "step0Telemetry": true,
+      "checkpointPerCase": true,
+      "initialOrder": "cheap-to-expensive proxy; historical hotspot engineMs when known, then piece count; known extreme-tail orders forced last",
+      "promotionRequirement": "Version explicit positive integer production values with calibration evidence before formal certification."
+    }
+  },
+  "correctnessPredicate": {
+    "status": "BLOCKED_UNRESOLVED",
+    "id": null,
+    "rule": "Do not silently promote a plausible comparison rule into the historical/formal correctness contract.",
+    "evidence": [
+      "The historical HTML benchmark classifies delta<0 as better, delta===0 as equal, and delta>0 as worse versus Lepton.",
+      "The frozen roadmap requires minimizing boards, never adding boards for remnant quality, and preserving validity/quality.",
+      "The source-of-truth states that the versioned Node benchmark still lacked the ported Lepton reference-board comparison."
+    ],
+    "supportedRunnerPredicates": [
+      "VALID_AND_COMPLETE_ONLY",
+      "VALID_COMPLETE_AND_BOARDS_LE_REFERENCE",
+      "EXACT_REFERENCE_BOARDS"
+    ],
+    "nonDecision": "VALID_COMPLETE_AND_BOARDS_LE_REFERENCE is plausible and consistent with the historical HTML comparison, but it is not treated as the formal freeze predicate until its provenance/decision is explicitly versioned."
+  },
+  "execution": {
+    "strategy": "v10",
+    "strategyProvenance": "scripts/deferred-trace-gate.mjs historical freeze gate",
+    "experimentalFlags": "OFF",
+    "freshProcessPerCase": true,
+    "checkpointPerCase": true,
+    "phases": [
+      "calibration",
+      "correctness",
+      "determinism-repeat"
+    ],
+    "ordering": {
+      "calibration": "historical timing where available, then piece-count proxy; known extreme tail last",
+      "correctness": "calibration measured wallMs ascending when complete",
+      "determinismRepeat": "correctness measured wallMs ascending"
+    },
+    "knownExtremeTailOrders": [
+      "4048571",
+      "4056720",
+      "4056676",
+      "4059795"
+    ],
+    "partialCoverage": [
+      "completed cases / 8650",
+      "for determinism-repeat: sum of correctness-pass wallMs for repeated cases / total correctness-pass wallMs",
+      "for calibration: completed measured wallMs plus separately scoped historical hotspot timing-mass coverage when available"
+    ]
+  },
+  "formalCertificationReady": false,
+  "blockingReasons": [
+    "Production deterministic budgets/watchdogs are not calibrated/versioned.",
+    "The exact formal correctness predicate is not yet recovered or explicitly decided/versioned."
+  ]
+}
