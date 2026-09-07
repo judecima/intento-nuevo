@@ -21,22 +21,27 @@ const restoFiles = restoRecords
   .map((record) => basename(normalizePath(record?.source_path)))
   .filter((name) => /\.xml$/i.test(name));
 const restoIdentities = [...new Set(restoFiles)].sort(cmp);
+const restoIdentitySet = new Set(restoIdentities);
 
-const resolutions = audit.currentParser.rejections.map((entry) => {
-  const stem = String(entry.stem);
-  const code = String(entry.code);
-  const matches = restoIdentities
-    .filter((file) => auditStemMatches(xmlStem(file), stem))
-    .sort(cmp);
-  return { stem, code, matches, matchCount: matches.length };
+const rejections = audit.currentParser.rejections.map((entry) => {
+  const file = String(entry.file ?? "");
+  const stem = String(entry.stem ?? "");
+  const code = String(entry.code ?? "");
+  if (!file || !/\.xml$/i.test(file)) throw new Error(`rejection entry lacks literal XML filename: ${JSON.stringify(entry)}`);
+  return {
+    file,
+    stem,
+    code,
+    embeddedMatch: restoIdentitySet.has(file),
+  };
 });
 
-const mixed = resolutions.filter((row) => row.code === "mixed-board-formats");
-const strict = resolutions.filter((row) => row.code !== "mixed-board-formats");
-const mixedResolvedExactlyOnce = mixed.every((row) => row.matchCount === 1);
-const strictAbsentFromEmbeddedResto = strict.every((row) => row.matchCount === 0);
+const mixed = rejections.filter((row) => row.code === "mixed-board-formats");
+const strict = rejections.filter((row) => row.code !== "mixed-board-formats");
+const mixedResolvedExactlyOnce = mixed.every((row) => row.embeddedMatch);
+const strictAbsentFromEmbeddedResto = strict.every((row) => !row.embeddedMatch);
 
-const mixedFiles = new Set(mixed.flatMap((row) => row.matches));
+const mixedFiles = new Set(mixed.map((row) => row.file));
 const currentComparableRecords = restoRecords.filter((record) => {
   const file = basename(normalizePath(record?.source_path));
   return /\.xml$/i.test(file) && !mixedFiles.has(file);
@@ -45,9 +50,10 @@ const currentComparableIdentities = [...new Set(currentComparableRecords
   .map((record) => basename(normalizePath(record?.source_path)))
   .filter((name) => /\.xml$/i.test(name)))].sort(cmp);
 
-const rejectionCounts = Object.fromEntries([...new Set(audit.currentParser.rejections.map((entry) => String(entry.code)))]
+const rejectionCounts = Object.fromEntries([...new Set(rejections.map((entry) => entry.code))]
   .sort(cmp)
-  .map((code) => [code, audit.currentParser.rejections.filter((entry) => entry.code === code).length]));
+  .map((code) => [code, rejections.filter((entry) => entry.code === code).length]));
+const rejectionFiles = rejections.map((entry) => entry.file);
 
 const checks = {
   archiveHas8669Xml: audit?.archive?.xmlFiles === 8669,
@@ -57,13 +63,15 @@ const checks = {
   currentParserRejectedIs19: audit?.currentParser?.rejected === 19,
   currentParserClassificationSums: Number(audit?.currentParser?.project ?? 0) + Number(audit?.currentParser?.order ?? 0) === Number(audit?.currentParser?.accepted ?? -1),
   acceptedPlusRejectedSumsToArchive: Number(audit?.currentParser?.accepted ?? 0) + Number(audit?.currentParser?.rejected ?? 0) === Number(audit?.archive?.xmlFiles ?? -1),
-  rejectionManifestHas19Entries: audit.currentParser.rejections.length === 19,
+  rejectionManifestHas19Entries: rejections.length === 19,
+  rejectionManifestHas19LiteralXmlFiles: rejections.every((entry) => /\.xml$/i.test(entry.file)),
+  rejectionManifestHas19UniqueLiteralFiles: new Set(rejectionFiles).size === 19,
   rejectionManifestHas13MixedBoard: mixed.length === 13,
   rejectionManifestHas6Strict: strict.length === 6,
   embeddedRestoHas8663DistinctXml: restoIdentities.length === 8663,
   embeddedRestoHas8680Records: restoRecords.length === 8680,
-  all13MixedBoardResolveExactlyOnceInEmbeddedResto: mixedResolvedExactlyOnce,
-  all6StrictRejectionsAreAbsentFromEmbeddedResto: strictAbsentFromEmbeddedResto,
+  all13MixedBoardExactFilesPresentInEmbeddedResto: mixedResolvedExactlyOnce,
+  all6StrictExactFilesAbsentFromEmbeddedResto: strictAbsentFromEmbeddedResto,
   sixAbsentReconcile8663To8669: restoIdentities.length + strict.length === 8669,
   removing13MixedReconciles8663To8650: restoIdentities.length - mixed.length === 8650,
   currentComparableHas8650DistinctXml: currentComparableIdentities.length === 8650,
@@ -74,7 +82,7 @@ const checks = {
 
 const status = Object.values(checks).every(Boolean) ? "RECOVERED" : "BLOCKED";
 const report = {
-  schemaVersion: "kernel-v1-resto-reconciliation-v2",
+  schemaVersion: "kernel-v1-resto-reconciliation-v3",
   generatedAt: new Date().toISOString(),
   inputs: {
     canonical: relative(canonicalPath),
@@ -99,9 +107,9 @@ const report = {
     identitySetSha256: hashList(restoIdentities),
   },
   rejectionResolution: {
-    identityRule: "exact stem; numeric audit stems additionally resolve a unique embedded filename beginning with <order>__ or <order>_",
+    identityRule: "literal physical filename from currentParser.rejections[].file; stem is non-authoritative metadata only",
     mixedBoard: mixed,
-    strict: strict,
+    strict,
     mixedResolvedExactlyOnce,
     strictAbsentFromEmbeddedResto,
   },
@@ -109,12 +117,12 @@ const report = {
     records: currentComparableRecords.length,
     distinctXml: currentComparableIdentities.length,
     identitySetSha256: hashList(currentComparableIdentities),
-    derivation: "embedded resto identities minus the 13 audited mixed-board-formats identities; the six other audited parser rejections are the six archive identities absent from embedded resto",
+    derivation: "embedded resto exact identities minus the 13 exact mixed-board filenames; the six other exact rejection filenames are physically audited archive identities absent from embedded resto",
   },
   checks,
   status,
   conclusion: status === "RECOVERED"
-    ? "EXACT_8669_ARCHIVE_RECONCILED_AND_EXACT_CURRENT_8650_COMPARABLE_COHORT_RECOVERED"
+    ? "EXACT_8669_ARCHIVE_RECONCILED_BY_LITERAL_IDENTITIES_AND_EXACT_CURRENT_8650_COMPARABLE_COHORT_RECOVERED"
     : "RESTO_ARCHIVE_RECONCILIATION_INCOMPLETE",
 };
 
@@ -124,17 +132,11 @@ console.log(JSON.stringify({
   out: relative(outPath),
   status,
   resto: `${restoRecords.length}/${restoIdentities.length}`,
-  mixedResolved: `${mixed.filter((row) => row.matchCount === 1).length}/${mixed.length}`,
-  strictAbsent: `${strict.filter((row) => row.matchCount === 0).length}/${strict.length}`,
+  mixedExact: `${mixed.filter((row) => row.embeddedMatch).length}/${mixed.length}`,
+  strictAbsent: `${strict.filter((row) => !row.embeddedMatch).length}/${strict.length}`,
   currentComparable: `${currentComparableRecords.length}/${currentComparableIdentities.length}`,
   identitySetSha256: report.currentComparable.identitySetSha256,
 }));
-
-function auditStemMatches(fileStem, auditStem) {
-  if (fileStem === auditStem) return true;
-  if (!/^\d+$/.test(auditStem)) return false;
-  return fileStem.startsWith(`${auditStem}__`) || fileStem.startsWith(`${auditStem}_`);
-}
 
 function partitionKey(source) {
   if (!source) return "";
@@ -151,10 +153,6 @@ function partitionKey(source) {
 
 function normalizePath(value) {
   return typeof value === "string" ? value.trim().replace(/\\/g, "/") : "";
-}
-
-function xmlStem(file) {
-  return file.replace(/\.xml$/i, "");
 }
 
 function hashList(values) {
