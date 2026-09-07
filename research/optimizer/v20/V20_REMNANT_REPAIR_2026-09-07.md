@@ -37,7 +37,7 @@ Order-level structural deltas are retained as read-only geometric guidance so th
 
 A — current V20 certified baseline.
 
-B — exact global dead-strip compactation reference that V20 skips, gated by the same activation conditions as legacy V10. This is the quality target.
+B — exact global dead-strip compactation reference that V20 skips, gated by the same activation conditions as legacy V10.
 
 C — per-board remnant defragmentation.
 
@@ -52,16 +52,32 @@ Before judging C, the evaluator must reproduce the measured reference cohort:
 
 If those values do not match, the run is INCONCLUSIVE; do not tune the repair against it.
 
-## Frozen quality gate
+## Two different questions — do not conflate them
 
-C passes only if:
+### 1. Safety of the repair relative to V20 today — mandatory
+
+C must satisfy:
 - board regressions = 0;
 - invalid final plans = 0;
-- every one of the 20 accepted B improvements is matched or beaten by C according to the existing `compararCalidad(calidadRestos)` ordering.
+- C is never worse than A according to the existing remnant comparator.
 
-Partial recovery is not sufficient. Objective #2 is not a statistical preference.
+If any of these fail, the per-board repair itself is unsafe and the experiment is closed.
 
-Only after the quality gate passes do we evaluate whether C is materially cheaper than B and whether the net V20 end-to-end latency benefit remains worthwhile.
+### 2. Recovery of quality lost versus legacy compactation — measured, not used as an early-stop gate
+
+B and C explore different search spaces. Global compactation may improve remnant by moving pieces between boards; C deliberately freezes board membership. Therefore 20/20 recovery may be structurally unreachable for this technique.
+
+The experiment must report, not hide:
+- how many of the 20 B improvements C matches or beats;
+- which files remain below B;
+- the exact quality deltas for every miss;
+- the cost ratio C/B.
+
+Partial recovery is not grounds to call the technique itself unsafe. For example, 17/20 with 0 board/validation/A regressions is a valid experimental result that must be inspected case by case rather than discarded by a post-hoc threshold.
+
+However, release equivalence is a separate claim: if C misses any accepted B improvement, V20 + C is still not bit-for-bit/quality-equivalent to the legacy objective-#2 path. Shipping that state would require an explicit product decision or an additional polish mechanism for the remaining cases.
+
+No recovery threshold will be moved after observing the run. `--minRecovered` may be supplied only if a floor is declared before the run; otherwise recovery remains descriptive.
 
 ## Commands
 
@@ -83,11 +99,27 @@ node scripts/v20-remnant-defrag-check.mjs `
   --expectRef 20
 ```
 
-Possible verdicts:
+Optional strict release-equivalence check:
+
+```powershell
+node scripts/v20-remnant-defrag-check.mjs `
+  --result experiencia/v20-remnant-defrag-eval.json `
+  --expectCertified 89 `
+  --expectActivations 52 `
+  --expectRef 20 `
+  --requireLegacyParity 1
+```
+
+Possible outcomes:
 - exit 2 / INCONCLUSIVE: A/B reference does not reproduce 89/52/20;
-- exit 1 / FAIL: at least one board, validation or remnant regression remains;
-- exit 0 / QUALITY PASS: remnant parity is restored; proceed to end-to-end timing before runtime integration.
+- exit 1 / SAFETY FAIL: board, validation, or current-V20 remnant quality regresses;
+- exit 3 / RECOVERY BELOW PREDECLARED FLOOR: only when `--minRecovered` was declared before the run;
+- exit 4 / NOT LEGACY-EQUIVALENT: safety passed, but strict parity was explicitly required and at least one B improvement is missed;
+- exit 0 / SAFETY PASS: C does not make V20 worse; the report states separately whether legacy remnant parity is complete or partial.
 
 ## Runtime status
 
-No `v10.cjs` wiring is authorized yet. V20 canary remains blocked until this experiment passes quality and subsequent net-performance measurement.
+No `v10.cjs` wiring is authorized yet. V20 canary remains blocked until:
+1. the safety experiment is valid;
+2. the remaining B-vs-C misses, if any, are explicitly resolved or accepted as a product trade-off;
+3. net end-to-end performance is measured.
