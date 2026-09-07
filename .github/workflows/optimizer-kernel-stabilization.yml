@@ -1,4 +1,4 @@
-name: Optimizer kernel stabilization
+name: Optimizer kernel Candidate A guard
 
 on:
   push:
@@ -7,93 +7,31 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  candidate-a:
-    if: ${{ !contains(github.event.head_commit.message, '[candidate-a-port]') }}
+  candidate-a-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Recover and port exact Candidate A
+      - name: Assert linked traces are the runtime
         shell: bash
         run: |
           set -euo pipefail
-          git clone -b traza experiencia/traza-diferida.bundle "$RUNNER_TEMP/deferred-trace"
-
-          for path in \
-            src/lib/optimizer/legacy/motor.cjs \
-            src/lib/optimizer/engine/legacy-engine.ts \
-            src/lib/optimizer/types.ts \
-            src/lib/optimizer/legacy/patrones.cjs
-          do
-            current=$(git rev-parse "HEAD:$path")
-            parent=$(git -C "$RUNNER_TEMP/deferred-trace" rev-parse "HEAD^:$path")
-            if [ "$current" != "$parent" ]; then
-              echo "Base mismatch for $path: current=$current bundle-parent=$parent" >&2
-              exit 1
-            fi
-          done
-
-          git -C "$RUNNER_TEMP/deferred-trace" apply "$GITHUB_WORKSPACE/research/optimizer/trace-candidate-a.patch"
-
-          cp "$RUNNER_TEMP/deferred-trace/src/lib/optimizer/legacy/motor.cjs" src/lib/optimizer/legacy/motor.cjs
-          cp "$RUNNER_TEMP/deferred-trace/src/lib/optimizer/engine/legacy-engine.ts" src/lib/optimizer/engine/legacy-engine.ts
-          cp "$RUNNER_TEMP/deferred-trace/src/lib/optimizer/types.ts" src/lib/optimizer/types.ts
-          cp "$RUNNER_TEMP/deferred-trace/tests/optimizer/diag-trace.test.ts" tests/optimizer/diag-trace.test.ts
-
-          # patrones.cjs intentionally remains the current runtime file: it is already
-          # Candidate A semantics (trace suppression removed) without unrelated header churn.
+          grep -q '_diagLink' src/lib/optimizer/legacy/motor.cjs
+          grep -q 'resolverDiagPath' src/lib/optimizer/legacy/motor.cjs
+          grep -q '_diagLink' src/lib/optimizer/engine/legacy-engine.ts
           if grep -q 'trazaDiag: false' src/lib/optimizer/legacy/patrones.cjs; then
-            echo 'Candidate A invariant failed: patrones.cjs still suppresses traces' >&2
+            echo 'Candidate A invariant failed: Master suppresses diagnostic trace' >&2
             exit 1
           fi
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Candidate A typecheck
-        run: npm run typecheck
-
-      - name: Candidate A trace contracts
-        run: npx vitest run tests/optimizer/pattern-trace.test.ts tests/optimizer/diag-trace.test.ts tests/optimizer/optimizer.test.ts
-
-      - name: Commit Candidate A runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'optimizer-kernel-bot'
-          git config user.email 'actions@users.noreply.github.com'
-          git add src/lib/optimizer/legacy/motor.cjs src/lib/optimizer/engine/legacy-engine.ts src/lib/optimizer/types.ts tests/optimizer/diag-trace.test.ts
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo 'Candidate A already ported.'
-            exit 0
-          fi
-          git commit -m 'perf(optimizer): port Candidate A linked traces [candidate-a-port]'
-          git push origin HEAD:optimizer-kernel-v1-stabilization
-
-  validate-candidate-a:
-    if: ${{ contains(github.event.head_commit.message, '[candidate-a-port]') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Typecheck
