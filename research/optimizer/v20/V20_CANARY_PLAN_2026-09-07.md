@@ -10,6 +10,15 @@ Validate the already-merged V20 post-baseline certification in a controlled prod
 
 V20 only returns early when the physical baseline board count is certified by area/external/cheap lower bounds. It does not replace the baseline, Pattern Master, solver objective, materializer, or validator.
 
+## Why this is a real optimization
+
+The physical baseline is an upper bound: it proves that N boards are feasible.
+The lower bound is a mathematical floor: it proves that fewer than L boards are impossible.
+
+When `N == L`, the board count is proven optimal. Running compactation, MultiSlice, OneBoard or Pattern Master cannot reduce the primary objective any further. V20 detects that situation immediately after the baseline and returns before those expensive stages.
+
+This is a compute optimization, not a packing-quality heuristic: the board count does not change; unnecessary search is removed.
+
 ## Canary configuration
 
 Keep staged pipeline disabled:
