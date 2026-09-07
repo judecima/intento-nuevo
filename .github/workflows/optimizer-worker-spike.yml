@@ -32,5 +32,8 @@ jobs:
       - name: Optimizer unit tests
         run: npx vitest run tests/optimizer/optimizer.test.ts tests/optimizer/pattern-trace.test.ts
 
+      - name: Direct vs Worker full-plan smoke
+        run: node scripts/optimizer-worker-smoke.mjs
+
       - name: Next production build
         run: npm run build
