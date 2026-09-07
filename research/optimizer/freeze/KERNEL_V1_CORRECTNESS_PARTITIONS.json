@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "kernel-v1-correctness-partitions-v1",
+  "generatedAt": "2026-09-07T22:13:57.858Z",
+  "input": {
+    "canonical": "experiencia/canonical_cases.json",
+    "sha256": "a6af8b4f312105560ef8cd47c26c083dc314c6d19fe68bfd5ecc70bd29106329",
+    "records": 20844
+  },
+  "historicalTargets": {
+    "xmlFiles": 8669,
+    "canonicalCases": 8650,
+    "missingNonCanonicalXml": 19
+  },
+  "partitions": [
+    {
+      "key": "resto",
+      "records": 8680,
+      "distinctXml": 8663,
+      "formats": {
+        "order": 1345,
+        "project": 7335
+      },
+      "identitySha256": "6052286b28a5b47637e69f16ad5755358d7772123c0d80a2b10d33d6a0b63f50",
+      "samples": [
+        "/mnt/data/xml_experience/resto/4031133__EVA LILIANA MONTANES_24031133.xml",
+        "/mnt/data/xml_experience/resto/4052717__Pablo_Santangelo4052717.xml",
+        "/mnt/data/xml_experience/resto/4067739__gaston_rostro4067739.xml",
+        "/mnt/data/xml_experience/resto/ALEJANDRA_RUIZ4080396.xml",
+        "/mnt/data/xml_experience/resto/4052600__Exequiel_Garcia4052600.xml"
+      ]
+    },
+    {
+      "key": "part6/part_6",
+      "records": 2085,
+      "distinctXml": 2083,
+      "formats": {
+        "order": 276,
+        "project": 1809
+      },
+      "identitySha256": "013e33f060b9adfc0782acc07b6c275d4fa0bb54774d09044598a2818f7f5874",
+      "samples": [
+        "/mnt/data/xml_experience/part6/part_6/Cristian_Bustos4095106.xml",
+        "/mnt/data/xml_experience/part6/part_6/Dario_Piancino4097955.xml",
+        "/mnt/data/xml_experience/part6/part_6/alexandra_de la fuente hernandez4069817.xml",
+        "/mnt/data/xml_experience/part6/part_6/ARELY_ROJAS4118422.xml",
+        "/mnt/data/xml_experience/part6/part_6/Carlos Daniel_Morales4124278.xml"
+      ]
+    },
+    {
+      "key": "parte5/parte5",
+      "records": 2051,
+      "distinctXml": 2048,
+      "formats": {
+        "order": 441,
+        "project": 1610
+      },
+      "identitySha256": "68389942573ef3521b7a61f8649d61af9afe3ed23e4dd1c172cd378cee57c667",
+      "samples": [
+        "/mnt/data/xml_experience/parte5/parte5/Eliu_Perez4129132.xml",
+        "/mnt/data/xml_experience/parte5/parte5/Federico_Tion4102140.xml",
+        "/mnt/data/xml_experience/parte5/parte5/Dinorah_Contreras4075383.xml",
+        "/mnt/data/xml_experience/parte5/parte5/emporio_madera4086712.xml",
+        "/mnt/data/xml_experience/parte5/parte5/Fernando Rey_Garcia Martinez4117625.xml"
+      ]
+    },
+    {
+      "key": "parte4/parte4",
+      "records": 2015,
+      "distinctXml": 2015,
+      "formats": {
+        "order": 305,
+        "project": 1710
+      },
+      "identitySha256": "19fc0ff7a9a70f2f5f23d90d149e5199a1bbf093a22c2606a9320549266dd975",
+      "samples": [
+        "/mnt/data/xml_experience/parte4/parte4/JACOB_LIMON4120551.xml",
+        "/mnt/data/xml_experience/parte4/parte4/JACOB_LIMON4114152.xml",
+        "/mnt/data/xml_experience/parte4/parte4/Jorge Ivan_Garcia Perez4120222.xml",
+        "/mnt/data/xml_experience/parte4/parte4/Julio_Mendoza4113894.xml",
+        "/mnt/data/xml_experience/parte4/parte4/Justo_Contreras Bautista4069944.xml"
+      ]
+    },
+    {
+      "key": "parte2/parte2",
+      "records": 2008,
+      "distinctXml": 2002,
+      "formats": {
+        "order": 259,
+        "project": 1749
+      },
+      "identitySha256": "6d566e5ace5559d34dcc9f3f63502d0ed6977913aaed85a83b368834e851dfad",
+      "samples": [
+        "/mnt/data/xml_experience/parte2/parte2/MONICA JANETH_ALMANZA MORENO4124155.xml",
+        "/mnt/data/xml_experience/parte2/parte2/ruben_gualtieri_59_ruben_gualtieri_594126860.xml",
+        "/mnt/data/xml_experience/parte2/parte2/Nicolas_pace4102673.xml",
+        "/mnt/data/xml_experience/parte2/parte2/Roberto_Arzamendia4124818.xml",
+        "/mnt/data/xml_experience/parte2/parte2/Santiago_Mori4122106.xml"
+      ]
+    },
+    {
+      "key": "parte3/parte3",
+      "records": 2004,
+      "distinctXml": 2000,
+      "formats": {
+        "order": 450,
+        "project": 1554
+      },
+      "identitySha256": "0de5e029e1d76adebe0250c837059aadd0260fc64add5a36462d7063444aa4dd",
+      "samples": [
+        "/mnt/data/xml_experience/parte3/parte3/LUIS CARLOS_Coronado ibarra4123245.xml",
+        "/mnt/data/xml_experience/parte3/parte3/LUCIANO_lelli4107718.xml",
+        "/mnt/data/xml_experience/parte3/parte3/Mega_Maderas4108822.xml",
+        "/mnt/data/xml_experience/parte3/parte3/Mauricio_Di Massa4126523.xml",
+        "/mnt/data/xml_experience/parte3/parte3/Mega_Maderas4080745.xml"
+      ]
+    },
+    {
+      "key": "parte1/parte-1",
+      "records": 2001,
+      "distinctXml": 2000,
+      "formats": {
+        "order": 449,
+        "project": 1552
+      },
+      "identitySha256": "fa92524da83c084aa93dba7441b70971ef1bfcb17fb6de13422db79c0b850711",
+      "samples": [
+        "/mnt/data/xml_experience/parte1/parte-1/4004162__Luis_Mendez4004162.xml",
+        "/mnt/data/xml_experience/parte1/parte-1/4003874__Dinorah_Contreras4003874.xml",
+        "/mnt/data/xml_experience/parte1/parte-1/4002875__cristian david_caceres4002875.xml",
+        "/mnt/data/xml_experience/parte1/parte-1/4003087__Adrian_SEIF4003087.xml",
+        "/mnt/data/xml_experience/parte1/parte-1/4013390__Gustavo Antonio_Soda4013390.xml"
+      ]
+    }
+  ],
+  "partitionCount": 7,
+  "crossPartitionDuplicateIdentityCount": 0,
+  "crossPartitionDuplicateSamples": [],
+  "subsetSearch": {
+    "exactCanonicalRecordCombinationCount": 0,
+    "exactXmlRecordCombinationCount": 0,
+    "exactCanonicalDistinctCombinationCount": 0,
+    "exactXmlDistinctCombinationCount": 0,
+    "candidates": [],
+    "strongCandidates": []
+  },
+  "conclusion": "NO_EXACT_8650_CANONICAL_PARTITION_SET_FROM_SOURCE_DIRECTORIES"
+}
