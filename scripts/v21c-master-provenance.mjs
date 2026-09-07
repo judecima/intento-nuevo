@@ -17,6 +17,8 @@ const corpus = resolve(String(args.corpus ?? DEFAULT_CORPUS));
 const file = String(args.archivo ?? DEFAULT_FILE);
 const rounds = positiveInt(args.rondas, 40);
 const lateAfter = positiveInt(args.lateAfter, 20);
+const generic = boolArg(args.generic);
+const jsonOnly = boolArg(args.jsonOnly);
 const xmlPath = join(corpus, file);
 
 if (!existsSync(xmlPath)) {
@@ -30,7 +32,7 @@ if (!existsSync(bundlePath)) {
   process.exit(2);
 }
 
-// Este diagnostico estudia el Master legacy, no V20 ni staged.
+// Diagnostico del Master legacy: sin staged ni V20.
 process.env.OPTIMIZER_V10_STAGED_EXPERIMENTAL = "0";
 process.env.OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL = "0";
 
@@ -104,6 +106,7 @@ const selected = (solution?.plan ?? []).map((pattern, index) => {
     y: placement.y,
   }));
   const round = meta?.firstSeenRound;
+  const commonDimension = findCommonDimension(types, 0.05);
   return {
     selectedIndex: index,
     vector,
@@ -113,12 +116,15 @@ const selected = (solution?.plan ?? []).map((pattern, index) => {
     late: Number.isInteger(round) ? round >= lateAfter : false,
     visibleTypeCount: meta?.visibleTypeCount ?? null,
     visibleTypes: meta?.visibleTypes ?? null,
+    commonDimension,
+    heterogeneous: types.length >= 2 && commonDimension === null,
     types,
     placements,
   };
 });
 
 const lateSelected = selected.filter((row) => row.late);
+const lateHeterogeneous = lateSelected.filter((row) => row.heterogeneous);
 const summary = {
   file,
   pieces: demand.reduce((a, b) => a + b, 0),
@@ -130,7 +136,7 @@ const summary = {
   lateAfter,
   preMasterBoards: incumbent,
   solutionBoards: solution?.placas ?? incumbent,
-  improved: Array.isArray(solution?.plan),
+  improved: Array.isArray(solution?.plan) && (solution?.placas ?? incumbent) < incumbent,
   randomPoolSize: randomPool.length,
   monotypePoolSize: monoPool.length,
   generationMs,
@@ -139,10 +145,21 @@ const summary = {
   exhausted: solution?.agotado ?? null,
   selectedCount: selected.length,
   lateSelectedCount: lateSelected.length,
+  lateHeterogeneousCount: lateHeterogeneous.length,
+  lateHeterogeneousPct: lateSelected.length ? lateHeterogeneous.length / lateSelected.length * 100 : 0,
   selected,
 };
 
-console.log(JSON.stringify(summary, null, 2));
+console.log(jsonOnly ? JSON.stringify(summary) : JSON.stringify(summary, null, 2));
+
+if (generic) {
+  if (!summary.improved) {
+    if (!jsonOnly) console.error(`V21c generic inconclusive: Master no mejora ${incumbent} placas`);
+    process.exit(2);
+  }
+  if (!jsonOnly) console.log(`V21c generic OK: ${incumbent} -> ${summary.solutionBoards}; late=${lateSelected.length}; hetero=${lateHeterogeneous.length}`);
+  process.exit(0);
+}
 
 if (incumbent !== 9 || summary.solutionBoards !== 8) {
   console.error(`V21c diagnostic inconclusive: esperaba preMaster=9 y Master=8, obtuvo ${incumbent} -> ${summary.solutionBoards}`);
@@ -152,7 +169,19 @@ if (lateSelected.length === 0) {
   console.error(`V21c diagnostic FAIL: ninguna columna seleccionada aparece desde ronda ${lateAfter}`);
   process.exit(1);
 }
-console.log(`V21c diagnostic OK: ${lateSelected.length} columna(s) seleccionada(s) aparecen desde ronda ${lateAfter}`);
+if (!jsonOnly) console.log(`V21c diagnostic OK: ${lateSelected.length} columna(s) seleccionada(s) aparecen desde ronda ${lateAfter}`);
+
+function findCommonDimension(types, tolerance) {
+  if (!types.length) return null;
+  const first = [Number(types[0].width), Number(types[0].height)].filter(Number.isFinite);
+  for (const candidate of first) {
+    if (types.every((type) => {
+      const dims = [Number(type.width), Number(type.height)].filter(Number.isFinite);
+      return dims.some((value) => Math.abs(value - candidate) <= tolerance);
+    })) return candidate;
+  }
+  return null;
+}
 
 function toLegacyLines(input) {
   return input.pieces.map((piece, index) => ({
@@ -199,6 +228,9 @@ function toLegacyOptions(input) {
   };
 }
 
+function boolArg(value) {
+  return /^(1|true|yes|on)$/i.test(String(value ?? ""));
+}
 function positiveInt(value, fallback) {
   const n = Number.parseInt(String(value ?? ""), 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
