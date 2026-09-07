@@ -29,51 +29,54 @@ jobs:
           fetch-depth: 0
           ref: optimizer-kernel-v1-freeze
 
-      - name: Build reproducible freeze provenance and formal-policy preflight
+      - name: Build reproducible freeze provenance, correctness contract, and formal preflight
         shell: bash
         run: |
           set -euo pipefail
           node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           node scripts/kernel-freeze/analyze-correctness-partitions.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           node scripts/kernel-freeze/reconcile-resto-archive.mjs research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
+          node scripts/kernel-freeze/recover-correctness-contract.mjs benchmark_project_v10.csv research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json
           node scripts/kernel-freeze/finalize-traceability.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json
-          node scripts/kernel-freeze/formal-certification.mjs preflight --report research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json
+          node scripts/kernel-freeze/formal-certification-v2.mjs preflight --report research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json
           node <<'NODE'
           const fs = require('fs');
           const r = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json', 'utf8'));
           const cp = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json', 'utf8'));
           const rr = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json', 'utf8'));
+          const contract = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json', 'utf8'));
           const final = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json', 'utf8'));
           const pre = JSON.parse(fs.readFileSync('research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json', 'utf8'));
           console.log('FREEZE_TRACEABILITY_LEGACY_EMBEDDED=' + JSON.stringify(r.freezeTraceability));
-          console.log('CORRECTNESS_PARTITIONS=' + JSON.stringify({
-            partitions: cp.partitionCount,
-            strongCandidates: cp.subsetSearch.strongCandidates.length,
-            conclusion: cp.conclusion,
-          }));
-          console.log('RESTO_RECONCILIATION=' + JSON.stringify({
-            status: rr.status,
-            audit: rr.auditSummary,
-            embeddedResto: rr.embeddedResto,
-            currentComparable: rr.currentComparable,
-          }));
+          console.log('CORRECTNESS_PARTITIONS=' + JSON.stringify({ partitions: cp.partitionCount, strongCandidates: cp.subsetSearch.strongCandidates.length, conclusion: cp.conclusion }));
+          console.log('RESTO_RECONCILIATION=' + JSON.stringify({ status: rr.status, audit: rr.auditSummary, currentComparable: rr.currentComparable }));
+          console.log('CORRECTNESS_CONTRACT=' + JSON.stringify({ status: contract.recoveredPredicate?.status, id: contract.recoveredPredicate?.id, proofs: contract.proofs, details: contract.details }));
           console.log('FINAL_TRACEABILITY=' + JSON.stringify(final));
           console.log('FORMAL_PREFLIGHT=' + JSON.stringify(pre));
           if (r.embeddedCanonical.count !== 20844) throw new Error('Embedded canonical corpus drifted from 20,844');
           if (!r.hotspots.exact213) throw new Error('Historical 213-hotspot cohort is not exact');
           if (!r.sentinels.exact5) throw new Error('Historical five-sentinel cohort is not exact');
           if (r.fullPlanHash.status !== 'HISTORICAL_CONTRACT_RECOVERED') throw new Error('Historical fullPlanHash contract is incomplete');
-          if (rr.status !== 'RECOVERED') throw new Error('resto.zip historical/current-parser reconciliation is incomplete');
-          if (rr.auditSummary.archiveXml !== 8669 || rr.auditSummary.uniqueNames !== 8669) throw new Error('Historical archive is not exactly 8,669 unique XML identities');
-          if (rr.currentComparable.records !== 8650 || rr.currentComparable.distinctXml !== 8650) throw new Error('Current comparable correctness cohort is not exactly 8,650 one-record/one-identity cases');
-          if (rr.currentComparable.identitySetSha256 !== '36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3') throw new Error('Current correctness identity set hash drifted');
-          if (!final.traceabilityComplete || final.kernelFrozen) throw new Error('Final aggregate traceability state is invalid');
+          if (rr.status !== 'RECOVERED') throw new Error('resto.zip reconciliation is incomplete');
+          if (rr.auditSummary.archiveXml !== 8669 || rr.auditSummary.uniqueNames !== 8669) throw new Error('Archive is not exactly 8,669 unique XML');
+          if (rr.currentComparable.records !== 8650 || rr.currentComparable.distinctXml !== 8650) throw new Error('Correctness cohort is not exactly 8,650');
+          if (rr.currentComparable.identitySetSha256 !== '36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3') throw new Error('Correctness identity hash drifted');
+          if (contract.recoveredPredicate?.status !== 'RECOVERED' || contract.recoveredPredicate?.id !== 'HISTORICAL_VALIDITY_V1') throw new Error('Historical correctness predicate not recovered');
+          if (contract.proofs.okWithDeltaPositive !== 10 || contract.proofs.errorWithDeltaNonPositive !== 33) throw new Error('estado/delta independence evidence drifted');
+          if (contract.details.errorMultiset !== 33 || contract.details.errorInfeasible !== 60) throw new Error('Historical ERROR semantics drifted');
+          if (contract.details.skipUnsupportedRoot !== 449 || contract.details.skipMixedBoard !== 1) throw new Error('Historical SKIP semantics drifted');
+          if (!final.traceabilityComplete || final.kernelFrozen) throw new Error('Aggregate traceability state invalid');
+          if (final.correctnessContract?.id !== 'HISTORICAL_VALIDITY_V1') throw new Error('Aggregate traceability lost correctness contract');
           if (!pre.traceabilityComplete || !pre.runtimeMatchesCandidate) throw new Error('Formal preflight failed traceability/runtime identity');
-          if (pre.cohort.records !== 8650 || pre.cohort.distinctXml !== 8650) throw new Error('Formal preflight did not re-derive exact 8,650 cohort');
-          if (pre.cohort.identitySetSha256 !== rr.currentComparable.identitySetSha256) throw new Error('Formal preflight cohort hash differs from reconciliation');
-          if (Boolean(pre.policy.formalCertificationReady) !== Boolean(final.formalCertification.policyReady)) throw new Error('Formal policy readiness disagrees between reports');
+          if (pre.cohort.records !== 8650 || pre.cohort.distinctXml !== 8650) throw new Error('Formal preflight did not re-derive 8,650 cohort');
+          if (pre.cohort.identitySetSha256 !== rr.currentComparable.identitySetSha256) throw new Error('Preflight cohort hash differs from reconciliation');
+          if (!pre.policy.correctnessPredicateReady || pre.policy.correctnessPredicateId !== 'HISTORICAL_VALIDITY_V1') throw new Error('Correctness policy not ready');
+          if (pre.policy.deterministicBudgetsReady) throw new Error('Budgets unexpectedly ready without calibration');
+          if (pre.policy.blockingReasons.length !== 1 || !pre.policy.blockingReasons[0].includes('budgets')) throw new Error('Budget calibration must be the only remaining policy blocker');
+          if (pre.policy.formalCertificationReady || final.formalCertification.policyReady) throw new Error('Kernel must not be formally ready before budget calibration');
           console.log('FREEZE_TRACEABILITY_COMPLETE=true');
-          console.log('FORMAL_CERTIFICATION_POLICY_READY=' + Boolean(final.formalCertification.policyReady));
+          console.log('HISTORICAL_CORRECTNESS_CONTRACT_RECOVERED=true');
+          console.log('FORMAL_CERTIFICATION_ONLY_POLICY_BLOCKER=deterministic-budget-calibration');
           NODE
 
       - name: Persist provenance checkpoint
@@ -85,6 +88,7 @@ jobs:
           git add research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           git add research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
+          git add research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json
           git add research/optimizer/freeze/KERNEL_V1_FREEZE_TRACEABILITY.json
           git add research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_PREFLIGHT.json
           if git diff --cached --quiet; then
