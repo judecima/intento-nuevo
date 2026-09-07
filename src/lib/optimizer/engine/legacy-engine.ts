@@ -61,6 +61,16 @@ interface ExperimentalStagedModule {
   ): { plan: LegacyPlan; metrics?: unknown; cota?: number };
 }
 
+interface DeterministicBudgetConfig {
+  maxExpansionesBeam?: number;
+  watchdogBeamMs?: number;
+  maxNodosMaster?: number;
+  watchdogMasterMs?: number;
+  maxIntentosRescate?: number;
+  watchdogRescateMs?: number;
+  cacheDiscriminator: string;
+}
+
 interface ExperimentalStagedConfig {
   enabled: true;
   enableStrongLowerBound: boolean;
@@ -97,6 +107,37 @@ function parseEnvPositiveInt(name: string, defaultValue: number): number {
   if (raw == null || raw === "") return defaultValue;
   const value = Number.parseInt(raw, 10);
   return Number.isFinite(value) && value > 0 ? value : defaultValue;
+}
+
+function parseEnvOptionalPositiveInt(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return undefined;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function resolveDeterministicBudgetConfig(): DeterministicBudgetConfig {
+  const maxExpansionesBeam = parseEnvOptionalPositiveInt("OPTIMIZER_MAX_BEAM_EXPANSIONS");
+  const watchdogBeamMs = parseEnvOptionalPositiveInt("OPTIMIZER_BEAM_WATCHDOG_MS");
+  const maxNodosMaster = parseEnvOptionalPositiveInt("OPTIMIZER_MAX_MASTER_NODES");
+  const watchdogMasterMs = parseEnvOptionalPositiveInt("OPTIMIZER_MASTER_WATCHDOG_MS");
+  // Nombres recuperados del V19 original.
+  const maxIntentosRescate = parseEnvOptionalPositiveInt("OPTIMIZER_MAX_RESCUE_ATTEMPTS");
+  const watchdogRescateMs = parseEnvOptionalPositiveInt("OPTIMIZER_RESCUE_WATCHDOG_MS");
+  const fmt = (value: number | undefined) => value == null ? "off" : String(value);
+  const cacheDiscriminator = [
+    "det-budget-v1",
+    `beam=${fmt(maxExpansionesBeam)}`,
+    `beamWd=${fmt(watchdogBeamMs)}`,
+    `master=${fmt(maxNodosMaster)}`,
+    `masterWd=${fmt(watchdogMasterMs)}`,
+    `rescue=${fmt(maxIntentosRescate)}`,
+    `rescueWd=${fmt(watchdogRescateMs)}`,
+  ].join("|");
+  return {
+    maxExpansionesBeam, watchdogBeamMs, maxNodosMaster, watchdogMasterMs,
+    maxIntentosRescate, watchdogRescateMs, cacheDiscriminator,
+  };
 }
 
 function resolveExperimentalStagedConfig(strategy: OptimizerStrategy): ExperimentalStagedConfig | null {
@@ -161,7 +202,10 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
   const inputHash = optimizationInputHash(parsed);
   const strategy = parsed.strategy ?? "baseline";
   const stagedConfig = resolveExperimentalStagedConfig(strategy);
-  const cacheKey = stagedConfig ? `${inputHash}|${stagedConfig.cacheDiscriminator}` : inputHash;
+  const deterministicBudgets = resolveDeterministicBudgetConfig();
+  const cacheKey = [inputHash, deterministicBudgets.cacheDiscriminator, stagedConfig?.cacheDiscriminator]
+    .filter(Boolean)
+    .join("|");
   const cached = optimizationCache.get(cacheKey);
 
   if (cached) {
@@ -171,7 +215,7 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
   }
 
   const lineas = toLegacyLines(parsed);
-  const options = toLegacyOptions(parsed, strategy);
+  const options = toLegacyOptions(parsed, strategy, deterministicBudgets);
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
@@ -239,7 +283,11 @@ function toLegacyLines(input: OptimizationInput): LegacyLineInput[] {
   }));
 }
 
-function toLegacyOptions(input: OptimizationInput, strategy: OptimizerStrategy): LegacyOptimizerOptions {
+function toLegacyOptions(
+  input: OptimizationInput,
+  strategy: OptimizerStrategy,
+  deterministicBudgets: DeterministicBudgetConfig,
+): LegacyOptimizerOptions {
   const minLongSide = input.constraints.minCommercialRemnantLongSide;
   const totalPieces = input.pieces.reduce((total, piece) => total + piece.quantity, 0);
 
@@ -264,7 +312,13 @@ function toLegacyOptions(input: OptimizationInput, strategy: OptimizerStrategy):
 
   return {
     ...options,
-    ...profileOptions(input.constraints.profile ?? "balanced", totalPieces)
+    ...profileOptions(input.constraints.profile ?? "balanced", totalPieces),
+    maxExpansionesBeam: deterministicBudgets.maxExpansionesBeam,
+    watchdogBeamMs: deterministicBudgets.watchdogBeamMs,
+    maxNodosMaster: deterministicBudgets.maxNodosMaster,
+    watchdogMasterMs: deterministicBudgets.watchdogMasterMs,
+    maxIntentosRescate: deterministicBudgets.maxIntentosRescate,
+    watchdogRescateMs: deterministicBudgets.watchdogRescateMs,
   };
 }
 

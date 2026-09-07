@@ -667,7 +667,16 @@ function armarPlacasBeam(piezas, opts, configs, pase){
   const t0=Date.now();
   const step0=opts._step0Telemetry&&opts._step0Telemetry.beam;
   if(step0) step0.calls++;
-  let expansiones=0, timeoutRegistrado=false;
+  const maxExpRaw=Number(opts.maxExpansionesBeam);
+  const maxExpansiones=Number.isFinite(maxExpRaw)&&maxExpRaw>0?Math.floor(maxExpRaw):null;
+  const modoDeterminista=maxExpansiones!==null;
+  const watchdogRaw=Number(opts.watchdogBeamMs);
+  const watchdogMs=Number.isFinite(watchdogRaw)&&watchdogRaw>0?watchdogRaw:null;
+  let expansiones=0, timeoutRegistrado=false, budgetRegistrado=false, watchdogRegistrado=false;
+  const marcarBudget=()=>{ if(step0&&!budgetRegistrado){ step0.budgetHits++; budgetRegistrado=true; } };
+  const marcarWatchdog=()=>{
+    if(step0&&!watchdogRegistrado){ step0.watchdogHits++; step0.timeoutHits++; watchdogRegistrado=true; }
+  };
   const cerrarStep0=()=>{
     if(!step0) return;
     const ms=Date.now()-t0;
@@ -680,10 +689,14 @@ function armarPlacasBeam(piezas, opts, configs, pase){
   let completas=[];
   let guarda=0;
 
+  beamLoop:
   while(beam.length && guarda++<300){
-    // Step 0 sólo observa el mismo límite temporal existente.
-    if(Date.now()-t0 > opts.presupuestoBeamMs){
+    if(!modoDeterminista && Date.now()-t0 > opts.presupuestoBeamMs){
       if(step0&&!timeoutRegistrado){ step0.timeoutHits++; timeoutRegistrado=true; }
+      break;
+    }
+    if(modoDeterminista && watchdogMs!==null && Date.now()-t0 > watchdogMs){
+      marcarWatchdog();
       break;
     }
     const siguientes=[];
@@ -695,6 +708,8 @@ function armarPlacasBeam(piezas, opts, configs, pase){
       if(!cands.length) continue;
 
       for(const c of cands){
+        if(modoDeterminista && watchdogMs!==null && Date.now()-t0 > watchdogMs){ marcarWatchdog(); break beamLoop; }
+        if(modoDeterminista && expansiones >= maxExpansiones){ marcarBudget(); break beamLoop; }
         const placa={ancho:opts.anchoUtil, alto:opts.altoUtil, colocadas:c.colocadas,
                      cortes:c.cortes, restos:c.restos, arbol:c.arbol};
         expansiones++;

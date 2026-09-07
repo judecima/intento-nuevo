@@ -21,9 +21,9 @@ const { validarPlanIndustrial } = require('./validador_industrial_v3.cjs');
 
 function nuevaTelemetriaStep0(){
   return {
-    beam:{calls:0,expansionsTotal:0,expansionsMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0},
-    master:{runs:0,nodesTotal:0,nodesMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0},
-    oneboard:{runs:0,attemptsTotal:0,attemptsMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0},
+    beam:{calls:0,expansionsTotal:0,expansionsMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0,budgetHits:0,watchdogHits:0},
+    master:{runs:0,nodesTotal:0,nodesMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0,budgetHits:0,watchdogHits:0},
+    oneboard:{runs:0,attemptsTotal:0,attemptsMax:0,wallMsTotal:0,wallMsMax:0,timeoutHits:0,budgetHits:0,watchdogHits:0},
     composition:{optimizarCalls:0,armarPlacasCalls:0,stageCalls:0},
   };
 }
@@ -437,7 +437,9 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
         .concat(patronesMonotipo(lineas, config));
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
                                   mejor.resumen.placas, config.msMaster || 8000,
-                                  { telemetry: config._step0Telemetry || null });
+                                  { telemetry: config._step0Telemetry || null,
+                                    maxNodos: config.maxNodosMaster,
+                                    watchdogMs: config.watchdogMasterMs });
       const sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
       const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
       if (cand) probar('master', cand, Date.now() - t);

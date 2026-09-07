@@ -35,12 +35,25 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   const t0 = Date.now();
   const step0=control&&control.telemetry&&control.telemetry.master;
   if(step0) step0.runs++;
+  const maxNodosRaw=Number(control&&control.maxNodos);
+  const maxNodos=Number.isFinite(maxNodosRaw)&&maxNodosRaw>0?Math.floor(maxNodosRaw):null;
+  const modoDeterminista=maxNodos!==null;
+  const watchdogRaw=Number(control&&control.watchdogMs);
+  const watchdogMs=Number.isFinite(watchdogRaw)&&watchdogRaw>0?watchdogRaw:null;
   let mejor = incumbente, mejorPlan = null;
   const memo = new Map();
-  let nodos = 0, agotado = false, timeoutRegistrado=false;
+  let nodos = 0, agotado = false, timeoutRegistrado=false, budgetRegistrado=false, watchdogRegistrado=false;
   const marcarTimeout=()=>{
     agotado=true;
     if(step0&&!timeoutRegistrado){ step0.timeoutHits++; timeoutRegistrado=true; }
+  };
+  const marcarBudget=()=>{
+    agotado=true;
+    if(step0&&!budgetRegistrado){ step0.budgetHits++; budgetRegistrado=true; }
+  };
+  const marcarWatchdog=()=>{
+    agotado=true;
+    if(step0&&!watchdogRegistrado){ step0.watchdogHits++; step0.timeoutHits++; watchdogRegistrado=true; }
   };
 
   const areaTipo = p => p;   // el area por tipo se pasa aparte
@@ -53,7 +66,10 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   }
 
   function dfs(rest, areaRest, usadas, plan) {
-    if (Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
+    if (!modoDeterminista && Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
+    if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); return; }
+    // En modo determinista el terminal se acepta antes de rechazar el siguiente
+    // nodo. Esto preserva la correccion recuperada de 2f2c202.
     if (areaRest <= 1e-9) {
       if (usadas < mejor) { mejor = usadas; mejorPlan = plan.slice(); }
       return;
@@ -63,6 +79,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
     const clave = rest.join(',');
     const previo = memo.get(clave);
     if (previo !== undefined && previo <= usadas) return;
+    if (modoDeterminista && nodos >= maxNodos) { marcarBudget(); return; }
     memo.set(clave, usadas);
     nodos++;
 
@@ -92,7 +109,8 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       plan.push(p);
       dfs(nr, areaRest - da, usadas + 1, plan);
       plan.pop();
-      if (Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
+      if (!modoDeterminista && Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
+      if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); return; }
     }
   }
 

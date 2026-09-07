@@ -234,6 +234,12 @@ export interface LegacyOptimizerOptions {
   msMaster?: number;
   semillasRescate?: number;
   msRescate?: number;
+  maxExpansionesBeam?: number;
+  watchdogBeamMs?: number;
+  maxNodosMaster?: number;
+  watchdogMasterMs?: number;
+  maxIntentosRescate?: number;
+  watchdogRescateMs?: number;
   [key: string]: unknown;
 }
 

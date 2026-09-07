@@ -35,6 +35,16 @@ function rescatarUnaPlaca(lineas, config = {}) {
   // Todo parametro leido con opts.x necesita su default aca mismo: sin esto
   // el rescate no ejecuta ninguna corrida y falla en silencio.
   const opts = { pases: 40, semillasRescate: 6, msRescate: 20000, ...config };
+  const maxIntentosRaw=Number(opts.maxIntentosRescate);
+  const maxIntentos=Number.isFinite(maxIntentosRaw)&&maxIntentosRaw>0?Math.floor(maxIntentosRaw):null;
+  const modoDeterminista=maxIntentos!==null;
+  const watchdogRaw=Number(opts.watchdogRescateMs);
+  const watchdogMs=Number.isFinite(watchdogRaw)&&watchdogRaw>0?watchdogRaw:null;
+  let budgetRegistrado=false, watchdogRegistrado=false;
+  const marcarBudget=()=>{ if(step0&&!budgetRegistrado){ step0.budgetHits++; budgetRegistrado=true; } };
+  const marcarWatchdog=()=>{
+    if(step0&&!watchdogRegistrado){ step0.watchdogHits++; step0.timeoutHits++; watchdogRegistrado=true; }
+  };
   const base = M.optimizar(lineas, { ...config });
   const areaTotal = lineas.reduce((s, l) => s + l.cant * l.base * l.altura, 0);
   const areaPlaca = (config.placaBase - (config.refiladoX || 0)) *
@@ -62,11 +72,15 @@ function rescatarUnaPlaca(lineas, config = {}) {
   ];
 
   let corrida = 0;
-  for (let s = 0; s < opts.semillasRescate && Date.now() - t0 < opts.msRescate; s++) {
+  rescateLoop:
+  for (let s = 0; s < opts.semillasRescate && (modoDeterminista || Date.now() - t0 < opts.msRescate); s++) {
     for (const c1 of CR) for (const c2 of CR)
       for (const dir of [M.DIR_Y, M.DIR_X])
         for (const multi of [false, true]) {
-          if (Date.now() - t0 > opts.msRescate) break;
+          // Flags OFF: conservar el break historico del loop mas interno.
+          if (!modoDeterminista && Date.now() - t0 > opts.msRescate) break;
+          if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); break rescateLoop; }
+          if (modoDeterminista && intentos >= maxIntentos) { marcarBudget(); break rescateLoop; }
           const cfg = { criterios: [c1, c2], criterio: c1, dirInicial: dir,
                         ruido: s === 0 ? 0 : 0.3, multiRebanada: multi };
           cfg._id = M.hashTexto(c1 + '>' + c2 + '|' + dir + '|' + multi);
@@ -88,7 +102,7 @@ function rescatarUnaPlaca(lineas, config = {}) {
           }
         }
   }
-  if(Date.now()-t0>=opts.msRescate){
+  if(!modoDeterminista && Date.now()-t0>=opts.msRescate){
     timeoutRegistrado=true;
     if(step0) step0.timeoutHits++;
   }
