@@ -1,0 +1,93 @@
+name: Optimizer kernel V20 safe
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-stabilization
+    paths:
+      - .github/workflows/optimizer-kernel-v20-safe-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  v20-safe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Assert Candidate A runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '_diagLink' src/lib/optimizer/legacy/motor.cjs
+          grep -q 'resolverDiagPath' src/lib/optimizer/legacy/motor.cjs
+          grep -q '_diagLink' src/lib/optimizer/engine/legacy-engine.ts
+      - name: Import measured per-board repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin optimizer-v20-remnant-defrag
+          git show FETCH_HEAD:src/lib/optimizer/experimental/per-board-remnant-defrag.cjs > src/lib/optimizer/experimental/per-board-remnant-defrag.cjs
+          git show FETCH_HEAD:scripts/v20-remnant-defrag-smoke.mjs > scripts/v20-remnant-defrag-smoke.mjs
+          git show FETCH_HEAD:scripts/v20-remnant-recovery-check.mjs > scripts/v20-remnant-recovery-check.mjs
+      - name: Wire V20 fail-safe
+        run: python3 scripts/kernel-stabilization/port-v20-safe.py
+      - name: Add runtime wiring smoke
+        shell: bash
+        run: |
+          cat > scripts/v20-remnant-safe-smoke.mjs <<'EOF'
+          #!/usr/bin/env node
+          import { createRequire } from 'node:module';
+          const require = createRequire(import.meta.url);
+          const { optimizarV10, validarPlanIndustrial } = require('../src/lib/optimizer/legacy/v10.cjs');
+          const lines = [
+            { ref:'A', detalle:'A', cant:2, base:420, altura:380, veta:false },
+            { ref:'B', detalle:'B', cant:1, base:510, altura:300, veta:false },
+            { ref:'C', detalle:'C', cant:2, base:280, altura:240, veta:false },
+          ];
+          const pieces = lines.reduce((n,l)=>n+l.cant,0);
+          const config = {
+            placaBase:1000, placaAltura:1000, refiladoX:0, refiladoY:0,
+            sierra:5, etapas:4, materialConVeta:false, descontarCanto:false,
+            cantoEspesor:0, restoMin:100, restoMax:250, semilla:20260812,
+            usarCotaBarataAntesCompactacion:true,
+            usarMultiSlice:false, usarOneBoard:false, usarMaster:false,
+          };
+          const r = optimizarV10(lines, config);
+          const v = validarPlanIndustrial(r.plan, pieces);
+          const m = r.metricas.remnantPolish;
+          console.log(JSON.stringify({ placas:r.plan.resumen.placas, valid:v.ok, polish:m }, null, 2));
+          if (!v.ok || m.runs !== 1 || m.valid !== 1 || m.invalidFinal !== 0 || m.errors !== 0)
+            throw new Error('V20 safe runtime wiring failed');
+          console.log('V20 SAFE RUNTIME SMOKE OK');
+          EOF
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Regression contracts
+        run: npx vitest run tests/optimizer/pattern-trace.test.ts tests/optimizer/diag-trace.test.ts tests/optimizer/optimizer.test.ts tests/optimizer/remnant-quality.test.ts tests/optimizer/v20-cheap-env-isolation.test.ts
+      - name: Per-board repair smoke
+        run: node scripts/v20-remnant-defrag-smoke.mjs
+      - name: Runtime wiring smoke
+        run: node scripts/v20-remnant-safe-smoke.mjs
+      - name: Commit V20 safe runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'optimizer-kernel-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/lib/optimizer/legacy/v10.cjs src/lib/optimizer/experimental/per-board-remnant-defrag.cjs scripts/v20-remnant-defrag-smoke.mjs scripts/v20-remnant-recovery-check.mjs scripts/v20-remnant-safe-smoke.mjs
+          git diff --cached --check
+          git commit -m 'feat(optimizer): make V20 remnant-safe before certified return [v20-safe]'
+          git push origin HEAD:optimizer-kernel-v1-stabilization
