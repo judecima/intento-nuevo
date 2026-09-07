@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: optimizer-kernel-v1-freeze
+  cancel-in-progress: false
+
 jobs:
   inspect-corpus:
     runs-on: ubuntu-latest
@@ -24,31 +28,40 @@ jobs:
           fetch-depth: 0
           ref: optimizer-kernel-v1-freeze
 
-      - name: Inspect embedded canonical corpus and historical lineage
+      - name: Build reproducible freeze provenance
         shell: bash
         run: |
           set -euo pipefail
+          node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           node <<'NODE'
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('experiencia/canonical_cases.json','utf8'));
-          const first = data[0];
-          const piece = first?.pieces?.[0] ?? null;
-          const counts = {
-            total: data.length,
-            referencePositive: data.filter(x => Number(x.reference_panels) > 0).length,
-            refFinite: data.filter(x => Number.isFinite(Number(x.reference_panels))).length,
-            directional: data.filter(x => x.directional === true).length,
-            pieceLe30: data.filter(x => Number(x.piece_count) <= 30).length,
-            pieceLe100: data.filter(x => Number(x.piece_count) <= 100).length,
-            piece101to300: data.filter(x => Number(x.piece_count) >= 101 && Number(x.piece_count) <= 300).length,
-          };
-          console.log('CANONICAL_SUMMARY='+JSON.stringify({bytes:fs.statSync('experiencia/canonical_cases.json').size,counts,first,firstPiece:piece}));
-          const files = ['experiencia/v7/all20.jsonl','experiencia/v7/repro20.jsonl','experiencia/v7/w1.jsonl','experiencia/v7/w2.jsonl'];
-          for (const p of files) {
-            if (!fs.existsSync(p)) continue;
-            const lines = fs.readFileSync(p,'utf8').split(/\r?\n/).filter(Boolean);
-            console.log('HIST_FILE='+JSON.stringify({path:p,lines:lines.length,first:lines.slice(0,2).map(x=>{try{return JSON.parse(x)}catch{return x.slice(0,300)}})}));
-          }
+          const p = 'research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json';
+          const r = JSON.parse(fs.readFileSync(p, 'utf8'));
+          console.log('FREEZE_TRACEABILITY=' + JSON.stringify(r.freezeTraceability));
+          console.log('CANONICAL_IDENTITY=' + JSON.stringify({
+            count: r.embeddedCanonical.count,
+            xmlIdentities: r.embeddedCanonical.distinctXmlIdentities,
+            identityStatus: r.historicalCorrectness.identityStatus,
+            hotspots: r.hotspots,
+            sentinels: r.sentinels.exact5,
+            fullPlanHash: r.fullPlanHash.status,
+          }));
+          if (r.embeddedCanonical.count !== 20844) throw new Error('Embedded canonical corpus drifted from 20,844');
+          if (!r.hotspots.exact213) throw new Error('Historical 213-hotspot cohort is not exact');
+          if (!r.sentinels.exact5) throw new Error('Historical five-sentinel cohort is not exact');
+          if (r.fullPlanHash.status !== 'HISTORICAL_CONTRACT_RECOVERED') throw new Error('Historical fullPlanHash contract is incomplete');
           NODE
-          echo '--- lineage grep ---'
-          grep -RniE 'canonical_cases|8669|8,669|213 hotspot|hotspot.*213|sentinel' scripts research experiencia --exclude='canonical_cases.json' --exclude='*.bundle' | head -n 200 || true
+
+      - name: Persist provenance checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
+          if git diff --cached --quiet; then
+            echo "Provenance report unchanged"
+            exit 0
+          fi
+          git commit -m "docs(optimizer): checkpoint Kernel V1 freeze provenance [skip ci]"
+          git push origin HEAD:optimizer-kernel-v1-freeze
