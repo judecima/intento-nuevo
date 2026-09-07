@@ -1,4 +1,4 @@
-# V22b — Evidence before progressive Pattern Master budget
+# V22b — Evidence before any Pattern Master budget policy
 
 Date: 2026-09-06
 Branch: `optimizer-v22b-progressive-master-evidence`
@@ -16,115 +16,183 @@ Mandatory holdout result:
 
 The threshold will not be moved to gap 2/3 after seeing this result.
 
-## Stronger cross-cohort falsification of gap-only activation
+## Gap-only activation is permanently rejected
 
-Known 40-round Master wins outside the 213 hotspot include:
+Known 40-round Master wins span:
 - `4056900`: pre-Master 7 -> 6, cota 6, gap 1;
 - `4058501`: pre-Master 9 -> 8, cota 7, gap 2;
 - `4059200`: pre-Master 18 -> 17, cota 13, gap 5.
 
-Therefore there is no empirically supported hard maximum gap at which Pattern Master becomes unable to win. Gap remains diagnostic only; it is forbidden as a hard skip predictor for V22b.
+There is no empirically supported hard maximum gap at which Pattern Master becomes unable to win. Gap remains diagnostic only.
 
-## Historical 2,000-row evidence without rerunning optimizer
+## Mandatory cross-cohort quality set = 5
 
-`experiencia/v7/all20.jsonl` contains four distinct 20-round Pattern Master wins:
+`experiencia/master-quality-sentinels.json`
+
+Confirmed 40-round references:
+- `4050594` => 7 boards;
+- `4056900` => 6 boards;
+- `4058501` => 8 boards;
+- `4059200` => 17 boards;
+- `4057401` => 4 boards.
+
+`4057401` was promoted from calibration candidate after a successful 40-round reproduction.
+
+Historical `experiencia/v7/all20.jsonl` contains four distinct 20-round Master wins:
 - `4050594`;
 - `4056900`;
 - `4057401`;
 - `4059200`.
 
-`4058501` is deliberately absent from that win list because 20 rounds regress it to 9 boards; 40 rounds recover 8 boards.
+`4058501` is absent from that 20-round win list because 20 rounds regress it to 9 boards; 40 rounds recover 8 boards.
 
-Thus the currently known quality set spans five distinct cases. `4057401` remains a calibration candidate until a 40-round reproduction confirms its expected result.
+## Stable cost fact
 
-Artifacts:
-- mandatory manifest: `experiencia/master-quality-sentinels.json`;
-- historical extractor: `scripts/v22b-extract-master-wins.mjs`;
-- reusable quality gate: `scripts/master-sentinel-check.mjs`.
-
-## Why V22b does not implement a stopping rule yet
-
-The stable cost fact remains:
-- pattern generation + monotype: 96.24% of historical Master wall time;
+Pattern Master historical wall time remains dominated by generation:
+- generation + monotype: 96.24%;
 - coverage solver: 3.76%.
 
-A generation budget is therefore the right component to study, but the safe stopping signal is not yet known.
+Therefore `msMaster`/coverage-solver tuning is not the primary latency lever.
 
-Already falsified predictors:
-- hard gap threshold — falsified by wins at gap 2 and gap 5;
-- blind fixed 20-round cap — falsified by `4058501`;
-- furniture/repetition families — did not produce any of the four late selected vectors required by `4058501`.
+## Prefix profiler result — parity valid
 
-## Prefix diagnostic — fixed before measurement
-
-Use `scripts/v22b-master-prefix-profile.mjs` with generation checkpoints:
+The accumulated-prefix profiler was run on all five sentinels with checkpoints:
 
 `5,10,15,20,25,30,35,40`
 
-For every case it records:
-- pre-Master boards and cota;
-- board result at each accumulated generation prefix;
-- random pool size and newly-added columns;
-- selected columns and their first-seen round;
-- how many selected columns are new since the previous checkpoint;
-- solver nodes/exhaustion/time;
-- first checkpoint that improves the pre-Master incumbent;
-- parity of the profiler's 40-round pool against the unchanged legacy `generarPatrones(...,40)` vector set.
+`parity40=true` in all five cases.
 
-This phase is diagnostic only. It must not change `v10.cjs`, `patrones.cjs`, the production flag set, round count, solver objective, or acceptance rules.
+Observed curves:
 
-## Predeclared interpretation rules
+| Case | Gap | Reference | First improvement | Later behavior |
+|---|---:|---:|---:|---|
+| `4050594` | 1 | 7 | 5 | plateau through 40; no later selected columns |
+| `4056900` | 1 | 6 | 10 | new material continues through round 37 |
+| `4058501` | 2 | 8 | 35 | no selected columns through round 30; full 8-board solution appears at 35 |
+| `4059200` | 5 | 17 | 5 | new columns continue through round 26 |
+| `4057401` | 1 | 4 | 10 | small pool; early empirical saturation |
 
-1. **Profiler validity**
-   - `parity40` must be true for every profiled case that includes checkpoint 40.
-   - If parity fails, stop and fix the diagnostic; do not draw optimization conclusions.
+### Decisive adversarial case: `4058501`
 
-2. **Simple board-count patience**
-   - If any mandatory Master-win sentinel shows a long plateau in board count and later improves, a stopping rule based only on "N checkpoints without board improvement" is classified UNSAFE.
-   - We will not choose N after seeing the longest plateau.
+Checkpoint curve:
 
-3. **Useful-column arrival signal**
-   - If late improvements are consistently preceded by selected columns newly entering the accumulated pool, selected-column/pool progress may be investigated as a continuation signal.
-   - This is evidence for a later candidate, not sufficient by itself to skip Master.
-
-4. **No hard predictor from gap**
-   - gap may be logged/correlated but cannot authorize skipping a case.
-
-5. **Quality gate for every future candidate**
-   - every mandatory sentinel must preserve its expected board count;
-   - any single board regression closes the candidate immediately before the 213 benchmark.
-
-## Commands
-
-Extract all recorded 20-round Master wins (no optimizer execution):
-
-```powershell
-node scripts/v22b-extract-master-wins.mjs `
-  --source experiencia/v7/all20.jsonl `
-  --sentinels experiencia/master-quality-sentinels.json `
-  --out experiencia/v22b-all20-master-wins.json
+```text
+rondas    5  10  15  20  25  30  35  40
+placas    9   9   9   9   9   9   8   8
+sel       0   0   0   0   0   0   8   8
+nuevasSel 0   0   0   0   0   0   2   0
 ```
 
-Profile mandatory sentinels plus the `4057401` calibration candidate:
+For thirty rounds there is no board improvement and no selected/useful-column signal. The complete winning solution appears only at checkpoint 35.
+
+Therefore the following policy families are classified UNSAFE and CLOSED:
+- stop after N rounds/checkpoints without board improvement;
+- stop after N rounds/checkpoints without currently selected/useful columns;
+- choosing a larger N after observing this plateau.
+
+## Remaining signal under study: empirical pool saturation
+
+This is diagnostic only; no runtime policy is authorized.
+
+Important distinction:
+- a long zero-growth streak means the current generator is empirically recycling vectors;
+- it does **not** mathematically prove that no unseen vector can appear later.
+
+`4057401` motivates measuring saturation because its pool nearly stops growing while `4058501` continues adding vectors until late. But `4057401` is also a small order with few types, so saturation may simply be a proxy for problem size.
+
+## Next evidence cohort — fixed before measurement
+
+Use 40 historical Master activations with zero recorded board gain.
+
+Selection rule:
+1. exclude all mandatory sentinels;
+2. require successful, non-cache, valid historical rows with Master activation and zero Master board gain;
+3. sort by historical type-complexity proxy (`pool.patronesMonotipo`, fallback `optimizarCalls.monotipo`);
+4. split into four equal-count quartiles;
+5. inside each quartile, select evenly across the historical Master-time range.
+
+Purpose:
+- cover small and large type spaces;
+- cover cheap and expensive Master calls;
+- avoid testing saturation only on small orders or only on the expensive tail.
+
+Selector:
+`node scripts/v22b-select-saturation-cohort.mjs`
+
+## Saturation metrics — exact per round
+
+`v22b-master-prefix-profile.mjs` now records, for every generation round:
+- `newVectors`;
+- accumulated `poolSize`;
+- last round that added a vector;
+- rounds since last new vector;
+- maximum consecutive zero-growth streak;
+- vectors added in the last 5/10/20 rounds;
+- total zero-growth rounds;
+- total growth rounds.
+
+The profiler also records actual canonical `types` and `pieces`, so saturation can be tested against order complexity instead of relying on the historical proxy.
+
+## Diagnostic analysis — no threshold selection
+
+`node scripts/v22b-saturation-analyze.mjs`
+
+The analyzer reports:
+- saturation distributions across the 40 non-wins;
+- Spearman correlation of saturation against type count and piece count;
+- sensitivity tables for zero-growth streaks 5/10/15/20;
+- how many non-wins each streak would cut;
+- generation rounds saved as a structural proxy;
+- whether any known sentinel would potentially be cut before its known winning checkpoint.
+
+Interpretation rules:
+1. A strong relationship between small type count and saturation weakens saturation as an independent signal.
+2. Any known sentinel threatened by a candidate streak closes that streak immediately.
+3. Zero sentinel losses is necessary but not sufficient for safety.
+4. Generation-round savings are not wall-time savings; same-machine timing is required only after a candidate policy survives evidence.
+5. No threshold is selected retroactively to make the result pass.
+
+## Commands
 
 ```powershell
 git checkout optimizer-v22b-progressive-master-evidence
 git pull
 node scripts/experience-benchmark.mjs report --rebuild
 
+# 1) Re-profile all five mandatory sentinels with per-round pool growth.
 node scripts/v22b-master-prefix-profile.mjs `
   --corpus "D:\proyectos asistidos\lepton\data\lepton-xml" `
-  --includeCandidates 1 `
   --out experiencia/v22b-master-prefix-profile.json
+
+# 2) Select a deterministic, stratified 40-case Master non-win cohort.
+node scripts/v22b-select-saturation-cohort.mjs `
+  --source experiencia/v7/all20.jsonl `
+  --out experiencia/v22b-saturation-nonwins-40.txt `
+  --meta experiencia/v22b-saturation-nonwins-40.json
+
+# 3) Profile the 40 non-wins with the exact same generator/checkpoints.
+node scripts/v22b-master-prefix-profile.mjs `
+  --corpus "D:\proyectos asistidos\lepton\data\lepton-xml" `
+  --files experiencia/v22b-saturation-nonwins-40.txt `
+  --out experiencia/v22b-saturation-nonwins-40-profile.json
+
+# 4) Produce the saturation diagnostic; this does not authorize a cutoff.
+node scripts/v22b-saturation-analyze.mjs `
+  --wins experiencia/v22b-master-prefix-profile.json `
+  --nonwins experiencia/v22b-saturation-nonwins-40-profile.json `
+  --out experiencia/v22b-saturation-analysis.json
 ```
 
-## Decision after this evidence
+## Current policy status
 
-Only after the prefix curves are known do we decide whether a progressive generation budget is feasible.
+Rejected by evidence:
+- cutoff by gap;
+- fixed round cap;
+- furniture/family predictor as a sufficient safe replacement;
+- patience on board improvement;
+- patience on currently selected/useful columns.
 
-Possible outcomes:
-- `BOARD_PATIENCE_UNSAFE`: late wins occur after plateaus; do not implement simple no-board-improvement patience.
-- `PROGRESS_SIGNAL_CANDIDATE`: a non-lossy observable signal exists before late wins and merits a separately gated runtime experiment.
-- `NO_SAFE_CHEAP_SIGNAL`: no cheap observable signal separates wins from non-wins; stop heuristic budgeting and reconsider master-guided/dual-priced generation or asynchronous execution.
+Open:
+- empirical pool saturation, diagnostic only.
 
-No threshold will be retrofitted to make a failed candidate pass.
+If saturation also fails to discriminate without threatening quality, V22b ends as `NO_SAFE_CHEAP_SIGNAL`; the next direction should not be another hand-tuned cutoff. It should move to a structurally different approach such as master-guided/dual-priced generation or asynchronous rescue.
