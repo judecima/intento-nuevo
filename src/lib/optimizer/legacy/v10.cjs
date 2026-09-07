@@ -36,6 +36,18 @@ function nuevasMetricas() {
       cheapValue: 0,
       cheapReason: null,
     },
+    remnantPolish: {
+      runs: 0,
+      valid: 0,
+      changed: 0,
+      attemptedBoards: 0,
+      improvedBoards: 0,
+      rejectedBoards: 0,
+      invalidFinal: 0,
+      errors: 0,
+      skipped: 0,
+      ms: 0,
+    },
     total: { casos: 0, ms: 0 }
   };
 }
@@ -55,6 +67,42 @@ function usarCotaBarataPostBaseline(config) {
   // El flag V20 es independiente del pipeline staged para poder hacer un A/B
   // contra el V10 legacy cambiando una sola variable.
   return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+}
+
+function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
+  const m = metricas.remnantPolish;
+  const t0 = process.hrtime.bigint();
+  m.runs++;
+  try {
+    // Explicit false is a rollback switch. Safety means falling through to the
+    // legacy compactation path, never returning early without objective #2.
+    if (config.usarDefragRemanentePorPlaca === false) {
+      m.skipped++;
+      return { valido: false, plan };
+    }
+    const { defragmentarPlanPorPlaca } = require('../experimental/per-board-remnant-defrag.cjs');
+    const r = defragmentarPlanPorPlaca(plan, { piezasEsperadas });
+    m.attemptedBoards += +r.attemptedBoards || 0;
+    m.improvedBoards += +r.improvedBoards || 0;
+    m.rejectedBoards += +r.rejectedBoards || 0;
+    if (r.invalidFinal) {
+      m.invalidFinal++;
+      return { valido: false, plan };
+    }
+    const v = validarPlanIndustrial(r.plan, piezasEsperadas);
+    if (!v || !v.ok) {
+      m.invalidFinal++;
+      return { valido: false, plan };
+    }
+    m.valid++;
+    if (r.changed) m.changed++;
+    return { valido: true, plan: r.plan };
+  } catch (_) {
+    m.errors++;
+    return { valido: false, plan };
+  } finally {
+    m.ms += Number(process.hrtime.bigint() - t0) / 1e6;
+  }
 }
 
 function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
@@ -236,24 +284,41 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
 
   const usarCheap = usarCotaBarataPostBaseline(config);
   const certificarTemprano = config.certificarAntesCompactacion === true || usarCheap;
-
-  // Primer corte: si area/external LB ya certifican, ni siquiera calculamos la
-  // cheap LB. Esto cubre los casos baratos baseline == areaLB.
-  if (
+  const certificadoInicial = !!(
     certificarTemprano &&
     baseline?.resumen &&
     baseline.resumen.placas <= cota
-  ) {
+  );
+  let polishCertificado = null;
+  const obtenerPolishCertificado = () => {
+    if (polishCertificado === null)
+      polishCertificado = intentarPolishV20(baseline, config, piezasEsperadas, metricas);
+    return polishCertificado;
+  };
+
+  // Primer corte: fuera de V20 conserva exactamente el retorno histórico.
+  // Con V20, una certificación de placas no puede saltarse silenciosamente el
+  // objetivo #2: primero se ejecuta el polish por placa; si falla, continuamos
+  // hacia compactación legacy en lugar de devolver el baseline.
+  if (certificadoInicial) {
     metricas.lowerBound.certifiedAfterBaseline++;
-    metricas.total.ms += Date.now() - t0;
-    return { plan: baseline, metricas, cota, cotaArea };
+    if (!usarCheap) {
+      metricas.total.ms += Date.now() - t0;
+      return { plan: baseline, metricas, cota, cotaArea };
+    }
+    const polished = obtenerPolishCertificado();
+    if (polished.valido) {
+      metricas.total.ms += Date.now() - t0;
+      return { plan: polished.plan, metricas, cota, cotaArea };
+    }
   }
 
   // V20 experimental: sólo para los que NO cerraron por área. Calcula la misma
   // Hybrid Cheap LB validada en V15-V19, explícitamente sin Raster. Si iguala
-  // al incumbente físico, el número de placas queda certificado y cortamos
-  // compactación + MultiSlice + OneBoard + Master.
-  if (usarCheap && baseline?.resumen) {
+  // al incumbente físico, el número de placas queda certificado. El fast return
+  // sólo se permite después de un polish válido; de lo contrario cae al camino
+  // legacy de compactación.
+  if (usarCheap && baseline?.resumen && !certificadoInicial) {
     const cheap = calcularCotaBarataPostBaseline(lineas, config, baseline, metricas);
     if (cheap > 0) {
       if (cheap <= baseline.resumen.placas) {
@@ -268,8 +333,11 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
     if (baseline.resumen.placas <= cota) {
       metricas.lowerBound.cheapCertified++;
       metricas.lowerBound.certifiedAfterBaseline++;
-      metricas.total.ms += Date.now() - t0;
-      return { plan: baseline, metricas, cota, cotaArea };
+      const polished = obtenerPolishCertificado();
+      if (polished.valido) {
+        metricas.total.ms += Date.now() - t0;
+        return { plan: polished.plan, metricas, cota, cotaArea };
+      }
     }
   }
 
