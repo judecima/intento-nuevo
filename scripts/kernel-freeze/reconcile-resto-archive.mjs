@@ -21,18 +21,13 @@ const restoFiles = restoRecords
   .map((record) => basename(normalizePath(record?.source_path)))
   .filter((name) => /\.xml$/i.test(name));
 const restoIdentities = [...new Set(restoFiles)].sort(cmp);
-const restoStemToFiles = new Map();
-for (const file of restoIdentities) {
-  const stem = xmlStem(file);
-  let bucket = restoStemToFiles.get(stem);
-  if (!bucket) restoStemToFiles.set(stem, bucket = []);
-  bucket.push(file);
-}
 
 const resolutions = audit.currentParser.rejections.map((entry) => {
   const stem = String(entry.stem);
   const code = String(entry.code);
-  const matches = [...(restoStemToFiles.get(stem) ?? [])].sort(cmp);
+  const matches = restoIdentities
+    .filter((file) => auditStemMatches(xmlStem(file), stem))
+    .sort(cmp);
   return { stem, code, matches, matchCount: matches.length };
 });
 
@@ -50,7 +45,7 @@ const currentComparableIdentities = [...new Set(currentComparableRecords
   .map((record) => basename(normalizePath(record?.source_path)))
   .filter((name) => /\.xml$/i.test(name)))].sort(cmp);
 
-const rejectionCounts = Object.fromEntries([...new Map(audit.currentParser.rejections.map((entry) => [entry.code, 0])).keys()]
+const rejectionCounts = Object.fromEntries([...new Set(audit.currentParser.rejections.map((entry) => String(entry.code)))]
   .sort(cmp)
   .map((code) => [code, audit.currentParser.rejections.filter((entry) => entry.code === code).length]));
 
@@ -79,7 +74,7 @@ const checks = {
 
 const status = Object.values(checks).every(Boolean) ? "RECOVERED" : "BLOCKED";
 const report = {
-  schemaVersion: "kernel-v1-resto-reconciliation-v1",
+  schemaVersion: "kernel-v1-resto-reconciliation-v2",
   generatedAt: new Date().toISOString(),
   inputs: {
     canonical: relative(canonicalPath),
@@ -104,6 +99,7 @@ const report = {
     identitySetSha256: hashList(restoIdentities),
   },
   rejectionResolution: {
+    identityRule: "exact stem; numeric audit stems additionally resolve a unique embedded filename beginning with <order>__ or <order>_",
     mixedBoard: mixed,
     strict: strict,
     mixedResolvedExactlyOnce,
@@ -133,6 +129,12 @@ console.log(JSON.stringify({
   currentComparable: `${currentComparableRecords.length}/${currentComparableIdentities.length}`,
   identitySetSha256: report.currentComparable.identitySetSha256,
 }));
+
+function auditStemMatches(fileStem, auditStem) {
+  if (fileStem === auditStem) return true;
+  if (!/^\d+$/.test(auditStem)) return false;
+  return fileStem.startsWith(`${auditStem}__`) || fileStem.startsWith(`${auditStem}_`);
+}
 
 function partitionKey(source) {
   if (!source) return "";
