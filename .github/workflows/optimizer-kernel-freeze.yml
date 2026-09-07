@@ -33,6 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v2.mjs
           node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           node scripts/kernel-freeze/analyze-correctness-partitions.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
           node scripts/kernel-freeze/reconcile-resto-archive.mjs research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json
