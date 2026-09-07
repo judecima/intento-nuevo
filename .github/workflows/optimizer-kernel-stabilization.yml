@@ -7,29 +7,96 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  recover-candidate-a:
+  candidate-a:
+    if: ${{ !contains(github.event.head_commit.message, '[candidate-a-port]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Recover deferred-trace bundle
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Recover and port exact Candidate A
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== BUNDLE REFS ==='
-          git bundle list-heads experiencia/traza-diferida.bundle
           git clone -b traza experiencia/traza-diferida.bundle "$RUNNER_TEMP/deferred-trace"
-          echo '=== BUNDLE HEAD ==='
-          git -C "$RUNNER_TEMP/deferred-trace" log -1 --oneline --decorate
-          echo '=== BUNDLE COMMIT STAT ==='
-          git -C "$RUNNER_TEMP/deferred-trace" show --stat --oneline --decorate HEAD
-          echo '=== BUNDLE OPTIMIZER DIFF ==='
-          git -C "$RUNNER_TEMP/deferred-trace" diff HEAD^ HEAD -- src/lib/optimizer || true
+
+          for path in \
+            src/lib/optimizer/legacy/motor.cjs \
+            src/lib/optimizer/engine/legacy-engine.ts \
+            src/lib/optimizer/types.ts \
+            src/lib/optimizer/legacy/patrones.cjs
+          do
+            current=$(git rev-parse "HEAD:$path")
+            parent=$(git -C "$RUNNER_TEMP/deferred-trace" rev-parse "HEAD^:$path")
+            if [ "$current" != "$parent" ]; then
+              echo "Base mismatch for $path: current=$current bundle-parent=$parent" >&2
+              exit 1
+            fi
+          done
+
           git -C "$RUNNER_TEMP/deferred-trace" apply "$GITHUB_WORKSPACE/research/optimizer/trace-candidate-a.patch"
-          echo '=== CANDIDATE A PATCH ON TOP ==='
-          git -C "$RUNNER_TEMP/deferred-trace" diff HEAD -- src/lib/optimizer || true
+
+          cp "$RUNNER_TEMP/deferred-trace/src/lib/optimizer/legacy/motor.cjs" src/lib/optimizer/legacy/motor.cjs
+          cp "$RUNNER_TEMP/deferred-trace/src/lib/optimizer/engine/legacy-engine.ts" src/lib/optimizer/engine/legacy-engine.ts
+          cp "$RUNNER_TEMP/deferred-trace/src/lib/optimizer/types.ts" src/lib/optimizer/types.ts
+          cp "$RUNNER_TEMP/deferred-trace/tests/optimizer/diag-trace.test.ts" tests/optimizer/diag-trace.test.ts
+
+          # patrones.cjs intentionally remains the current runtime file: it is already
+          # Candidate A semantics (trace suppression removed) without unrelated header churn.
+          if grep -q 'trazaDiag: false' src/lib/optimizer/legacy/patrones.cjs; then
+            echo 'Candidate A invariant failed: patrones.cjs still suppresses traces' >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Candidate A typecheck
+        run: npm run typecheck
+
+      - name: Candidate A trace contracts
+        run: npx vitest run tests/optimizer/pattern-trace.test.ts tests/optimizer/diag-trace.test.ts tests/optimizer/optimizer.test.ts
+
+      - name: Commit Candidate A runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'optimizer-kernel-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/lib/optimizer/legacy/motor.cjs src/lib/optimizer/engine/legacy-engine.ts src/lib/optimizer/types.ts tests/optimizer/diag-trace.test.ts
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'Candidate A already ported.'
+            exit 0
+          fi
+          git commit -m 'perf(optimizer): port Candidate A linked traces [candidate-a-port]'
+          git push origin HEAD:optimizer-kernel-v1-stabilization
+
+  validate-candidate-a:
+    if: ${{ contains(github.event.head_commit.message, '[candidate-a-port]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Candidate A trace contracts
+        run: npx vitest run tests/optimizer/pattern-trace.test.ts tests/optimizer/diag-trace.test.ts tests/optimizer/optimizer.test.ts
