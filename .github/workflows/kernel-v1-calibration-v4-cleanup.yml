@@ -1,0 +1,52 @@
+name: Kernel V1 calibration v4 cleanup
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/kernel-v1-calibration-v4-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-freeze
+      - name: Normalize v4 observability contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          p=Path('scripts/kernel-freeze/kernel-budget-calibration-v4.mjs')
+          t=p.read_text(encoding='utf-8')
+          t=t.replace('      executionBindingId: EXECUTION_BINDING_ID,\n    telemetryContractId: TELEMETRY_CONTRACT_ID,\n      telemetryContractId: TELEMETRY_CONTRACT_ID,', '      executionBindingId: EXECUTION_BINDING_ID,\n      telemetryContractId: TELEMETRY_CONTRACT_ID,', 1)
+          t=t.replace('label: "calibration-v3"', 'label: "calibration-v4"')
+          t=t.replace('label: "telemetry-probe-v3"', 'label: "telemetry-probe-v4"')
+          t=t.replace('if (status !== "PASS") fail("Step 0 telemetry probe did not produce a valid run exercising a budgeted path");', 'if (status !== "PASS") fail("Step 0 telemetry probe did not produce a valid run with measured budgeted work");')
+          old='''    executionBindingId: EXECUTION_BINDING_ID,\n    status: rows.length === state.feasible.length ? "COMPLETE" : "PARTIAL",\n'''
+          new='''    executionBindingId: EXECUTION_BINDING_ID,\n    telemetryContractId: TELEMETRY_CONTRACT_ID,\n    status: rows.length === state.feasible.length ? "COMPLETE" : "PARTIAL",\n'''
+          if old not in t: raise SystemExit('summary telemetry anchor missing')
+          t=t.replace(old,new,1)
+          old='''    casesExercisingBudgetedPaths: {\n      beam: rows.filter((row) => Number(row.step0?.beam?.calls ?? 0) > 0).length,\n      master: rows.filter((row) => Number(row.step0?.master?.runs ?? 0) > 0).length,\n      oneboard: rows.filter((row) => Number(row.step0?.oneboard?.runs ?? 0) > 0).length,\n    },\n'''
+          new='''    casesWithMeasuredBudgetedWork: {\n      beam: rows.filter((row) => Number(row.step0?.beam?.expansionsTotal ?? 0) > 0).length,\n      master: rows.filter((row) => Number(row.step0?.master?.nodesTotal ?? 0) > 0).length,\n      oneboard: rows.filter((row) => Number(row.step0?.oneboard?.attemptsTotal ?? 0) > 0).length,\n    },\n'''
+          if old not in t: raise SystemExit('summary work anchor missing')
+          t=t.replace(old,new,1)
+          p.write_text(t,encoding='utf-8')
+          PY
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
+          git commit -m "fix(optimizer): normalize calibration v4 telemetry contract"
+          git push origin HEAD:optimizer-kernel-v1-freeze
