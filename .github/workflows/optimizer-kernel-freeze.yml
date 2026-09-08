@@ -38,6 +38,7 @@ jobs:
           node --check scripts/kernel-freeze/kernel-budget-calibration-v3.mjs
           node --check scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
           node --check scripts/kernel-freeze/formal-certification-v3.mjs
+          node --check scripts/kernel-freeze/formal-correctness-v1.mjs
           node --check scripts/kernel-freeze/recover-correctness-execution-semantics.mjs
           node scripts/kernel-freeze/build-provenance.mjs research/optimizer/freeze/KERNEL_V1_FREEZE_PROVENANCE.json
           node scripts/kernel-freeze/analyze-correctness-partitions.mjs research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json
@@ -92,15 +93,15 @@ jobs:
           if (!pre.correctnessExecutionSemantics?.ready || pre.correctnessExecutionSemantics?.executionBindingId !== 'physical-xml-historical-validity-v1') throw new Error('Formal preflight lost correctness execution binding');
           if (pre.executionContract?.calibrationHarness !== 'scripts/kernel-freeze/kernel-budget-calibration-v4.mjs') throw new Error('Formal preflight lost v4 calibration harness');
           if (!pre.policy.correctnessPredicateReady || pre.policy.correctnessPredicateId !== 'HISTORICAL_VALIDITY_V1') throw new Error('Correctness policy not ready');
-          if (pre.policy.deterministicBudgetsReady) throw new Error('Budgets unexpectedly ready without calibration');
-          if (pre.policy.blockingReasons.length !== 1 || !pre.policy.blockingReasons[0].includes('budgets')) throw new Error('Budget calibration must be the only remaining policy blocker');
-          if (pre.policy.formalCertificationReady || final.formalCertification.policyReady) throw new Error('Kernel must not be formally ready before budget calibration');
+          if (!pre.policy.deterministicBudgetsReady) throw new Error('Promoted deterministic budgets must be ready');
+          if (pre.policy.blockingReasons.length !== 0) throw new Error('Formal preflight must have no policy blockers after budget promotion');
+          if (!pre.policy.formalCertificationReady || !final.formalCertification.policyReady) throw new Error('Formal policy must be ready after deterministic budget promotion');
           console.log('FREEZE_TRACEABILITY_COMPLETE=true');
           console.log('HISTORICAL_CORRECTNESS_CONTRACT_RECOVERED=true');
           console.log('HISTORICAL_CORRECTNESS_EXECUTION_SEMANTICS_RECOVERED=true');
           console.log('AUTHORITATIVE_CALIBRATION_HARNESS=kernel-budget-calibration-v4.mjs');
           console.log('AUTHORITATIVE_WORK_TELEMETRY_CONTRACT=step0-work-telemetry-v2');
-          console.log('FORMAL_CERTIFICATION_ONLY_POLICY_BLOCKER=deterministic-budget-calibration');
+          console.log('FORMAL_CERTIFICATION_POLICY_READY=true');
           NODE
 
       - name: Persist provenance checkpoint
