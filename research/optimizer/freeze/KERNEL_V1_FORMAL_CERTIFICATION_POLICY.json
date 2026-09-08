@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v5",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v6",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -151,7 +151,9 @@
       "telemetryProbeRule": "Before calibration, run valid historical hotspot probes until at least one case exercises Beam, Master, or OneBoard, proving budgeted-path counters are live.",
       "beamRule": "Calibrate maxExpansionesBeam from aggregate per-order Beam work, not by converting the historical presupuestoBeamMs=1500 per invocation into expansions.",
       "aggregateBudgetDecision": "Do not add a new aggregate request stop condition inside Kernel V1 freeze. That changes search semantics and requires a new Kernel V1 candidate plus all gates.",
-      "promotionRequirement": "Version explicit positive integer production values with calibration evidence before formal correctness/determinism certification."
+      "promotionRequirement": "Version explicit positive integer production values with calibration evidence before formal correctness/determinism certification.",
+      "telemetryProbeSelection": "Use versioned hotspot rows whose historical metricas.master.activaciones or metricas.oneboard.activaciones is positive. Try the cheapest known activated feasible cases first, up to eight candidates; the current candidate must actually exercise Beam, Master, or OneBoard before calibration starts.",
+      "telemetryProbeInterpretation": "Historical activation is only candidate-selection evidence. PASS still requires a fresh current run with valid output, live composition telemetry, and at least one current Beam/Master/OneBoard counter greater than zero."
     }
   },
   "execution": {

@@ -358,17 +358,18 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
     if (prior?.executionBindingId === EXECUTION_BINDING_ID && prior?.status === "PASS" && prior?.budgetedPathExercised === true) return;
   }
 
+  const activationHints = readHistoricalBudgetedPathHints();
   const candidates = state.feasible
-    .filter((item) => Number.isFinite(hints.get(item.file)))
-    .map((item) => ({ item, historicalMs: hints.get(item.file) }))
-    .filter((entry) => entry.historicalMs >= 500 && entry.historicalMs <= 30_000)
-    .sort((a, b) => a.historicalMs - b.historicalMs || cmp(a.item.file, b.item.file))
-    .slice(0, 12);
-  if (!candidates.length) fail("no historical hotspot candidates available for Step 0 telemetry probe");
+    .map((item) => ({ item, hint: activationHints.get(item.file) }))
+    .filter((entry) => entry.hint && (entry.hint.masterActivations > 0 || entry.hint.oneboardActivations > 0))
+    .sort((a, b) => a.hint.engineMs - b.hint.engineMs || cmp(a.item.file, b.item.file))
+    .slice(0, 8);
+  if (!candidates.length) fail("no historically activated Master/OneBoard candidates available for Step 0 telemetry probe");
 
   const attempts = [];
   let budgetedPathExercised = false;
-  for (const { item, historicalMs } of candidates.slice(0, 8)) {
+  for (const { item, hint } of candidates) {
+    const historicalMs = hint.engineMs;
     const result = await runCase({ bundle, item, env, timeoutMs, out, label: "telemetry-probe-v3" });
     const telemetryWired = hasCompositionTelemetry(result.step0);
     const budgeted = Number(result.step0?.beam?.calls ?? 0) > 0 || Number(result.step0?.master?.runs ?? 0) > 0 || Number(result.step0?.oneboard?.runs ?? 0) > 0;
@@ -376,6 +377,9 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
     attempts.push({
       file: item.file,
       historicalMs,
+      historicalMasterActivations: hint.masterActivations,
+      historicalOneboardActivations: hint.oneboardActivations,
+      selectionReason: "versioned hotspot evidence exercised Master or OneBoard; cheapest known activated candidates first",
       wallMs: result.wallMs,
       valid,
       telemetryWired,
@@ -399,7 +403,7 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
     executionBindingId: EXECUTION_BINDING_ID,
     status,
     budgetedPathExercised,
-    explanation: "composition counters prove Step 0 is wired even when Beam is skipped because greedy reaches the area lower bound; at least one probe must additionally exercise Beam, Master, or OneBoard.",
+    explanation: "composition counters prove Step 0 is wired even when Beam is skipped because greedy reaches the area lower bound; probe candidates are selected from versioned hotspot rows that historically activated Master or OneBoard, cheapest first, and at least one current run must exercise Beam, Master, or OneBoard.",
     attempts,
   });
   if (status !== "PASS") fail("Step 0 telemetry probe did not produce a valid run exercising a budgeted path");
@@ -599,6 +603,21 @@ function readHistoricalTimingHints() {
     const row = JSON.parse(line);
     if (row.ok === false || row.engineCacheHit) continue;
     if (typeof row.file === "string" && Number.isFinite(row.engineMs)) map.set(row.file, Number(row.engineMs));
+  }
+  return map;
+}
+
+function readHistoricalBudgetedPathHints() {
+  const map = new Map();
+  if (!existsSync(HOTSPOT_PATH)) return map;
+  for (const line of readFileSync(HOTSPOT_PATH, "utf8").split(/\r?\n/).filter(Boolean)) {
+    const row = JSON.parse(line);
+    if (row.ok === false || row.engineCacheHit || typeof row.file !== "string" || !Number.isFinite(row.engineMs)) continue;
+    map.set(row.file, {
+      engineMs: Number(row.engineMs),
+      masterActivations: Number(row.metricas?.master?.activaciones ?? 0),
+      oneboardActivations: Number(row.metricas?.oneboard?.activaciones ?? 0),
+    });
   }
   return map;
 }
