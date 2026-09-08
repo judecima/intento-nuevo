@@ -51,6 +51,21 @@ async function main(args) {
   const semantics = readJson(SEMANTICS_PATH);
   if (policy.correctnessPredicate?.id !== "HISTORICAL_VALIDITY_V1") fail("correctness contract not recovered");
   if (semantics?.status !== "RECOVERED") fail("correctness execution semantics not recovered");
+  const budgetCandidateValidation = Boolean(args.validateCandidateBudgets) || String(args.mode ?? "") === "budget-candidate";
+  const candidateValues = budgetCandidateValidation ? (policy.deterministicBudgets?.candidateValues ?? null) : null;
+  if (budgetCandidateValidation) {
+    const required = [
+      "OPTIMIZER_MAX_BEAM_EXPANSIONS",
+      "OPTIMIZER_BEAM_WATCHDOG_MS",
+      "OPTIMIZER_MAX_MASTER_NODES",
+      "OPTIMIZER_MASTER_WATCHDOG_MS",
+      "OPTIMIZER_MAX_RESCUE_ATTEMPTS",
+      "OPTIMIZER_RESCUE_WATCHDOG_MS",
+    ];
+    if (!candidateValues || required.some((key) => !Number.isSafeInteger(Number(candidateValues[key])) || Number(candidateValues[key]) <= 0)) {
+      fail("--validateCandidateBudgets requires six positive integer deterministicBudgets.candidateValues in policy");
+    }
+  }
 
   const bundle = await buildBundle(out);
   const preflightCachePath = join(out, "preflight-state-cache-v4.json");
@@ -118,20 +133,37 @@ async function main(args) {
   });
   const hints = readHistoricalTimingHints();
   const activationHints = readHistoricalBudgetedPathHints();
-  const env = calibrationEnv();
+  const env = calibrationEnv(candidateValues);
 
-  await ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out });
+  if (!budgetCandidateValidation) {
+    await ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out });
+  }
 
-  const ordered = orderCalibration(
-    state.feasible,
-    hints,
-    policy.execution?.knownExtremeTailOrders ?? [],
-    activationHints,
-    calibrationOrder,
-    oneboardScanLimit,
-    calibrationSampleSeed,
-  );
-  const checkpoint = join(out, "calibration-v4.partial.jsonl");
+  const baselineCheckpoint = resolve(String(args.baselineCheckpoint ?? join(out, "calibration-v4.partial.jsonl")));
+  const baselineRows = budgetCandidateValidation
+    ? uniqueLatest(readJsonl(baselineCheckpoint).filter((row) => row.pass === true && row.executionBindingId === EXECUTION_BINDING_ID && row.telemetryContractId === TELEMETRY_CONTRACT_ID))
+    : [];
+  const baselineByFile = new Map(baselineRows.map((row) => [row.file, row]));
+  if (budgetCandidateValidation && baselineRows.length === 0) {
+    fail(`budget candidate validation requires budgets-OFF baseline rows: ${baselineCheckpoint}`);
+  }
+
+  const ordered = budgetCandidateValidation
+    ? state.feasible
+        .filter((item) => baselineByFile.has(item.file))
+        .sort((a, b) => Number(baselineByFile.get(a.file)?.wallMs ?? 0) - Number(baselineByFile.get(b.file)?.wallMs ?? 0) || cmp(a.file, b.file))
+    : orderCalibration(
+        state.feasible,
+        hints,
+        policy.execution?.knownExtremeTailOrders ?? [],
+        activationHints,
+        calibrationOrder,
+        oneboardScanLimit,
+        calibrationSampleSeed,
+      );
+  const checkpoint = budgetCandidateValidation
+    ? join(out, "budget-candidate-v1.partial.jsonl")
+    : join(out, "calibration-v4.partial.jsonl");
   const prior = readJsonl(checkpoint);
   const done = new Set(
     prior
@@ -149,6 +181,14 @@ async function main(args) {
     const beamFallback = classifyBeamFallback(result.stderrTail);
     const beamFallbackWarning = beamFallback.present;
     const beamFallbackAccepted = !beamFallback.present || (beamFallback.controlled && beamAccounting.ok);
+    const baseline = budgetCandidateValidation ? baselineByFile.get(item.file) : null;
+    const sameBoardCountAsBaseline = budgetCandidateValidation ? Number(result.boards) === Number(baseline?.boards) : true;
+    const watchdogHits = {
+      beam: Number(result.step0?.beam?.watchdogHits ?? 0),
+      master: Number(result.step0?.master?.watchdogHits ?? 0),
+      oneboard: Number(result.step0?.oneboard?.watchdogHits ?? 0),
+    };
+    const zeroWatchdogHits = watchdogHits.beam === 0 && watchdogHits.master === 0 && watchdogHits.oneboard === 0;
     const pass = Boolean(
       result.ok &&
       result.validationOk &&
@@ -157,16 +197,23 @@ async function main(args) {
       result.demandMultisetOk &&
       telemetryWired &&
       beamAccounting.ok &&
-      beamFallbackAccepted
+      beamFallbackAccepted &&
+      (!budgetCandidateValidation || (sameBoardCountAsBaseline && zeroWatchdogHits))
     );
     const row = {
-      phase: "calibration",
+      phase: budgetCandidateValidation ? "budget-candidate-validation" : "calibration",
       executionBindingId: EXECUTION_BINDING_ID,
       telemetryContractId: TELEMETRY_CONTRACT_ID,
       calibrationOrder,
       calibrationSampleSeed: calibrationOrder === "random" ? calibrationSampleSeed : null,
       calibrationOneboardScanLimit: oneboardScanLimit,
       calibrationOneboardSelection: "resto-static-area-lb1",
+      budgetCandidateValidation,
+      candidateValues: budgetCandidateValidation ? candidateValues : null,
+      baselineBoardCount: budgetCandidateValidation ? Number(baseline?.boards) : null,
+      sameBoardCountAsBaseline: budgetCandidateValidation ? sameBoardCountAsBaseline : null,
+      watchdogHits: budgetCandidateValidation ? watchdogHits : null,
+      zeroWatchdogHits: budgetCandidateValidation ? zeroWatchdogHits : null,
       staticAreaLowerBound: staticAreaLowerBound(item.case),
       file: item.file,
       format: item.format,
@@ -184,11 +231,15 @@ async function main(args) {
     appendFileSync(checkpoint, JSON.stringify(row) + "\n", "utf8");
     added++;
 
-    writeCalibrationSummary(checkpoint, state, hints, out);
-    if (!pass) fail(`calibration validity/work-telemetry failed: ${item.file}; beamAccounting=${JSON.stringify(beamAccounting)}; beamFallback=${JSON.stringify(beamFallback)}; stderr=${result.stderrTail ?? ""}`);
+    if (budgetCandidateValidation) writeBudgetCandidateSummary(checkpoint, baselineByFile, candidateValues, out);
+    else writeCalibrationSummary(checkpoint, state, hints, out);
+    if (!pass) {
+      const prefix = budgetCandidateValidation ? "budget candidate equivalence failed" : "calibration validity/work-telemetry failed";
+      fail(`${prefix}: ${item.file}; sameBoardCount=${sameBoardCountAsBaseline}; watchdogHits=${JSON.stringify(watchdogHits)}; beamAccounting=${JSON.stringify(beamAccounting)}; beamFallback=${JSON.stringify(beamFallback)}; stderr=${result.stderrTail ?? ""}`);
+    }
 
     console.log(JSON.stringify({
-      phase: "calibration",
+      phase: budgetCandidateValidation ? "budget-candidate-validation" : "calibration",
       file: item.file,
       wallMs: result.wallMs,
       processWallMs: result.processWallMs,
@@ -205,7 +256,8 @@ async function main(args) {
     }));
   }
 
-  writeCalibrationSummary(checkpoint, state, hints, out);
+  if (budgetCandidateValidation) writeBudgetCandidateSummary(checkpoint, baselineByFile, candidateValues, out);
+  else writeCalibrationSummary(checkpoint, state, hints, out);
 }
 
 async function preparePhysicalCorpus(bundle, corpus, out, historicalReplay) {
@@ -829,6 +881,35 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
   });
 }
 
+function writeBudgetCandidateSummary(checkpoint, baselineByFile, candidateValues, out) {
+  const rows = uniqueLatest(
+    readJsonl(checkpoint).filter((row) => row.executionBindingId === EXECUTION_BINDING_ID && row.telemetryContractId === TELEMETRY_CONTRACT_ID),
+  );
+  const failures = rows.filter((row) => row.pass !== true);
+  const boardMismatches = rows.filter((row) => row.sameBoardCountAsBaseline !== true);
+  const watchdogFailures = rows.filter((row) => row.zeroWatchdogHits !== true);
+  const completed = rows.filter((row) => row.pass === true).length;
+  const baselineCases = baselineByFile.size;
+  const status = failures.length > 0 ? "FAIL" : completed === baselineCases ? "PASS" : "PARTIAL";
+  writeJson(join(out, "budget-candidate-v1.summary.json"), {
+    schemaVersion: "kernel-v1-budget-candidate-validation-v1",
+    updatedAt: new Date().toISOString(),
+    kernelCandidate: KERNEL_CANDIDATE,
+    executionBindingId: EXECUTION_BINDING_ID,
+    telemetryContractId: TELEMETRY_CONTRACT_ID,
+    status,
+    candidateValues,
+    baselineCases,
+    completedPassCases: completed,
+    observedRows: rows.length,
+    failures: failures.map((row) => ({ file: row.file, boards: row.boards, baselineBoardCount: row.baselineBoardCount, watchdogHits: row.watchdogHits, stderrTail: row.stderrTail ?? null })),
+    boardMismatches: boardMismatches.map((row) => ({ file: row.file, boards: row.boards, baselineBoardCount: row.baselineBoardCount })),
+    watchdogFailures: watchdogFailures.map((row) => ({ file: row.file, watchdogHits: row.watchdogHits })),
+    promotionReady: status === "PASS",
+    promotionRule: "PASS requires every budgets-OFF baseline calibration case to remain valid, preserve exact boardCount, and report zero Beam/Master/OneBoard watchdog hits under the versioned candidate values.",
+  });
+}
+
 function readHistoricalTimingHints() {
   const map = new Map();
   if (!existsSync(HOTSPOT_PATH)) return map;
@@ -922,12 +1003,15 @@ function compareStaticOneboardCandidates(a, b) {
   const aq = quantity(a.case), bq = quantity(b.case);
   return bq - aq || cmp(a.file, b.file);
 }
-function calibrationEnv() {
+function calibrationEnv(candidateValues = null) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("OPTIMIZER_")) delete env[key];
   env.OPTIMIZER_V10_STAGED_EXPERIMENTAL = "0";
   env.OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL = "0";
   env.OPTIMIZER_STEP0_TELEMETRY = "1";
+  if (candidateValues) {
+    for (const [key, value] of Object.entries(candidateValues)) env[key] = String(value);
+  }
   return env;
 }
 
