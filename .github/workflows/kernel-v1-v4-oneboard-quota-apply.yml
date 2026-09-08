@@ -1,0 +1,34 @@
+name: Kernel V1 v4 OneBoard quota apply
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/kernel-v1-v4-oneboard-quota-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-freeze
+      - name: Apply patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/kernel-freeze/_tmp_patch_v4_oneboard_quota.py
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
+          node -e "const p=require('./research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json'); if(!p.deterministicBudgets.calibrationProtocol.oneboardEvidenceRule) process.exit(1)"
+          rm scripts/kernel-freeze/_tmp_patch_v4_oneboard_quota.py
+          rm .github/workflows/kernel-v1-v4-oneboard-quota-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/kernel-freeze/kernel-budget-calibration-v4.mjs research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json scripts/kernel-freeze/_tmp_patch_v4_oneboard_quota.py .github/workflows/kernel-v1-v4-oneboard-quota-apply.yml
+          git commit -m "fix(optimizer): reserve OneBoard calibration evidence quota"
+          git push origin HEAD:optimizer-kernel-v1-freeze
