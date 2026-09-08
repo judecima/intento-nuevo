@@ -1,0 +1,46 @@
+name: Kernel V1 promote budgets
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/kernel-v1-promote-budgets.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-freeze
+      - name: Promote budgets
+        run: python3 scripts/kernel-freeze/.tmp-promote-kernel-v1-budgets.py
+      - name: Validate
+        run: |
+          node --check scripts/kernel-freeze/formal-correctness-v1.mjs
+          node scripts/kernel-freeze/formal-certification-v3.mjs preflight --report /tmp/kernel-v1-preflight.json
+          node -e "const x=require('/tmp/kernel-v1-preflight.json'); if(x.status!=='READY_FOR_FORMAL_CERTIFICATION') throw new Error(JSON.stringify(x)); console.log(x.status)"
+      - name: Commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json
+          git rm scripts/kernel-freeze/.tmp-promote-kernel-v1-budgets.py
+          git commit -m "feat(optimizer): promote deterministic budgets for formal certification"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin optimizer-kernel-v1-freeze
+            git rebase origin/optimizer-kernel-v1-freeze
+            if git push origin HEAD:optimizer-kernel-v1-freeze; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
