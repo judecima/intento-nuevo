@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT = fileURLToPath(import.meta.url);
 const REPO = resolve(dirname(SCRIPT), "../..");
+const KERNEL_CANDIDATE = "4063963260abb10c8d68d0e553942899c925cc2f";
 const EXPECTED_ACCEPTED_HASH = "36d005421ae79b01867e0bba377c1bf526801bcd4dcfa2b0180e12cf354458f3";
 const EXECUTION_BINDING_ID = "physical-xml-historical-validity-v1";
 const TELEMETRY_CONTRACT_ID = "step0-work-telemetry-v2";
@@ -52,8 +53,36 @@ async function main(args) {
   if (semantics?.status !== "RECOVERED") fail("correctness execution semantics not recovered");
 
   const bundle = await buildBundle(out);
-  const historicalReplay = await validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out });
-  const state = await preparePhysicalCorpus(bundle, corpus, out, historicalReplay);
+  const preflightCachePath = join(out, "preflight-state-cache-v4.json");
+  const preflightCacheKey = computePreflightCacheKey({ corpus, historicalCorpus });
+  let historicalReplay;
+  let state;
+  const cachedPreflight = existsSync(preflightCachePath) ? readJson(preflightCachePath) : null;
+  if (
+    cachedPreflight?.schemaVersion === "kernel-v1-preflight-state-cache-v4" &&
+    cachedPreflight?.cacheKey === preflightCacheKey &&
+    cachedPreflight?.kernelCandidate === KERNEL_CANDIDATE &&
+    cachedPreflight?.executionBindingId === EXECUTION_BINDING_ID &&
+    cachedPreflight?.historicalReplay &&
+    cachedPreflight?.state
+  ) {
+    historicalReplay = cachedPreflight.historicalReplay;
+    state = cachedPreflight.state;
+    console.log(JSON.stringify({ phase: "preflight-cache", status: "HIT", feasible: state.feasible?.length ?? 0, infeasible: state.infeasible?.length ?? 0 }));
+  } else {
+    console.log(JSON.stringify({ phase: "preflight-cache", status: "MISS" }));
+    historicalReplay = await validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out });
+    state = await preparePhysicalCorpus(bundle, corpus, out, historicalReplay);
+    writeJson(preflightCachePath, {
+      schemaVersion: "kernel-v1-preflight-state-cache-v4",
+      generatedAt: new Date().toISOString(),
+      kernelCandidate: KERNEL_CANDIDATE,
+      executionBindingId: EXECUTION_BINDING_ID,
+      cacheKey: preflightCacheKey,
+      historicalReplay,
+      state,
+    });
+  }
   const runtimePopulation = state.feasible
     .map((item) => ({
       file: item.file,
@@ -670,6 +699,33 @@ function compareDemand(canonical, placements) {
     ok: differences.length === 0,
     differences,
   };
+}
+
+function computePreflightCacheKey({ corpus, historicalCorpus }) {
+  const payload = {
+    schema: "kernel-v1-preflight-cache-key-v1",
+    kernelCandidate: KERNEL_CANDIDATE,
+    executionBindingId: EXECUTION_BINDING_ID,
+    restoCorpusSha256: hashXmlDirectory(corpus),
+    parte1CorpusSha256: hashXmlDirectory(historicalCorpus),
+    auditSha256: sha256(readFileSync(AUDIT_PATH)),
+    semanticsSha256: sha256(readFileSync(SEMANTICS_PATH)),
+    embeddedSha256: sha256(readFileSync(EMBEDDED_PATH)),
+    historicalCsvSha256: sha256(readFileSync(HISTORICAL_CSV_PATH)),
+  };
+  return sha256(JSON.stringify(payload));
+}
+
+function hashXmlDirectory(dir) {
+  const hash = createHash("sha256");
+  const names = readdirSync(dir).filter((name) => name.toLowerCase().endsWith(".xml")).sort(cmp);
+  for (const name of names) {
+    hash.update(name);
+    hash.update("\0");
+    hash.update(readFileSync(join(dir, name)));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
 }
 
 function terminalDimensionKey(a, b) {

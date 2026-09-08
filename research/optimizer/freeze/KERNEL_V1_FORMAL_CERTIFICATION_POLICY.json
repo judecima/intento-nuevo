@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v13",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v14",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -116,7 +116,7 @@
     }
   },
   "deterministicBudgets": {
-    "status": "BLOCKED_UNCALIBRATED",
+    "status": "CANDIDATE_VALUES_PENDING_VALIDATION",
     "rule": "Do not run formal determinism certification with absent, guessed, smoke-test, or CI-convenience budgets. Calibrate each deterministic budget from work/time measured in the exact invocation scope where that parameter is enforced, while separately reporting aggregate per-order work. Watchdog hits must be zero during formal certification.",
     "values": {
       "OPTIMIZER_MAX_BEAM_EXPANSIONS": null,
@@ -169,6 +169,31 @@
       "benchmarkProfile": "benchmarkInputFromCanonicalCase(...,{strategy:\"v10\"}) defaults to profile=balanced. Historical calibration ceilings are therefore Beam 1500ms (motor default), Master 8000ms, OneBoard 20000ms.",
       "beamFallbackRule": "The candidate explicitly degrades Beam to greedy when armarPlacasBeam throws. Calibration accepts only the controlled no-complete-plan error (message starts No se pudo completar el plan con Beam Search) when the final output remains valid and Beam work/terminal-control accounting is present. Any other Beam exception remains a calibration failure.",
       "beamTimeoutInterpretation": "Beam timeoutHits is aggregated across Beam invocations. Under the v10 benchmark balanced profile the historical per-invocation Beam ceiling is 1500ms, not 2500ms. A case with timeoutHits>0 contains time-censored Beam work even if other invocations terminate normally."
+    },
+    "candidateValues": {
+      "OPTIMIZER_MAX_BEAM_EXPANSIONS": 1024,
+      "OPTIMIZER_BEAM_WATCHDOG_MS": 5000,
+      "OPTIMIZER_MAX_MASTER_NODES": 1600000,
+      "OPTIMIZER_MASTER_WATCHDOG_MS": 60000,
+      "OPTIMIZER_MAX_RESCUE_ATTEMPTS": 384,
+      "OPTIMIZER_RESCUE_WATCHDOG_MS": 10000
+    },
+    "candidateEvidence": {
+      "beam": "48 activated cases / 2518 invocations; 47 cases without Beam timeout have expansionsMax p50=20 p90=32 max=1016. 1024 is the first deterministic equivalence candidate and must preserve baseline boardCount on the finite validation cohort.",
+      "master": "27 resolverCobertura invocations; 22 uncensored (p50=1 p90=1 max=580) and 5 historical-time-censored explosive runs up to 1306553 nodes at ~8s. 1600000 is an explicit reference-equivalence candidate above the observed censored work envelope; it is not claimed to be natural completed-search work.",
+      "oneboard": "22/22 activated runs; attemptsMax p50=p90=max=384; zero raw timeout hits; 384 is both the structural search-space ceiling and the empirical completed-run maximum.",
+      "watchdogs": "Watchdogs are safety fuses, not work budgets: Beam 5s is above the observed ~1.8s historical-timeout call envelope; Master 60s accommodates 1.6M nodes even near the slowest observed censored throughput (~33k nodes/s); OneBoard 10s is >4x the observed 2.366s completed-run envelope."
+    },
+    "candidatePromotionGate": {
+      "scope": "Re-run the already measured calibration checkpoint cases under candidate values; no new statistical sampling is required for promotion.",
+      "requirements": [
+        "validationOk=true and historical demand multiset exact for every case",
+        "boardCount exactly equals the budgets-OFF baseline for every re-run case",
+        "all Beam/Master/OneBoard watchdogHits are zero",
+        "controlled Beam fallback remains acceptable only under the existing semantic fallback rule"
+      ],
+      "failureRule": "If a case fails, adjust only the budget/watchdog for the path implicated by telemetry and re-run failed cases plus their same-path cohort. Do not restart calibration methodology or expand the runtime-estimation sample.",
+      "successAction": "Copy candidateValues into deterministicBudgets.values, set deterministicBudgets.status=RESOLVED, version the evidence, then start formal correctness."
     }
   },
   "execution": {
@@ -217,6 +242,6 @@
   },
   "formalCertificationReady": false,
   "blockingReasons": [
-    "Production deterministic budgets/watchdogs are not calibrated and versioned."
+    "Candidate deterministic budgets/watchdogs require finite baseline-equivalence validation before promotion."
   ]
 }
