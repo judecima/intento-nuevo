@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { cpus, totalmem, platform, release, arch } from "node:os";
 
 const args = parseArgs(process.argv.slice(2));
 const checkpoint = resolve(args.checkpoint ?? "test-results/kernel-v1-formal-certification/calibration-v4.partial.jsonl");
@@ -16,11 +17,22 @@ const rows = uniqueLatest(
     .filter((row) => row.pass === true && row.telemetryContractId === "step0-work-telemetry-v2"),
 );
 
+const cpuInfo = cpus();
 const report = {
   schemaVersion: "kernel-v1-calibration-v4-time-censoring-v1",
   generatedAt: new Date().toISOString(),
   checkpoint,
   completedCases: rows.length,
+  analysisEnvironment: {
+    node: process.version,
+    platform: platform(),
+    release: release(),
+    arch: arch(),
+    cpuModel: cpuInfo[0]?.model ?? null,
+    logicalCpuCount: cpuInfo.length,
+    totalMemoryBytes: totalmem(),
+    note: "This fingerprints the machine/runtime executing the analyzer. Run it on the same machine/runtime family as the physical calibration when using reference-machine budget policy evidence.",
+  },
   interpretation: {
     timeoutHit: "A historical wall-clock ceiling terminated at least one invocation. Work observed in that invocation is right-censored and must not be interpreted as work required to complete the search.",
     budgetHit: "A deterministic work budget terminated an invocation. Calibration runs should have deterministic budgets OFF; non-zero budgetHits therefore require investigation.",
