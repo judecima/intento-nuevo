@@ -20,7 +20,6 @@ const FREEZE_DIR = join(REPO, "research/optimizer/freeze");
 const AUDIT_PATH = join(FREEZE_DIR, "KERNEL_V1_RESTO_ARCHIVE_AUDIT_2026-09-07.json");
 const POLICY_PATH = join(FREEZE_DIR, "KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json");
 const SEMANTICS_PATH = join(FREEZE_DIR, "KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json");
-const CONTRACT_PATH = join(FREEZE_DIR, "KERNEL_V1_CORRECTNESS_CONTRACT.json");
 const EMBEDDED_PATH = join(REPO, "experiencia/canonical_cases.json");
 const HOTSPOT_PATH = join(REPO, "experiencia/v6/hotspot-all.jsonl");
 const HISTORICAL_CSV_PATH = join(REPO, "benchmark_project_v10.csv");
@@ -31,7 +30,9 @@ else await main(args);
 
 async function main(args) {
   const corpus = resolve(String(args.corpus ?? ""));
+  const historicalCorpus = resolve(String(args.historicalCorpus ?? ""));
   if (!args.corpus || !existsSync(corpus)) fail("--corpus <extracted-resto> required");
+  if (!args.historicalCorpus || !existsSync(historicalCorpus)) fail("--historicalCorpus <extracted-parte1> required");
 
   const out = resolve(args.out ?? join(REPO, "test-results/kernel-v1-formal-certification"));
   mkdirSync(out, { recursive: true });
@@ -44,7 +45,8 @@ async function main(args) {
   if (semantics?.status !== "RECOVERED") fail("correctness execution semantics not recovered");
 
   const bundle = await buildBundle(out);
-  const state = await preparePhysicalCorpus(bundle, corpus, out);
+  const historicalReplay = await validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out });
+  const state = await preparePhysicalCorpus(bundle, corpus, out, historicalReplay);
   const hints = readHistoricalTimingHints();
   const env = calibrationEnv();
 
@@ -110,7 +112,7 @@ async function main(args) {
   writeCalibrationSummary(checkpoint, state, hints, out);
 }
 
-async function preparePhysicalCorpus(bundle, corpus, out) {
+async function preparePhysicalCorpus(bundle, corpus, out, historicalReplay) {
   const optimizer = await import(pathToFileURL(bundle).href);
   const audit = readJson(AUDIT_PATH);
   const embedded = readJson(EMBEDDED_PATH);
@@ -194,8 +196,6 @@ async function preparePhysicalCorpus(bundle, corpus, out) {
     else feasible.push(item);
   }
 
-  const historicalReplay = validateHistoricalInfeasibleReplay(infeasible);
-
   writeJson(join(out, "expected-infeasible-v3.json"), {
     schemaVersion: "kernel-v1-expected-infeasible-v3",
     generatedAt: new Date().toISOString(),
@@ -205,6 +205,7 @@ async function preparePhysicalCorpus(bundle, corpus, out) {
     feasibleCases: feasible.length,
     expectedInfeasibleCases: infeasible.length,
     historicalBenchmarkReplay: historicalReplay,
+    note: "The 60 historical infeasible cases validate the classifier on parte1; they do not constrain the number of expected-infeasible cases in resto.",
     cases: infeasible.map((item) => ({
       file: item.file,
       format: item.format,
@@ -222,6 +223,8 @@ async function preparePhysicalCorpus(bundle, corpus, out) {
     archiveUniqueNames: new Set(names).size,
     identityBinding: "literal-filenames-only",
     executionBindingId: EXECUTION_BINDING_ID,
+    certificationCorpusRole: "resto exact 8,650 accepted cohort",
+    historicalReplayCorpusRole: "separate parte1 corpus validated before resto classification",
     projectExecutionTrim: "first parsed root trim reference, historical default 10; applied to x/y",
     orderExecutionTrim: "canonical Order trim unchanged",
     demandMultiset: "rotation-normalized terminal dimensions only (min x max)",
@@ -250,7 +253,8 @@ function bindHistoricalExecutionCase(parsed) {
   };
 }
 
-function validateHistoricalInfeasibleReplay(infeasible) {
+async function validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out }) {
+  const optimizer = await import(pathToFileURL(bundle).href);
   const rows = parseCsv(readFileSync(HISTORICAL_CSV_PATH, "utf8"));
   if (rows.length < 2) fail("historical benchmark CSV is empty");
   const header = rows[0];
@@ -258,26 +262,62 @@ function validateHistoricalInfeasibleReplay(infeasible) {
   for (const required of ["archivo", "estado", "detalle"]) if (!(required in index)) fail(`historical CSV missing ${required}`);
 
   const data = rows.slice(1).filter((row) => row.some((value) => value !== ""));
+  const benchmarkFiles = new Set();
   const attempted = new Set();
   const expected = new Set();
   for (const row of data) {
     const file = String(row[index.archivo] ?? "").trim();
     const estado = String(row[index.estado] ?? "").trim();
     const detalle = String(row[index.detalle] ?? "").trim();
+    benchmarkFiles.add(file);
     if (estado !== "SKIP") attempted.add(file);
     if (estado === "ERROR" && /no entra en una placa útil/i.test(detalle)) expected.add(file);
   }
+  if (data.length !== 2000 || benchmarkFiles.size !== 2000) fail(`historical benchmark identity source ${data.length}/${benchmarkFiles.size}, expected 2000/2000`);
   if (attempted.size !== 1550 || expected.size !== 60) fail(`historical infeasible replay source ${attempted.size}/${expected.size}, expected 1550/60`);
 
-  const detectedAll = new Set(infeasible.map((item) => item.file));
-  const detectedInSample = new Set([...detectedAll].filter((file) => attempted.has(file)));
-  sameSet([...detectedInSample], [...expected], "historical infeasible replay");
-  return {
+  const names = readdirSync(historicalCorpus).filter((name) => name.toLowerCase().endsWith(".xml")).sort(cmp);
+  const nameSet = new Set(names);
+  if (names.length !== 2001 || nameSet.size !== 2001) fail(`historical parte1 corpus ${names.length}/${nameSet.size}, expected 2001/2001 unique XML`);
+  const missing = [...benchmarkFiles].filter((file) => !nameSet.has(file)).sort(cmp);
+  if (missing.length) fail(`historical parte1 is missing ${missing.length} benchmark files; first=${missing[0]}`);
+
+  const detected = new Set();
+  const parseFailures = [];
+  for (const file of [...attempted].sort(cmp)) {
+    const xml = readFileSync(join(historicalCorpus, file), "utf8");
+    try {
+      const parsed = optimizer.parseCanonicalXml(xml, { fileName: file });
+      if (parsed.format !== "project") fail(`historical attempted benchmark case is not project: ${file} (${parsed.format})`);
+      const bound = bindHistoricalExecutionCase(parsed);
+      if (impossiblePieces(bound.case).length) detected.add(file);
+    } catch (error) {
+      parseFailures.push({ file, code: String(error?.code ?? "unknown"), message: String(error?.message ?? error) });
+    }
+  }
+  if (parseFailures.length) fail(`historical replay parser/binding failures ${parseFailures.length}; first=${parseFailures[0].file}: ${parseFailures[0].message}`);
+  sameSet([...detected], [...expected], "historical infeasible replay");
+
+  const report = {
+    schemaVersion: "kernel-v1-historical-infeasible-replay-v1",
+    generatedAt: new Date().toISOString(),
+    executionBindingId: EXECUTION_BINDING_ID,
+    sourcePartition: "parte1",
+    certificationPartition: "resto",
+    historicalCorpusXml: names.length,
+    historicalCorpusUniqueNames: nameSet.size,
+    benchmarkRows: data.length,
+    benchmarkUniqueFiles: benchmarkFiles.size,
+    benchmarkFilesPresent: benchmarkFiles.size - missing.length,
+    extraHistoricalCorpusXml: names.length - benchmarkFiles.size,
     attemptedProjectCases: attempted.size,
     historicalExpectedInfeasible: expected.size,
-    detectedInHistoricalSample: detectedInSample.size,
+    detectedInHistoricalSample: detected.size,
     exactSetMatch: true,
+    inferenceBoundary: "This replay validates the infeasible classifier on parte1 only. It does not impose an expected infeasible count on resto.",
   };
+  writeJson(join(out, "historical-infeasible-replay-v3.json"), report);
+  return report;
 }
 
 async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out }) {
@@ -488,6 +528,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     feasibleCasesCompleted: rows.length,
     feasibleCasesTotal: state.feasible.length,
     expectedInfeasibleCases: state.infeasible.length,
+    historicalClassifierValidation: state.historicalReplay,
     aggregatePerOrderDistributions: {
       wallMs: values((row) => row.wallMs),
       cpuMs: values((row) => row.cpuMs),
@@ -512,6 +553,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
       coveragePct: pct(historicalDone, historicalTotal),
     },
     rules: [
+      "The exact 60-case infeasible replay is validated on parte1 through --historicalCorpus; it is not an expected count for resto.",
       "Calibrate from aggregate per-order work; do not translate historical presupuestoBeamMs=1500 per call directly into an expansion count.",
       "Beam calls may legitimately be zero when greedy already reaches the area lower bound; composition counters are the wiring signal.",
       "No aggregate request stop condition is added inside Kernel V1 freeze.",
