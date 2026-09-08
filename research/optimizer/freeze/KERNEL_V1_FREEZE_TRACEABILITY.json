@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "kernel-v1-freeze-traceability-v6",
-  "generatedAt": "2026-09-08T13:57:27.740Z",
+  "schemaVersion": "kernel-v1-freeze-traceability-v7",
+  "generatedAt": "2026-09-08T14:35:52.770Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "kernelFrozen": false,
@@ -107,12 +107,15 @@
   "formalCertification": {
     "policy": "research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json",
     "staticPreflightHarness": "scripts/kernel-freeze/formal-certification-v3.mjs",
-    "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+    "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",
     "requiredPhysicalArguments": [
       "--historicalCorpus <extracted-parte1>",
       "--corpus <extracted-resto>"
     ],
-    "supersededCalibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
+    "supersededCalibrationHarnesses": [
+      "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
+      "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs"
+    ],
     "deterministicBudgetsReady": false,
     "correctnessPredicateReady": true,
     "correctnessPredicateId": "HISTORICAL_VALIDITY_V1",
@@ -131,5 +134,5 @@
     "research/optimizer/freeze/KERNEL_V1_HISTORICAL_REPLAY_CORPUS_BINDING_2026-09-07.md"
   ],
   "supersedesForCorrectnessDecision": "The embedded-only correctness8669 status is forensic legacy evidence. The exact 8,650 certification identity cohort is defined by resto archive/embedded reconciliation. The 2,000-row historical benchmark evidence belongs to parte1 and validates the infeasible classifier there; it is not a reference-result corpus for resto. Historical acceptance is validity plus the rotation-normalized terminal-dimension multiset. For project execution, usable-board feasibility is bound to the first root trim (historical default 10) applied to both axes; the canonical parser remains unchanged.",
-  "nextGate": "Run the exact historical infeasible replay on parte1 via --historicalCorpus, then the resto physical preflight via --corpus, Step 0 telemetry probe, and deterministic-budget calibration. Do not treat 60/2000 as an expected count for resto and do not reuse v2 calibration checkpoints."
+  "nextGate": "Run the exact historical infeasible replay on parte1 via --historicalCorpus, then the resto physical preflight via --corpus, Step 0 telemetry probe v4 with measured work magnitudes, and deterministic-budget calibration v4. Do not treat 60/2000 as an expected count for resto and do not reuse v2 calibration checkpoints."
 }

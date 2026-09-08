@@ -1,6 +1,6 @@
 {
   "schemaVersion": "kernel-v1-formal-certification-preflight-v5",
-  "generatedAt": "2026-09-08T13:57:27.949Z",
+  "generatedAt": "2026-09-08T14:35:53.024Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "traceabilityComplete": true,
@@ -51,7 +51,10 @@
     "demandMultiset": "rotation-normalized terminal dimensions only (min x max)",
     "referencePanelsRole": "quality comparison only; not an acceptance gate",
     "physicalCorporaRequiredForExecution": true,
-    "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
-    "supersededCalibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs"
+    "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",
+    "supersededCalibrationHarnesses": [
+      "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
+      "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs"
+    ]
   }
 }
