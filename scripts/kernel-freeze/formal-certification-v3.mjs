@@ -28,6 +28,24 @@ const contract = read(join(P, "KERNEL_V1_CORRECTNESS_CONTRACT.json"));
 const semantics = read(join(P, "KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json"));
 const embedded = read(join(REPO, "experiencia/canonical_cases.json"));
 
+const parte1 = embedded.filter((record) => partition(record?.source_path) === "parte1");
+const parte1Ids = [...new Set(parte1.map(identity).filter(Boolean))].sort(cmp);
+const parte1Counts = new Map();
+for (const record of parte1) {
+  const file = identity(record);
+  if (file) parte1Counts.set(file, (parte1Counts.get(file) ?? 0) + 1);
+}
+const parte1Duplicates = [...parte1Counts.entries()]
+  .filter(([, count]) => count > 1)
+  .map(([file, count]) => ({ file, count }))
+  .sort((a, b) => cmp(a.file, b.file));
+const parte1IdentityAccountingReady =
+  parte1.length === 2001 &&
+  parte1Ids.length === 2000 &&
+  parte1Duplicates.length === 1 &&
+  parte1Duplicates[0]?.file === "4011957__Maximiliano_Santoro4011957.xml" &&
+  parte1Duplicates[0]?.count === 2;
+
 const resto = embedded.filter((record) => partition(record?.source_path) === "resto");
 const restoIds = [...new Set(resto.map(identity).filter(Boolean))].sort(cmp);
 const mixed = (audit?.currentParser?.rejections ?? []).filter((entry) => entry.code === "mixed-board-formats");
@@ -66,6 +84,10 @@ const replayGate = policy?.correctnessPredicate?.infeasibleClassification?.histo
 const corpusRolesReady =
   executionBinding?.historicalValidationCorpus?.partition === "parte1" &&
   executionBinding?.historicalValidationCorpus?.argument === "--historicalCorpus" &&
+  executionBinding?.historicalValidationCorpus?.embeddedRecords === 2001 &&
+  executionBinding?.historicalValidationCorpus?.embeddedDistinctXml === 2000 &&
+  executionBinding?.historicalValidationCorpus?.physicalXml === 2000 &&
+  parte1IdentityAccountingReady &&
   executionBinding?.certificationCorpus?.partition === "resto" &&
   executionBinding?.certificationCorpus?.argument === "--corpus" &&
   replayGate?.sourcePartition === "parte1" &&
@@ -103,7 +125,7 @@ if (!correctnessPredicateReady) blockingReasons.push("historical correctness pre
 if (!deterministicBudgetsReady) blockingReasons.push("production deterministic budgets/watchdogs are not calibrated and versioned");
 
 const report = {
-  schemaVersion: "kernel-v1-formal-certification-preflight-v4",
+  schemaVersion: "kernel-v1-formal-certification-preflight-v5",
   generatedAt: new Date().toISOString(),
   kernelCandidate: CANDIDATE,
   status: formalCertificationReady
@@ -121,6 +143,10 @@ const report = {
     usableBoardId: semantics?.usableBoard?.id ?? null,
     executionBindingId: executionBinding?.id ?? null,
     corpusRolesReady,
+    parte1IdentityAccountingReady,
+    parte1EmbeddedRecords: parte1.length,
+    parte1DistinctXml: parte1Ids.length,
+    parte1DuplicateIdentities: parte1Duplicates,
   },
   policy: {
     correctnessPredicateReady,
@@ -133,7 +159,8 @@ const report = {
     strategy: "v10",
     correctness: CORRECTNESS,
     executionBindingId: EXECUTION_BINDING,
-    historicalValidationCorpus: "parte1 via --historicalCorpus; 2,001 XML containing all 2,000 benchmark identities",
+    historicalValidationCorpus: "parte1 via --historicalCorpus; embedded projection 2,001 records / 2,000 distinct XML; physical corpus 2,000 XML exactly matching the 2,000 benchmark identities",
+    historicalReplayAggregation: "one physical filename -> one parseCanonicalXml project case aggregating all panels; infeasible if any demanded piece in that aggregated case is impossible",
     historicalReplayGate: "classify the 1,550 non-SKIP benchmark project cases and reproduce the exact 60 historical infeasible filenames",
     certificationCorpus: "resto via --corpus; 8,669 physical XML -> 8,650 accepted cohort",
     inferenceBoundary: "the 60 historical infeasible cases validate the classifier on parte1 and do not impose an expected infeasible count on resto",

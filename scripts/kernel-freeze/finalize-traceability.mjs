@@ -81,7 +81,7 @@ const status = !traceabilityComplete
       : "TRACEABILITY_COMPLETE_FORMAL_POLICY_BLOCKED";
 
 const report = {
-  schemaVersion: "kernel-v1-freeze-traceability-v5",
+  schemaVersion: "kernel-v1-freeze-traceability-v6",
   generatedAt: new Date().toISOString(),
   kernelCandidate: KERNEL_CANDIDATE,
   status,
@@ -92,6 +92,9 @@ const report = {
     sentinels: 5,
     hotspots: 213,
     historicalReplayPartition: "parte1",
+    historicalEmbeddedRecords: policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.embeddedRecords ?? null,
+    historicalDistinctXml: policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.embeddedDistinctXml ?? null,
+    historicalPhysicalXml: policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.physicalXml ?? null,
     historicalBenchmarkRows: 2000,
     historicalAttemptedNonSkipCases: 1550,
     historicalExpectedInfeasibleCases: 60,
@@ -124,7 +127,8 @@ const report = {
     projectTrimDefault: correctnessExecutionSemantics?.usableBoard?.defaultWhenMissing ?? null,
     executionBindingId: correctnessExecutionBindingId,
     corpusRolesReady,
-    historicalValidationCorpus: "parte1 via --historicalCorpus",
+    historicalValidationCorpus: "parte1 via --historicalCorpus; 2,001 embedded records / 2,000 distinct identities / 2,000 physical XML",
+    historicalReplayAggregation: "physical filename; parseCanonicalXml aggregates all project panels into one canonical case",
     certificationCorpus: "resto via --corpus",
     historicalReplayInferenceBoundary: "The exact historical 60/60 replay validates the classifier on parte1. It does not impose an expected-infeasible count on resto.",
   },

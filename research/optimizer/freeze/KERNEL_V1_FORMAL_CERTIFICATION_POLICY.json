@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v4",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v5",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -69,7 +69,15 @@
       "historicalValidationCorpus": {
         "partition": "parte1",
         "argument": "--historicalCorpus",
-        "role": "Empirical validation corpus for the historical infeasible classifier. It contains the 2,000 benchmark identities plus one additional XML."
+        "role": "Empirical validation corpus for the historical infeasible classifier. The embedded projection has 2,001 records but exactly 2,000 XML identities; the physical parte1 archive and benchmark both bind those same 2,000 identities.",
+        "embeddedRecords": 2001,
+        "embeddedDistinctXml": 2000,
+        "physicalXml": 2000,
+        "benchmarkRows": 2000,
+        "duplicateEmbeddedIdentity": {
+          "file": "4011957__Maximiliano_Santoro4011957.xml",
+          "count": 2
+        }
       },
       "certificationCorpus": {
         "partition": "resto",
@@ -93,12 +101,15 @@
         "source": "benchmark_project_v10.csv",
         "sourcePartition": "parte1",
         "historicalCorpusArgument": "--historicalCorpus",
-        "historicalCorpusXml": 2001,
         "benchmarkRows": 2000,
         "attemptedNonSkipCases": 1550,
         "expectedInfeasibleCases": 60,
         "requirement": "All 2,000 benchmark filenames must exist in parte1 and the classifier must reproduce exactly the same 60 historical physically-infeasible filenames before resto classification or calibration may start.",
-        "inferenceBoundary": "The 60 historical cases validate the classifier on parte1. They do not define, estimate, or constrain the expected-infeasible count in resto."
+        "inferenceBoundary": "The 60 historical cases validate the classifier on parte1. They do not define, estimate, or constrain the expected-infeasible count in resto.",
+        "embeddedRecords": 2001,
+        "embeddedDistinctXml": 2000,
+        "historicalPhysicalXml": 2000,
+        "aggregationRule": "Replay is keyed by physical filename. parseCanonicalXml aggregates all project panels into one canonical demand; the filename is expected-infeasible if any demanded piece in that aggregated case cannot fit the historically usable board."
       },
       "historicalReplayReport": "test-results/kernel-v1-formal-certification/historical-infeasible-replay-v3.json",
       "manifest": "test-results/kernel-v1-formal-certification/expected-infeasible-v3.json"

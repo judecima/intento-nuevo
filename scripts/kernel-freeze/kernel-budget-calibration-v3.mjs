@@ -276,9 +276,36 @@ async function validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, ou
   if (data.length !== 2000 || benchmarkFiles.size !== 2000) fail(`historical benchmark identity source ${data.length}/${benchmarkFiles.size}, expected 2000/2000`);
   if (attempted.size !== 1550 || expected.size !== 60) fail(`historical infeasible replay source ${attempted.size}/${expected.size}, expected 1550/60`);
 
+  const embedded = readJson(EMBEDDED_PATH);
+  if (!Array.isArray(embedded)) fail("canonical_cases.json must be an array");
+  const parte1Records = embedded.filter((record) => partition(record.source_path) === "parte1");
+  const parte1Ids = [...new Set(parte1Records.map(identity).filter(Boolean))].sort(cmp);
+  const embeddedCounts = new Map();
+  for (const record of parte1Records) {
+    const file = identity(record);
+    if (file) embeddedCounts.set(file, (embeddedCounts.get(file) ?? 0) + 1);
+  }
+  const duplicateEmbeddedIdentities = [...embeddedCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([file, count]) => ({ file, count }))
+    .sort((a, b) => cmp(a.file, b.file));
+  if (parte1Records.length !== 2001 || parte1Ids.length !== 2000) {
+    fail(`embedded parte1 cardinality ${parte1Records.length} records / ${parte1Ids.length} distinct XML, expected 2001/2000`);
+  }
+  if (
+    duplicateEmbeddedIdentities.length !== 1 ||
+    duplicateEmbeddedIdentities[0]?.file !== "4011957__Maximiliano_Santoro4011957.xml" ||
+    duplicateEmbeddedIdentities[0]?.count !== 2
+  ) {
+    fail(`embedded parte1 duplicate identity drift: ${JSON.stringify(duplicateEmbeddedIdentities)}`);
+  }
+  sameSet(parte1Ids, [...benchmarkFiles], "embedded parte1/benchmark identity");
+
   const names = readdirSync(historicalCorpus).filter((name) => name.toLowerCase().endsWith(".xml")).sort(cmp);
   const nameSet = new Set(names);
-  if (names.length !== 2001 || nameSet.size !== 2001) fail(`historical parte1 corpus ${names.length}/${nameSet.size}, expected 2001/2001 unique XML`);
+  if (names.length !== 2000 || nameSet.size !== 2000) fail(`historical parte1 corpus ${names.length}/${nameSet.size}, expected 2000/2000 unique XML`);
+  sameSet(names, parte1Ids, "physical parte1/embedded identity");
+  sameSet(names, [...benchmarkFiles], "physical parte1/benchmark identity");
   const missing = [...benchmarkFiles].filter((file) => !nameSet.has(file)).sort(cmp);
   if (missing.length) fail(`historical parte1 is missing ${missing.length} benchmark files; first=${missing[0]}`);
 
@@ -299,17 +326,21 @@ async function validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, ou
   sameSet([...detected], [...expected], "historical infeasible replay");
 
   const report = {
-    schemaVersion: "kernel-v1-historical-infeasible-replay-v1",
+    schemaVersion: "kernel-v1-historical-infeasible-replay-v2",
     generatedAt: new Date().toISOString(),
     executionBindingId: EXECUTION_BINDING_ID,
     sourcePartition: "parte1",
     certificationPartition: "resto",
+    embeddedParte1Records: parte1Records.length,
+    embeddedParte1DistinctXml: parte1Ids.length,
+    embeddedDuplicateIdentities: duplicateEmbeddedIdentities,
     historicalCorpusXml: names.length,
     historicalCorpusUniqueNames: nameSet.size,
     benchmarkRows: data.length,
     benchmarkUniqueFiles: benchmarkFiles.size,
     benchmarkFilesPresent: benchmarkFiles.size - missing.length,
     extraHistoricalCorpusXml: names.length - benchmarkFiles.size,
+    fileAggregation: "parseCanonicalXml returns one CanonicalOptimizationCase per physical XML and aggregates all project panels into that case; a file is infeasible when any demanded piece in the aggregated case is impossible",
     attemptedProjectCases: attempted.size,
     historicalExpectedInfeasible: expected.size,
     detectedInHistoricalSample: detected.size,
