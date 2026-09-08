@@ -1,6 +1,6 @@
 {
   "schemaVersion": "kernel-v1-resto-reconciliation-v3",
-  "generatedAt": "2026-09-08T19:38:52.551Z",
+  "generatedAt": "2026-09-08T19:39:44.219Z",
   "inputs": {
     "canonical": "experiencia/canonical_cases.json",
     "canonicalSha256": "a6af8b4f312105560ef8cd47c26c083dc314c6d19fe68bfd5ecc70bd29106329",
