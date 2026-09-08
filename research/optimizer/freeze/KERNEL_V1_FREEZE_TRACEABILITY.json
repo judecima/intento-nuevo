@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "kernel-v1-freeze-traceability-v4",
-  "generatedAt": "2026-09-08T00:42:50.480Z",
+  "schemaVersion": "kernel-v1-freeze-traceability-v5",
+  "generatedAt": "2026-09-08T00:43:15.982Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "kernelFrozen": false,
@@ -19,6 +19,11 @@
   "historicalCohorts": {
     "sentinels": 5,
     "hotspots": 213,
+    "historicalReplayPartition": "parte1",
+    "historicalBenchmarkRows": 2000,
+    "historicalAttemptedNonSkipCases": 1550,
+    "historicalExpectedInfeasibleCases": 60,
+    "certificationPartition": "resto",
     "archiveXml": 8669,
     "archiveUniqueNames": 8669,
     "currentComparableCorrectness": 8650
@@ -67,7 +72,11 @@
     "multisetKey": "min(width,height) x max(width,height)",
     "usableBoardId": "HISTORICAL_PROJECT_ROOT_TRIM_V1",
     "projectTrimDefault": 10,
-    "executionBindingId": "physical-xml-historical-validity-v1"
+    "executionBindingId": "physical-xml-historical-validity-v1",
+    "corpusRolesReady": true,
+    "historicalValidationCorpus": "parte1 via --historicalCorpus",
+    "certificationCorpus": "resto via --corpus",
+    "historicalReplayInferenceBoundary": "The exact historical 60/60 replay validates the classifier on parte1. It does not impose an expected-infeasible count on resto."
   },
   "fullPlanHash": {
     "status": "HISTORICAL_CONTRACT_RECOVERED",
@@ -95,6 +104,10 @@
     "policy": "research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json",
     "staticPreflightHarness": "scripts/kernel-freeze/formal-certification-v3.mjs",
     "calibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+    "requiredPhysicalArguments": [
+      "--historicalCorpus <extracted-parte1>",
+      "--corpus <extracted-resto>"
+    ],
     "supersededCalibrationHarness": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
     "deterministicBudgetsReady": false,
     "correctnessPredicateReady": true,
@@ -110,8 +123,9 @@
     "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json",
     "research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json",
     "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json",
-    "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json"
+    "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json",
+    "research/optimizer/freeze/KERNEL_V1_HISTORICAL_REPLAY_CORPUS_BINDING_2026-09-07.md"
   ],
-  "supersedesForCorrectnessDecision": "The embedded-only correctness8669 status is forensic legacy evidence. The exact 8,650 identity cohort is defined by archive/embedded reconciliation. Historical acceptance is validity plus the rotation-normalized terminal-dimension multiset. For project execution, usable-board feasibility is bound to the first root trim (historical default 10) applied to both axes; the canonical parser remains unchanged.",
-  "nextGate": "Run the v3 physical-corpus preflight, exact 60-case historical infeasible replay, Step 0 telemetry probe, then calibrate/version deterministic production budgets. Do not reuse v2 calibration checkpoints."
+  "supersedesForCorrectnessDecision": "The embedded-only correctness8669 status is forensic legacy evidence. The exact 8,650 certification identity cohort is defined by resto archive/embedded reconciliation. The 2,000-row historical benchmark evidence belongs to parte1 and validates the infeasible classifier there; it is not a reference-result corpus for resto. Historical acceptance is validity plus the rotation-normalized terminal-dimension multiset. For project execution, usable-board feasibility is bound to the first root trim (historical default 10) applied to both axes; the canonical parser remains unchanged.",
+  "nextGate": "Run the exact historical infeasible replay on parte1 via --historicalCorpus, then the resto physical preflight via --corpus, Step 0 telemetry probe, and deterministic-budget calibration. Do not treat 60/2000 as an expected count for resto and do not reuse v2 calibration checkpoints."
 }
