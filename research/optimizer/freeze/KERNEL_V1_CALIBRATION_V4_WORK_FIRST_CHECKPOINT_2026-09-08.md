@@ -32,15 +32,29 @@ The first work-first physical rows plus `analyze-calibration-v4-censoring.mjs` e
 
 Therefore Master production-node budget selection must use an explicit historical-equivalence/reference-machine policy plus formal validation, rather than treating censored `nodesMax` maxima as required work.
 
+## OneBoard evidence source correction
+
+The 213 historical hotspot rows contain zero `oneboard.activaciones > 0`, including their few `cota == 1` rows. Hotspot activation therefore cannot source OneBoard calibration evidence.
+
+Calibration v4 now derives OneBoard candidates directly from the exact physical `resto` feasible cohort using the same V10 static prerequisite as the live path:
+
+`areaLB = ceil(sum(piece.width * piece.height * quantity) / usableBoardArea) == 1`
+
+`usableBoardArea` uses the versioned historical execution binding, including the historical project trim semantics. Static candidates are prioritized by `referencePanels > 1` and then larger piece count. The default bounded scan is 48 cases through `--oneboardScanLimit`; the old `--oneboardQuota` argument remains an alias for compatibility.
+
+The runner writes `oneboard-static-candidates-v4.json` before calibration so the static candidate population is visible without inferring it from hotspot evidence.
+
+Static candidacy is not activation evidence. A case counts as empirical OneBoard evidence only when a fresh current run records `oneboard.runs > 0` and measured `oneboard.attemptsTotal > 0`. If an adequate static scan still yields no activation, the correct result is empirical rarity and a policy-defined rescue budget, not a fabricated empirical distribution.
+
 ## Early calibration ordering
 
-Calibration v4 defaults to `--order work-first`, now stratified so the rare OneBoard path cannot be starved by Master-heavy hotspots:
+Calibration v4 defaults to `--order work-first` with this sequence:
 
-1. reserve up to 12 historically OneBoard-activated feasible cases, cheapest historical cases first;
-2. then continue normal work-first ordering across historical Master/OneBoard activation, higher historical hotspot `engineMs`, and larger piece-count proxies;
+1. up to 48 physical `resto` feasible cases with static `areaLB == 1`, prioritized by `referencePanels > 1` then larger piece count;
+2. then normal hotspot-driven work-first ordering for historically activated expensive paths;
 3. known extreme-tail orders remain forced last.
 
-`--oneboardQuota N` changes the reserved OneBoard evidence stratum size. `--oneboardQuota 0` disables that reservation. `--order cheap-first` retains the previous cheap-to-expensive operational ordering and does not use work-first stratification.
+`--oneboardScanLimit N` changes the bounded static OneBoard candidate scan. `--oneboardScanLimit 0` disables it. `--order cheap-first` retains cheap-to-expensive ordering and does not use work-first stratification.
 
 This changes execution priority only. It does not change the exact 8,650-case certification universe, the candidate runtime, or permit budget promotion from an arbitrary substituted cohort. Existing successful `calibration-v4.partial.jsonl` rows remain valid and are skipped by filename on subsequent invocations.
 
@@ -51,16 +65,8 @@ This changes execution priority only. It does not change the exact 8,650-case ce
 - Step 0 telemetry: empirically demonstrated.
 - Beam time-censoring in current sample: none observed.
 - Master time-censoring in current sample: 100%, policy issue explicitly recorded.
-- OneBoard work evidence: pending, explicit quota added.
+- OneBoard work evidence: pending, physical-resto static discovery added.
 - Kernel runtime identity: must remain exact to `406396...` and is rechecked by the main freeze CI.
 - Production deterministic budgets/watchdogs: still unresolved.
 - Kernel V1 frozen: no.
 - Worker isolation: blocked until freeze.
-
-## OneBoard evidence source correction
-
-The 213 historical hotspot rows contain zero `oneboard.activaciones > 0`, including their `cota == 1` rows, so hotspot activation cannot source OneBoard calibration evidence.
-
-Calibration v4 now derives the early OneBoard discovery stratum directly from the exact physical `resto` feasible cohort. It statically selects `areaLB == 1` under the historical execution binding and prioritizes `referencePanels > 1` then larger piece counts. The default bounded scan is 48 candidates (`--oneboardScanLimit`); legacy `--oneboardQuota` remains an alias.
-
-Static candidacy is only a cheap prerequisite. Empirical evidence requires a fresh current run with `oneboard.runs > 0` and `oneboard.attemptsTotal > 0`. If an adequate scan yields no activation, record rarity and use a policy-defined rescue budget instead of fabricating an empirical distribution.
