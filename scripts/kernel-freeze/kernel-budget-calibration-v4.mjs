@@ -41,7 +41,8 @@ async function main(args) {
   const maxNew = args.maxNew == null ? Infinity : positiveInt(args.maxNew, "--maxNew");
   const timeoutMs = args.timeout == null ? 7_200_000 : positiveInt(args.timeout, "--timeout");
   const calibrationOrder = String(args.order ?? "work-first");
-  if (!new Set(["work-first", "cheap-first"]).has(calibrationOrder)) fail("--order must be work-first or cheap-first");
+  if (!new Set(["work-first", "cheap-first", "random"]).has(calibrationOrder)) fail("--order must be work-first, cheap-first, or random");
+  const calibrationSampleSeed = String(args.sampleSeed ?? "kernel-v1-runtime-sample-20260908");
   const oneboardScanLimit = args.oneboardScanLimit == null
     ? (args.oneboardQuota == null ? 48 : nonNegativeInt(args.oneboardQuota, "--oneboardQuota"))
     : nonNegativeInt(args.oneboardScanLimit, "--oneboardScanLimit");
@@ -80,6 +81,7 @@ async function main(args) {
     activationHints,
     calibrationOrder,
     oneboardScanLimit,
+    calibrationSampleSeed,
   );
   const checkpoint = join(out, "calibration-v4.partial.jsonl");
   const prior = readJsonl(checkpoint);
@@ -114,6 +116,7 @@ async function main(args) {
       executionBindingId: EXECUTION_BINDING_ID,
       telemetryContractId: TELEMETRY_CONTRACT_ID,
       calibrationOrder,
+      calibrationSampleSeed: calibrationOrder === "random" ? calibrationSampleSeed : null,
       calibrationOneboardScanLimit: oneboardScanLimit,
       calibrationOneboardSelection: "resto-static-area-lb1",
       staticAreaLowerBound: staticAreaLowerBound(item.case),
@@ -140,6 +143,8 @@ async function main(args) {
       phase: "calibration",
       file: item.file,
       wallMs: result.wallMs,
+      processWallMs: result.processWallMs,
+      freshProcessOverheadMs: result.freshProcessOverheadMs,
       optimizarCalls: result.step0?.composition?.optimizarCalls ?? 0,
       armarPlacasCalls: result.step0?.composition?.armarPlacasCalls ?? 0,
       stageCalls: result.step0?.composition?.stageCalls ?? 0,
@@ -524,6 +529,7 @@ async function buildBundle(out) {
 }
 
 async function runCase({ bundle, item, env, timeoutMs, out, label }) {
+  const processStarted = performance.now();
   const dir = join(out, ".cases-v4");
   mkdirSync(dir, { recursive: true });
   const id = sha256(`${EXECUTION_BINDING_ID}\0${label}\0${item.file}`).slice(0, 16);
@@ -553,7 +559,16 @@ async function runCase({ bundle, item, env, timeoutMs, out, label }) {
       clearTimeout(timer);
       if (timedOut) rejectPromise(new Error(`operational watchdog ${timeoutMs}ms`));
       else if (code !== 0 || !record) rejectPromise(new Error(`worker ${code}`));
-      else resolvePromise({ ...record, stderrTail: stderrTail.trim() || null });
+      else {
+        const processWallMs = performance.now() - processStarted;
+        const engineWallMs = Number(record.wallMs ?? 0);
+        resolvePromise({
+          ...record,
+          processWallMs,
+          freshProcessOverheadMs: Math.max(0, processWallMs - engineWallMs),
+          stderrTail: stderrTail.trim() || null,
+        });
+      }
     });
   });
 }
@@ -649,6 +664,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     readJsonl(checkpoint).filter((row) => row.pass === true && row.executionBindingId === EXECUTION_BINDING_ID && row.telemetryContractId === TELEMETRY_CONTRACT_ID),
   );
   const values = (fn) => distribution(rows.map((row) => Number(fn(row) ?? 0)));
+  const optionalValues = (fn) => distribution(rows.map((row) => Number(fn(row))).filter(Number.isFinite));
   const historicalTotal = [...hints.values()].reduce((sum, value) => sum + value, 0);
   const historicalDone = rows.reduce((sum, row) => sum + (hints.get(row.file) ?? 0), 0);
   writeJson(join(out, "calibration-v4.summary.json"), {
@@ -670,6 +686,8 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     },
     aggregatePerOrderDistributions: {
       wallMs: values((row) => row.wallMs),
+      processWallMs: optionalValues((row) => row.processWallMs),
+      freshProcessOverheadMs: optionalValues((row) => row.freshProcessOverheadMs),
       cpuMs: values((row) => row.cpuMs),
       optimizarCalls: values((row) => row.step0?.composition?.optimizarCalls),
       armarPlacasCalls: values((row) => row.step0?.composition?.armarPlacasCalls),
@@ -699,6 +717,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
       oneboard: rows.filter((row) => Number(row.step0?.oneboard?.attemptsTotal ?? 0) > 0).length,
     },
     orderingModesObserved: [...new Set(rows.map((row) => row.calibrationOrder ?? "v4-pre-ordering-field"))],
+    randomSampleSeedsObserved: [...new Set(rows.map((row) => row.calibrationSampleSeed).filter(Boolean))],
     oneboardQuotaValuesObserved: [...new Set(rows.map((row) => row.calibrationOneboardQuota ?? "v4-pre-oneboard-quota-field"))],
     oneboardScanLimitValuesObserved: [...new Set(rows.map((row) => row.calibrationOneboardScanLimit ?? "v4-pre-static-scan-field"))],
   oneboardDiscovery: {
@@ -761,7 +780,14 @@ function readHistoricalBudgetedPathHints() {
   return map;
 }
 
-function orderCalibration(items, hints, tailOrders, activationHints, mode, oneboardScanLimit) {
+function orderCalibration(items, hints, tailOrders, activationHints, mode, oneboardScanLimit, sampleSeed) {
+  if (mode === "random") {
+    return [...items].sort((a, b) => {
+      const ah = sha256(`${sampleSeed}\0${a.file}`);
+      const bh = sha256(`${sampleSeed}\0${b.file}`);
+      return cmp(ah, bh) || cmp(a.file, b.file);
+    });
+  }
   const tails = new Set(tailOrders.map(String));
   const isTail = (file) => [...tails].some((order) => file.includes(order));
   const hintFor = (file) => activationHints.get(file) ?? null;
