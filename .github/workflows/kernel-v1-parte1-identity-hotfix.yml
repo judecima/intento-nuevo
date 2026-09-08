@@ -1,0 +1,129 @@
+name: Kernel V1 parte1 identity hotfix
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/kernel-v1-parte1-identity-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-freeze
+
+      - name: Correct parte1 records vs identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'expected patch anchor not found in {path}: {old[:120]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          runner = 'scripts/kernel-freeze/kernel-budget-calibration-v3.mjs'
+          old = '''  const names = readdirSync(historicalCorpus).filter((name) => name.toLowerCase().endsWith(".xml")).sort(cmp);\n  const nameSet = new Set(names);\n  if (names.length !== 2001 || nameSet.size !== 2001) fail(`historical parte1 corpus ${names.length}/${nameSet.size}, expected 2001/2001 unique XML`);\n  const missing = [...benchmarkFiles].filter((file) => !nameSet.has(file)).sort(cmp);\n'''
+          new = '''  const embedded = readJson(EMBEDDED_PATH);\n  if (!Array.isArray(embedded)) fail("canonical_cases.json must be an array");\n  const parte1Records = embedded.filter((record) => partition(record.source_path) === "parte1");\n  const parte1Ids = [...new Set(parte1Records.map(identity).filter(Boolean))].sort(cmp);\n  const embeddedCounts = new Map();\n  for (const record of parte1Records) {\n    const file = identity(record);\n    if (file) embeddedCounts.set(file, (embeddedCounts.get(file) ?? 0) + 1);\n  }\n  const duplicateEmbeddedIdentities = [...embeddedCounts.entries()]\n    .filter(([, count]) => count > 1)\n    .map(([file, count]) => ({ file, count }))\n    .sort((a, b) => cmp(a.file, b.file));\n  if (parte1Records.length !== 2001 || parte1Ids.length !== 2000) {\n    fail(`embedded parte1 cardinality ${parte1Records.length} records / ${parte1Ids.length} distinct XML, expected 2001/2000`);\n  }\n  if (\n    duplicateEmbeddedIdentities.length !== 1 ||\n    duplicateEmbeddedIdentities[0]?.file !== "4011957__Maximiliano_Santoro4011957.xml" ||\n    duplicateEmbeddedIdentities[0]?.count !== 2\n  ) {\n    fail(`embedded parte1 duplicate identity drift: ${JSON.stringify(duplicateEmbeddedIdentities)}`);\n  }\n  sameSet(parte1Ids, [...benchmarkFiles], "embedded parte1/benchmark identity");\n\n  const names = readdirSync(historicalCorpus).filter((name) => name.toLowerCase().endsWith(".xml")).sort(cmp);\n  const nameSet = new Set(names);\n  if (names.length !== 2000 || nameSet.size !== 2000) fail(`historical parte1 corpus ${names.length}/${nameSet.size}, expected 2000/2000 unique XML`);\n  sameSet(names, parte1Ids, "physical parte1/embedded identity");\n  sameSet(names, [...benchmarkFiles], "physical parte1/benchmark identity");\n  const missing = [...benchmarkFiles].filter((file) => !nameSet.has(file)).sort(cmp);\n'''
+          replace_once(runner, old, new)
+
+          old = '''    schemaVersion: "kernel-v1-historical-infeasible-replay-v1",\n    generatedAt: new Date().toISOString(),\n    executionBindingId: EXECUTION_BINDING_ID,\n    sourcePartition: "parte1",\n    certificationPartition: "resto",\n    historicalCorpusXml: names.length,\n    historicalCorpusUniqueNames: nameSet.size,\n    benchmarkRows: data.length,\n    benchmarkUniqueFiles: benchmarkFiles.size,\n    benchmarkFilesPresent: benchmarkFiles.size - missing.length,\n    extraHistoricalCorpusXml: names.length - benchmarkFiles.size,\n    attemptedProjectCases: attempted.size,\n'''
+          new = '''    schemaVersion: "kernel-v1-historical-infeasible-replay-v2",\n    generatedAt: new Date().toISOString(),\n    executionBindingId: EXECUTION_BINDING_ID,\n    sourcePartition: "parte1",\n    certificationPartition: "resto",\n    embeddedParte1Records: parte1Records.length,\n    embeddedParte1DistinctXml: parte1Ids.length,\n    embeddedDuplicateIdentities: duplicateEmbeddedIdentities,\n    historicalCorpusXml: names.length,\n    historicalCorpusUniqueNames: nameSet.size,\n    benchmarkRows: data.length,\n    benchmarkUniqueFiles: benchmarkFiles.size,\n    benchmarkFilesPresent: benchmarkFiles.size - missing.length,\n    extraHistoricalCorpusXml: names.length - benchmarkFiles.size,\n    fileAggregation: "parseCanonicalXml returns one CanonicalOptimizationCase per physical XML and aggregates all project panels into that case; a file is infeasible when any demanded piece in the aggregated case is impossible",\n    attemptedProjectCases: attempted.size,\n'''
+          replace_once(runner, old, new)
+
+          policy_path = Path('research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json')
+          policy = json.loads(policy_path.read_text(encoding='utf-8'))
+          policy['schemaVersion'] = 'kernel-v1-formal-certification-policy-v5'
+          hv = policy['correctnessPredicate']['executionBinding']['historicalValidationCorpus']
+          hv.update({
+              'partition': 'parte1',
+              'argument': '--historicalCorpus',
+              'embeddedRecords': 2001,
+              'embeddedDistinctXml': 2000,
+              'physicalXml': 2000,
+              'benchmarkRows': 2000,
+              'duplicateEmbeddedIdentity': {'file': '4011957__Maximiliano_Santoro4011957.xml', 'count': 2},
+              'role': 'Empirical validation corpus for the historical infeasible classifier. The embedded projection has 2,001 records but exactly 2,000 XML identities; the physical parte1 archive and benchmark both bind those same 2,000 identities.'
+          })
+          gate = policy['correctnessPredicate']['infeasibleClassification']['historicalReplayGate']
+          gate.pop('historicalCorpusXml', None)
+          gate.update({
+              'embeddedRecords': 2001,
+              'embeddedDistinctXml': 2000,
+              'historicalPhysicalXml': 2000,
+              'benchmarkRows': 2000,
+              'aggregationRule': 'Replay is keyed by physical filename. parseCanonicalXml aggregates all project panels into one canonical demand; the filename is expected-infeasible if any demanded piece in that aggregated case cannot fit the historically usable board.'
+          })
+          policy_path.write_text(json.dumps(policy, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          formal = 'scripts/kernel-freeze/formal-certification-v3.mjs'
+          replace_once(formal,
+              'const resto = embedded.filter((record) => partition(record?.source_path) === "resto");\nconst restoIds = [...new Set(resto.map(identity).filter(Boolean))].sort(cmp);\n',
+              '''const parte1 = embedded.filter((record) => partition(record?.source_path) === "parte1");\nconst parte1Ids = [...new Set(parte1.map(identity).filter(Boolean))].sort(cmp);\nconst parte1Counts = new Map();\nfor (const record of parte1) {\n  const file = identity(record);\n  if (file) parte1Counts.set(file, (parte1Counts.get(file) ?? 0) + 1);\n}\nconst parte1Duplicates = [...parte1Counts.entries()]\n  .filter(([, count]) => count > 1)\n  .map(([file, count]) => ({ file, count }))\n  .sort((a, b) => cmp(a.file, b.file));\nconst parte1IdentityAccountingReady =\n  parte1.length === 2001 &&\n  parte1Ids.length === 2000 &&\n  parte1Duplicates.length === 1 &&\n  parte1Duplicates[0]?.file === "4011957__Maximiliano_Santoro4011957.xml" &&\n  parte1Duplicates[0]?.count === 2;\n\nconst resto = embedded.filter((record) => partition(record?.source_path) === "resto");\nconst restoIds = [...new Set(resto.map(identity).filter(Boolean))].sort(cmp);\n''')
+          replace_once(formal,
+              '  executionBinding?.historicalValidationCorpus?.argument === "--historicalCorpus" &&\n',
+              '  executionBinding?.historicalValidationCorpus?.argument === "--historicalCorpus" &&\n  executionBinding?.historicalValidationCorpus?.embeddedRecords === 2001 &&\n  executionBinding?.historicalValidationCorpus?.embeddedDistinctXml === 2000 &&\n  executionBinding?.historicalValidationCorpus?.physicalXml === 2000 &&\n  parte1IdentityAccountingReady &&\n')
+          replace_once(formal,
+              '  schemaVersion: "kernel-v1-formal-certification-preflight-v4",\n',
+              '  schemaVersion: "kernel-v1-formal-certification-preflight-v5",\n')
+          replace_once(formal,
+              '    corpusRolesReady,\n  },\n',
+              '    corpusRolesReady,\n    parte1IdentityAccountingReady,\n    parte1EmbeddedRecords: parte1.length,\n    parte1DistinctXml: parte1Ids.length,\n    parte1DuplicateIdentities: parte1Duplicates,\n  },\n')
+          replace_once(formal,
+              '    historicalValidationCorpus: "parte1 via --historicalCorpus; 2,001 XML containing all 2,000 benchmark identities",\n',
+              '    historicalValidationCorpus: "parte1 via --historicalCorpus; embedded projection 2,001 records / 2,000 distinct XML; physical corpus 2,000 XML exactly matching the 2,000 benchmark identities",\n    historicalReplayAggregation: "one physical filename -> one parseCanonicalXml project case aggregating all panels; infeasible if any demanded piece in that aggregated case is impossible",\n')
+
+          finalize = 'scripts/kernel-freeze/finalize-traceability.mjs'
+          replace_once(finalize,
+              '  schemaVersion: "kernel-v1-freeze-traceability-v5",\n',
+              '  schemaVersion: "kernel-v1-freeze-traceability-v6",\n')
+          replace_once(finalize,
+              '    historicalReplayPartition: "parte1",\n    historicalBenchmarkRows: 2000,\n',
+              '    historicalReplayPartition: "parte1",\n    historicalEmbeddedRecords: policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.embeddedRecords ?? null,\n    historicalDistinctXml: policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.embeddedDistinctXml ?? null,\n    historicalPhysicalXml: policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.physicalXml ?? null,\n    historicalBenchmarkRows: 2000,\n')
+          replace_once(finalize,
+              '    historicalValidationCorpus: "parte1 via --historicalCorpus",\n',
+              '    historicalValidationCorpus: "parte1 via --historicalCorpus; 2,001 embedded records / 2,000 distinct identities / 2,000 physical XML",\n    historicalReplayAggregation: "physical filename; parseCanonicalXml aggregates all project panels into one canonical case",\n')
+
+          binding = Path('research/optimizer/freeze/KERNEL_V1_HISTORICAL_REPLAY_CORPUS_BINDING_2026-09-07.md')
+          text = binding.read_text(encoding='utf-8')
+          addition = '''\n## Identity cardinality correction\n\n`parte1` has **2,001 embedded records but 2,000 distinct XML identities**. The physical `parte1` archive has exactly 2,000 XML and its filename set is identical to both the 2,000 distinct embedded identities and the 2,000 benchmark filenames. The sole duplicated embedded identity is `4011957__Maximiliano_Santoro4011957.xml` (2 records).\n\nThe historical replay is therefore keyed by **physical filename**, not by embedded record. `parseCanonicalXml(project)` already aggregates all `<panelN>` nodes in one XML into one `CanonicalOptimizationCase`; a file is classified expected-infeasible when any demanded piece in that aggregated case cannot fit the historically usable board.\n'''
+          if '## Identity cardinality correction' not in text:
+              binding.write_text(text.rstrip() + '\n' + addition, encoding='utf-8')
+
+          workflow = Path('.github/workflows/optimizer-kernel-freeze.yml')
+          wt = workflow.read_text(encoding='utf-8')
+          anchor = "          if (policy.correctnessPredicate?.executionBinding?.id !== 'physical-xml-historical-validity-v1') throw new Error('Historical physical execution binding missing');\n"
+          extra = anchor + "          const hv = policy.correctnessPredicate?.executionBinding?.historicalValidationCorpus;\n          if (hv?.embeddedRecords !== 2001 || hv?.embeddedDistinctXml !== 2000 || hv?.physicalXml !== 2000) throw new Error('parte1 records/distinct/physical identity accounting drifted');\n          if (!pre.correctnessExecutionSemantics?.parte1IdentityAccountingReady || pre.correctnessExecutionSemantics?.parte1EmbeddedRecords !== 2001 || pre.correctnessExecutionSemantics?.parte1DistinctXml !== 2000) throw new Error('Formal preflight lost parte1 identity accounting');\n"
+          if extra not in wt:
+              if anchor not in wt:
+                  raise SystemExit('workflow assertion anchor missing')
+              workflow.write_text(wt.replace(anchor, extra, 1), encoding='utf-8')
+
+          Path('.github/workflows/kernel-v1-parte1-identity-hotfix.yml').unlink()
+          PY
+
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v3.mjs
+          node --check scripts/kernel-freeze/formal-certification-v3.mjs
+          node --check scripts/kernel-freeze/finalize-traceability.mjs
+
+      - name: Commit correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(optimizer): distinguish parte1 records from XML identities"
+          git push origin HEAD:optimizer-kernel-v1-freeze
