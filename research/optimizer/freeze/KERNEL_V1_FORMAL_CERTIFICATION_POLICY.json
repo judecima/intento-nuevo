@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v8",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v10",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -146,7 +146,7 @@
       "checkpointPerCase": true,
       "checkpoint": "test-results/kernel-v1-formal-certification/calibration-v4.partial.jsonl",
       "inputSource": "physical resto XML parsed through unchanged current canonical parser plus the versioned historical execution binding, after separate parte1 replay validation",
-      "initialOrder": "work-first by default: historically Master/OneBoard-activated cases first, then higher historical hotspot engineMs and larger piece-count proxies; known extreme-tail orders remain forced last. --order cheap-first preserves the prior operational ordering. Ordering changes execution priority only, never the exact 8,650-case calibration universe.",
+      "initialOrder": "work-first with an explicit OneBoard evidence stratum: reserve up to 12 historically OneBoard-activated feasible cases, cheapest first, then continue normal Master/OneBoard-activated work-first ordering; known extreme-tail orders remain forced last. --oneboardQuota overrides the stratum size and --order cheap-first disables work-first stratification. Ordering changes execution priority only, never the exact 8,650-case calibration universe.",
       "telemetryWiringRule": "composition.optimizarCalls, composition.armarPlacasCalls, and composition.stageCalls must be positive for each calibrated run. beamCalls may legitimately be zero when greedy reaches the area lower bound.",
       "telemetryProbeRule": "Before calibration, a fresh valid run must show non-zero Beam expansions, Master nodes, or OneBoard attempts. Calls/runs alone do not satisfy the probe. Swallowed Beam fallback warnings fail the probe.",
       "beamRule": "OPTIMIZER_MAX_BEAM_EXPANSIONS is enforced per armarPlacasBeam invocation, so its primary calibration statistic is beam.expansionsMax. beam.expansionsTotal is retained as aggregate per-order load evidence and must not be mistaken for the per-call budget.",
@@ -164,7 +164,8 @@
       "watchdogEvidenceRule": "Calibration runs with budgets/watchdogs OFF; watchdogHits=0 there is not certification evidence. Formal zero-watchdog evidence is collected only after production watchdog values are versioned and enabled.",
       "budgetScopeRule": "Primary budget statistics must match enforcement scope: Beam expansionsMax/wallMsMax per Beam invocation; Master nodesMax/wallMsMax per resolverCobertura run; OneBoard attemptsMax/wallMsMax per rescatarUnaPlaca invocation.",
       "aggregateWorkRule": "Also report per-order aggregate totals and call/run counts to characterize request-level load. Kernel V1 Candidate A has no aggregate request work budget; adding one changes search semantics and requires a new candidate plus recertification.",
-      "samplingRule": "Early --maxNew batches may be work-first to increase deterministic-path evidence density. This is an ordering/sampling-efficiency device only; production budget promotion still requires sufficient tail evidence and the final certification universe remains the exact feasible subset of the fixed 8,650 resto cohort."
+      "samplingRule": "Early --maxNew batches may be work-first to increase deterministic-path evidence density. This is an ordering/sampling-efficiency device only; production budget promotion still requires sufficient tail evidence and the final certification universe remains the exact feasible subset of the fixed 8,650 resto cohort.",
+      "oneboardEvidenceRule": "OneBoard is rare (cota===1 activation condition) and must not rely on incidental appearance in a Master-heavy sample. Early work-first calibration reserves an explicit default quota of 12 historically OneBoard-activated feasible cases, cheapest first. The quota is evidence-density tooling only; production budget promotion still requires current-run measured OneBoard attempts and adequate tail evidence."
     }
   },
   "execution": {
@@ -193,7 +194,7 @@
       "determinism-repeat"
     ],
     "ordering": {
-      "calibration": "work-first by default for early budget evidence: historical Master/OneBoard activation, then historical engineMs descending / piece-count descending; known extreme tail last. --order cheap-first available. Final universe unchanged.",
+      "calibration": "work-first stratified: up to 12 historical OneBoard-activated feasible cases cheapest first, then normal historical Master/OneBoard activation with engineMs descending / piece-count descending; known extreme tail last. --oneboardQuota overrides quota; --order cheap-first available. Final universe unchanged.",
       "correctness": "calibration measured wallMs ascending when available",
       "determinismRepeat": "correctness measured wallMs ascending"
     },

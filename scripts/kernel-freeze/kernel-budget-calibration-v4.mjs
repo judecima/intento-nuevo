@@ -42,6 +42,7 @@ async function main(args) {
   const timeoutMs = args.timeout == null ? 7_200_000 : positiveInt(args.timeout, "--timeout");
   const calibrationOrder = String(args.order ?? "work-first");
   if (!new Set(["work-first", "cheap-first"]).has(calibrationOrder)) fail("--order must be work-first or cheap-first");
+  const oneboardQuota = args.oneboardQuota == null ? 12 : nonNegativeInt(args.oneboardQuota, "--oneboardQuota");
   const policy = readJson(POLICY_PATH);
   const semantics = readJson(SEMANTICS_PATH);
   if (policy.correctnessPredicate?.id !== "HISTORICAL_VALIDITY_V1") fail("correctness contract not recovered");
@@ -62,6 +63,7 @@ async function main(args) {
     policy.execution?.knownExtremeTailOrders ?? [],
     activationHints,
     calibrationOrder,
+    oneboardQuota,
   );
   const checkpoint = join(out, "calibration-v4.partial.jsonl");
   const prior = readJsonl(checkpoint);
@@ -94,6 +96,7 @@ async function main(args) {
       executionBindingId: EXECUTION_BINDING_ID,
       telemetryContractId: TELEMETRY_CONTRACT_ID,
       calibrationOrder,
+      calibrationOneboardQuota: oneboardQuota,
       file: item.file,
       format: item.format,
       executionTrim: item.case.trim,
@@ -654,6 +657,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
       oneboard: rows.filter((row) => Number(row.step0?.oneboard?.attemptsTotal ?? 0) > 0).length,
     },
     orderingModesObserved: [...new Set(rows.map((row) => row.calibrationOrder ?? "v4-pre-ordering-field"))],
+    oneboardQuotaValuesObserved: [...new Set(rows.map((row) => row.calibrationOneboardQuota ?? "v4-pre-oneboard-quota-field"))],
     budgetParameterSemantics: {
       OPTIMIZER_MAX_BEAM_EXPANSIONS: { enforcementScope: "per armarPlacasBeam invocation", primaryCalibrationStatistic: "beam.expansionsMax", aggregateOperationalStatistic: "beam.expansionsTotal" },
       OPTIMIZER_BEAM_WATCHDOG_MS: { enforcementScope: "per armarPlacasBeam invocation", primaryCalibrationStatistic: "beam.wallMsMax", aggregateOperationalStatistic: "beam.wallMsTotal" },
@@ -706,32 +710,50 @@ function readHistoricalBudgetedPathHints() {
   return map;
 }
 
-function orderCalibration(items, hints, tailOrders, activationHints, mode) {
+function orderCalibration(items, hints, tailOrders, activationHints, mode, oneboardQuota) {
   const tails = new Set(tailOrders.map(String));
   const isTail = (file) => [...tails].some((order) => file.includes(order));
-  const activated = (file) => {
-    const hint = activationHints.get(file);
+  const hintFor = (file) => activationHints.get(file) ?? null;
+  const oneboardActivated = (file) => Number(hintFor(file)?.oneboardActivations ?? 0) > 0;
+  const anyActivated = (file) => {
+    const hint = hintFor(file);
     return Boolean(hint && (hint.masterActivations > 0 || hint.oneboardActivations > 0));
   };
-  return [...items].sort((a, b) => {
-    const at = isTail(a.file), bt = isTail(b.file);
-    if (at !== bt) return at ? 1 : -1;
-    const ah = hints.get(a.file), bh = hints.get(b.file);
-    if (mode === "work-first") {
-      const aa = activated(a.file), ba = activated(b.file);
-      if (aa !== ba) return aa ? -1 : 1;
-      if (Number.isFinite(ah) && Number.isFinite(bh) && ah !== bh) return bh - ah;
-      if (Number.isFinite(ah) !== Number.isFinite(bh)) return Number.isFinite(ah) ? -1 : 1;
-      const aq = quantity(a.case), bq = quantity(b.case);
-      return bq - aq || cmp(a.file, b.file);
-    }
+  const historicalMs = (file) => hints.get(file);
+  const cheapComparator = (a, b) => {
+    const ah = historicalMs(a.file), bh = historicalMs(b.file);
     if (Number.isFinite(ah) && Number.isFinite(bh) && ah !== bh) return ah - bh;
     if (Number.isFinite(ah) !== Number.isFinite(bh)) return Number.isFinite(ah) ? -1 : 1;
     const aq = quantity(a.case), bq = quantity(b.case);
     return aq - bq || cmp(a.file, b.file);
-  });
-}
+  };
+  const workComparator = (a, b) => {
+    const aa = anyActivated(a.file), ba = anyActivated(b.file);
+    if (aa !== ba) return aa ? -1 : 1;
+    const ah = historicalMs(a.file), bh = historicalMs(b.file);
+    if (Number.isFinite(ah) && Number.isFinite(bh) && ah !== bh) return bh - ah;
+    if (Number.isFinite(ah) !== Number.isFinite(bh)) return Number.isFinite(ah) ? -1 : 1;
+    const aq = quantity(a.case), bq = quantity(b.case);
+    return bq - aq || cmp(a.file, b.file);
+  };
 
+  const nonTails = items.filter((item) => !isTail(item.file));
+  const tailItems = items.filter((item) => isTail(item.file)).sort(cheapComparator);
+  if (mode === "cheap-first") return nonTails.sort(cheapComparator).concat(tailItems);
+
+  // Reserve an explicit early evidence stratum for OneBoard. Cheapest known
+  // historical activations are sampled first so the rare path cannot be
+  // starved by expensive Master-heavy hotspots. This changes order only.
+  const reservedOneboard = nonTails
+    .filter((item) => oneboardActivated(item.file))
+    .sort(cheapComparator)
+    .slice(0, oneboardQuota);
+  const reservedFiles = new Set(reservedOneboard.map((item) => item.file));
+  const remaining = nonTails
+    .filter((item) => !reservedFiles.has(item.file))
+    .sort(workComparator);
+  return reservedOneboard.concat(remaining, tailItems);
+}
 function calibrationEnv() {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("OPTIMIZER_")) delete env[key];
@@ -796,6 +818,7 @@ function pct(n, d) { return d ? Number((100 * n / d).toFixed(4)) : 0; }
 function num(value) { const n = Number(value); return Number.isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : String(value); }
 function cmp(a, b) { return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0; }
 function positiveInt(value, label) { const n = Number(value); if (!Number.isSafeInteger(n) || n <= 0) fail(`${label} must be a positive integer`); return n; }
+function nonNegativeInt(value, label) { const n = Number(value); if (!Number.isSafeInteger(n) || n < 0) fail(`${label} must be a non-negative integer`); return n; }
 function parseArgs(values) {
   const out = {};
   for (let i = 0; i < values.length; i++) {
