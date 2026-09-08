@@ -5,9 +5,21 @@ Kernel candidate: `4063963260abb10c8d68d0e553942899c925cc2f`
 
 ## Empirical telemetry result
 
-The v4 physical telemetry probe demonstrated live deterministic-work instrumentation without changing the kernel candidate. A fresh current run exercised Beam with non-zero measured expansions and Master with non-zero measured nodes; no Beam fallback warning was observed.
+The v4 physical telemetry probe demonstrated live deterministic-work instrumentation without changing the kernel candidate. A fresh current run exercised Beam with non-zero measured expansions and Master with non-zero measured nodes.
 
 Conclusion: Step 0 work telemetry is operational. Calibration v3 rows remain correctness/timing evidence but are not authoritative work-budget evidence because v3 did not require measured work magnitude.
+
+## Calibration execution profile
+
+`benchmarkInputFromCanonicalCase(canonical, { strategy: "v10" })` defaults V10 benchmark execution to the `balanced` profile, not `deep`.
+
+Therefore the historical wall-clock ceilings active during this calibration are:
+
+- Beam: `presupuestoBeamMs = 1500` ms (motor default retained by balanced)
+- Pattern Master: `msMaster = 8000` ms
+- OneBoard: `msRescate = 20000` ms
+
+This matters when interpreting timeout telemetry. In particular, Beam `timeoutHits > 0` is consistent with a per-invocation `wallMsMax` above 1500 ms; 2500 ms belongs to the `deep` profile and is not the calibration ceiling used here.
 
 ## Budget-scope correction
 
@@ -24,13 +36,45 @@ Aggregate per-order totals remain operational-load evidence. Candidate A has no 
 
 ## Time-censoring evidence
 
-The first work-first physical rows plus `analyze-calibration-v4-censoring.mjs` established an explicit separation between completed work and historical wall-clock-censored work:
+The physical rows plus `analyze-calibration-v4-censoring.mjs` establish an explicit separation between completed work and historical wall-clock-censored work.
 
-- Beam: 375 invocations, 0 timeout hits, 0% observed time censoring. Current `beam.expansionsMax` samples are completed-work evidence.
-- Master: 3 invocations, 3 timeout hits, 100% observed time censoring. Current `master.nodesMax` values are right-censored throughput observations under the historical `msMaster=8000` ceiling, not completed-search requirements.
-- OneBoard: later physical-resto scanning produced direct measured evidence; see below.
+Initial evidence:
 
-Therefore Master production-node budget selection must use an explicit historical-equivalence/reference-machine policy plus formal validation, rather than treating censored `nodesMax` maxima as required work.
+- Beam: 375 invocations, 0 timeout hits; the initial `beam.expansionsMax` observations were completed-work evidence.
+- Master: the first 3 runs all hit the historical 8-second ceiling and were right-censored throughput observations, not completed-search requirements.
+- OneBoard: direct measured evidence is described below.
+
+Later evidence added a Beam-censored case and the first naturally completed Master run:
+
+- `4052960__Guillermo_Morales4052960.xml`: Beam 149 calls, 89,104 aggregate expansions, `expansionsMax=1,010`, `wallMsMax=1,805`, `timeoutHits=1` under the balanced 1,500 ms Beam ceiling. This row contains time-censored Beam work and its `expansionsMax` must not be treated as an uncensored completed-search requirement.
+- The same case ran Master once for 580 nodes in about 19 ms with no 8-second censoring. Once the row is re-run under the corrected calibration gate and becomes `pass=true`, it is the first Master observation in the uncensored population.
+
+Therefore Master production-node budget selection still requires an explicit historical-equivalence/reference-machine policy plus formal validation. Beam budget selection must use the uncensored Beam population separately from cases with timeout hits.
+
+## Controlled Beam fallback semantics
+
+`4052960__Guillermo_Morales4052960.xml` exposed an explicit candidate behavior that the original v4 gate was too strict about.
+
+Observed result before the gate correction:
+
+- final plan valid: yes
+- demand multiset exact: yes, 114/114 pieces
+- boards: 14
+- Beam calls: 149
+- Beam aggregate expansions: 89,104
+- Beam maximum expansions per invocation: 1,010
+- Beam fallback warning: `No se pudo completar el plan con Beam Search; revisar la pieza "52" (2325×599.6 mm).`
+- final greedy fallback plan: valid
+
+The candidate intentionally catches Beam failure inside `armarPlacas`, logs the warning, and degrades to the already-built greedy plan. The no-complete-plan exception is itself an explicit controlled branch of `armarPlacasBeam`, not an instrumentation failure.
+
+Calibration v4 now classifies Beam fallbacks semantically:
+
+- `CONTROLLED_NO_COMPLETE_BEAM_PLAN`: accepted only when the final result is valid and Beam work/terminal-control accounting is present;
+- `UNEXPECTED_BEAM_EXCEPTION`: remains fatal;
+- no arbitrary expansion threshold is used to decide legitimacy.
+
+This preserves visibility into Beam failure without discarding a valid, highly informative calibration case or weakening the gate for unrelated exceptions.
 
 ## Physical resto feasibility observation
 
@@ -52,14 +96,14 @@ Calibration v4 derives OneBoard candidates directly from the exact physical `res
 
 `usableBoardArea` uses the versioned historical execution binding, including the historical project trim semantics.
 
-The first full static scan reported:
+The static scan reported:
 
 - feasible cases: 8,168
 - static `areaLB == 1` candidates: 3,266 (39.99% of feasible cases)
 - candidates with `referencePanels > 1`: 234
 - bounded scan size: 48
 
-The candidate universe is therefore large; OneBoard is not intrinsically rare in small orders. It was absent from the historical hotspot marker because that marker represents expensive/high-cota cases, not because the live rescue path is uncommon.
+The bounded 48-case OneBoard stratum completed before the later Beam fallback abort: with 4 earlier calibration rows, the checkpoint reached 52 successful rows before `4052960` became the failing 53rd row. Subsequent execution therefore proceeds into the post-OneBoard Beam/Master-heavy work-first ordering.
 
 ## OneBoard measured work
 
@@ -84,11 +128,11 @@ The legacy OneBoard timeout counter needs path-specific interpretation. `oneboar
 - `timeoutHits > 0 && attempts < 384` remains potentially time-censored unless separate success evidence proves an intentional early exit;
 - a deterministic rescue watchdog must be chosen above the completed-search wall-time envelope so it acts as a safety watchdog rather than reintroducing hardware-dependent search truncation.
 
-`analyze-calibration-v4-censoring.mjs` was updated to report this distinction instead of treating every OneBoard timeout marker as right-censoring.
+`analyze-calibration-v4-censoring.mjs` reports this distinction instead of treating every OneBoard timeout marker as right-censoring.
 
 ## Product/latency finding
 
-OneBoard is now a confirmed synchronous latency hotspot for small orders. In eight observed unsuccessful cases it spends approximately 19–21 seconds enumerating the full 384 configurations without reducing the board count. This is separate from the Kernel V1 freeze decision: changing when/how OneBoard runs would alter search behavior and belongs after freeze (or in a new candidate). It is, however, strong evidence for moving expensive rescue work out of the interactive synchronous path in the post-freeze Worker architecture.
+OneBoard is a confirmed synchronous latency hotspot for small orders. In eight observed unsuccessful cases it spends approximately 19–21 seconds enumerating the full 384 configurations without reducing the board count. This is separate from the Kernel V1 freeze decision: changing when/how OneBoard runs would alter search behavior and belongs after freeze (or in a new candidate). It is, however, strong evidence for moving expensive rescue work out of the interactive synchronous path in the post-freeze Worker architecture.
 
 ## Early calibration ordering
 
@@ -100,12 +144,12 @@ Calibration v4 defaults to `--order work-first` with this sequence:
 
 `--oneboardScanLimit N` changes the bounded static OneBoard candidate scan. `--oneboardScanLimit 0` disables it. `--order cheap-first` retains cheap-to-expensive ordering and does not use work-first stratification.
 
-This changes execution priority only. It does not change the exact 8,650-case certification universe, the candidate runtime, or permit budget promotion from an arbitrary substituted cohort. Existing successful `calibration-v4.partial.jsonl` rows remain valid and are skipped by filename on subsequent invocations.
+This changes execution priority only. It does not change the exact 8,650-case certification universe, the candidate runtime, or permit budget promotion from an arbitrary substituted cohort. Existing successful `calibration-v4.partial.jsonl` rows remain valid and are skipped by filename on subsequent invocations. The failed pre-policy `4052960` row is intentionally not in the `done` set and will be re-run; after it passes, `uniqueLatest` makes the new successful row authoritative for summaries.
 
 ## Current budget evidence status
 
-- Beam: completed-work evidence, 375 invocations with 0 observed timeouts; more tail coverage is still required before fixing the final expansion/watchdog numbers.
-- Master: 3/3 observed runs time-censored by the historical 8-second ceiling; node budget must use the documented reference-machine/historical-equivalence policy and then formal validation.
+- Beam: mixed completed and time-censored evidence now observed. Uncensored `expansionsMax` values must be analyzed separately from timeout-hit cases; more tail coverage is required before fixing the final expansion/watchdog values.
+- Master: both populations now exist conceptually: the first 3 runs were censored at 8 seconds, while `4052960` produced a 580-node ~19 ms natural completion that will enter the authoritative uncensored set after re-run.
 - OneBoard: strong structural evidence; provisional deterministic attempt budget is 384, with watchdog still pending completed-search wall-time analysis.
 
 ## Gate state
@@ -114,9 +158,10 @@ This changes execution priority only. It does not change the exact 8,650-case ce
 - Historical correctness predicate/execution semantics: recovered.
 - Physical `resto` feasibility classification: 8,168 feasible / 482 expected-infeasible.
 - Step 0 telemetry: empirically demonstrated.
-- Beam time-censoring in current sample: none observed.
-- Master time-censoring in current sample: 100%, policy issue explicitly recorded.
-- OneBoard work evidence: demonstrated; 9/10 activation in first static scan rows, 8 full 384-attempt enumerations.
+- OneBoard static 48-case evidence stratum: completed before the Beam fallback abort.
+- Controlled Beam no-complete-plan fallback: now explicitly accepted only with valid final output and live accounting.
+- Unexpected Beam exceptions: still fatal.
+- Calibration execution profile: balanced; Beam historical ceiling 1,500 ms, Master 8,000 ms, OneBoard 20,000 ms.
 - Kernel runtime identity: must remain exact to `406396...` and is rechecked by the main freeze CI.
 - Production deterministic budgets/watchdogs: still unresolved.
 - Kernel V1 frozen: no.
