@@ -56,3 +56,11 @@ This changes execution priority only. It does not change the exact 8,650-case ce
 - Production deterministic budgets/watchdogs: still unresolved.
 - Kernel V1 frozen: no.
 - Worker isolation: blocked until freeze.
+
+## OneBoard evidence source correction
+
+The 213 historical hotspot rows contain zero `oneboard.activaciones > 0`, including their `cota == 1` rows, so hotspot activation cannot source OneBoard calibration evidence.
+
+Calibration v4 now derives the early OneBoard discovery stratum directly from the exact physical `resto` feasible cohort. It statically selects `areaLB == 1` under the historical execution binding and prioritizes `referencePanels > 1` then larger piece counts. The default bounded scan is 48 candidates (`--oneboardScanLimit`); legacy `--oneboardQuota` remains an alias.
+
+Static candidacy is only a cheap prerequisite. Empirical evidence requires a fresh current run with `oneboard.runs > 0` and `oneboard.attemptsTotal > 0`. If an adequate scan yields no activation, record rarity and use a policy-defined rescue budget instead of fabricating an empirical distribution.

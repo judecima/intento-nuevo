@@ -42,7 +42,9 @@ async function main(args) {
   const timeoutMs = args.timeout == null ? 7_200_000 : positiveInt(args.timeout, "--timeout");
   const calibrationOrder = String(args.order ?? "work-first");
   if (!new Set(["work-first", "cheap-first"]).has(calibrationOrder)) fail("--order must be work-first or cheap-first");
-  const oneboardQuota = args.oneboardQuota == null ? 12 : nonNegativeInt(args.oneboardQuota, "--oneboardQuota");
+  const oneboardScanLimit = args.oneboardScanLimit == null
+    ? (args.oneboardQuota == null ? 48 : nonNegativeInt(args.oneboardQuota, "--oneboardQuota"))
+    : nonNegativeInt(args.oneboardScanLimit, "--oneboardScanLimit");
   const policy = readJson(POLICY_PATH);
   const semantics = readJson(SEMANTICS_PATH);
   if (policy.correctnessPredicate?.id !== "HISTORICAL_VALIDITY_V1") fail("correctness contract not recovered");
@@ -51,6 +53,20 @@ async function main(args) {
   const bundle = await buildBundle(out);
   const historicalReplay = await validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out });
   const state = await preparePhysicalCorpus(bundle, corpus, out, historicalReplay);
+  const staticOneboardCandidates = state.feasible
+    .filter((item) => staticAreaLowerBound(item.case) === 1)
+    .sort(compareStaticOneboardCandidates);
+  writeJson(join(out, "oneboard-static-candidates-v4.json"), {
+    schemaVersion: "kernel-v1-oneboard-static-candidates-v4",
+    generatedAt: new Date().toISOString(),
+    executionBindingId: EXECUTION_BINDING_ID,
+    rule: "Static candidates satisfy V10 cotaArea: ceil(sum(piece width*height*quantity) / historically usable board area) == 1. Current OneBoard activation still requires mejor.placas > 1 and is proven only by fresh oneboard telemetry.",
+    feasibleCases: state.feasible.length,
+    candidates: staticOneboardCandidates.length,
+    likelyPackingHardByReferencePanelsGt1: staticOneboardCandidates.filter((item) => Number(item.referencePanels ?? 0) > 1).length,
+    scanLimit: oneboardScanLimit,
+    cases: staticOneboardCandidates.map((item) => ({ file: item.file, referencePanels: item.referencePanels, pieces: quantity(item.case), staticAreaLowerBound: 1 })),
+  });
   const hints = readHistoricalTimingHints();
   const activationHints = readHistoricalBudgetedPathHints();
   const env = calibrationEnv();
@@ -63,7 +79,7 @@ async function main(args) {
     policy.execution?.knownExtremeTailOrders ?? [],
     activationHints,
     calibrationOrder,
-    oneboardQuota,
+    oneboardScanLimit,
   );
   const checkpoint = join(out, "calibration-v4.partial.jsonl");
   const prior = readJsonl(checkpoint);
@@ -96,7 +112,9 @@ async function main(args) {
       executionBindingId: EXECUTION_BINDING_ID,
       telemetryContractId: TELEMETRY_CONTRACT_ID,
       calibrationOrder,
-      calibrationOneboardQuota: oneboardQuota,
+      calibrationOneboardScanLimit: oneboardScanLimit,
+      calibrationOneboardSelection: "resto-static-area-lb1",
+      staticAreaLowerBound: staticAreaLowerBound(item.case),
       file: item.file,
       format: item.format,
       executionTrim: item.case.trim,
@@ -658,6 +676,15 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     },
     orderingModesObserved: [...new Set(rows.map((row) => row.calibrationOrder ?? "v4-pre-ordering-field"))],
     oneboardQuotaValuesObserved: [...new Set(rows.map((row) => row.calibrationOneboardQuota ?? "v4-pre-oneboard-quota-field"))],
+    oneboardScanLimitValuesObserved: [...new Set(rows.map((row) => row.calibrationOneboardScanLimit ?? "v4-pre-static-scan-field"))],
+  oneboardDiscovery: {
+    staticAreaLbOneCandidates: state.feasible.filter((item) => staticAreaLowerBound(item.case) === 1).length,
+    staticAreaLbOneRowsCompleted: rows.filter((row) => Number(row.staticAreaLowerBound ?? 0) === 1).length,
+    currentOneboardActivatedCases: rows.filter((row) => Number(row.step0?.oneboard?.runs ?? 0) > 0).length,
+    currentOneboardMeasuredWorkCases: rows.filter((row) => Number(row.step0?.oneboard?.attemptsTotal ?? 0) > 0).length,
+    selectionSource: "physical resto feasible cohort; static area lower bound under historical execution binding",
+    interpretation: "Static areaLB=1 is only a cheap candidate filter. OneBoard evidence requires fresh oneboard.runs>0 and attemptsTotal>0. If an adequate scan yields no activations, record rarity and choose the rescue budget by explicit policy rather than fabricate a distribution.",
+  },
     budgetParameterSemantics: {
       OPTIMIZER_MAX_BEAM_EXPANSIONS: { enforcementScope: "per armarPlacasBeam invocation", primaryCalibrationStatistic: "beam.expansionsMax", aggregateOperationalStatistic: "beam.expansionsTotal" },
       OPTIMIZER_BEAM_WATCHDOG_MS: { enforcementScope: "per armarPlacasBeam invocation", primaryCalibrationStatistic: "beam.wallMsMax", aggregateOperationalStatistic: "beam.wallMsTotal" },
@@ -710,12 +737,11 @@ function readHistoricalBudgetedPathHints() {
   return map;
 }
 
-function orderCalibration(items, hints, tailOrders, activationHints, mode, oneboardQuota) {
+function orderCalibration(items, hints, tailOrders, activationHints, mode, oneboardScanLimit) {
   const tails = new Set(tailOrders.map(String));
   const isTail = (file) => [...tails].some((order) => file.includes(order));
   const hintFor = (file) => activationHints.get(file) ?? null;
-  const oneboardActivated = (file) => Number(hintFor(file)?.oneboardActivations ?? 0) > 0;
-  const anyActivated = (file) => {
+  const anyHistoricallyActivated = (file) => {
     const hint = hintFor(file);
     return Boolean(hint && (hint.masterActivations > 0 || hint.oneboardActivations > 0));
   };
@@ -728,7 +754,7 @@ function orderCalibration(items, hints, tailOrders, activationHints, mode, onebo
     return aq - bq || cmp(a.file, b.file);
   };
   const workComparator = (a, b) => {
-    const aa = anyActivated(a.file), ba = anyActivated(b.file);
+    const aa = anyHistoricallyActivated(a.file), ba = anyHistoricallyActivated(b.file);
     if (aa !== ba) return aa ? -1 : 1;
     const ah = historicalMs(a.file), bh = historicalMs(b.file);
     if (Number.isFinite(ah) && Number.isFinite(bh) && ah !== bh) return bh - ah;
@@ -741,18 +767,35 @@ function orderCalibration(items, hints, tailOrders, activationHints, mode, onebo
   const tailItems = items.filter((item) => isTail(item.file)).sort(cheapComparator);
   if (mode === "cheap-first") return nonTails.sort(cheapComparator).concat(tailItems);
 
-  // Reserve an explicit early evidence stratum for OneBoard. Cheapest known
-  // historical activations are sampled first so the rare path cannot be
-  // starved by expensive Master-heavy hotspots. This changes order only.
   const reservedOneboard = nonTails
-    .filter((item) => oneboardActivated(item.file))
-    .sort(cheapComparator)
-    .slice(0, oneboardQuota);
+    .filter((item) => staticAreaLowerBound(item.case) === 1)
+    .sort(compareStaticOneboardCandidates)
+    .slice(0, oneboardScanLimit);
   const reservedFiles = new Set(reservedOneboard.map((item) => item.file));
   const remaining = nonTails
     .filter((item) => !reservedFiles.has(item.file))
     .sort(workComparator);
   return reservedOneboard.concat(remaining, tailItems);
+}
+
+function staticAreaLowerBound(canonical) {
+  const usefulWidth = Number(canonical?.panel?.width ?? 0) - Number(canonical?.trim?.x ?? 0);
+  const usefulHeight = Number(canonical?.panel?.height ?? 0) - Number(canonical?.trim?.y ?? 0);
+  const boardArea = usefulWidth * usefulHeight;
+  if (!(boardArea > 0)) return Infinity;
+  const demandArea = (canonical?.pieces ?? []).reduce(
+    (sum, piece) => sum + Number(piece.width ?? 0) * Number(piece.height ?? 0) * Number(piece.quantity ?? 0),
+    0,
+  );
+  return Math.ceil(demandArea / boardArea - 1e-9);
+}
+
+function compareStaticOneboardCandidates(a, b) {
+  const aHard = Number(a.referencePanels ?? 0) > 1 ? 0 : 1;
+  const bHard = Number(b.referencePanels ?? 0) > 1 ? 0 : 1;
+  if (aHard !== bHard) return aHard - bHard;
+  const aq = quantity(a.case), bq = quantity(b.case);
+  return bq - aq || cmp(a.file, b.file);
 }
 function calibrationEnv() {
   const env = { ...process.env };
