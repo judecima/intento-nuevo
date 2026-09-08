@@ -1,6 +1,6 @@
 {
   "schemaVersion": "kernel-v1-formal-certification-preflight-v5",
-  "generatedAt": "2026-09-08T15:26:55.520Z",
+  "generatedAt": "2026-09-08T15:27:21.183Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "traceabilityComplete": true,
