@@ -81,7 +81,7 @@ const status = !traceabilityComplete
       : "TRACEABILITY_COMPLETE_FORMAL_POLICY_BLOCKED";
 
 const report = {
-  schemaVersion: "kernel-v1-freeze-traceability-v6",
+  schemaVersion: "kernel-v1-freeze-traceability-v7",
   generatedAt: new Date().toISOString(),
   kernelCandidate: KERNEL_CANDIDATE,
   status,
@@ -136,9 +136,9 @@ const report = {
   formalCertification: {
     policy: "research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json",
     staticPreflightHarness: "scripts/kernel-freeze/formal-certification-v3.mjs",
-    calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+    calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",
     requiredPhysicalArguments: ["--historicalCorpus <extracted-parte1>", "--corpus <extracted-resto>"],
-    supersededCalibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
+    supersededCalibrationHarnesses: ["scripts/kernel-freeze/kernel-budget-calibration-v2.mjs", "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs"],
     deterministicBudgetsReady,
     correctnessPredicateReady,
     correctnessPredicateId,
@@ -162,7 +162,7 @@ const report = {
       ? "Repair the versioned historical correctness execution/corpus binding before formal certification."
       : formalPolicyReady
         ? "Run formal correctness and determinism-repeat over the exact classified resto cohort with zero watchdog hits and the versioned policy."
-        : "Run the exact historical infeasible replay on parte1 via --historicalCorpus, then the resto physical preflight via --corpus, Step 0 telemetry probe, and deterministic-budget calibration. Do not treat 60/2000 as an expected count for resto and do not reuse v2 calibration checkpoints.",
+        : "Run the exact historical infeasible replay on parte1 via --historicalCorpus, then the resto physical preflight via --corpus, Step 0 telemetry probe v4 with measured work magnitudes, and deterministic-budget calibration v4. Do not treat 60/2000 as an expected count for resto and do not reuse v2 calibration checkpoints.",
 };
 
 mkdirSync(dirname(outPath), { recursive: true });

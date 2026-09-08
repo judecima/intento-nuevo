@@ -169,8 +169,8 @@ const report = {
     demandMultiset: "rotation-normalized terminal dimensions only (min x max)",
     referencePanelsRole: "quality comparison only; not an acceptance gate",
     physicalCorporaRequiredForExecution: true,
-    calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
-    supersededCalibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
+    calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",
+    supersededCalibrationHarnesses: ["scripts/kernel-freeze/kernel-budget-calibration-v2.mjs", "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs"],
   },
 };
 
