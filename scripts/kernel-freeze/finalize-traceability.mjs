@@ -55,6 +55,12 @@ const deterministicBudgetsReady = policy?.deterministicBudgets?.status === "RESO
   budgetKeys.every((key) => Number.isSafeInteger(budgetValues[key]) && budgetValues[key] > 0);
 const correctnessPredicateId = policy?.correctnessPredicate?.id ?? null;
 const correctnessExecutionBindingId = policy?.correctnessPredicate?.executionBinding?.id ?? null;
+const corpusRolesReady =
+  policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.partition === "parte1" &&
+  policy?.correctnessPredicate?.executionBinding?.historicalValidationCorpus?.argument === "--historicalCorpus" &&
+  policy?.correctnessPredicate?.executionBinding?.certificationCorpus?.partition === "resto" &&
+  policy?.correctnessPredicate?.executionBinding?.certificationCorpus?.argument === "--corpus" &&
+  policy?.correctnessPredicate?.infeasibleClassification?.historicalReplayGate?.sourcePartition === "parte1";
 const correctnessPredicateReady =
   policy?.correctnessPredicate?.status === "RESOLVED" &&
   correctnessPredicateId === CORRECTNESS_PREDICATE &&
@@ -62,7 +68,8 @@ const correctnessPredicateReady =
   correctnessExecutionBindingId === EXECUTION_BINDING &&
   policy?.correctnessPredicate?.multisetSemantics?.id === MULTISET_SEMANTICS &&
   correctnessExecutionSemantics?.multiset?.id === MULTISET_SEMANTICS &&
-  correctnessExecutionSemantics?.usableBoard?.id === USABLE_BOARD_SEMANTICS;
+  correctnessExecutionSemantics?.usableBoard?.id === USABLE_BOARD_SEMANTICS &&
+  corpusRolesReady;
 const formalPolicyReady = deterministicBudgetsReady && correctnessPredicateReady && policy?.formalCertificationReady === true;
 
 const status = !traceabilityComplete
@@ -74,7 +81,7 @@ const status = !traceabilityComplete
       : "TRACEABILITY_COMPLETE_FORMAL_POLICY_BLOCKED";
 
 const report = {
-  schemaVersion: "kernel-v1-freeze-traceability-v4",
+  schemaVersion: "kernel-v1-freeze-traceability-v5",
   generatedAt: new Date().toISOString(),
   kernelCandidate: KERNEL_CANDIDATE,
   status,
@@ -84,6 +91,11 @@ const report = {
   historicalCohorts: {
     sentinels: 5,
     hotspots: 213,
+    historicalReplayPartition: "parte1",
+    historicalBenchmarkRows: 2000,
+    historicalAttemptedNonSkipCases: 1550,
+    historicalExpectedInfeasibleCases: 60,
+    certificationPartition: "resto",
     archiveXml: reconciliation?.auditSummary?.archiveXml ?? null,
     archiveUniqueNames: reconciliation?.auditSummary?.uniqueNames ?? null,
     currentComparableCorrectness: reconciliation?.currentComparable?.distinctXml ?? null,
@@ -111,12 +123,17 @@ const report = {
     usableBoardId: correctnessExecutionSemantics?.usableBoard?.id ?? null,
     projectTrimDefault: correctnessExecutionSemantics?.usableBoard?.defaultWhenMissing ?? null,
     executionBindingId: correctnessExecutionBindingId,
+    corpusRolesReady,
+    historicalValidationCorpus: "parte1 via --historicalCorpus",
+    certificationCorpus: "resto via --corpus",
+    historicalReplayInferenceBoundary: "The exact historical 60/60 replay validates the classifier on parte1. It does not impose an expected-infeasible count on resto.",
   },
   fullPlanHash: provenance?.fullPlanHash ?? null,
   formalCertification: {
     policy: "research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json",
     staticPreflightHarness: "scripts/kernel-freeze/formal-certification-v3.mjs",
     calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
+    requiredPhysicalArguments: ["--historicalCorpus <extracted-parte1>", "--corpus <extracted-resto>"],
     supersededCalibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
     deterministicBudgetsReady,
     correctnessPredicateReady,
@@ -130,17 +147,18 @@ const report = {
     "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_PARTITIONS.json",
     "research/optimizer/freeze/KERNEL_V1_RESTO_RECONCILIATION.json",
     "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_CONTRACT.json",
-    "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json"
+    "research/optimizer/freeze/KERNEL_V1_CORRECTNESS_EXECUTION_SEMANTICS.json",
+    "research/optimizer/freeze/KERNEL_V1_HISTORICAL_REPLAY_CORPUS_BINDING_2026-09-07.md"
   ],
   supersedesForCorrectnessDecision:
-    "The embedded-only correctness8669 status is forensic legacy evidence. The exact 8,650 identity cohort is defined by archive/embedded reconciliation. Historical acceptance is validity plus the rotation-normalized terminal-dimension multiset. For project execution, usable-board feasibility is bound to the first root trim (historical default 10) applied to both axes; the canonical parser remains unchanged.",
+    "The embedded-only correctness8669 status is forensic legacy evidence. The exact 8,650 certification identity cohort is defined by resto archive/embedded reconciliation. The 2,000-row historical benchmark evidence belongs to parte1 and validates the infeasible classifier there; it is not a reference-result corpus for resto. Historical acceptance is validity plus the rotation-normalized terminal-dimension multiset. For project execution, usable-board feasibility is bound to the first root trim (historical default 10) applied to both axes; the canonical parser remains unchanged.",
   nextGate: !traceabilityComplete
     ? "Repair failed traceability/execution-semantics checks without changing optimizer heuristics or canonical parser policy."
     : !correctnessPredicateReady
-      ? "Repair the versioned historical correctness execution binding before formal certification."
+      ? "Repair the versioned historical correctness execution/corpus binding before formal certification."
       : formalPolicyReady
-        ? "Run formal correctness and determinism-repeat over the exact classified cohort with zero watchdog hits and the versioned policy."
-        : "Run the v3 physical-corpus preflight, exact 60-case historical infeasible replay, Step 0 telemetry probe, then calibrate/version deterministic production budgets. Do not reuse v2 calibration checkpoints.",
+        ? "Run formal correctness and determinism-repeat over the exact classified resto cohort with zero watchdog hits and the versioned policy."
+        : "Run the exact historical infeasible replay on parte1 via --historicalCorpus, then the resto physical preflight via --corpus, Step 0 telemetry probe, and deterministic-budget calibration. Do not treat 60/2000 as an expected count for resto and do not reuse v2 calibration checkpoints.",
 };
 
 mkdirSync(dirname(outPath), { recursive: true });
@@ -149,6 +167,7 @@ console.log(JSON.stringify({
   out: relative(outPath),
   status: report.status,
   traceabilityComplete,
+  corpusRolesReady,
   correctnessPredicateReady,
   formalPolicyReady,
   kernelCandidate: report.kernelCandidate,
