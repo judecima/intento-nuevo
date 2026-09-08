@@ -3,166 +3,181 @@
 Date: 2026-09-08
 Kernel candidate: `4063963260abb10c8d68d0e553942899c925cc2f`
 
-## Empirical telemetry result
+## Current status
 
-The v4 physical telemetry probe demonstrated live deterministic-work instrumentation without changing the kernel candidate. A fresh current run exercised Beam with non-zero measured expansions and Master with non-zero measured nodes.
+Calibration v4 is the authoritative deterministic-work calibration harness. The physical historical replay remains exact 60/60 on `parte1`; the exact `resto` accepted cohort remains 8,650 identities under `physical-xml-historical-validity-v1`.
 
-Conclusion: Step 0 work telemetry is operational. Calibration v3 rows remain correctness/timing evidence but are not authoritative work-budget evidence because v3 did not require measured work magnitude.
-
-## Calibration execution profile
-
-`benchmarkInputFromCanonicalCase(canonical, { strategy: "v10" })` defaults V10 benchmark execution to the `balanced` profile, not `deep`.
-
-Therefore the historical wall-clock ceilings active during this calibration are:
-
-- Beam: `presupuestoBeamMs = 1500` ms (motor default retained by balanced)
-- Pattern Master: `msMaster = 8000` ms
-- OneBoard: `msRescate = 20000` ms
-
-This matters when interpreting timeout telemetry. In particular, Beam `timeoutHits > 0` is consistent with a per-invocation `wallMsMax` above 1500 ms; 2500 ms belongs to the `deep` profile and is not the calibration ceiling used here.
-
-## Budget-scope correction
-
-The production budget knobs are enforced per invocation/run, not per whole request. Therefore the primary calibration statistic must match that enforcement scope:
-
-- `OPTIMIZER_MAX_BEAM_EXPANSIONS` -> `beam.expansionsMax` per `armarPlacasBeam` invocation.
-- `OPTIMIZER_BEAM_WATCHDOG_MS` -> `beam.wallMsMax` per Beam invocation.
-- `OPTIMIZER_MAX_MASTER_NODES` -> `master.nodesMax` per `resolverCobertura` run.
-- `OPTIMIZER_MASTER_WATCHDOG_MS` -> `master.wallMsMax` per coverage run.
-- `OPTIMIZER_MAX_RESCUE_ATTEMPTS` -> `oneboard.attemptsMax` per `rescatarUnaPlaca` invocation.
-- `OPTIMIZER_RESCUE_WATCHDOG_MS` -> `oneboard.wallMsMax` per rescue invocation.
-
-Aggregate per-order totals remain operational-load evidence. Candidate A has no aggregate request work budget. Adding one would change search semantics and requires a new candidate plus recertification.
-
-## Time-censoring evidence
-
-The physical rows plus `analyze-calibration-v4-censoring.mjs` establish an explicit separation between completed work and historical wall-clock-censored work.
-
-Initial evidence:
-
-- Beam: 375 invocations, 0 timeout hits; the initial `beam.expansionsMax` observations were completed-work evidence.
-- Master: the first 3 runs all hit the historical 8-second ceiling and were right-censored throughput observations, not completed-search requirements.
-- OneBoard: direct measured evidence is described below.
-
-Later evidence added a Beam-censored case and the first naturally completed Master run:
-
-- `4052960__Guillermo_Morales4052960.xml`: Beam 149 calls, 89,104 aggregate expansions, `expansionsMax=1,010`, `wallMsMax=1,805`, `timeoutHits=1` under the balanced 1,500 ms Beam ceiling. This row contains time-censored Beam work and its `expansionsMax` must not be treated as an uncensored completed-search requirement.
-- The same case ran Master once for 580 nodes in about 19 ms with no 8-second censoring. Once the row is re-run under the corrected calibration gate and becomes `pass=true`, it is the first Master observation in the uncensored population.
-
-Therefore Master production-node budget selection still requires an explicit historical-equivalence/reference-machine policy plus formal validation. Beam budget selection must use the uncensored Beam population separately from cases with timeout hits.
-
-## Controlled Beam fallback semantics
-
-`4052960__Guillermo_Morales4052960.xml` exposed an explicit candidate behavior that the original v4 gate was too strict about.
-
-Observed result before the gate correction:
-
-- final plan valid: yes
-- demand multiset exact: yes, 114/114 pieces
-- boards: 14
-- Beam calls: 149
-- Beam aggregate expansions: 89,104
-- Beam maximum expansions per invocation: 1,010
-- Beam fallback warning: `No se pudo completar el plan con Beam Search; revisar la pieza "52" (2325×599.6 mm).`
-- final greedy fallback plan: valid
-
-The candidate intentionally catches Beam failure inside `armarPlacas`, logs the warning, and degrades to the already-built greedy plan. The no-complete-plan exception is itself an explicit controlled branch of `armarPlacasBeam`, not an instrumentation failure.
-
-Calibration v4 now classifies Beam fallbacks semantically:
-
-- `CONTROLLED_NO_COMPLETE_BEAM_PLAN`: accepted only when the final result is valid and Beam work/terminal-control accounting is present;
-- `UNEXPECTED_BEAM_EXCEPTION`: remains fatal;
-- no arbitrary expansion threshold is used to decide legitimacy.
-
-This preserves visibility into Beam failure without discarding a valid, highly informative calibration case or weakening the gate for unrelated exceptions.
-
-## Physical resto feasibility observation
-
-The current physical `resto` execution binding classified the fixed 8,650 accepted identities as:
+The physical `resto` classifier currently observes:
 
 - feasible: 8,168
 - expected-infeasible: 482
-- expected-infeasible rate: 5.57%
+- infeasible rate: 5.57%
 
-This is an observed property of the exact `resto` cohort, not an extrapolation from the historical `parte1` benchmark. The historical 60 infeasible cases remain only the classifier-validation set.
+This is an observed property of `resto`, not an extrapolation from the historical `parte1` benchmark.
 
-## OneBoard evidence source correction
+## Execution profile and historical clock ceilings
 
-The 213 historical hotspot rows contain zero `oneboard.activaciones > 0`, including their few `cota == 1` rows. Hotspot activation therefore cannot source OneBoard calibration evidence.
+`benchmarkInputFromCanonicalCase(canonical, { strategy: "v10" })` runs the benchmark binding with profile `balanced`.
 
-Calibration v4 derives OneBoard candidates directly from the exact physical `resto` feasible cohort using the same V10 static prerequisite as the live path:
+Historical wall-clock ceilings active in this calibration are therefore:
 
-`areaLB = ceil(sum(piece.width * piece.height * quantity) / usableBoardArea) == 1`
+- Beam: 1,500 ms per Beam invocation
+- coverage solver (`resolverCobertura`): 8,000 ms per run
+- OneBoard: 20,000 ms per rescue run
 
-`usableBoardArea` uses the versioned historical execution binding, including the historical project trim semantics.
+Calibration itself keeps the new deterministic production budgets/watchdogs OFF; formal zero-watchdog evidence is collected only after production values are versioned and enabled.
 
-The static scan reported:
+## Budget scopes
+
+The candidate production knobs are scoped per invocation/run:
+
+- `OPTIMIZER_MAX_BEAM_EXPANSIONS` -> `beam.expansionsMax` per `armarPlacasBeam`
+- `OPTIMIZER_BEAM_WATCHDOG_MS` -> `beam.wallMsMax` per Beam invocation
+- `OPTIMIZER_MAX_MASTER_NODES` -> `master.nodesMax` per `resolverCobertura` run
+- `OPTIMIZER_MASTER_WATCHDOG_MS` -> `master.wallMsMax` per coverage-solver run
+- `OPTIMIZER_MAX_RESCUE_ATTEMPTS` -> `oneboard.attemptsMax` per `rescatarUnaPlaca`
+- `OPTIMIZER_RESCUE_WATCHDOG_MS` -> `oneboard.wallMsMax` per rescue run
+
+Aggregate request totals remain operational-load evidence. Candidate A has no aggregate request work budget.
+
+A newly confirmed scope boundary is critical: `OPTIMIZER_MAX_MASTER_NODES` controls the coverage solver only. It does **not** budget the preceding `generarPatrones` / `patronesMonotipo` phase. See `KERNEL_V1_MASTER_PATTERN_GENERATION_BOUNDARY_2026-09-08.md`.
+
+## Controlled Beam fallback semantics
+
+The candidate intentionally degrades Beam to greedy when `armarPlacasBeam` cannot complete a plan. Calibration v4 now classifies this semantically:
+
+- `CONTROLLED_NO_COMPLETE_BEAM_PLAN`: accepted only when the final output is valid, demand multiset is exact, and Beam work/terminal-control accounting is present
+- `UNEXPECTED_BEAM_EXCEPTION`: fatal
+
+No arbitrary expansion threshold is used to decide legitimacy.
+
+`4052960__Guillermo_Morales4052960.xml` established this distinction with a valid 114/114-piece final plan after 149 Beam calls and 89,104 aggregate Beam expansions. Its Beam population includes a timeout under the balanced 1,500 ms ceiling, so the row contributes censored Beam evidence rather than an uncensored completion requirement.
+
+## OneBoard discovery and 55-case evidence
+
+The 213 historical hotspot rows contain zero OneBoard activations, so OneBoard evidence is sourced directly from physical `resto` using static `areaLB == 1` as a cheap candidate filter.
+
+Static physical scan:
 
 - feasible cases: 8,168
-- static `areaLB == 1` candidates: 3,266 (39.99% of feasible cases)
-- candidates with `referencePanels > 1`: 234
-- bounded scan size: 48
+- `areaLB == 1`: 3,266
+- `referencePanels > 1`: 234
+- bounded early scan: 48
 
-The bounded 48-case OneBoard stratum completed before the later Beam fallback abort: with 4 earlier calibration rows, the checkpoint reached 52 successful rows before `4052960` became the failing 53rd row. Subsequent execution therefore proceeds into the post-OneBoard Beam/Master-heavy work-first ordering.
+At 55 successful calibration cases, OneBoard evidence is:
 
-## OneBoard measured work
+- activated cases: 22
+- invocations: 22
+- structurally complete single-run cases: 21
+- `attemptsMax`: n=22, p50=384, p90=384, max=384
+- `wallMsMax`: n=22, p50=1,813 ms, p90=2,324 ms, max=2,366 ms
+- raw timeout hits: 0
+- censoring status: `NO_RIGHT_CENSORING_OBSERVED`
 
-In the first 10 static candidates executed after the scan:
-
-- 9/10 activated OneBoard with measured attempts.
-- 8/9 measured activations exhausted exactly 384 attempts and remained at 2 boards.
-- 1/9 measured activations succeeded early after 51 attempts and returned a 1-board plan.
-- Full-enumeration OneBoard cases consumed roughly 18.7–21.0 seconds on the calibration machine.
-
-The 384-attempt value is the finite structural search space in the current candidate:
+The finite OneBoard search space is exactly:
 
 `6 seeds x 4 c1 x 4 c2 x 2 initial directions x 2 multi modes = 384`
 
-This gives `OPTIMIZER_MAX_RESCUE_ATTEMPTS = 384` a direct exact-equivalence basis for Kernel V1: it permits the complete current OneBoard search space while making the work limit deterministic. It remains provisional until the associated watchdog and formal correctness/determinism gates are versioned and passed.
+Therefore `OPTIMIZER_MAX_RESCUE_ATTEMPTS = 384` has both structural and empirical exact-equivalence support. The associated watchdog remains to be chosen above the completed-search wall-time envelope so it acts as a safety fuse rather than a second search budget.
 
-### OneBoard timeout interpretation
+### Correction of prior latency attribution
 
-The legacy OneBoard timeout counter needs path-specific interpretation. `oneboard.cjs` increments `timeoutHits` after the loop if elapsed time is at or above `msRescate`, so a row can report a timeout marker even after all 384 attempts were completed. Therefore:
+An earlier checkpoint interpretation incorrectly attributed roughly 18–21 seconds of some small orders to OneBoard. The 55-case evidence disproves that: OneBoard itself is roughly 1.8–2.4 seconds in the observed complete runs.
 
-- `attempts == 384` proves structural completion for a single OneBoard run, even if the legacy timeout marker is set afterward;
-- `timeoutHits > 0 && attempts < 384` remains potentially time-censored unless separate success evidence proves an intentional early exit;
-- a deterministic rescue watchdog must be chosen above the completed-search wall-time envelope so it acts as a safety watchdog rather than reintroducing hardware-dependent search truncation.
+The ~20-second small-order symptom was real; its dominant cause was elsewhere.
 
-`analyze-calibration-v4-censoring.mjs` reports this distinction instead of treating every OneBoard timeout marker as right-censoring.
+## Beam — 55-case distribution
 
-## Product/latency finding
+At 55 successful cases:
 
-OneBoard is a confirmed synchronous latency hotspot for small orders. In eight observed unsuccessful cases it spends approximately 19–21 seconds enumerating the full 384 configurations without reducing the board count. This is separate from the Kernel V1 freeze decision: changing when/how OneBoard runs would alter search behavior and belongs after freeze (or in a new candidate). It is, however, strong evidence for moving expensive rescue work out of the interactive synchronous path in the post-freeze Worker architecture.
+- activated cases: 48
+- invocations: 2,518
+- timeout hits: 4 (about 0.16% of invocations)
+- cases with any Beam timeout: 1
+- uncensored cases: 47
+- uncensored `expansionsMax`: p50=20, p90=32, max=1,016
 
-## Early calibration ordering
+Beam therefore has a small normal regime with a long extreme tail. Censored and uncensored observations must remain separated. A final production expansion budget must protect relevant tail behavior rather than being chosen from the p50/p90 alone.
 
-Calibration v4 defaults to `--order work-first` with this sequence:
+## Master — two different scopes and two solver regimes
 
-1. up to 48 physical `resto` feasible cases with static `areaLB == 1`, prioritized by `referencePanels > 1` then larger piece count;
-2. then normal hotspot-driven work-first ordering for historically activated expensive paths;
-3. known extreme-tail orders remain forced last.
+Coverage-solver telemetry at 55 successful cases:
 
-`--oneboardScanLimit N` changes the bounded static OneBoard candidate scan. `--oneboardScanLimit 0` disables it. `--order cheap-first` retains cheap-to-expensive ordering and does not use work-first stratification.
+- invocations: 27
+- timeout hits: 5 (18.5%)
+- uncensored runs: 22
+- uncensored `nodesMax`: p50=1, p90=1, max=580
+- censored runs: 5, reaching hundreds of thousands to >1 million nodes under the historical 8-second solver ceiling
 
-This changes execution priority only. It does not change the exact 8,650-case certification universe, the candidate runtime, or permit budget promotion from an arbitrary substituted cohort. Existing successful `calibration-v4.partial.jsonl` rows remain valid and are skipped by filename on subsequent invocations. The failed pre-policy `4052960` row is intentionally not in the `done` set and will be re-run; after it passes, `uniqueLatest` makes the new successful row authoritative for summaries.
+The coverage solver is therefore strongly bimodal: most uncensored runs terminate almost immediately, while a small regime explodes and is wall-clock censored. A single percentile over the mixed population is not meaningful for `OPTIMIZER_MAX_MASTER_NODES`; the explosive regime requires the documented historical-equivalence/reference-machine policy plus formal validation.
+
+More importantly, the latency diagnostic shows that the **full Pattern Master stage** can still take around 10 seconds when solver telemetry reports only one node and approximately zero solver wall time. This is not a contradiction: `metricas.master.ms` includes pattern generation, coverage solving, and materialization, whereas Step 0 `master.nodes*` / `master.wallMs*` are coverage-solver telemetry only.
+
+## Small-order latency attribution
+
+The dedicated latency diagnostic decomposed the slow `areaLB=1` orders. Representative case:
+
+`4020442` — about 21.916 s total, 50 pieces, 2 boards:
+
+- Pattern Master total stage: about 10.028 s (46%)
+- MultiSlice: about 4.573 s (21%)
+- residual V10: about 2.554 s (12%)
+- OneBoard: about 2.535 s (12%)
+- compactation: about 2.226 s (10%)
+
+Board-count gains in that run:
+
+- OneBoard: 0
+- Master: 0
+- MultiSlice: 0
+- compactation: 0
+
+Master was the dominant stage across the eight diagnosed slow cases.
+
+Inside V10, Pattern Master performs:
+
+1. `generarPatrones(lineas, config, config.rondasPatrones || 40)`
+2. `patronesMonotipo(lineas, config)`
+3. `resolverCobertura(...)`
+4. branch-and-bound solve
+5. optional materialization/acceptance
+
+The 55-case latency evidence therefore re-confirms the historical performance finding: expensive pattern generation can dominate Pattern Master even when the coverage solver itself is trivial.
+
+## Freeze boundary
+
+The six deterministic budget/watchdog knobs being calibrated are legitimate and useful, but Kernel V1 must not claim that they bound total optimizer CPU or total Pattern Master latency.
+
+Pattern generation has no separate production work-budget knob in Candidate A. It runs the candidate's fixed pattern-generation policy (40 rounds by default in the V10 Master call plus monotype generation). Adding early stop, a generation-work counter/budget, dominance pruning, caching, fewer/different rounds, or any other pattern-pool change can alter search semantics.
+
+Therefore this freeze intentionally leaves pattern generation unchanged. That work belongs after `Kernel V1 FROZEN` (performance/Kernel V2) or requires a new Kernel V1 candidate plus recertification.
+
+This is the explicit tradeoff of the freeze: **deterministic/auditable bounded scopes now, dominant pattern-generation performance cost intentionally preserved.**
 
 ## Current budget evidence status
 
-- Beam: mixed completed and time-censored evidence now observed. Uncensored `expansionsMax` values must be analyzed separately from timeout-hit cases; more tail coverage is required before fixing the final expansion/watchdog values.
-- Master: both populations now exist conceptually: the first 3 runs were censored at 8 seconds, while `4052960` produced a 580-node ~19 ms natural completion that will enter the authoritative uncensored set after re-run.
-- OneBoard: strong structural evidence; provisional deterministic attempt budget is 384, with watchdog still pending completed-search wall-time analysis.
+- `OPTIMIZER_MAX_RESCUE_ATTEMPTS`: 384 — strong structural + empirical candidate, practically closed pending promotion with watchdogs/formal gates
+- `OPTIMIZER_RESCUE_WATCHDOG_MS`: pending; completed OneBoard envelope currently max ~2,366 ms
+- `OPTIMIZER_MAX_BEAM_EXPANSIONS`: pending; uncensored p50=20, p90=32, max=1,016 with a rare censored tail
+- `OPTIMIZER_BEAM_WATCHDOG_MS`: pending
+- `OPTIMIZER_MAX_MASTER_NODES`: pending; use historical-equivalence policy for the explosive solver regime, not a mixed percentile
+- `OPTIMIZER_MASTER_WATCHDOG_MS`: pending
+- Pattern-generation work budget: **not present in Candidate A and not added during this freeze**
 
 ## Gate state
 
-- Historical infeasible replay: exact 60/60.
-- Historical correctness predicate/execution semantics: recovered.
-- Physical `resto` feasibility classification: 8,168 feasible / 482 expected-infeasible.
-- Step 0 telemetry: empirically demonstrated.
-- OneBoard static 48-case evidence stratum: completed before the Beam fallback abort.
-- Controlled Beam no-complete-plan fallback: now explicitly accepted only with valid final output and live accounting.
-- Unexpected Beam exceptions: still fatal.
-- Calibration execution profile: balanced; Beam historical ceiling 1,500 ms, Master 8,000 ms, OneBoard 20,000 ms.
-- Kernel runtime identity: must remain exact to `406396...` and is rechecked by the main freeze CI.
-- Production deterministic budgets/watchdogs: still unresolved.
-- Kernel V1 frozen: no.
-- Worker isolation: blocked until freeze.
+- Historical infeasible replay: exact 60/60
+- Historical correctness predicate/execution semantics: recovered
+- Exact accepted `resto` cohort: 8,650
+- Physical `resto`: 8,168 feasible / 482 expected-infeasible
+- Step 0 deterministic-work telemetry: demonstrated
+- Controlled Beam fallback policy: resolved
+- OneBoard attempt budget evidence: strong / 384
+- Beam budget evidence: substantial, tail still under evaluation
+- Master solver budget policy: conceptually resolved, production value still pending
+- Pattern-generation cost boundary: explicitly documented and intentionally out of freeze scope
+- Production deterministic budgets/watchdogs: not yet fully versioned
+- Formal correctness: not started
+- Formal determinism repeat: not started
+- Kernel V1 frozen: no
+- Worker isolation: blocked until freeze
