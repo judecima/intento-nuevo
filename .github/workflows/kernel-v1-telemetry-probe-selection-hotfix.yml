@@ -1,0 +1,73 @@
+name: Kernel V1 telemetry probe selection hotfix
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/kernel-v1-telemetry-probe-selection-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-freeze
+
+      - name: Prefer historically activated budgeted paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'expected patch anchor not found in {path}: {old[:160]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          runner = 'scripts/kernel-freeze/kernel-budget-calibration-v3.mjs'
+          old = '''  const candidates = state.feasible\n    .filter((item) => Number.isFinite(hints.get(item.file)))\n    .map((item) => ({ item, historicalMs: hints.get(item.file) }))\n    .filter((entry) => entry.historicalMs >= 500 && entry.historicalMs <= 30_000)\n    .sort((a, b) => a.historicalMs - b.historicalMs || cmp(a.item.file, b.item.file))\n    .slice(0, 12);\n  if (!candidates.length) fail("no historical hotspot candidates available for Step 0 telemetry probe");\n\n  const attempts = [];\n  let budgetedPathExercised = false;\n  for (const { item, historicalMs } of candidates.slice(0, 8)) {\n'''
+          new = '''  const activationHints = readHistoricalBudgetedPathHints();\n  const candidates = state.feasible\n    .map((item) => ({ item, hint: activationHints.get(item.file) }))\n    .filter((entry) => entry.hint && (entry.hint.masterActivations > 0 || entry.hint.oneboardActivations > 0))\n    .sort((a, b) => a.hint.engineMs - b.hint.engineMs || cmp(a.item.file, b.item.file))\n    .slice(0, 8);\n  if (!candidates.length) fail("no historically activated Master/OneBoard candidates available for Step 0 telemetry probe");\n\n  const attempts = [];\n  let budgetedPathExercised = false;\n  for (const { item, hint } of candidates) {\n    const historicalMs = hint.engineMs;\n'''
+          replace_once(runner, old, new)
+
+          old = '''    attempts.push({\n      file: item.file,\n      historicalMs,\n      wallMs: result.wallMs,\n'''
+          new = '''    attempts.push({\n      file: item.file,\n      historicalMs,\n      historicalMasterActivations: hint.masterActivations,\n      historicalOneboardActivations: hint.oneboardActivations,\n      selectionReason: "versioned hotspot evidence exercised Master or OneBoard; cheapest known activated candidates first",\n      wallMs: result.wallMs,\n'''
+          replace_once(runner, old, new)
+
+          old = '''    explanation: "composition counters prove Step 0 is wired even when Beam is skipped because greedy reaches the area lower bound; at least one probe must additionally exercise Beam, Master, or OneBoard.",\n'''
+          new = '''    explanation: "composition counters prove Step 0 is wired even when Beam is skipped because greedy reaches the area lower bound; probe candidates are selected from versioned hotspot rows that historically activated Master or OneBoard, cheapest first, and at least one current run must exercise Beam, Master, or OneBoard.",\n'''
+          replace_once(runner, old, new)
+
+          anchor = '''function readHistoricalTimingHints() {\n  const map = new Map();\n  if (!existsSync(HOTSPOT_PATH)) return map;\n  for (const line of readFileSync(HOTSPOT_PATH, "utf8").split(/\\r?\\n/).filter(Boolean)) {\n    const row = JSON.parse(line);\n    if (row.ok === false || row.engineCacheHit) continue;\n    if (typeof row.file === "string" && Number.isFinite(row.engineMs)) map.set(row.file, Number(row.engineMs));\n  }\n  return map;\n}\n\n'''
+          addition = anchor + '''function readHistoricalBudgetedPathHints() {\n  const map = new Map();\n  if (!existsSync(HOTSPOT_PATH)) return map;\n  for (const line of readFileSync(HOTSPOT_PATH, "utf8").split(/\\r?\\n/).filter(Boolean)) {\n    const row = JSON.parse(line);\n    if (row.ok === false || row.engineCacheHit || typeof row.file !== "string" || !Number.isFinite(row.engineMs)) continue;\n    map.set(row.file, {\n      engineMs: Number(row.engineMs),\n      masterActivations: Number(row.metricas?.master?.activaciones ?? 0),\n      oneboardActivations: Number(row.metricas?.oneboard?.activaciones ?? 0),\n    });\n  }\n  return map;\n}\n\n'''
+          replace_once(runner, anchor, addition)
+
+          policy_path = Path('research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json')
+          policy = json.loads(policy_path.read_text(encoding='utf-8'))
+          policy['schemaVersion'] = 'kernel-v1-formal-certification-policy-v6'
+          protocol = policy['deterministicBudgets']['calibrationProtocol']
+          protocol['telemetryProbeSelection'] = 'Use versioned hotspot rows whose historical metricas.master.activaciones or metricas.oneboard.activaciones is positive. Try the cheapest known activated feasible cases first, up to eight candidates; the current candidate must actually exercise Beam, Master, or OneBoard before calibration starts.'
+          protocol['telemetryProbeInterpretation'] = 'Historical activation is only candidate-selection evidence. PASS still requires a fresh current run with valid output, live composition telemetry, and at least one current Beam/Master/OneBoard counter greater than zero.'
+          policy_path.write_text(json.dumps(policy, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          PY
+
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v3.mjs
+
+      - name: Commit correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/kernel-freeze/kernel-budget-calibration-v3.mjs research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json
+          git commit -m "fix(optimizer): target activated paths in telemetry probe"
+          git push origin HEAD:optimizer-kernel-v1-freeze
