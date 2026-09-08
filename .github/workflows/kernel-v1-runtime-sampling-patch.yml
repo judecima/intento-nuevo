@@ -25,16 +25,14 @@ jobs:
         run: |
           node --check scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
           node --check scripts/kernel-freeze/estimate-formal-runtime-v1.mjs
-      - name: Commit patch and cleanup temporaries
+      - name: Commit script changes
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
-          git add .github/workflows/optimizer-kernel-freeze.yml
           git rm scripts/kernel-freeze/.tmp-add-random-runtime-sampling.py
-          git rm .github/workflows/kernel-v1-runtime-sampling-patch.yml
           git commit -m "feat(optimizer): add reproducible formal runtime sampling"
           for attempt in 1 2 3 4 5; do
             git fetch origin optimizer-kernel-v1-freeze
