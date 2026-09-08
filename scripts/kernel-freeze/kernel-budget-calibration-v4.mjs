@@ -38,7 +38,7 @@ async function main(args) {
   const out = resolve(args.out ?? join(REPO, "test-results/kernel-v1-formal-certification"));
   mkdirSync(out, { recursive: true });
 
-  const maxNew = args.maxNew == null ? Infinity : positiveInt(args.maxNew, "--maxNew");
+  const maxNew = args.maxNew == null ? Infinity : nonNegativeInt(args.maxNew, "--maxNew");
   const timeoutMs = args.timeout == null ? 7_200_000 : positiveInt(args.timeout, "--timeout");
   const calibrationOrder = String(args.order ?? "work-first");
   if (!new Set(["work-first", "cheap-first", "random"]).has(calibrationOrder)) fail("--order must be work-first, cheap-first, or random");
@@ -54,6 +54,25 @@ async function main(args) {
   const bundle = await buildBundle(out);
   const historicalReplay = await validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out });
   const state = await preparePhysicalCorpus(bundle, corpus, out, historicalReplay);
+  const runtimePopulation = state.feasible
+    .map((item) => ({
+      file: item.file,
+      format: item.format,
+      pieces: quantity(item.case),
+      staticAreaLowerBound: staticAreaLowerBound(item.case),
+      referencePanels: item.referencePanels,
+    }))
+    .sort((a, b) => cmp(a.file, b.file));
+  writeJson(join(out, "formal-runtime-population-v1.json"), {
+    schemaVersion: "kernel-v1-formal-runtime-population-v1",
+    generatedAt: new Date().toISOString(),
+    executionBindingId: EXECUTION_BINDING_ID,
+    feasibleCases: runtimePopulation.length,
+    features: ["pieces", "staticAreaLowerBound", "referencePanels"],
+    note: "Static planning metadata only. No optimizer execution is required to build this inventory.",
+    cases: runtimePopulation,
+  });
+
   const staticOneboardCandidates = state.feasible
     .filter((item) => staticAreaLowerBound(item.case) === 1)
     .sort(compareStaticOneboardCandidates);
