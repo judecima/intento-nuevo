@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v14",
-  "date": "2026-09-07",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v15",
+  "date": "2026-09-08",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
     "status": "COMPLETE",
@@ -116,19 +116,20 @@
     }
   },
   "deterministicBudgets": {
-    "status": "CANDIDATE_VALUES_PENDING_VALIDATION",
+    "status": "RESOLVED",
     "rule": "Do not run formal determinism certification with absent, guessed, smoke-test, or CI-convenience budgets. Calibrate each deterministic budget from work/time measured in the exact invocation scope where that parameter is enforced, while separately reporting aggregate per-order work. Watchdog hits must be zero during formal certification.",
     "values": {
-      "OPTIMIZER_MAX_BEAM_EXPANSIONS": null,
-      "OPTIMIZER_BEAM_WATCHDOG_MS": null,
-      "OPTIMIZER_MAX_MASTER_NODES": null,
-      "OPTIMIZER_MASTER_WATCHDOG_MS": null,
-      "OPTIMIZER_MAX_RESCUE_ATTEMPTS": null,
-      "OPTIMIZER_RESCUE_WATCHDOG_MS": null
+      "OPTIMIZER_MAX_BEAM_EXPANSIONS": 1024,
+      "OPTIMIZER_BEAM_WATCHDOG_MS": 5000,
+      "OPTIMIZER_MAX_MASTER_NODES": 1600000,
+      "OPTIMIZER_MASTER_WATCHDOG_MS": 60000,
+      "OPTIMIZER_MAX_RESCUE_ATTEMPTS": 384,
+      "OPTIMIZER_RESCUE_WATCHDOG_MS": 10000
     },
     "provenance": [
       "research/optimizer/determinism/KERNEL_V1_CANDIDATE_2026-09-07.md",
-      "research/optimizer/determinism/DETERMINISM_RECOVERY_AND_STEP0_2026-09-07.md"
+      "research/optimizer/determinism/DETERMINISM_RECOVERY_AND_STEP0_2026-09-07.md",
+      "research/optimizer/freeze/KERNEL_V1_BUDGETS_RESOLVED_2026-09-08.md"
     ],
     "calibrationProtocol": {
       "authoritativeHarness": "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",
@@ -193,7 +194,47 @@
         "controlled Beam fallback remains acceptable only under the existing semantic fallback rule"
       ],
       "failureRule": "If a case fails, adjust only the budget/watchdog for the path implicated by telemetry and re-run failed cases plus their same-path cohort. Do not restart calibration methodology or expand the runtime-estimation sample.",
-      "successAction": "Copy candidateValues into deterministicBudgets.values, set deterministicBudgets.status=RESOLVED, version the evidence, then start formal correctness."
+      "successAction": "COMPLETED: candidateValues promoted to deterministicBudgets.values; formal correctness is the current gate.",
+      "status": "PASS",
+      "promotionReady": true,
+      "completedBaselineCases": 56,
+      "completedPassCases": 56
+    },
+    "validationEvidence": {
+      "status": "PASS",
+      "source": "test-results/kernel-v1-formal-certification/budget-candidate-v1.summary.json",
+      "checkpoint": "test-results/kernel-v1-formal-certification/budget-candidate-v1.partial.jsonl",
+      "versionedRecord": "research/optimizer/freeze/KERNEL_V1_BUDGETS_RESOLVED_2026-09-08.md",
+      "baselineCases": 56,
+      "completedPassCases": 56,
+      "failures": 0,
+      "sameBoardCountAsBaselineCases": 56,
+      "zeroWatchdogHitsCases": 56,
+      "promotionReady": true,
+      "beamDecisiveCase": {
+        "fileContains": "4052960",
+        "expansionsMax": 1010,
+        "budget": 1024,
+        "budgetHits": 0,
+        "watchdogHits": 0,
+        "boardsBaseline": 14,
+        "boardsBudgeted": 14
+      },
+      "masterDecisiveCase": {
+        "fileContains": "4059352",
+        "nodesMax": 1600000,
+        "budget": 1600000,
+        "budgetHits": 1,
+        "watchdogHits": 0,
+        "boardsBaseline": 29,
+        "boardsBudgeted": 29
+      },
+      "oneboard": {
+        "fullEnumerationCases": 21,
+        "attemptsMax": 384,
+        "budgetHits": 0,
+        "earlySuccessAttempts": 51
+      }
     }
   },
   "execution": {
@@ -238,10 +279,12 @@
       "determinism-repeat: repeated feasible plan cases / feasible resto cases",
       "determinism-repeat timing mass: sum of baseline correctness wallMs for repeated feasible cases / total feasible correctness wallMs",
       "calibration: completed feasible v4 resto cases plus separately scoped historical-hotspot timing-mass coverage"
-    ]
+    ],
+    "formalCorrectnessHarness": "scripts/kernel-freeze/formal-correctness-v1.mjs",
+    "formalCorrectnessCheckpoint": "test-results/kernel-v1-formal-certification/formal-correctness-v1.partial.jsonl",
+    "formalCorrectnessSummary": "test-results/kernel-v1-formal-certification/formal-correctness-v1.summary.json",
+    "formalCorrectnessStatus": "READY"
   },
-  "formalCertificationReady": false,
-  "blockingReasons": [
-    "Candidate deterministic budgets/watchdogs require finite baseline-equivalence validation before promotion."
-  ]
+  "formalCertificationReady": true,
+  "blockingReasons": []
 }
