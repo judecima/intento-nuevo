@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v11",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v12",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -165,7 +165,10 @@
       "budgetScopeRule": "Primary budget statistics must match enforcement scope: Beam expansionsMax/wallMsMax per Beam invocation; Master nodesMax/wallMsMax per resolverCobertura run; OneBoard attemptsMax/wallMsMax per rescatarUnaPlaca invocation.",
       "aggregateWorkRule": "Also report per-order aggregate totals and call/run counts to characterize request-level load. Kernel V1 Candidate A has no aggregate request work budget; adding one changes search semantics and requires a new candidate plus recertification.",
       "samplingRule": "Early --maxNew batches are stratified for evidence density: first a bounded physical-resto areaLB=1 OneBoard candidate scan, then hotspot-driven work-first calibration. This changes execution order only; the final certification universe remains the exact feasible subset of the fixed 8,650 resto cohort.",
-      "oneboardEvidenceRule": "The 213-row hotspot marker has zero historical OneBoard activations and cannot source this evidence. OneBoard discovery starts from the physical resto feasible cohort using cotaArea==1 under the historical execution binding. Static candidacy is not activation evidence: promotion requires fresh current oneboard.runs>0 and attemptsTotal>0. If an adequate static scan yields no activations, document empirical rarity and set the rescue budget by explicit policy rather than inventing a distribution."
+      "oneboardEvidenceRule": "The 213-row hotspot marker has zero historical OneBoard activations and cannot source this evidence. OneBoard discovery starts from the physical resto feasible cohort using cotaArea==1 under the historical execution binding. Static candidacy is not activation evidence: promotion requires fresh current oneboard.runs>0 and attemptsTotal>0. If an adequate static scan yields no activations, document empirical rarity and set the rescue budget by explicit policy rather than inventing a distribution.",
+      "benchmarkProfile": "benchmarkInputFromCanonicalCase(...,{strategy:\"v10\"}) defaults to profile=balanced. Historical calibration ceilings are therefore Beam 1500ms (motor default), Master 8000ms, OneBoard 20000ms.",
+      "beamFallbackRule": "The candidate explicitly degrades Beam to greedy when armarPlacasBeam throws. Calibration accepts only the controlled no-complete-plan error (message starts No se pudo completar el plan con Beam Search) when the final output remains valid and Beam work/terminal-control accounting is present. Any other Beam exception remains a calibration failure.",
+      "beamTimeoutInterpretation": "Beam timeoutHits is aggregated across Beam invocations. Under the v10 benchmark balanced profile the historical per-invocation Beam ceiling is 1500ms, not 2500ms. A case with timeoutHits>0 contains time-censored Beam work even if other invocations terminate normally."
     }
   },
   "execution": {

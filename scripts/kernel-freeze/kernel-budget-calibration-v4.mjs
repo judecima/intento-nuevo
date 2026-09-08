@@ -96,7 +96,9 @@ async function main(args) {
     const result = await runCase({ bundle, item, env, timeoutMs, out, label: "calibration-v4" });
     const telemetryWired = hasCompositionTelemetry(result.step0);
     const beamAccounting = beamAccountingStatus(result.step0);
-    const beamFallbackWarning = hasBeamFallbackWarning(result.stderrTail);
+    const beamFallback = classifyBeamFallback(result.stderrTail);
+    const beamFallbackWarning = beamFallback.present;
+    const beamFallbackAccepted = !beamFallback.present || (beamFallback.controlled && beamAccounting.ok);
     const pass = Boolean(
       result.ok &&
       result.validationOk &&
@@ -105,7 +107,7 @@ async function main(args) {
       result.demandMultisetOk &&
       telemetryWired &&
       beamAccounting.ok &&
-      !beamFallbackWarning
+      beamFallbackAccepted
     );
     const row = {
       phase: "calibration",
@@ -124,13 +126,15 @@ async function main(args) {
       telemetryWired,
       beamAccounting,
       beamFallbackWarning,
+      beamFallback,
+      beamFallbackAccepted,
       pass,
     };
     appendFileSync(checkpoint, JSON.stringify(row) + "\n", "utf8");
     added++;
 
     writeCalibrationSummary(checkpoint, state, hints, out);
-    if (!pass) fail(`calibration validity/work-telemetry failed: ${item.file}; beamAccounting=${JSON.stringify(beamAccounting)}; beamFallbackWarning=${beamFallbackWarning}; stderr=${result.stderrTail ?? ""}`);
+    if (!pass) fail(`calibration validity/work-telemetry failed: ${item.file}; beamAccounting=${JSON.stringify(beamAccounting)}; beamFallback=${JSON.stringify(beamFallback)}; stderr=${result.stderrTail ?? ""}`);
 
     console.log(JSON.stringify({
       phase: "calibration",
@@ -416,8 +420,10 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
     const oneboardWork = Number(result.step0?.oneboard?.attemptsTotal ?? 0) > 0;
     const budgeted = beamWork || masterWork || oneboardWork;
     const beamAccounting = beamAccountingStatus(result.step0);
-    const beamFallbackWarning = hasBeamFallbackWarning(result.stderrTail);
-    const valid = result.ok && result.validationOk && !result.cacheHit && result.pieces === result.expectedPieces && result.demandMultisetOk && telemetryWired && beamAccounting.ok && !beamFallbackWarning;
+    const beamFallback = classifyBeamFallback(result.stderrTail);
+    const beamFallbackWarning = beamFallback.present;
+    const beamFallbackAccepted = !beamFallback.present || (beamFallback.controlled && beamAccounting.ok);
+    const valid = result.ok && result.validationOk && !result.cacheHit && result.pieces === result.expectedPieces && result.demandMultisetOk && telemetryWired && beamAccounting.ok && beamFallbackAccepted;
     attempts.push({
       file: item.file,
       historicalMs,
@@ -434,6 +440,8 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
       oneboardWorkMeasured: oneboardWork,
       beamAccounting,
       beamFallbackWarning,
+      beamFallback,
+      beamFallbackAccepted,
       stderrTail: result.stderrTail ?? null,
       composition: result.step0?.composition ?? null,
       beam: result.step0?.beam ?? null,
@@ -456,7 +464,7 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
     status,
     budgetedPathExercised,
     budgetedWorkMeasured: budgetedPathExercised,
-    explanation: "composition counters prove wiring; PASS requires an actual deterministic work magnitude (Beam expansions, Master nodes, or OneBoard attempts) greater than zero in a fresh current run. Beam calls alone are insufficient. Any swallowed Beam fallback warning fails the probe.",
+    explanation: "composition counters prove wiring; PASS requires an actual deterministic work magnitude (Beam expansions, Master nodes, or OneBoard attempts) greater than zero in a fresh current run. Beam calls alone are insufficient. A controlled Beam no-complete-plan fallback is accepted only when the final result is valid and Beam work/terminal accounting is live; any other Beam exception remains fatal.",
     attempts,
   });
   if (status !== "PASS") fail("Step 0 telemetry probe did not produce a valid run with measured budgeted work");
@@ -486,8 +494,16 @@ function beamAccountingStatus(step0) {
   };
 }
 
-function hasBeamFallbackWarning(stderrTail) {
-  return /Beam Search falló, se usa greedy:/i.test(String(stderrTail ?? ""));
+function classifyBeamFallback(stderrTail) {
+  const text = String(stderrTail ?? "");
+  const present = /Beam Search falló, se usa greedy:/i.test(text);
+  if (!present) return { present: false, controlled: false, classification: "NONE" };
+  const controlled = /Beam Search falló, se usa greedy:[\s\S]*No se pudo completar el plan con Beam Search/i.test(text);
+  return {
+    present: true,
+    controlled,
+    classification: controlled ? "CONTROLLED_NO_COMPLETE_BEAM_PLAN" : "UNEXPECTED_BEAM_EXCEPTION",
+  };
 }
 
 async function buildBundle(out) {
@@ -560,6 +576,7 @@ async function childRun(args) {
     wallMs,
     cpuMs: (cpu.user + cpu.system) / 1000,
     engineMs: result.metrics.engineMs,
+    profile: result.profile,
     cacheHit: Boolean(result.metrics.cacheHit),
     boards: result.metrics.boardCount,
     pieces: result.placements.length,
@@ -644,6 +661,13 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     feasibleCasesTotal: state.feasible.length,
     expectedInfeasibleCases: state.infeasible.length,
     historicalClassifierValidation: state.historicalReplay,
+    calibrationProfilesObserved: [...new Set(rows.map((row) => row.profile ?? "balanced-v10-benchmark-default"))],
+    historicalWallClockCeilings: {
+      beamMs: 1500,
+      masterMs: 8000,
+      oneboardMs: 20000,
+      note: "benchmarkInputFromCanonicalCase strategy=v10 defaults to balanced; balanced leaves motor Beam at its historical 1500ms default, while V10 Master defaults to 8000ms and OneBoard rescue to 20000ms.",
+    },
     aggregatePerOrderDistributions: {
       wallMs: values((row) => row.wallMs),
       cpuMs: values((row) => row.cpuMs),
@@ -704,7 +728,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
       "The exact 60-case infeasible replay is validated on parte1 through --historicalCorpus; it is not an expected count for resto.",
       "Calibrate each deterministic budget from the work/time statistic in the exact scope where that parameter is enforced: Beam expansionsMax/wallMsMax per Beam invocation, Master nodesMax/wallMsMax per coverage run, and OneBoard attemptsMax/wallMsMax per rescue invocation.",
       "Keep aggregate per-order totals as operational-load evidence; Candidate A has no aggregate request budget and this freeze must not add one.",
-      "Beam calls may legitimately be zero when greedy already reaches the area lower bound; when Beam is called, v4 requires work/terminal-control accounting and rejects swallowed Beam fallbacks.",
+      "Beam calls may legitimately be zero when greedy already reaches the area lower bound. A controlled no-complete-plan Beam fallback is legitimate candidate behavior when the final greedy result is valid and Beam work/terminal-control accounting is present; unexpected Beam exceptions remain fatal.",
       "Calibration runs with deterministic budgets and watchdogs OFF. Therefore watchdogHits=0 during calibration is not formal watchdog evidence; zero hits must be proven later with versioned watchdogs enabled.",
       "No aggregate request stop condition is added inside Kernel V1 freeze.",
     ],
