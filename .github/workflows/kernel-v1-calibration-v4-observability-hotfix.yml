@@ -1,0 +1,182 @@
+name: Kernel V1 calibration v4 observability hotfix
+
+on:
+  push:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/kernel-v1-calibration-v4-observability-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: optimizer-kernel-v1-freeze
+
+      - name: Create calibration v4 with strict work telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          src = Path('scripts/kernel-freeze/kernel-budget-calibration-v3.mjs')
+          dst = Path('scripts/kernel-freeze/kernel-budget-calibration-v4.mjs')
+          text = src.read_text(encoding='utf-8')
+
+          def rep(old, new):
+              global text
+              if old not in text:
+                  raise SystemExit(f'patch anchor missing: {old[:180]!r}')
+              text = text.replace(old, new, 1)
+
+          rep(
+              'const EXECUTION_BINDING_ID = "physical-xml-historical-validity-v1";\n',
+              'const EXECUTION_BINDING_ID = "physical-xml-historical-validity-v1";\nconst TELEMETRY_CONTRACT_ID = "step0-work-telemetry-v2";\n'
+          )
+          rep('const checkpoint = join(out, "calibration-v3.partial.jsonl");',
+              'const checkpoint = join(out, "calibration-v4.partial.jsonl");')
+          rep(
+              '.filter((row) => row.pass === true && row.executionBindingId === EXECUTION_BINDING_ID)\n',
+              '.filter((row) => row.pass === true && row.executionBindingId === EXECUTION_BINDING_ID && row.telemetryContractId === TELEMETRY_CONTRACT_ID)\n'
+          )
+
+          old = '''    const telemetryWired = hasCompositionTelemetry(result.step0);\n    const pass = Boolean(\n      result.ok &&\n      result.validationOk &&\n      !result.cacheHit &&\n      result.pieces === result.expectedPieces &&\n      result.demandMultisetOk &&\n      telemetryWired\n    );\n    const row = {\n      phase: "calibration",\n      executionBindingId: EXECUTION_BINDING_ID,\n'''
+          new = '''    const telemetryWired = hasCompositionTelemetry(result.step0);\n    const beamAccounting = beamAccountingStatus(result.step0);\n    const beamFallbackWarning = hasBeamFallbackWarning(result.stderrTail);\n    const pass = Boolean(\n      result.ok &&\n      result.validationOk &&\n      !result.cacheHit &&\n      result.pieces === result.expectedPieces &&\n      result.demandMultisetOk &&\n      telemetryWired &&\n      beamAccounting.ok &&\n      !beamFallbackWarning\n    );\n    const row = {\n      phase: "calibration",\n      executionBindingId: EXECUTION_BINDING_ID,\n      telemetryContractId: TELEMETRY_CONTRACT_ID,\n'''
+          rep(old, new)
+          rep(
+              '      telemetryWired,\n      pass,\n',
+              '      telemetryWired,\n      beamAccounting,\n      beamFallbackWarning,\n      pass,\n'
+          )
+          rep(
+              '    if (!pass) fail(`calibration validity/instrumentation failed: ${item.file}`);\n',
+              '    if (!pass) fail(`calibration validity/work-telemetry failed: ${item.file}; beamAccounting=${JSON.stringify(beamAccounting)}; beamFallbackWarning=${beamFallbackWarning}; stderr=${result.stderrTail ?? ""}`);\n'
+          )
+
+          rep('const path = join(out, "telemetry-probe-v3.json");',
+              'const path = join(out, "telemetry-probe-v4.json");')
+          rep(
+              '    if (prior?.executionBindingId === EXECUTION_BINDING_ID && prior?.status === "PASS" && prior?.budgetedPathExercised === true) return;\n',
+              '    if (prior?.executionBindingId === EXECUTION_BINDING_ID && prior?.telemetryContractId === TELEMETRY_CONTRACT_ID && prior?.status === "PASS" && prior?.budgetedWorkMeasured === true) return;\n'
+          )
+          old = '''    const telemetryWired = hasCompositionTelemetry(result.step0);\n    const budgeted = Number(result.step0?.beam?.calls ?? 0) > 0 || Number(result.step0?.master?.runs ?? 0) > 0 || Number(result.step0?.oneboard?.runs ?? 0) > 0;\n    const valid = result.ok && result.validationOk && !result.cacheHit && result.pieces === result.expectedPieces && result.demandMultisetOk && telemetryWired;\n'''
+          new = '''    const telemetryWired = hasCompositionTelemetry(result.step0);\n    const beamWork = Number(result.step0?.beam?.expansionsTotal ?? 0) > 0;\n    const masterWork = Number(result.step0?.master?.nodesTotal ?? 0) > 0;\n    const oneboardWork = Number(result.step0?.oneboard?.attemptsTotal ?? 0) > 0;\n    const budgeted = beamWork || masterWork || oneboardWork;\n    const beamAccounting = beamAccountingStatus(result.step0);\n    const beamFallbackWarning = hasBeamFallbackWarning(result.stderrTail);\n    const valid = result.ok && result.validationOk && !result.cacheHit && result.pieces === result.expectedPieces && result.demandMultisetOk && telemetryWired && beamAccounting.ok && !beamFallbackWarning;\n'''
+          rep(old, new)
+          rep(
+              '      budgetedPathExercised: budgeted,\n      composition: result.step0?.composition ?? null,\n',
+              '      budgetedPathExercised: budgeted,\n      budgetedWorkMeasured: budgeted,\n      beamWorkMeasured: beamWork,\n      masterWorkMeasured: masterWork,\n      oneboardWorkMeasured: oneboardWork,\n      beamAccounting,\n      beamFallbackWarning,\n      stderrTail: result.stderrTail ?? null,\n      composition: result.step0?.composition ?? null,\n'
+          )
+          rep(
+              '  let budgetedPathExercised = false;\n',
+              '  let budgetedPathExercised = false;\n'
+          )
+          rep(
+              '    schemaVersion: "kernel-v1-step0-telemetry-probe-v1",\n    generatedAt: new Date().toISOString(),\n    executionBindingId: EXECUTION_BINDING_ID,\n    status,\n    budgetedPathExercised,\n    explanation: "composition counters prove Step 0 is wired even when Beam is skipped because greedy reaches the area lower bound; probe candidates are selected from versioned hotspot rows that historically activated Master or OneBoard, cheapest first, and at least one current run must exercise Beam, Master, or OneBoard.",\n',
+              '    schemaVersion: "kernel-v1-step0-telemetry-probe-v2",\n    generatedAt: new Date().toISOString(),\n    executionBindingId: EXECUTION_BINDING_ID,\n    telemetryContractId: TELEMETRY_CONTRACT_ID,\n    status,\n    budgetedPathExercised,\n    budgetedWorkMeasured: budgetedPathExercised,\n    explanation: "composition counters prove wiring; PASS requires an actual deterministic work magnitude (Beam expansions, Master nodes, or OneBoard attempts) greater than zero in a fresh current run. Beam calls alone are insufficient. Any swallowed Beam fallback warning fails the probe.",\n'
+          )
+
+          anchor = '''function hasCompositionTelemetry(step0) {\n  return Number(step0?.composition?.optimizarCalls ?? 0) > 0 &&\n    Number(step0?.composition?.armarPlacasCalls ?? 0) > 0 &&\n    Number(step0?.composition?.stageCalls ?? 0) > 0;\n}\n\n'''
+          addition = anchor + '''function beamAccountingStatus(step0) {\n  const calls = Number(step0?.beam?.calls ?? 0);\n  const expansions = Number(step0?.beam?.expansionsTotal ?? 0);\n  const timeoutHits = Number(step0?.beam?.timeoutHits ?? 0);\n  const budgetHits = Number(step0?.beam?.budgetHits ?? 0);\n  const watchdogHits = Number(step0?.beam?.watchdogHits ?? 0);\n  const terminalEvidence = expansions > 0 || timeoutHits > 0 || budgetHits > 0 || watchdogHits > 0;\n  return {\n    ok: calls === 0 || terminalEvidence,\n    calls,\n    expansions,\n    timeoutHits,\n    budgetHits,\n    watchdogHits,\n    reason: calls === 0 ? "beam-not-called" : terminalEvidence ? "beam-work-or-terminal-control-recorded" : "beam-called-without-work-or-terminal-control",\n  };\n}\n\nfunction hasBeamFallbackWarning(stderrTail) {\n  return /Beam Search falló, se usa greedy:/i.test(String(stderrTail ?? ""));\n}\n\n'''
+          rep(anchor, addition)
+
+          rep('const file = join(out, "kernel-v1-candidate-v3.mjs");',
+              'const file = join(out, "kernel-v1-candidate-v4.mjs");')
+          rep('const dir = join(out, ".cases-v3");',
+              'const dir = join(out, ".cases-v4");')
+
+          old = '''      { env, stdio: ["ignore", "ignore", "inherit", "ipc"] },\n    );\n    let record = null;\n    let timedOut = false;\n'''
+          new = '''      { env, stdio: ["ignore", "ignore", "pipe", "ipc"] },\n    );\n    let record = null;\n    let timedOut = false;\n    let stderrTail = "";\n    child.stderr?.on("data", (chunk) => {\n      stderrTail = (stderrTail + String(chunk)).slice(-16000);\n    });\n'''
+          rep(old, new)
+          rep(
+              '      else resolvePromise(record);\n',
+              '      else resolvePromise({ ...record, stderrTail: stderrTail.trim() || null });\n'
+          )
+
+          rep(
+              '    readJsonl(checkpoint).filter((row) => row.pass === true && row.executionBindingId === EXECUTION_BINDING_ID),\n',
+              '    readJsonl(checkpoint).filter((row) => row.pass === true && row.executionBindingId === EXECUTION_BINDING_ID && row.telemetryContractId === TELEMETRY_CONTRACT_ID),\n'
+          )
+          rep('writeJson(join(out, "calibration-v3.summary.json"), {',
+              'writeJson(join(out, "calibration-v4.summary.json"), {')
+          rep('schemaVersion: "kernel-v1-calibration-summary-v3",',
+              'schemaVersion: "kernel-v1-calibration-summary-v4",')
+          rep(
+              '    executionBindingId: EXECUTION_BINDING_ID,\n',
+              '    executionBindingId: EXECUTION_BINDING_ID,\n    telemetryContractId: TELEMETRY_CONTRACT_ID,\n'
+          )
+          rep(
+              '    rules: [\n',
+              '    calibrationControls: { deterministicBudgets: "OFF", watchdogs: "OFF", watchdogZeroIsCertificationEvidence: false },\n    rules: [\n'
+          )
+          rep(
+              '      "Beam calls may legitimately be zero when greedy already reaches the area lower bound; composition counters are the wiring signal.",\n',
+              '      "Beam calls may legitimately be zero when greedy already reaches the area lower bound; when Beam is called, v4 requires work/terminal-control accounting and rejects swallowed Beam fallbacks.",\n      "Calibration runs with deterministic budgets and watchdogs OFF. Therefore watchdogHits=0 during calibration is not formal watchdog evidence; zero hits must be proven later with versioned watchdogs enabled.",\n'
+          )
+
+          dst.write_text(text, encoding='utf-8')
+
+          policy_path = Path('research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json')
+          policy = json.loads(policy_path.read_text(encoding='utf-8'))
+          policy['schemaVersion'] = 'kernel-v1-formal-certification-policy-v7'
+          protocol = policy['deterministicBudgets']['calibrationProtocol']
+          protocol['authoritativeHarness'] = 'scripts/kernel-freeze/kernel-budget-calibration-v4.mjs'
+          protocol['supersededHarnesses'] = [
+              'scripts/kernel-freeze/kernel-budget-calibration-v2.mjs',
+              'scripts/kernel-freeze/kernel-budget-calibration-v3.mjs'
+          ]
+          protocol['v3Disposition'] = 'v3 replay/correctness/timing observations remain useful evidence, but v3 calibration rows are not authoritative for deterministic work-budget derivation because the probe accepted calls without proving non-zero Beam/Master/OneBoard work magnitudes.'
+          protocol['checkpoint'] = 'test-results/kernel-v1-formal-certification/calibration-v4.partial.jsonl'
+          protocol['telemetryWorkContractId'] = 'step0-work-telemetry-v2'
+          protocol['telemetryProbeRule'] = 'Before calibration, a fresh valid run must show non-zero Beam expansions, Master nodes, or OneBoard attempts. Calls/runs alone do not satisfy the probe. Swallowed Beam fallback warnings fail the probe.'
+          protocol['beamAccountingRule'] = 'When beam.calls > 0, calibration v4 requires Beam work or terminal-control accounting; beam.calls > 0 with expansions/timeout/budget/watchdog all zero is an observability failure and stops calibration.'
+          protocol['watchdogEvidenceRule'] = 'Calibration runs with budgets/watchdogs OFF; watchdogHits=0 there is not certification evidence. Formal zero-watchdog evidence is collected only after production watchdog values are versioned and enabled.'
+          policy['execution']['calibrationHarness'] = 'scripts/kernel-freeze/kernel-budget-calibration-v4.mjs'
+          policy['execution']['supersededCalibration'] = [
+              'scripts/kernel-freeze/kernel-budget-calibration-v2.mjs',
+              'scripts/kernel-freeze/kernel-budget-calibration-v3.mjs'
+          ]
+          policy['execution']['phases'] = [
+              'historical-infeasible-replay-v3-on-parte1',
+              'physical-corpus-preflight-v3-on-resto',
+              'step0-telemetry-probe-v4',
+              'calibration-v4',
+              'formal-correctness',
+              'determinism-repeat'
+          ]
+          policy_path.write_text(json.dumps(policy, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          formal = Path('scripts/kernel-freeze/formal-certification-v3.mjs')
+          ft = formal.read_text(encoding='utf-8')
+          ft = ft.replace('calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",', 'calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",')
+          ft = ft.replace('supersededCalibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",', 'supersededCalibrationHarnesses: ["scripts/kernel-freeze/kernel-budget-calibration-v2.mjs", "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs"],')
+          formal.write_text(ft, encoding='utf-8')
+
+          fin = Path('scripts/kernel-freeze/finalize-traceability.mjs')
+          tt = fin.read_text(encoding='utf-8')
+          tt = tt.replace('schemaVersion: "kernel-v1-freeze-traceability-v6",', 'schemaVersion: "kernel-v1-freeze-traceability-v7",')
+          tt = tt.replace('calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",', 'calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v4.mjs",')
+          tt = tt.replace('supersededCalibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",', 'supersededCalibrationHarnesses: ["scripts/kernel-freeze/kernel-budget-calibration-v2.mjs", "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs"],')
+          tt = tt.replace('Step 0 telemetry probe, and deterministic-budget calibration.', 'Step 0 telemetry probe v4 with measured work magnitudes, and deterministic-budget calibration v4.')
+          fin.write_text(tt, encoding='utf-8')
+          PY
+
+          node --check scripts/kernel-freeze/kernel-budget-calibration-v4.mjs
+          node --check scripts/kernel-freeze/formal-certification-v3.mjs
+          node --check scripts/kernel-freeze/finalize-traceability.mjs
+
+      - name: Commit v4 harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/kernel-freeze/kernel-budget-calibration-v4.mjs scripts/kernel-freeze/formal-certification-v3.mjs scripts/kernel-freeze/finalize-traceability.mjs research/optimizer/freeze/KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json
+          git commit -m "fix(optimizer): require measured work in calibration telemetry"
+          git push origin HEAD:optimizer-kernel-v1-freeze
