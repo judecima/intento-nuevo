@@ -40,6 +40,8 @@ async function main(args) {
 
   const maxNew = args.maxNew == null ? Infinity : positiveInt(args.maxNew, "--maxNew");
   const timeoutMs = args.timeout == null ? 7_200_000 : positiveInt(args.timeout, "--timeout");
+  const calibrationOrder = String(args.order ?? "work-first");
+  if (!new Set(["work-first", "cheap-first"]).has(calibrationOrder)) fail("--order must be work-first or cheap-first");
   const policy = readJson(POLICY_PATH);
   const semantics = readJson(SEMANTICS_PATH);
   if (policy.correctnessPredicate?.id !== "HISTORICAL_VALIDITY_V1") fail("correctness contract not recovered");
@@ -49,11 +51,18 @@ async function main(args) {
   const historicalReplay = await validateHistoricalInfeasibleReplay({ bundle, historicalCorpus, out });
   const state = await preparePhysicalCorpus(bundle, corpus, out, historicalReplay);
   const hints = readHistoricalTimingHints();
+  const activationHints = readHistoricalBudgetedPathHints();
   const env = calibrationEnv();
 
   await ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out });
 
-  const ordered = orderCalibration(state.feasible, hints, policy.execution?.knownExtremeTailOrders ?? []);
+  const ordered = orderCalibration(
+    state.feasible,
+    hints,
+    policy.execution?.knownExtremeTailOrders ?? [],
+    activationHints,
+    calibrationOrder,
+  );
   const checkpoint = join(out, "calibration-v4.partial.jsonl");
   const prior = readJsonl(checkpoint);
   const done = new Set(
@@ -84,6 +93,7 @@ async function main(args) {
       phase: "calibration",
       executionBindingId: EXECUTION_BINDING_ID,
       telemetryContractId: TELEMETRY_CONTRACT_ID,
+      calibrationOrder,
       file: item.file,
       format: item.format,
       executionTrim: item.case.trim,
@@ -620,16 +630,38 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
       armarPlacasCalls: values((row) => row.step0?.composition?.armarPlacasCalls),
       stageCalls: values((row) => row.step0?.composition?.stageCalls),
       beamExpansionsTotal: values((row) => row.step0?.beam?.expansionsTotal),
+      beamExpansionsMax: values((row) => row.step0?.beam?.expansionsMax),
       beamCalls: values((row) => row.step0?.beam?.calls),
+      beamWallMsTotal: values((row) => row.step0?.beam?.wallMsTotal),
+      beamWallMsMax: values((row) => row.step0?.beam?.wallMsMax),
+      beamTimeoutHits: values((row) => row.step0?.beam?.timeoutHits),
+      beamBudgetHits: values((row) => row.step0?.beam?.budgetHits),
+      beamWatchdogHits: values((row) => row.step0?.beam?.watchdogHits),
       masterNodesTotal: values((row) => row.step0?.master?.nodesTotal),
+      masterNodesMax: values((row) => row.step0?.master?.nodesMax),
       masterRuns: values((row) => row.step0?.master?.runs),
+      masterWallMsTotal: values((row) => row.step0?.master?.wallMsTotal),
+      masterWallMsMax: values((row) => row.step0?.master?.wallMsMax),
       oneboardAttemptsTotal: values((row) => row.step0?.oneboard?.attemptsTotal),
+      oneboardAttemptsMax: values((row) => row.step0?.oneboard?.attemptsMax),
       oneboardRuns: values((row) => row.step0?.oneboard?.runs),
+      oneboardWallMsTotal: values((row) => row.step0?.oneboard?.wallMsTotal),
+      oneboardWallMsMax: values((row) => row.step0?.oneboard?.wallMsMax),
     },
     casesWithMeasuredBudgetedWork: {
       beam: rows.filter((row) => Number(row.step0?.beam?.expansionsTotal ?? 0) > 0).length,
       master: rows.filter((row) => Number(row.step0?.master?.nodesTotal ?? 0) > 0).length,
       oneboard: rows.filter((row) => Number(row.step0?.oneboard?.attemptsTotal ?? 0) > 0).length,
+    },
+    orderingModesObserved: [...new Set(rows.map((row) => row.calibrationOrder ?? "v4-pre-ordering-field"))],
+    budgetParameterSemantics: {
+      OPTIMIZER_MAX_BEAM_EXPANSIONS: { enforcementScope: "per armarPlacasBeam invocation", primaryCalibrationStatistic: "beam.expansionsMax", aggregateOperationalStatistic: "beam.expansionsTotal" },
+      OPTIMIZER_BEAM_WATCHDOG_MS: { enforcementScope: "per armarPlacasBeam invocation", primaryCalibrationStatistic: "beam.wallMsMax", aggregateOperationalStatistic: "beam.wallMsTotal" },
+      OPTIMIZER_MAX_MASTER_NODES: { enforcementScope: "per resolverCobertura run", primaryCalibrationStatistic: "master.nodesMax", aggregateOperationalStatistic: "master.nodesTotal" },
+      OPTIMIZER_MASTER_WATCHDOG_MS: { enforcementScope: "per resolverCobertura run", primaryCalibrationStatistic: "master.wallMsMax", aggregateOperationalStatistic: "master.wallMsTotal" },
+      OPTIMIZER_MAX_RESCUE_ATTEMPTS: { enforcementScope: "per rescatarUnaPlaca invocation", primaryCalibrationStatistic: "oneboard.attemptsMax", aggregateOperationalStatistic: "oneboard.attemptsTotal" },
+      OPTIMIZER_RESCUE_WATCHDOG_MS: { enforcementScope: "per rescatarUnaPlaca invocation", primaryCalibrationStatistic: "oneboard.wallMsMax", aggregateOperationalStatistic: "oneboard.wallMsTotal" },
+      aggregateRequestBudget: "NOT_PRESENT_IN_KERNEL_V1_CANDIDATE",
     },
     historicalHotspotTimingMass: {
       completedMs: historicalDone,
@@ -639,7 +671,8 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     calibrationControls: { deterministicBudgets: "OFF", watchdogs: "OFF", watchdogZeroIsCertificationEvidence: false },
     rules: [
       "The exact 60-case infeasible replay is validated on parte1 through --historicalCorpus; it is not an expected count for resto.",
-      "Calibrate from aggregate per-order work; do not translate historical presupuestoBeamMs=1500 per call directly into an expansion count.",
+      "Calibrate each deterministic budget from the work/time statistic in the exact scope where that parameter is enforced: Beam expansionsMax/wallMsMax per Beam invocation, Master nodesMax/wallMsMax per coverage run, and OneBoard attemptsMax/wallMsMax per rescue invocation.",
+      "Keep aggregate per-order totals as operational-load evidence; Candidate A has no aggregate request budget and this freeze must not add one.",
       "Beam calls may legitimately be zero when greedy already reaches the area lower bound; when Beam is called, v4 requires work/terminal-control accounting and rejects swallowed Beam fallbacks.",
       "Calibration runs with deterministic budgets and watchdogs OFF. Therefore watchdogHits=0 during calibration is not formal watchdog evidence; zero hits must be proven later with versioned watchdogs enabled.",
       "No aggregate request stop condition is added inside Kernel V1 freeze.",
@@ -673,13 +706,25 @@ function readHistoricalBudgetedPathHints() {
   return map;
 }
 
-function orderCalibration(items, hints, tailOrders) {
+function orderCalibration(items, hints, tailOrders, activationHints, mode) {
   const tails = new Set(tailOrders.map(String));
+  const isTail = (file) => [...tails].some((order) => file.includes(order));
+  const activated = (file) => {
+    const hint = activationHints.get(file);
+    return Boolean(hint && (hint.masterActivations > 0 || hint.oneboardActivations > 0));
+  };
   return [...items].sort((a, b) => {
-    const at = [...tails].some((order) => a.file.includes(order));
-    const bt = [...tails].some((order) => b.file.includes(order));
+    const at = isTail(a.file), bt = isTail(b.file);
     if (at !== bt) return at ? 1 : -1;
     const ah = hints.get(a.file), bh = hints.get(b.file);
+    if (mode === "work-first") {
+      const aa = activated(a.file), ba = activated(b.file);
+      if (aa !== ba) return aa ? -1 : 1;
+      if (Number.isFinite(ah) && Number.isFinite(bh) && ah !== bh) return bh - ah;
+      if (Number.isFinite(ah) !== Number.isFinite(bh)) return Number.isFinite(ah) ? -1 : 1;
+      const aq = quantity(a.case), bq = quantity(b.case);
+      return bq - aq || cmp(a.file, b.file);
+    }
     if (Number.isFinite(ah) && Number.isFinite(bh) && ah !== bh) return ah - bh;
     if (Number.isFinite(ah) !== Number.isFinite(bh)) return Number.isFinite(ah) ? -1 : 1;
     const aq = quantity(a.case), bq = quantity(b.case);

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v7",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v8",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -117,7 +117,7 @@
   },
   "deterministicBudgets": {
     "status": "BLOCKED_UNCALIBRATED",
-    "rule": "Do not run formal determinism certification with absent, guessed, smoke-test, or CI-convenience budgets. Calibrate from aggregate per-order Step 0 work on the production-representative exact cohort. Watchdog hits must be zero during formal certification.",
+    "rule": "Do not run formal determinism certification with absent, guessed, smoke-test, or CI-convenience budgets. Calibrate each deterministic budget from work/time measured in the exact invocation scope where that parameter is enforced, while separately reporting aggregate per-order work. Watchdog hits must be zero during formal certification.",
     "values": {
       "OPTIMIZER_MAX_BEAM_EXPANSIONS": null,
       "OPTIMIZER_BEAM_WATCHDOG_MS": null,
@@ -146,10 +146,10 @@
       "checkpointPerCase": true,
       "checkpoint": "test-results/kernel-v1-formal-certification/calibration-v4.partial.jsonl",
       "inputSource": "physical resto XML parsed through unchanged current canonical parser plus the versioned historical execution binding, after separate parte1 replay validation",
-      "initialOrder": "cheap-to-expensive proxy; historical hotspot engineMs when known, then piece count; known extreme-tail orders forced last",
+      "initialOrder": "work-first by default: historically Master/OneBoard-activated cases first, then higher historical hotspot engineMs and larger piece-count proxies; known extreme-tail orders remain forced last. --order cheap-first preserves the prior operational ordering. Ordering changes execution priority only, never the exact 8,650-case calibration universe.",
       "telemetryWiringRule": "composition.optimizarCalls, composition.armarPlacasCalls, and composition.stageCalls must be positive for each calibrated run. beamCalls may legitimately be zero when greedy reaches the area lower bound.",
       "telemetryProbeRule": "Before calibration, a fresh valid run must show non-zero Beam expansions, Master nodes, or OneBoard attempts. Calls/runs alone do not satisfy the probe. Swallowed Beam fallback warnings fail the probe.",
-      "beamRule": "Calibrate maxExpansionesBeam from aggregate per-order Beam work, not by converting the historical presupuestoBeamMs=1500 per invocation into expansions.",
+      "beamRule": "OPTIMIZER_MAX_BEAM_EXPANSIONS is enforced per armarPlacasBeam invocation, so its primary calibration statistic is beam.expansionsMax. beam.expansionsTotal is retained as aggregate per-order load evidence and must not be mistaken for the per-call budget.",
       "aggregateBudgetDecision": "Do not add a new aggregate request stop condition inside Kernel V1 freeze. That changes search semantics and requires a new Kernel V1 candidate plus all gates.",
       "promotionRequirement": "Version explicit positive integer production values with calibration evidence before formal correctness/determinism certification.",
       "telemetryProbeSelection": "Use versioned hotspot rows whose historical metricas.master.activaciones or metricas.oneboard.activaciones is positive. Try the cheapest known activated feasible cases first, up to eight candidates; the current candidate must actually exercise Beam, Master, or OneBoard before calibration starts.",
@@ -161,7 +161,10 @@
       "v3Disposition": "v3 replay/correctness/timing observations remain useful evidence, but v3 calibration rows are not authoritative for deterministic work-budget derivation because the probe accepted calls without proving non-zero Beam/Master/OneBoard work magnitudes.",
       "telemetryWorkContractId": "step0-work-telemetry-v2",
       "beamAccountingRule": "When beam.calls > 0, calibration v4 requires Beam work or terminal-control accounting; beam.calls > 0 with expansions/timeout/budget/watchdog all zero is an observability failure and stops calibration.",
-      "watchdogEvidenceRule": "Calibration runs with budgets/watchdogs OFF; watchdogHits=0 there is not certification evidence. Formal zero-watchdog evidence is collected only after production watchdog values are versioned and enabled."
+      "watchdogEvidenceRule": "Calibration runs with budgets/watchdogs OFF; watchdogHits=0 there is not certification evidence. Formal zero-watchdog evidence is collected only after production watchdog values are versioned and enabled.",
+      "budgetScopeRule": "Primary budget statistics must match enforcement scope: Beam expansionsMax/wallMsMax per Beam invocation; Master nodesMax/wallMsMax per resolverCobertura run; OneBoard attemptsMax/wallMsMax per rescatarUnaPlaca invocation.",
+      "aggregateWorkRule": "Also report per-order aggregate totals and call/run counts to characterize request-level load. Kernel V1 Candidate A has no aggregate request work budget; adding one changes search semantics and requires a new candidate plus recertification.",
+      "samplingRule": "Early --maxNew batches may be work-first to increase deterministic-path evidence density. This is an ordering/sampling-efficiency device only; production budget promotion still requires sufficient tail evidence and the final certification universe remains the exact feasible subset of the fixed 8,650 resto cohort."
     }
   },
   "execution": {
@@ -190,7 +193,7 @@
       "determinism-repeat"
     ],
     "ordering": {
-      "calibration": "historical timing where available, then piece-count proxy; known extreme tail last",
+      "calibration": "work-first by default for early budget evidence: historical Master/OneBoard activation, then historical engineMs descending / piece-count descending; known extreme tail last. --order cheap-first available. Final universe unchanged.",
       "correctness": "calibration measured wallMs ascending when available",
       "determinismRepeat": "correctness measured wallMs ascending"
     },
@@ -205,7 +208,7 @@
       "correctness: classified resto cases / 8650, including expected-infeasible classifications",
       "determinism-repeat: repeated feasible plan cases / feasible resto cases",
       "determinism-repeat timing mass: sum of baseline correctness wallMs for repeated feasible cases / total feasible correctness wallMs",
-      "calibration: completed feasible v3 resto cases plus separately scoped historical-hotspot timing-mass coverage"
+      "calibration: completed feasible v4 resto cases plus separately scoped historical-hotspot timing-mass coverage"
     ]
   },
   "formalCertificationReady": false,
