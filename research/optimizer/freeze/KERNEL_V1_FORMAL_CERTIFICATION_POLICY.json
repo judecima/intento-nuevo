@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-policy-v3",
+  "schemaVersion": "kernel-v1-formal-certification-policy-v4",
   "date": "2026-09-07",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "traceability": {
@@ -65,8 +65,17 @@
     },
     "executionBinding": {
       "id": "physical-xml-historical-validity-v1",
-      "inputIdentity": "literal physical XML filename from the exact 8,650 accepted cohort",
       "canonicalParser": "current src/lib/optimizer/canonical-xml.ts remains unchanged and defines canonical parsing/identity",
+      "historicalValidationCorpus": {
+        "partition": "parte1",
+        "argument": "--historicalCorpus",
+        "role": "Empirical validation corpus for the historical infeasible classifier. It contains the 2,000 benchmark identities plus one additional XML."
+      },
+      "certificationCorpus": {
+        "partition": "resto",
+        "argument": "--corpus",
+        "role": "Exact Kernel V1 correctness/certification cohort source: 8,669 physical XML, 19 parser exclusions, 8,650 accepted identities."
+      },
       "projectUsableBoard": {
         "id": "HISTORICAL_PROJECT_ROOT_TRIM_V1",
         "trimSource": "first parsed project root trimReference",
@@ -78,14 +87,20 @@
       "kernelChange": "NONE"
     },
     "infeasibleClassification": {
-      "method": "Parse the exact physical 8,650 cohort with the unchanged current canonical parser, apply physical-xml-historical-validity-v1, then classify a piece as impossible when neither its direct orientation nor any allowed rotated orientation fits the historically usable panel.",
-      "execution": "Expected-infeasible cases count toward correctness classification coverage but are not sent to optimizeProject and are excluded from fullPlanHash determinism denominators.",
+      "method": "First validate the classifier on the separate physical parte1 benchmark corpus using the historical execution binding, requiring an exact 60/60 filename match. Only after that gate passes, apply the same classifier to the exact physical resto 8,650 cohort.",
+      "execution": "Expected-infeasible cases in resto count toward correctness classification coverage but are not sent to optimizeProject and are excluded from fullPlanHash determinism denominators.",
       "historicalReplayGate": {
         "source": "benchmark_project_v10.csv",
+        "sourcePartition": "parte1",
+        "historicalCorpusArgument": "--historicalCorpus",
+        "historicalCorpusXml": 2001,
+        "benchmarkRows": 2000,
         "attemptedNonSkipCases": 1550,
         "expectedInfeasibleCases": 60,
-        "requirement": "The v3 physical-corpus preflight must reproduce exactly the same 60 infeasible filenames within the historical attempted sample before calibration may start."
+        "requirement": "All 2,000 benchmark filenames must exist in parte1 and the classifier must reproduce exactly the same 60 historical physically-infeasible filenames before resto classification or calibration may start.",
+        "inferenceBoundary": "The 60 historical cases validate the classifier on parte1. They do not define, estimate, or constrain the expected-infeasible count in resto."
       },
+      "historicalReplayReport": "test-results/kernel-v1-formal-certification/historical-infeasible-replay-v3.json",
       "manifest": "test-results/kernel-v1-formal-certification/expected-infeasible-v3.json"
     }
   },
@@ -109,11 +124,17 @@
       "supersededHarness": "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
       "supersessionReason": "v2 used canonical project trim=0 for physical feasibility and a stronger-than-historical application-metadata multiset; its partial checkpoints must not be reused.",
       "executionBindingId": "physical-xml-historical-validity-v1",
+      "requiredArguments": [
+        "--historicalCorpus <extracted-parte1>",
+        "--corpus <extracted-resto>"
+      ],
+      "historicalReplayCorpus": "parte1 validates the infeasible classifier against the exact 60 historical filenames before any resto calibration work.",
+      "calibrationCorpus": "resto exact 8,650 accepted cohort after current parser exclusions and historical execution binding.",
       "budgetsDuringCalibration": "OFF",
       "step0Telemetry": true,
       "checkpointPerCase": true,
       "checkpoint": "test-results/kernel-v1-formal-certification/calibration-v3.partial.jsonl",
-      "inputSource": "physical resto XML parsed through unchanged current canonical parser plus the versioned historical execution binding",
+      "inputSource": "physical resto XML parsed through unchanged current canonical parser plus the versioned historical execution binding, after separate parte1 replay validation",
       "initialOrder": "cheap-to-expensive proxy; historical hotspot engineMs when known, then piece count; known extreme-tail orders forced last",
       "telemetryWiringRule": "composition.optimizarCalls, composition.armarPlacasCalls, and composition.stageCalls must be positive for each calibrated run. beamCalls may legitimately be zero when greedy reaches the area lower bound.",
       "telemetryProbeRule": "Before calibration, run valid historical hotspot probes until at least one case exercises Beam, Master, or OneBoard, proving budgeted-path counters are live.",
@@ -131,12 +152,14 @@
     "strategyProvenance": "scripts/deferred-trace-gate.mjs historical freeze gate",
     "executionBindingId": "physical-xml-historical-validity-v1",
     "experimentalFlags": "OFF",
-    "physicalCorpusRequired": true,
+    "historicalValidationCorpusRequired": true,
+    "certificationCorpusRequired": true,
     "currentCanonicalParserRequired": true,
     "freshProcessPerFeasibleCase": true,
     "checkpointPerCase": true,
     "phases": [
-      "physical-corpus-preflight-v3",
+      "historical-infeasible-replay-v3-on-parte1",
+      "physical-corpus-preflight-v3-on-resto",
       "step0-telemetry-probe-v3",
       "calibration-v3",
       "formal-correctness",
@@ -154,10 +177,11 @@
       "4059795"
     ],
     "partialCoverage": [
-      "correctness: classified cases / 8650, including expected-infeasible classifications",
-      "determinism-repeat: repeated feasible plan cases / feasible cases",
+      "historical classifier validation: exact 60/60 infeasible filename replay over the 1,550 non-SKIP parte1 benchmark cases",
+      "correctness: classified resto cases / 8650, including expected-infeasible classifications",
+      "determinism-repeat: repeated feasible plan cases / feasible resto cases",
       "determinism-repeat timing mass: sum of baseline correctness wallMs for repeated feasible cases / total feasible correctness wallMs",
-      "calibration: completed feasible v3 cases plus separately scoped historical-hotspot timing-mass coverage"
+      "calibration: completed feasible v3 resto cases plus separately scoped historical-hotspot timing-mass coverage"
     ]
   },
   "formalCertificationReady": false,
