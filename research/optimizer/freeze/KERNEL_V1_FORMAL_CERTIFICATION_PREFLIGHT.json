@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "kernel-v1-formal-certification-preflight-v4",
-  "generatedAt": "2026-09-08T00:43:16.189Z",
+  "schemaVersion": "kernel-v1-formal-certification-preflight-v5",
+  "generatedAt": "2026-09-08T01:53:49.525Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "traceabilityComplete": true,
@@ -17,7 +17,16 @@
     "multisetId": "HISTORICAL_TERMINAL_DIMENSION_MULTISET_V1",
     "usableBoardId": "HISTORICAL_PROJECT_ROOT_TRIM_V1",
     "executionBindingId": "physical-xml-historical-validity-v1",
-    "corpusRolesReady": true
+    "corpusRolesReady": true,
+    "parte1IdentityAccountingReady": true,
+    "parte1EmbeddedRecords": 2001,
+    "parte1DistinctXml": 2000,
+    "parte1DuplicateIdentities": [
+      {
+        "file": "4011957__Maximiliano_Santoro4011957.xml",
+        "count": 2
+      }
+    ]
   },
   "policy": {
     "correctnessPredicateReady": true,
@@ -32,7 +41,8 @@
     "strategy": "v10",
     "correctness": "HISTORICAL_VALIDITY_V1",
     "executionBindingId": "physical-xml-historical-validity-v1",
-    "historicalValidationCorpus": "parte1 via --historicalCorpus; 2,001 XML containing all 2,000 benchmark identities",
+    "historicalValidationCorpus": "parte1 via --historicalCorpus; embedded projection 2,001 records / 2,000 distinct XML; physical corpus 2,000 XML exactly matching the 2,000 benchmark identities",
+    "historicalReplayAggregation": "one physical filename -> one parseCanonicalXml project case aggregating all panels; infeasible if any demanded piece in that aggregated case is impossible",
     "historicalReplayGate": "classify the 1,550 non-SKIP benchmark project cases and reproduce the exact 60 historical infeasible filenames",
     "certificationCorpus": "resto via --corpus; 8,669 physical XML -> 8,650 accepted cohort",
     "inferenceBoundary": "the 60 historical infeasible cases validate the classifier on parte1 and do not impose an expected infeasible count on resto",

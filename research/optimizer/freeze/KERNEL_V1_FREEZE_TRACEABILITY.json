@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "kernel-v1-freeze-traceability-v5",
-  "generatedAt": "2026-09-08T00:43:15.982Z",
+  "schemaVersion": "kernel-v1-freeze-traceability-v6",
+  "generatedAt": "2026-09-08T01:53:49.320Z",
   "kernelCandidate": "4063963260abb10c8d68d0e553942899c925cc2f",
   "status": "TRACEABILITY_CORRECTNESS_EXECUTION_SEMANTICS_COMPLETE_BUDGET_CALIBRATION_PENDING",
   "kernelFrozen": false,
@@ -20,6 +20,9 @@
     "sentinels": 5,
     "hotspots": 213,
     "historicalReplayPartition": "parte1",
+    "historicalEmbeddedRecords": 2001,
+    "historicalDistinctXml": 2000,
+    "historicalPhysicalXml": 2000,
     "historicalBenchmarkRows": 2000,
     "historicalAttemptedNonSkipCases": 1550,
     "historicalExpectedInfeasibleCases": 60,
@@ -74,7 +77,8 @@
     "projectTrimDefault": 10,
     "executionBindingId": "physical-xml-historical-validity-v1",
     "corpusRolesReady": true,
-    "historicalValidationCorpus": "parte1 via --historicalCorpus",
+    "historicalValidationCorpus": "parte1 via --historicalCorpus; 2,001 embedded records / 2,000 distinct identities / 2,000 physical XML",
+    "historicalReplayAggregation": "physical filename; parseCanonicalXml aggregates all project panels into one canonical case",
     "certificationCorpus": "resto via --corpus",
     "historicalReplayInferenceBoundary": "The exact historical 60/60 replay validates the classifier on parte1. It does not impose an expected-infeasible count on resto."
   },
