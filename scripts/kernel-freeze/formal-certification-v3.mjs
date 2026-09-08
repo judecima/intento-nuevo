@@ -61,11 +61,25 @@ const traceabilityComplete =
   contract?.recoveredPredicate?.status === "RECOVERED" && contract?.recoveredPredicate?.id === CORRECTNESS &&
   correctnessExecutionSemanticsReady;
 
+const executionBinding = policy?.correctnessPredicate?.executionBinding ?? {};
+const replayGate = policy?.correctnessPredicate?.infeasibleClassification?.historicalReplayGate ?? {};
+const corpusRolesReady =
+  executionBinding?.historicalValidationCorpus?.partition === "parte1" &&
+  executionBinding?.historicalValidationCorpus?.argument === "--historicalCorpus" &&
+  executionBinding?.certificationCorpus?.partition === "resto" &&
+  executionBinding?.certificationCorpus?.argument === "--corpus" &&
+  replayGate?.sourcePartition === "parte1" &&
+  replayGate?.historicalCorpusArgument === "--historicalCorpus" &&
+  replayGate?.benchmarkRows === 2000 &&
+  replayGate?.attemptedNonSkipCases === 1550 &&
+  replayGate?.expectedInfeasibleCases === 60;
+
 const correctnessPredicateReady =
   policy?.correctnessPredicate?.status === "RESOLVED" &&
   policy?.correctnessPredicate?.id === CORRECTNESS &&
-  policy?.correctnessPredicate?.executionBinding?.id === EXECUTION_BINDING &&
-  policy?.correctnessPredicate?.multisetSemantics?.id === MULTISET;
+  executionBinding?.id === EXECUTION_BINDING &&
+  policy?.correctnessPredicate?.multisetSemantics?.id === MULTISET &&
+  corpusRolesReady;
 
 const values = policy?.deterministicBudgets?.values ?? {};
 const budgetKeys = [
@@ -85,11 +99,11 @@ const formalCertificationReady =
 const blockingReasons = [];
 if (!traceabilityComplete) blockingReasons.push("traceability/correctness execution semantics preflight failed");
 if (!runtimeMatchesCandidate) blockingReasons.push("runtime differs from Kernel V1 candidate");
-if (!correctnessPredicateReady) blockingReasons.push("historical correctness predicate/execution binding is not resolved");
+if (!correctnessPredicateReady) blockingReasons.push("historical correctness predicate/execution corpus binding is not resolved");
 if (!deterministicBudgetsReady) blockingReasons.push("production deterministic budgets/watchdogs are not calibrated and versioned");
 
 const report = {
-  schemaVersion: "kernel-v1-formal-certification-preflight-v3",
+  schemaVersion: "kernel-v1-formal-certification-preflight-v4",
   generatedAt: new Date().toISOString(),
   kernelCandidate: CANDIDATE,
   status: formalCertificationReady
@@ -105,7 +119,8 @@ const report = {
     predicateId: CORRECTNESS,
     multisetId: semantics?.multiset?.id ?? null,
     usableBoardId: semantics?.usableBoard?.id ?? null,
-    executionBindingId: policy?.correctnessPredicate?.executionBinding?.id ?? null,
+    executionBindingId: executionBinding?.id ?? null,
+    corpusRolesReady,
   },
   policy: {
     correctnessPredicateReady,
@@ -118,11 +133,15 @@ const report = {
     strategy: "v10",
     correctness: CORRECTNESS,
     executionBindingId: EXECUTION_BINDING,
+    historicalValidationCorpus: "parte1 via --historicalCorpus; 2,001 XML containing all 2,000 benchmark identities",
+    historicalReplayGate: "classify the 1,550 non-SKIP benchmark project cases and reproduce the exact 60 historical infeasible filenames",
+    certificationCorpus: "resto via --corpus; 8,669 physical XML -> 8,650 accepted cohort",
+    inferenceBoundary: "the 60 historical infeasible cases validate the classifier on parte1 and do not impose an expected infeasible count on resto",
     projectTrim: "first project root trim; historical default 10; applied to both axes",
     orderTrim: "canonical Order binding unchanged",
     demandMultiset: "rotation-normalized terminal dimensions only (min x max)",
     referencePanelsRole: "quality comparison only; not an acceptance gate",
-    physicalCorpusRequiredForExecution: true,
+    physicalCorporaRequiredForExecution: true,
     calibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v3.mjs",
     supersededCalibrationHarness: "scripts/kernel-freeze/kernel-budget-calibration-v2.mjs",
   },
@@ -136,6 +155,7 @@ console.log(JSON.stringify({
   cohort: `${records.length}/${ids.length}`,
   identitySetSha256,
   correctnessExecutionSemanticsReady,
+  corpusRolesReady,
   correctnessPredicateReady,
   deterministicBudgetsReady,
   formalCertificationReady,
