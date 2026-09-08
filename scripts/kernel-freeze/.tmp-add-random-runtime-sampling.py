@@ -123,15 +123,3 @@ s = s.replace(old, new, 1)
 
 p.write_text(s, encoding='utf-8')
 print('patched kernel-budget-calibration-v4.mjs')
-
-wf = Path('.github/workflows/optimizer-kernel-freeze.yml')
-w = wf.read_text(encoding='utf-8')
-needle = '          node --check scripts/kernel-freeze/kernel-budget-calibration-v4.mjs\n'
-insert = needle + '          node --check scripts/kernel-freeze/estimate-formal-runtime-v1.mjs\n'
-assert needle in w, 'main workflow v4 node check not found'
-if 'estimate-formal-runtime-v1.mjs' not in w:
-    w = w.replace(needle, insert, 1)
-    wf.write_text(w, encoding='utf-8')
-    print('patched optimizer-kernel-freeze.yml')
-else:
-    print('main workflow already checks estimator')
