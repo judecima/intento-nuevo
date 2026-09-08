@@ -66,7 +66,7 @@ async function main(args) {
   for (const item of ordered) {
     if (done.has(item.file) || added >= maxNew) continue;
 
-    const result = await runCase({ bundle, item, env, timeoutMs, out, label: "calibration-v3" });
+    const result = await runCase({ bundle, item, env, timeoutMs, out, label: "calibration-v4" });
     const telemetryWired = hasCompositionTelemetry(result.step0);
     const beamAccounting = beamAccountingStatus(result.step0);
     const beamFallbackWarning = hasBeamFallbackWarning(result.stderrTail);
@@ -83,7 +83,6 @@ async function main(args) {
     const row = {
       phase: "calibration",
       executionBindingId: EXECUTION_BINDING_ID,
-    telemetryContractId: TELEMETRY_CONTRACT_ID,
       telemetryContractId: TELEMETRY_CONTRACT_ID,
       file: item.file,
       format: item.format,
@@ -379,7 +378,7 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
   let budgetedPathExercised = false;
   for (const { item, hint } of candidates) {
     const historicalMs = hint.engineMs;
-    const result = await runCase({ bundle, item, env, timeoutMs, out, label: "telemetry-probe-v3" });
+    const result = await runCase({ bundle, item, env, timeoutMs, out, label: "telemetry-probe-v4" });
     const telemetryWired = hasCompositionTelemetry(result.step0);
     const beamWork = Number(result.step0?.beam?.expansionsTotal ?? 0) > 0;
     const masterWork = Number(result.step0?.master?.nodesTotal ?? 0) > 0;
@@ -429,7 +428,7 @@ async function ensureTelemetryProbe({ state, hints, bundle, env, timeoutMs, out 
     explanation: "composition counters prove wiring; PASS requires an actual deterministic work magnitude (Beam expansions, Master nodes, or OneBoard attempts) greater than zero in a fresh current run. Beam calls alone are insufficient. Any swallowed Beam fallback warning fails the probe.",
     attempts,
   });
-  if (status !== "PASS") fail("Step 0 telemetry probe did not produce a valid run exercising a budgeted path");
+  if (status !== "PASS") fail("Step 0 telemetry probe did not produce a valid run with measured budgeted work");
 }
 
 function hasCompositionTelemetry(step0) {
@@ -608,6 +607,7 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
     schemaVersion: "kernel-v1-calibration-summary-v4",
     updatedAt: new Date().toISOString(),
     executionBindingId: EXECUTION_BINDING_ID,
+    telemetryContractId: TELEMETRY_CONTRACT_ID,
     status: rows.length === state.feasible.length ? "COMPLETE" : "PARTIAL",
     feasibleCasesCompleted: rows.length,
     feasibleCasesTotal: state.feasible.length,
@@ -626,10 +626,10 @@ function writeCalibrationSummary(checkpoint, state, hints, out) {
       oneboardAttemptsTotal: values((row) => row.step0?.oneboard?.attemptsTotal),
       oneboardRuns: values((row) => row.step0?.oneboard?.runs),
     },
-    casesExercisingBudgetedPaths: {
-      beam: rows.filter((row) => Number(row.step0?.beam?.calls ?? 0) > 0).length,
-      master: rows.filter((row) => Number(row.step0?.master?.runs ?? 0) > 0).length,
-      oneboard: rows.filter((row) => Number(row.step0?.oneboard?.runs ?? 0) > 0).length,
+    casesWithMeasuredBudgetedWork: {
+      beam: rows.filter((row) => Number(row.step0?.beam?.expansionsTotal ?? 0) > 0).length,
+      master: rows.filter((row) => Number(row.step0?.master?.nodesTotal ?? 0) > 0).length,
+      oneboard: rows.filter((row) => Number(row.step0?.oneboard?.attemptsTotal ?? 0) > 0).length,
     },
     historicalHotspotTimingMass: {
       completedMs: historicalDone,
