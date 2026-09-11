@@ -1,0 +1,36 @@
+name: Optimizer Kernel Source Snapshot Export
+
+on:
+  pull_request:
+    branches:
+      - optimizer-kernel-v1-freeze
+    paths:
+      - .github/workflows/optimizer-kernel-source-export.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify optimizer kernel identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git diff --quiet 4063963260abb10c8d68d0e553942899c925cc2f -- src/lib/optimizer
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v1-source-snapshot
+          path: .
+          include-hidden-files: false
+          retention-days: 1
