@@ -1,0 +1,75 @@
+{
+  "date": "2026-09-14",
+  "version": "industrial-portfolio-v1.2",
+  "researchOnly": true,
+  "regression": {
+    "pass": 80,
+    "fail": 0
+  },
+  "repeatedStrips": {
+    "version": "repeated-strips-focused-v1",
+    "policy": "repeat>=4+narrow<=25%+qty>=50%+focused-full-order-v1",
+    "benchmarks": {
+      "4050594": {
+        "legacy": {
+          "generationCPUms": [21174.773,17132.11,18124.305],
+          "medianGenerationCPUms": 18124.305,
+          "boards": [7,7,7],
+          "valid": [true,true,true],
+          "quality": [{"mayor":0,"segundo":0,"fragmentos":0,"total":0},{"mayor":0,"segundo":0,"fragmentos":0,"total":0},{"mayor":0,"segundo":0,"fragmentos":0,"total":0}],
+          "poolSize": [173,173,173],
+          "nodes": [41640,41640,41640]
+        },
+        "repeated": {
+          "generationCPUms": [454.534,508.86,456.167],
+          "medianGenerationCPUms": 456.167,
+          "boards": [7,7,7],
+          "valid": [true,true,true],
+          "quality": [{"mayor":0,"segundo":0,"fragmentos":0,"total":0},{"mayor":0,"segundo":0,"fragmentos":0,"total":0},{"mayor":0,"segundo":0,"fragmentos":0,"total":0}],
+          "poolSize": [7,7,7],
+          "nodes": [7,7,7]
+        },
+        "generationSavingPct": 97.48312004239611
+      },
+      "4020442": {
+        "legacy": {
+          "generationCPUms": [6100.117,6398.229,6892.121],
+          "medianGenerationCPUms": 6398.229,
+          "boards": [2,2,2],
+          "valid": [true,true,true],
+          "quality": [{"mayor":4703100,"segundo":0,"fragmentos":1,"total":4703100},{"mayor":4703100,"segundo":0,"fragmentos":1,"total":4703100},{"mayor":4703100,"segundo":0,"fragmentos":1,"total":4703100}],
+          "poolSize": [57,57,57],
+          "nodes": [2,2,2]
+        },
+        "repeated": {
+          "generationCPUms": [328.888,343.478,389.911],
+          "medianGenerationCPUms": 343.478,
+          "boards": [2,2,2],
+          "valid": [true,true,true],
+          "quality": [{"mayor":4703100,"segundo":0,"fragmentos":1,"total":4703100},{"mayor":4703100,"segundo":0,"fragmentos":1,"total":4703100},{"mayor":4703100,"segundo":0,"fragmentos":1,"total":4703100}],
+          "poolSize": [2,2,2],
+          "nodes": [2,2,2]
+        },
+        "generationSavingPct": 94.63167073263554
+      }
+    },
+    "corpus": {"activated":1905,"solved":1873,"valid":1873,"noCoverage":31,"errors":1,"generationCPUmsTotal":144100.148,"generationCPUmsMedian":51.278},
+    "selectorFollowup": {"noCoverage":31,"directExactUsage":31,"directIndustrialValid":31,"areaResidualAbove1e-9":23,"remainingSelectorCases":8},
+    "inputError": {"file":"4053287__Maximiliano_Santoro4053287.xml","reason":"piece 2256x102 does not fit useful 1825x1295 board"}
+  },
+  "portfolioCorpus": {
+    "parseable": 8663,
+    "activated": 3340,
+    "activatedPct": 38.55477317326561,
+    "validCandidates": 2759,
+    "validCandidatesPct": 31.84808957635923,
+    "modes": {
+      "GUIDE_HUB": {"activated":1291,"solved":765,"valid":765,"noCoverage":526,"errors":0,"generationCPUmsTotal":3762.354,"generationCPUmsMedian":0.54},
+      "COMMON_BAND": {"activated":144,"solved":121,"valid":121,"noCoverage":23,"errors":0,"generationCPUmsTotal":1602.23,"generationCPUmsMedian":3.98},
+      "REPEATED_STRIPS": {"activated":1905,"solved":1873,"valid":1873,"noCoverage":31,"errors":1,"generationCPUmsTotal":144100.148,"generationCPUmsMedian":51.278}
+    },
+    "fallbackOrUnclassified": 5323
+  },
+  "residualMap": {"WEAK_REPEATED_STRIPS":1776,"HETEROGENEOUS_HIGH_TYPES":1146,"MONOTYPE_EXISTING_PATH":862,"OTHER":712,"PARTIAL_COMMON_BAND":540,"MODERATE_HUB":287},
+  "nextRecommendedFamily": "PARTIAL_COMMON_BAND"
+}

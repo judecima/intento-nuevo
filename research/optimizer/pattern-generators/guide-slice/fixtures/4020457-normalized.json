@@ -1,0 +1,157 @@
+{
+  "id": "4020457",
+  "file": "4020457__papanoel2905-ml_papanoel2905-ml4020457.xml",
+  "lines": [
+    {
+      "ref": "15",
+      "base": 328.0,
+      "altura": 160.0,
+      "cant": 12,
+      "veta": false,
+      "detalle": "15",
+      "cantos": null
+    },
+    {
+      "ref": "5",
+      "base": 529.0,
+      "altura": 100.0,
+      "cant": 2,
+      "veta": false,
+      "detalle": "5",
+      "cantos": null
+    },
+    {
+      "ref": "14",
+      "base": 406.0,
+      "altura": 160.0,
+      "cant": 12,
+      "veta": false,
+      "detalle": "14",
+      "cantos": null
+    },
+    {
+      "ref": "6",
+      "base": 294.0,
+      "altura": 100.0,
+      "cant": 2,
+      "veta": false,
+      "detalle": "6",
+      "cantos": null
+    },
+    {
+      "ref": "10",
+      "base": 467.0,
+      "altura": 258.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "10",
+      "cantos": null
+    },
+    {
+      "ref": "7",
+      "base": 467.0,
+      "altura": 100.0,
+      "cant": 2,
+      "veta": false,
+      "detalle": "7",
+      "cantos": null
+    },
+    {
+      "ref": "11",
+      "base": 465.0,
+      "altura": 195.0,
+      "cant": 6,
+      "veta": false,
+      "detalle": "11",
+      "cantos": null
+    },
+    {
+      "ref": "9",
+      "base": 612.0,
+      "altura": 565.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "9",
+      "cantos": null
+    },
+    {
+      "ref": "12",
+      "base": 469.0,
+      "altura": 365.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "12",
+      "cantos": null
+    },
+    {
+      "ref": "3",
+      "base": 529.0,
+      "altura": 344.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "3",
+      "cantos": null
+    },
+    {
+      "ref": "13",
+      "base": 465.0,
+      "altura": 411.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "13",
+      "cantos": null
+    },
+    {
+      "ref": "2",
+      "base": 740.0,
+      "altura": 529.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "2",
+      "cantos": null
+    },
+    {
+      "ref": "1",
+      "base": 740.0,
+      "altura": 362.0,
+      "cant": 2,
+      "veta": false,
+      "detalle": "1",
+      "cantos": null
+    },
+    {
+      "ref": "8",
+      "base": 565.0,
+      "altura": 140.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "8",
+      "cantos": null
+    },
+    {
+      "ref": "4",
+      "base": 565.0,
+      "altura": 362.0,
+      "cant": 1,
+      "veta": false,
+      "detalle": "4",
+      "cantos": null
+    }
+  ],
+  "config": {
+    "placaBase": 2750.0,
+    "placaAltura": 1830.0,
+    "refiladoX": 0,
+    "refiladoY": 0,
+    "sierra": 5.0,
+    "etapas": 4,
+    "materialConVeta": false,
+    "descontarCanto": false,
+    "cantoEspesor": 0,
+    "restoMin": 250,
+    "restoMax": 400,
+    "usarCache": true,
+    "maxPiezasCache": 160
+  },
+  "referenceBoards": 2
+}

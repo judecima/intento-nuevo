@@ -1,0 +1,121 @@
+{
+  "id": "4058501",
+  "file": "4058501__Marcos _Cumini Londero4058501.xml",
+  "lines": [
+    {
+      "ref": "1",
+      "base": 1999.2,
+      "altura": 699.2,
+      "cant": 4,
+      "veta": false,
+      "detalle": "1",
+      "cantos": null
+    },
+    {
+      "ref": "2",
+      "base": 699.2,
+      "altura": 749.2,
+      "cant": 4,
+      "veta": false,
+      "detalle": "2",
+      "cantos": null
+    },
+    {
+      "ref": "3",
+      "base": 699.6,
+      "altura": 740.0,
+      "cant": 10,
+      "veta": false,
+      "detalle": "3",
+      "cantos": null
+    },
+    {
+      "ref": "4",
+      "base": 1479.2,
+      "altura": 499.2,
+      "cant": 4,
+      "veta": false,
+      "detalle": "4",
+      "cantos": null
+    },
+    {
+      "ref": "5",
+      "base": 999.2,
+      "altura": 499.2,
+      "cant": 4,
+      "veta": false,
+      "detalle": "5",
+      "cantos": null
+    },
+    {
+      "ref": "6",
+      "base": 1475.6,
+      "altura": 500.0,
+      "cant": 6,
+      "veta": false,
+      "detalle": "6",
+      "cantos": null
+    },
+    {
+      "ref": "7",
+      "base": 999.2,
+      "altura": 799.2,
+      "cant": 6,
+      "veta": false,
+      "detalle": "7",
+      "cantos": null
+    },
+    {
+      "ref": "8",
+      "base": 799.2,
+      "altura": 449.2,
+      "cant": 6,
+      "veta": false,
+      "detalle": "8",
+      "cantos": null
+    },
+    {
+      "ref": "9",
+      "base": 999.2,
+      "altura": 449.2,
+      "cant": 3,
+      "veta": false,
+      "detalle": "9",
+      "cantos": null
+    },
+    {
+      "ref": "10",
+      "base": 849.2,
+      "altura": 199.2,
+      "cant": 2,
+      "veta": false,
+      "detalle": "10",
+      "cantos": null
+    },
+    {
+      "ref": "11",
+      "base": 1399.2,
+      "altura": 869.2,
+      "cant": 1,
+      "veta": false,
+      "detalle": "11",
+      "cantos": null
+    }
+  ],
+  "config": {
+    "placaBase": 2600.0,
+    "placaAltura": 1830.0,
+    "refiladoX": 0,
+    "refiladoY": 0,
+    "sierra": 4.5,
+    "etapas": 4,
+    "materialConVeta": true,
+    "descontarCanto": false,
+    "cantoEspesor": 0,
+    "restoMin": 250,
+    "restoMax": 400,
+    "usarCache": true,
+    "maxPiezasCache": 160
+  },
+  "referenceBoards": 9
+}
