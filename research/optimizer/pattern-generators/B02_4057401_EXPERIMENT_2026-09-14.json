@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 3,
+  "status": "B02_RESEARCH_ONLY",
+  "date": "2026-09-14",
+  "scope": "4057401_ONLY_NO_PROMOTION",
+  "repository": "judecima/intento-nuevo",
+  "branch": "feature/optimizar-patrones",
+  "baseCommit": "dc11596c356c378aa697d0a3c02e4abc6ca34e25",
+  "uploadedZipSha256": "1ac73727b818a996a1f7cdbd62d06bed33df9d35d75dcae1a728bba903897c45",
+  "tests": {
+    "executed": 74,
+    "passed": 74,
+    "failed": 0,
+    "breakdown": {
+      "H0": 10,
+      "ordering": 8,
+      "frontier": 9,
+      "tinyOracle": 2,
+      "cutPolicy": 2,
+      "H2": 18,
+      "H2Repeat": 1,
+      "B01": 12,
+      "B02": 12
+    }
+  },
+  "budget": {
+    "maxExpansions": 20000,
+    "maxAndCombinations": 50000,
+    "maxFrontierEntries": 10000,
+    "maxMaterializations": 500
+  },
+  "legacyA": {
+    "poolPatterns": 21,
+    "boards": 4,
+    "nodes": 7,
+    "selectedUsageVectors": [[0,1,0,4],[2,0,0,2],[0,1,0,4],[0,0,1,4]]
+  },
+  "B01": {
+    "patterns": 32,
+    "usageVectors": 2,
+    "coverageBoards": null,
+    "stop": "maxExpansions",
+    "expansions": 20000,
+    "andPairs": 16566,
+    "frontierPeak": 9072,
+    "geometryStates": 2979,
+    "firstRoot": 3031,
+    "firstMaterializable": 4160,
+    "cpuMsDescriptive": 1359.145,
+    "rootHash": "755e263a1a0ea2b2dd4d716896f10f88af4bc188191c3379f49b66ee8bcde4d2",
+    "patternPoolHash": "6aebeda4a18930348b0731a8b615a162ac9aad3f0ed09c2c6c506cab95f8aead",
+    "orderedPoolHash": "42ff8fa2ae72e8db6057d588d64d71124d4d563fb8bb73ef4ecb7ce96fbefa94"
+  },
+  "variants": {
+    "groupEqualDimensions": {
+      "patterns": 32,
+      "usageVectors": 2,
+      "coverageBoards": null,
+      "stop": "maxExpansions",
+      "expansions": 20000,
+      "andPairs": 16566,
+      "frontierPeak": 9072,
+      "geometryStates": 2979,
+      "firstRoot": 3031,
+      "firstMaterializable": 4160,
+      "cpuMsDescriptive": 1316.469,
+      "finding": "No structural change."
+    },
+    "productiveOnly": {
+      "patterns": 33,
+      "usageVectors": 3,
+      "coverageBoards": null,
+      "stop": "maxExpansions",
+      "expansions": 20000,
+      "andPairs": 17377,
+      "frontierPeak": 8947,
+      "geometryStates": 2984,
+      "firstRoot": 2826,
+      "firstMaterializable": 3922,
+      "cpuMsDescriptive": 1498.814,
+      "finding": "Adds small-type density only; no large-type coverage."
+    },
+    "descendingOnly": {
+      "patterns": 109,
+      "usageVectors": 8,
+      "coverageBoards": 10,
+      "stop": "maxFrontierEntries",
+      "expansions": 19933,
+      "andPairs": 16095,
+      "frontierPeak": 10000,
+      "geometryStates": 3540,
+      "firstRoot": 406,
+      "firstMaterializable": 1906,
+      "cpuMsDescriptive": 1100.3,
+      "finding": "First variant exposing all four types."
+    },
+    "descendingPlusProductiveK8": {
+      "patterns": 121,
+      "usageVectors": 9,
+      "coverageBoards": 8,
+      "stop": "maxFrontierEntries",
+      "expansions": 19722,
+      "andPairs": 17416,
+      "frontierPeak": 10000,
+      "geometryStates": 3510,
+      "firstRoot": 389,
+      "firstMaterializable": 1880,
+      "cpuMsDescriptive": 1257.855,
+      "finding": "8-board exact coverage."
+    },
+    "cancelEvictedDeltasK8": {
+      "patterns": 122,
+      "usageVectors": 9,
+      "coverageBoards": 8,
+      "stop": "maxExpansions",
+      "expansions": 20000,
+      "andPairs": 17221,
+      "frontierPeak": 9750,
+      "geometryStates": 3550,
+      "firstRoot": 389,
+      "firstMaterializable": 1880,
+      "cpuMsDescriptive": 1252.029,
+      "cancelledEvictedPins": 689,
+      "finding": "Less frontier pressure; still 8 boards."
+    }
+  },
+  "productiveBurstSweep": {
+    "values": [1,2,4,8,16,32],
+    "result": "No structural difference; all 8 boards."
+  },
+  "kSweep": {
+    "1": {"patterns":24,"usageVectors":12,"coverageBoards":7,"stop":"maxExpansions","expansions":20000,"andPairs":9744,"frontierPeak":4137,"geometryStates":3551,"firstRoot":390,"firstMaterializable":4554,"cpuMsDescriptive":868.728,"rootHash":"84ccb60f7a99ad7ab6ba41e916a8abff721b7ada5eea5be482c99d0f7fd07acb","patternPoolHash":"67dd890057e644075f86c14aafbc0c1ab67c8e5c7c0e7c62490d69c4828acce6","orderedPoolHash":"28591119be71fca3a42e610f925440f350f55466cf5d375865cc626bc256ad6e"},
+    "2": {"patterns":40,"usageVectors":11,"coverageBoards":8,"stop":"maxExpansions","expansions":20000,"andPairs":14794,"frontierPeak":5615,"geometryStates":3550,"firstRoot":389,"firstMaterializable":4554,"cpuMsDescriptive":1001.797},
+    "4": {"patterns":68,"usageVectors":9,"coverageBoards":8,"stop":"maxExpansions","expansions":20000,"andPairs":16786,"frontierPeak":7890,"geometryStates":3551,"firstRoot":388,"firstMaterializable":4530,"cpuMsDescriptive":1154.038},
+    "8": {"patterns":121,"usageVectors":9,"coverageBoards":8,"stop":"maxFrontierEntries","expansions":19722,"andPairs":17416,"frontierPeak":10000,"geometryStates":3510,"firstRoot":389,"firstMaterializable":1880,"cpuMsDescriptive":1163.669},
+    "12": {"patterns":166,"usageVectors":8,"coverageBoards":10,"stop":"maxFrontierEntries","expansions":17521,"andPairs":15500,"frontierPeak":10000,"geometryStates":3157,"firstRoot":389,"firstMaterializable":1023,"cpuMsDescriptive":1126.237},
+    "16": {"patterns":204,"usageVectors":8,"coverageBoards":10,"stop":"maxFrontierEntries","expansions":16371,"andPairs":14451,"frontierPeak":10000,"geometryStates":2971,"firstRoot":389,"firstMaterializable":692,"cpuMsDescriptive":1108.371}
+  },
+  "bestDiagnostic": {
+    "policy": "descending coordinates + productive scheduling + K=1",
+    "boards": 7,
+    "usageVectors": ["[0,0,0,1]","[0,0,0,2]","[0,0,0,3]","[0,0,0,4]","[0,0,1,0]","[0,0,1,1]","[0,1,0,0]","[0,1,0,1]","[1,0,0,0]","[1,0,0,1]","[1,0,0,2]","[2,0,0,0]"],
+    "missingLegacyVectors": [[0,1,0,4],[2,0,0,2],[0,0,1,4]],
+    "repeatability": {
+      "runs": 3,
+      "deterministic": true,
+      "rootHash": "84ccb60f7a99ad7ab6ba41e916a8abff721b7ada5eea5be482c99d0f7fd07acb",
+      "patternPoolHash": "67dd890057e644075f86c14aafbc0c1ab67c8e5c7c0e7c62490d69c4828acce6",
+      "orderedPoolHash": "28591119be71fca3a42e610f925440f350f55466cf5d375865cc626bc256ad6e",
+      "structural": {"patterns":24,"usageVectors":12,"coverageBoards":7,"expansions":20000,"andPairs":9744,"frontierPeak":4137,"geometryStates":3551,"firstRoot":390,"firstMaterializable":4554},
+      "cpuMsDescriptive": [928.863,893.141,839.523]
+    }
+  },
+  "conclusion": "B0.1 starvation is fixed. Descending coordinate order improves diversity; K=1 reaches 7 boards, but legacy A remains 4. Do not promote or expand corpus."
+}
