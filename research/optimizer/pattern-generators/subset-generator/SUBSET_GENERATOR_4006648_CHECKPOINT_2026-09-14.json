@@ -1,0 +1,82 @@
+{
+  "date": "2026-09-14",
+  "status": "RECOVERED_RESEARCH_CHECKPOINT",
+  "productionPromotion": false,
+  "case": {
+    "id": "4006648",
+    "logicalTypes": 21,
+    "physicalPieces": 42,
+    "board": [
+      2600,
+      1830
+    ],
+    "kerf": 4.4,
+    "canonicalTrim": 0,
+    "areaLowerBound": 9
+  },
+  "legacy40": {
+    "boards": 10,
+    "priorConversationGenerationCpuMsApprox": 18000,
+    "recoveryGenerationCpuMsObservedRange": [
+      18338,
+      18558
+    ]
+  },
+  "subsetPolicy": {
+    "maskUniverse": 40,
+    "maskSeed": 7,
+    "maskThreshold": 0.45,
+    "ranking": "farthest-first-jaccard-diversity",
+    "passes": 2,
+    "restartsPerBoard": 14,
+    "rescue": true,
+    "beam": false,
+    "multiVariants": false
+  },
+  "diverseTopK": {
+    "20": 11,
+    "24": 11,
+    "28": 10,
+    "32": 10,
+    "40": 10
+  },
+  "priorConversationTiming": {
+    "subset40GenerationCpuMsApprox": 3900,
+    "subset28GenerationCpuMsApprox": 2600
+  },
+  "recoveryValidationTiming": {
+    "legacy40GenerationCpuMsObservedRange": [
+      18338,
+      18558
+    ],
+    "subset40GenerationCpuMsObservedRange": [
+      3952,
+      4301
+    ],
+    "subset28GenerationCpuMsObserved": 2549,
+    "timingGate": false,
+    "note": "CPU timing is host-dependent; board-count reproduction is the recovery gate."
+  },
+  "midDensityPartialRun": {
+    "cohort": 239,
+    "completed": 13,
+    "notEvaluated": 226,
+    "validCompleted": 13,
+    "reachedLowerBound": 2,
+    "improvedBoardCount": 1,
+    "keptOneBoardGap": 11,
+    "medianGenerationCpuMsApprox": 6100,
+    "p95GenerationCpuMsApprox": 8600,
+    "maxObservedGenerationCpuMsApprox": 13400,
+    "promotionDecision": "DO_NOT_PROMOTE_RESCUE28_BULK"
+  },
+  "nextGate": {
+    "strategy": "directed-escalation",
+    "goldCaseTargetBoards": 10,
+    "maxEscalatedMasks": 10,
+    "beam": false,
+    "requireNoRegression": true
+  },
+  "productionFilesModified": false,
+  "fullOrderRound0Boards": 12
+}
