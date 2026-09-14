@@ -45,10 +45,13 @@ test("4050594 is classified as repeated strips, not hub/common-band", () => {
   assert.equal(selectIndustrialMode(raw.lines, raw.config).mode, "REPEATED_STRIPS");
 });
 
-test("4058501 does not overtrigger repeated strips", () => {
+test("4058501 does not overtrigger the strong repeated-strips family", () => {
   const raw = fixture("4058501");
   assert.equal(detectRepeatedStrips(raw.lines, raw.config), null);
-  assert.equal(selectIndustrialMode(raw.lines, raw.config).mode, "NOT_APPLICABLE");
+  // V1.4 may route this order through the weaker round-0 family. This test
+  // protects the strong-family boundary only; the frozen 8-board sentinel
+  // remains a full-pipeline gate outside this focused generator test.
+  assert.notEqual(selectIndustrialMode(raw.lines, raw.config).mode, "REPEATED_STRIPS");
 });
 
 test("4050594 focused repeated-strips recovers the 7-board Master sentinel", () => {
