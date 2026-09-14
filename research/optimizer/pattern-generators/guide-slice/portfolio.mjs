@@ -2,8 +2,9 @@ import { detectCommonBand, generateCommonBandPatterns } from "./common-band.mjs"
 import { generateGuideSlicePatterns, selectHubType } from "./generator.mjs";
 import { detectRepeatedStrips, generateRepeatedStripPatterns } from "./repeated-strips.mjs";
 import { detectPartialCommonBand, generatePartialCommonBandPatterns } from "./partial-common-band.mjs";
+import { detectWeakRepeatedStrips, generateWeakRepeatedStripPatterns } from "./weak-repeated-strips.mjs";
 
-export const INDUSTRIAL_PORTFOLIO_VERSION = "industrial-portfolio-v1.3";
+export const INDUSTRIAL_PORTFOLIO_VERSION = "industrial-portfolio-v1.4";
 
 export function selectIndustrialMode(lines, config = {}, {
   hubDominance = 0.5,
@@ -11,6 +12,7 @@ export function selectIndustrialMode(lines, config = {}, {
   maxCommonBandTypes = 4,
   repeatedStrips = {},
   partialCommonBand = {},
+  weakRepeatedStrips = {},
 } = {}) {
   const band = detectCommonBand(lines, { maxTypes: maxCommonBandTypes });
   if (band) return { mode: "COMMON_BAND", band };
@@ -26,6 +28,8 @@ export function selectIndustrialMode(lines, config = {}, {
   if (strips) return { mode: "REPEATED_STRIPS", strips };
   const partialBand = detectPartialCommonBand(lines, config, partialCommonBand);
   if (partialBand) return { mode: "PARTIAL_COMMON_BAND", partialBand };
+  const weakStrips = detectWeakRepeatedStrips(lines, config, weakRepeatedStrips);
+  if (weakStrips) return { mode: "WEAK_REPEATED_STRIPS", weakStrips };
   return { mode: "NOT_APPLICABLE" };
 }
 
@@ -45,6 +49,10 @@ export function generateIndustrialPortfolio(lines, config, options = {}) {
   }
   if (selected.mode === "PARTIAL_COMMON_BAND") {
     const result = generatePartialCommonBandPatterns(lines, config, options.partialCommonBand ?? {});
+    return { ...result, telemetry: { ...result.telemetry, portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode } };
+  }
+  if (selected.mode === "WEAK_REPEATED_STRIPS") {
+    const result = generateWeakRepeatedStripPatterns(lines, config, options.weakRepeatedStrips ?? {});
     return { ...result, telemetry: { ...result.telemetry, portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode } };
   }
   return { status: "NOT_APPLICABLE", patterns: [], telemetry: { portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode, reason: selected.reason ?? null, calls: 0 } };
