@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "experimentVersion": "h4-4057401-cost-pilot-v1",
+  "order": "4057401",
+  "file": "4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+  "executionBinding": "physical-xml-historical-validity-v1",
+  "generatorBudget": {
+    "maxExpansions": 20000,
+    "maxAndCombinations": 50000,
+    "maxFrontierEntries": 10000,
+    "maxMaterializations": 500
+  },
+  "maxVariantsPerUsageVector": 8,
+  "kernelBudgets": "KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json:deterministicBudgets.values",
+  "watchdogMs": 600000,
+  "maxOldSpaceSizeMiB": 4096,
+  "repetitions": 3,
+  "orderByRepetition": ["AB", "BA", "AB"],
+  "controls": ["A-direct", "B-native"],
+  "warmup": "none; fresh cold Node process for every control and measured job",
+  "concurrency": 1,
+  "q1": "all candidate and final physical/demand/trace/XML checks must pass",
+  "q2": "B boards <= A boards; at equal boards official compararCalidad(B,A) >= 0",
+  "q3": "descriptive paired CPU only; positive percentage denotes savings; no promotion threshold in this cost pilot",
+  "stop": "after this order's controls and three pairs, including failures; never tune budgets or expand the cohort"
+}

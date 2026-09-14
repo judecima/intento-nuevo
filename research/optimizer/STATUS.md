@@ -2,6 +2,109 @@
 
 Base branch: `feature/agregar_configuracion_organizacion`
 
+## Pattern generator architecture — user direction 2026-09-11
+
+The [experimental contract](PATTERN_GENERATOR_ARCHITECTURE_EXPERIMENT_2026-09-11.md)
+adds bounded AND/OR and a later multi-level DP competitor against the existing
+40-round generator. State-space relaxation is a future, separately measured
+extension. Kernel V1 runtime stays unchanged; its certification is not completed
+by this design. No replacement or speedup is claimed. Validate physical output,
+final board/remnant quality, repeatability, and total cost separately. The
+September 7 sections below retain their historical roadmap context; this adendum
+does not reopen V21/V22 or change production flags.
+
+### H4 4057401 cost pilot — closed 2026-09-14
+
+The explicitly bounded pilot is complete: two fresh-process parity controls
+and three measured pairs AB/BA/AB, only 4057401. Kernel runtime and B0 algorithm
+hashes remain unchanged. Budgets were fixed before execution and never retuned:
+B 20,000 expansions / 50,000 AND pairs / 10,000 live frontier entries /
+500 materializations, K=8; the six frozen Kernel V1 budgets are unchanged.
+
+Measured generation CPU totals A/B: 11.251 / 2.514 seconds (**77.6553% less** for B).
+Optimizer CPU totals: 21.751 / 13.423 seconds (**38.2879% less**). Exclusive phase
+accounting reconciles; detailed timings, memory, telemetry, scopes and zero-CPU
+resolution limits are in the [README](pattern-generators/README.md).
+
+**Q2 FAIL: A=4 boards, B=5**, repeated in all three pairs. B hits WORK_LIMIT at
+20,000 expansions, with 1,016 geometric states, 2,051 cache hits, 14,448 AND pairs,
+frontier peak 3,137, zero materializations and an empty pool. Its own incumbent
+provides the five-board final plan. The CPU saving does not establish a useful
+replacement at equal quality.
+
+**Q1: A FAIL, B PASS.** A's geometry/dimensions/traces pass, but two 744×450 XML
+pieces carry reference 3 instead of 4, also in A-direct. The stronger harness
+reference check records INVALID_FINAL; it was not relaxed or fixed in the kernel.
+No generator INVALID or OPERATIONAL_ABORT occurred in the eight executions.
+**Q3 MEASURED:** native/observed parity and within-arm repeatability pass.
+
+The [portable report](pattern-generators/H4_4057401_PILOT_2026-09-14.json) preserves
+all measurements and source hashes. A report-only correction exposes Q2 FAIL
+despite the independent Q1 failure; the original report and measured source are
+retained. No real rerun or budget change was made. H4 tests 3/3, H3 regression 2/2.
+
+**Stop reached.** Do not proceed to 4056900, other sentinels, 213 hotspots or the
+full corpus. No optimization, dominance, relaxation, LP or dual work was added.
+Further cases/configurations require a new user direction. Kernel certification
+remains separate and incomplete.
+
+### Previous experimental H3 evidence — 2026-09-14
+
+The isolated A/B harness now passes its synthetic integration gate: 27 fresh
+child runs, 22 non-control jobs passing their exercised Q1 checks and five
+deliberate failures preserved as failures. A-direct/A-adapter pool/order/plan
+parity, three-process repeatability, B isolation, inactive Master reporting,
+bounded empty generation, physical XML reconstruction and swallowed exception
+visibility are checked. Parent crash/watchdog records remain linked artifacts.
+
+H3 tests: 2/2; H0/H1/H2 regression: 84/84; TypeScript bridge check passes.
+The active fixture invokes Master but does not select a board-reducing B plan.
+Q2 remains NOT_EVALUATED and Q3 DIAGNOSTIC_ONLY. No corpus or speedup claim.
+See the [implementation record](pattern-generators/README.md) and
+[H3 closure](pattern-generators/H3_CLOSED_2026-09-14.json).
+
+Historical next step (superseded by the bounded user instruction above): H4 pilot on 4057401, then 4056900, with scored budgets and savings
+gate frozen before scored runs; complete the remaining sentinels and 4020442
+before expanding the cohort. Pilot/scored CLI and exclusive performance phases
+are still pending. H2 algorithms and Kernel runtime remain unchanged; Kernel
+certification is separate and still incomplete.
+
+### Previous experimental H2 evidence — 2026-09-13
+
+The [B0 implementation record](pattern-generators/README.md) now has a frontier,
+an independent exhaustive tiny oracle (implemented/tested before the search),
+and bounded AND/OR search. Exact canonical deduplication, per-geometry/usage K
+diversity and atomic ledger replacement are implemented; `dominated=0` and every
+K discard is explicitly heuristic. Cache is local to the context and invocation;
+incomplete states are never published as complete or infeasible.
+
+Executed: 41/41 H2 tests plus 43/43 H0/ordering/H1 regression tests, 84/84 total;
+the H1/H2 TypeScript bridge check also passes. Nine tiny fixtures match the oracle
+on usage and canonical tree sets for both axes without budget hits or K pruning.
+All 89 nonempty patterns pass physical validation and XML round-trip checks.
+Three fresh processes repeat root/pool/ordered-pool hashes and work counters for
+complete, K-restricted and interrupted fixture runs. The README records the
+corrected test expectation/type error and sandbox execution failures.
+
+`COMPLETE` remains relative to `piece-multiples-v1`; it is not a guillotine
+optimality claim. Root finalization after interruption uses only roots already
+constructed, with no further AND work. A/B harness, persistent operational-abort
+reporting, corpus runs, quality against A and speedup measurements remain pending.
+No LP, duals, Branch-and-Price, relaxation, type grouping or runtime changes were
+introduced. `src/lib/optimizer/**` still matches
+`4063963260abb10c8d68d0e553942899c925cc2f`. Kernel certification remains separate.
+
+### Previous experimental H1 evidence — 2026-09-13
+
+The [B0 implementation record](pattern-generators/README.md) now includes the
+work ledger (10 tests), deterministic root/pool policies (8 tests), and a manual
+physical materializer with XML round-trip checks (25 tests). A trim-related leaf
+level defect was found and corrected in the experimental adapter. Runtime under
+`src/lib/optimizer/**` still matches `4063963260abb10c8d68d0e553942899c925cc2f`.
+Frontier, tiny oracle, AND/OR search, A/B harness and corpus measurements remain
+pending. This is H1 evidence only; it neither completes Kernel certification nor
+demonstrates pattern quality or acceleration.
+
 ## Active roadmap - user decision 2026-09-07
 
 The [frozen roadmap](ROADMAP_2026-09-07.md) supersedes earlier sequencing:

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "status": "H2_CLOSED",
+  "date": "2026-09-13",
+  "evidence": {
+    "h2Tests": 41,
+    "regressionTests": 43,
+    "totalPassed": 84,
+    "fixtures": 9,
+    "physicalPatterns": 89,
+    "freshProcesses": 3
+  },
+  "kernelCommit": "4063963260abb10c8d68d0e553942899c925cc2f",
+  "kernelTreeHash": "059ff2b0ed6c13adcd9c526f63496e80a27ab7665cab760315de6ab1f7d79adb",
+  "algorithmFiles": [
+    [
+      "and-or.mjs",
+      "dbfdc1c3029031d10517cb7b0a4ebd8e19f45b0e3b67eca72e25bbe414f0264c"
+    ],
+    [
+      "canonical.mjs",
+      "3342f06cb42a43891ff0eb4ceb7db45ca2fddbb20a3c3a74a8b334c9a7a6602e"
+    ],
+    [
+      "context.mjs",
+      "5ed0cc80c25aafaed0ba6615fdd9cbc7baf9ea718f8f9228518bd4b6b328a962"
+    ],
+    [
+      "cut-policy.mjs",
+      "806d53e81cf9b791034ea950ffe44cf35cbf7e8381f4ce1be64b876f94d71b60"
+    ],
+    [
+      "descriptors.mjs",
+      "d9c06fe3237f745adb0dd4a8ac5ede7d05be53010595cdccadc04dfe81d1193e"
+    ],
+    [
+      "frontier.mjs",
+      "94a4900496495033c3177b62c59d16adc3eef708a97ca3a3d8d05eee3c5c07e1"
+    ],
+    [
+      "ordering.mjs",
+      "b68759bf93a10f2f12252ae94dea111fe01e9c9ad09ad160028246b027677257"
+    ],
+    [
+      "physical-pattern.mjs",
+      "26b03560daf23c44f8b2d6aed93e5fb4b4e2b47e1a7f14805f10dae318286abc"
+    ],
+    [
+      "work-budget.mjs",
+      "6458d1be1ab254a6822208f2e535689645ffb099577ef2d09d37a30696ac7473"
+    ]
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["../../../tests/optimizer/pattern-generator-h1.test.ts", "../../../tests/optimizer/pattern-generator-h2.test.ts"]
+}

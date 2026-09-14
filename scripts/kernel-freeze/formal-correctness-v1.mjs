@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import { fork, spawnSync } from "node:child_process";
+import { cpus, platform, release, totalmem } from "node:os";
 import {
   appendFileSync,
   existsSync,
@@ -34,10 +35,18 @@ const BUDGET_KEYS = [
 ];
 
 const args = parseArgs(process.argv.slice(2));
-if (args.child) await childRun(args);
-else await main(args);
+if (process.argv[1] && resolve(process.argv[1]) === SCRIPT) {
+  if (args.child) await childRun(args);
+  else if (args.mode === "all") {
+    await main({ ...args, mode: "resume-probe" });
+    await main({ ...args, mode: "correctness" });
+    await main({ ...args, mode: "determinism" });
+  } else await main(args);
+}
 
 async function main(args) {
+  const mode = String(args.mode ?? "correctness");
+  if (!["correctness", "determinism", "resume-probe"].includes(mode)) fail("unknown certification mode");
   const corpus = resolve(String(args.corpus ?? ""));
   const historicalCorpus = resolve(String(args.historicalCorpus ?? ""));
   if (!args.corpus || !existsSync(corpus)) fail("--corpus <extracted-resto> required");
@@ -122,14 +131,51 @@ async function main(args) {
     return aq - bq || cmp(a.file, b.file);
   });
 
-  const checkpoint = join(out, "formal-correctness-v1.partial.jsonl");
-  const prior = uniqueLatest(readJsonl(checkpoint));
+  const baselinePath = join(out, "formal-correctness-v1.partial.jsonl");
+  const baseline = readJsonl(baselinePath);
+  validateCheckpoint(baseline, state, values, "formal-correctness");
+  const baselineByFile = new Map(baseline.map((row) => [row.file, row]));
+  if (mode === "determinism" && baseline.length !== state.feasible.length) {
+    fail("complete correctness PASS #1 before formal determinism repeat");
+  }
+  const phase = mode === "correctness" ? "formal-correctness" : mode === "determinism" ? "formal-determinism" : "resume-probe";
+  const checkpoint = join(out, `${phase}-v1.partial.jsonl`);
+  // A resume probe always runs afresh on this host. Old probe evidence is retained per run.
+  const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${process.pid}-${mode}`;
+  const evidencePath = mode === "resume-probe" ? join(out, "resume-probes", `${runId}.jsonl`) : checkpoint;
+  const prior = mode === "resume-probe" ? [] : readJsonl(checkpoint);
+  validateCheckpoint(prior, state, values, phase, mode === "determinism" ? baselineByFile : null);
   const priorFailure = prior.find((row) => row.pass !== true);
   if (priorFailure) fail(`existing formal correctness failure must be resolved before continuing: ${priorFailure.file}`);
   const done = new Set(prior.filter((row) => row.pass === true).map((row) => row.file));
 
+  let selected = ordered;
+  if (mode === "determinism") {
+    selected = [...ordered].sort((a, b) => baselineByFile.get(a.file).wallMs - baselineByFile.get(b.file).wallMs || cmp(a.file, b.file));
+  } else if (mode === "resume-probe") {
+    if (!baseline.length) fail("resume probe requires an existing correctness checkpoint");
+    const probeIds = new Set([baseline[0].file, baseline[Math.floor(baseline.length / 2)].file, baseline.at(-1).file]);
+    for (const row of baseline) if (Object.values(row.budgetHits ?? {}).some((n) => Number(n) > 0)) probeIds.add(row.file);
+    selected = ordered.filter((item) => probeIds.has(item.file));
+  }
+  const environment = {
+    node: process.version, platform: platform(), release: release(), arch: process.arch,
+    cpu: cpus()[0]?.model, logicalCpus: cpus().length, totalMemoryBytes: totalmem(),
+    concurrentOptimizerProcesses: 1,
+  };
+  const manifest = {
+    runId, mode, startedAt: new Date().toISOString(), kernelCandidate: KERNEL_CANDIDATE,
+    runtimeMatchesCandidate, executionBindingId: EXECUTION_BINDING_ID, productionBudgets: values,
+    environment, preflightCacheKey: cacheKey, baselineSha256: sha256(readFileSync(baselinePath)),
+    harnessSha256: sha256(readFileSync(SCRIPT)), bundleSha256: sha256(readFileSync(bundle)),
+    selectedCases: selected.length, checkpoint: evidencePath,
+  };
+  writeJson(join(out, "runs", `${runId}.json`), manifest);
+  mkdirSync(dirname(evidencePath), { recursive: true });
+  console.log(JSON.stringify({ phase, runId, completed: done.size, selected: selected.length, environment }));
+
   let added = 0;
-  for (const item of ordered) {
+  for (const item of selected) {
     if (done.has(item.file) || added >= maxNew) continue;
     const result = await runCase({ bundle, item, env, timeoutMs, out });
     const beamAccounting = beamAccountingStatus(result.step0);
@@ -146,7 +192,7 @@ async function main(args) {
       oneboard: Number(result.step0?.oneboard?.budgetHits ?? 0),
     };
     const zeroWatchdogHits = Object.values(watchdogHits).every((value) => value === 0);
-    const pass = Boolean(
+    const correctnessPass = Boolean(
       result.ok &&
       result.validationOk &&
       !result.cacheHit &&
@@ -157,8 +203,14 @@ async function main(args) {
       zeroWatchdogHits &&
       typeof result.fullPlanHash === "string" && result.fullPlanHash.length === 64
     );
+    const reference = baselineByFile.get(item.file);
+    const fullPlanHashMatches = mode === "correctness" ? null : result.fullPlanHash === reference?.fullPlanHash;
+    const pass = correctnessPass && fullPlanHashMatches !== false;
     const row = {
-      phase: "formal-correctness",
+      phase,
+      runId,
+      kernelCandidate: KERNEL_CANDIDATE,
+      canonicalInputHash: hash(item.case),
       executionBindingId: EXECUTION_BINDING_ID,
       correctnessPredicate: CORRECTNESS_PREDICATE,
       file: item.file,
@@ -172,13 +224,16 @@ async function main(args) {
       watchdogHits,
       budgetHits,
       zeroWatchdogHits,
+      correctnessPass,
+      ...(mode === "correctness" ? {} : { baselineFullPlanHash: reference?.fullPlanHash, fullPlanHashMatches }),
       pass,
     };
-    appendFileSync(checkpoint, JSON.stringify(row) + "\n", "utf8");
+    appendFileSync(evidencePath, JSON.stringify(row) + "\n", "utf8");
     added++;
-    writeSummary(checkpoint, state, values, out, runtimeMatchesCandidate);
+    if (mode === "correctness") writeSummary(checkpoint, state, values, out, runtimeMatchesCandidate);
+    else writeRepeatSummary(evidencePath, baseline, selected.length, mode, out, manifest);
     console.log(JSON.stringify({
-      phase: "formal-correctness",
+      phase,
       file: item.file,
       pass,
       boards: result.boards,
@@ -186,11 +241,60 @@ async function main(args) {
       fullPlanHash: result.fullPlanHash,
       budgetHits,
       watchdogHits,
+      fullPlanHashMatches,
     }));
-    if (!pass) fail(`formal correctness failed: ${item.file}`);
+    if (!pass) fail(`${phase} failed: ${item.file}; correctness=${correctnessPass}, fullPlanHashMatches=${fullPlanHashMatches}`);
   }
 
-  writeSummary(checkpoint, state, values, out, runtimeMatchesCandidate);
+  if (mode === "correctness") writeSummary(checkpoint, state, values, out, runtimeMatchesCandidate);
+  else {
+    const summary = writeRepeatSummary(evidencePath, baseline, selected.length, mode, out, manifest);
+    if (mode === "resume-probe" && summary.status !== "PASS") fail("resume probe incomplete");
+  }
+}
+
+export function validateCheckpoint(rows, state, values, phase, baselineByFile = null) {
+  const feasible = new Map(state.feasible.map((item) => [item.file, item]));
+  const seen = new Set();
+  for (const row of rows) {
+    const item = feasible.get(row.file);
+    if (!item || seen.has(row.file)) fail(`unknown/duplicate checkpoint identity: ${row.file}`);
+    seen.add(row.file);
+    if (row.phase !== phase || row.executionBindingId !== EXECUTION_BINDING_ID || row.correctnessPredicate !== CORRECTNESS_PREDICATE) fail(`checkpoint semantics drift: ${row.file}`);
+    if (row.kernelCandidate && row.kernelCandidate !== KERNEL_CANDIDATE) fail(`checkpoint candidate drift: ${row.file}`);
+    if (hash(row.productionBudgets) !== hash(values)) fail(`checkpoint budgets drift: ${row.file}`);
+    if (row.canonicalInputHash && row.canonicalInputHash !== hash(item.case)) fail(`checkpoint input drift: ${row.file}`);
+    if (row.pass !== true || row.ok !== true || row.validationOk !== true || row.demandMultisetOk !== true || row.cacheHit !== false || row.pieces !== row.expectedPieces || row.beamAccounting?.ok !== true || row.beamFallbackAccepted !== true || row.zeroWatchdogHits !== true || !/^[a-f0-9]{64}$/.test(row.fullPlanHash ?? "")) fail(`invalid prior checkpoint: ${row.file}`);
+    for (const path of ["beam", "master", "oneboard"]) {
+      if (row.watchdogHits?.[path] !== 0 || Number(row.step0?.[path]?.watchdogHits ?? 0) !== 0) fail(`prior watchdog hit: ${row.file}`);
+    }
+    if (baselineByFile && (row.fullPlanHashMatches !== true || row.fullPlanHash !== baselineByFile.get(row.file)?.fullPlanHash || row.baselineFullPlanHash !== baselineByFile.get(row.file)?.fullPlanHash)) fail(`prior determinism mismatch: ${row.file}`);
+  }
+}
+
+function writeRepeatSummary(path, baseline, total, mode, out, manifest) {
+  const rows = readJsonl(path);
+  const failures = rows.filter((row) => row.pass !== true);
+  const completed = rows.filter((row) => row.pass === true);
+  const repeated = new Set(completed.map((row) => row.file));
+  const totalMs = baseline.reduce((sum, row) => sum + Number(row.wallMs), 0);
+  const repeatedMs = baseline.filter((row) => repeated.has(row.file)).reduce((sum, row) => sum + Number(row.wallMs), 0);
+  const report = {
+    schemaVersion: `kernel-v1-${mode}-v1`, updatedAt: new Date().toISOString(),
+    status: failures.length ? "FAIL" : completed.length === total ? "PASS" : "RUNNING",
+    kernelCandidate: KERNEL_CANDIDATE, executionBindingId: EXECUTION_BINDING_ID,
+    productionBudgets: manifest.productionBudgets, runId: manifest.runId,
+    expectedCases: total, completedPass: completed.length,
+    failures: failures.map((row) => ({ file: row.file, correctnessPass: row.correctnessPass, fullPlanHashMatches: row.fullPlanHashMatches, baselineFullPlanHash: row.baselineFullPlanHash, fullPlanHash: row.fullPlanHash, watchdogHits: row.watchdogHits })),
+    fullPlanHashMismatches: rows.filter((row) => row.fullPlanHashMatches !== true).length,
+    watchdogHits: sumControls(rows, "watchdogHits"),
+    baselineTimingMassPct: totalMs ? 100 * repeatedMs / totalMs : 0,
+    evidencePath: path,
+    nextGate: mode === "resume-probe" ? "FORMAL_CORRECTNESS" : "FINAL_FREEZE_REVIEW",
+    kernelFrozen: false,
+  };
+  writeJson(join(out, mode === "resume-probe" ? "resume-probe-v1.summary.json" : "formal-determinism-v1.summary.json"), report);
+  return report;
 }
 
 async function childRun(args) {

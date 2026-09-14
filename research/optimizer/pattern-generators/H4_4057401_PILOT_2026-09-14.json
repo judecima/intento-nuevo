@@ -1,0 +1,1633 @@
+{
+  "schemaVersion": 1,
+  "scope": "4057401 bounded cost pilot only",
+  "comparisonValid": true,
+  "completed": true,
+  "parity": true,
+  "repeatability": true,
+  "isolation": true,
+  "rounds40": true,
+  "phaseAccounting": true,
+  "q1": "FAIL",
+  "q2": "FAIL",
+  "q3": {
+    "status": "MEASURED",
+    "cpu": {
+      "patternGenCPU": {
+        "unit": "CPU us",
+        "totalA": 11251000,
+        "totalB": 2514000,
+        "medianA": 3720000,
+        "medianB": 796000,
+        "savingPct": 77.65531952715314,
+        "deltaBminusA": -8737000,
+        "pairedSavingPct": [
+          78.59639688088195,
+          74.60650577124869,
+          79.83870967741936
+        ]
+      },
+      "materializationCPU": {
+        "unit": "CPU us",
+        "totalA": 0,
+        "totalB": 0,
+        "medianA": 0,
+        "medianB": 0,
+        "savingPct": null,
+        "deltaBminusA": 0,
+        "pairedSavingPct": [
+          null,
+          null,
+          null
+        ]
+      },
+      "masterCPU": {
+        "unit": "CPU us",
+        "totalA": 0,
+        "totalB": 0,
+        "medianA": 0,
+        "medianB": 0,
+        "savingPct": null,
+        "deltaBminusA": 0,
+        "pairedSavingPct": [
+          null,
+          null,
+          null
+        ]
+      },
+      "totalCPU": {
+        "unit": "CPU us",
+        "totalA": 21751000,
+        "totalB": 13423000,
+        "medianA": 7234000,
+        "medianB": 4407000,
+        "savingPct": 38.28789480943405,
+        "deltaBminusA": -8328000,
+        "pairedSavingPct": [
+          41.489651416122,
+          34.76638097871164,
+          38.561271434546214
+        ]
+      },
+      "poolProductionCPU": {
+        "unit": "CPU us",
+        "totalA": 11251000,
+        "totalB": 2514000,
+        "medianA": 3720000,
+        "medianB": 796000,
+        "savingPct": 77.65531952715314,
+        "deltaBminusA": -8737000,
+        "pairedSavingPct": [
+          78.59639688088195,
+          74.60650577124869,
+          79.83870967741936
+        ]
+      },
+      "otherCPU": {
+        "unit": "CPU us",
+        "totalA": 10500000,
+        "totalB": 10909000,
+        "medianA": 3453000,
+        "medianB": 3657000,
+        "savingPct": -3.895238095238095,
+        "deltaBminusA": 409000,
+        "pairedSavingPct": [
+          3.420689655172414,
+          -9.614260666277032,
+          -5.907906168549088
+        ]
+      }
+    },
+    "note": "Positive savingPct means less CPU. PoolProductionCPU includes B materialization and A fused physical construction; no performance promotion threshold."
+  },
+  "policy": {
+    "schemaVersion": 1,
+    "experimentVersion": "h4-4057401-cost-pilot-v1",
+    "order": "4057401",
+    "file": "4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+    "executionBinding": "physical-xml-historical-validity-v1",
+    "generatorBudget": {
+      "maxExpansions": 20000,
+      "maxAndCombinations": 50000,
+      "maxFrontierEntries": 10000,
+      "maxMaterializations": 500
+    },
+    "maxVariantsPerUsageVector": 8,
+    "kernelBudgets": "KERNEL_V1_FORMAL_CERTIFICATION_POLICY.json:deterministicBudgets.values",
+    "watchdogMs": 600000,
+    "maxOldSpaceSizeMiB": 4096,
+    "repetitions": 3,
+    "orderByRepetition": [
+      "AB",
+      "BA",
+      "AB"
+    ],
+    "controls": [
+      "A-direct",
+      "B-native"
+    ],
+    "warmup": "none; fresh cold Node process for every control and measured job",
+    "concurrency": 1,
+    "q1": "all candidate and final physical/demand/trace/XML checks must pass",
+    "q2": "B boards <= A boards; at equal boards official compararCalidad(B,A) >= 0",
+    "q3": "descriptive paired CPU only; positive percentage denotes savings; no promotion threshold in this cost pilot",
+    "stop": "after this order's controls and three pairs, including failures; never tune budgets or expand the cohort"
+  },
+  "inputBinding": {
+    "path": "D:\\proyectos asistidos\\intento-nuevo\\test-results\\kernel-v1-corpora\\resto\\4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+    "file": "4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+    "sha256": "5afad463754e6e7d4866a4f45652adfdc4aba012e0ae3cc08bd5228786b8c7f9",
+    "format": "order",
+    "canonicalHash": "27b23a73c9dadc4fc9afc412a49241b4bda92ad99f314ea47a28b3558bbbb2b5",
+    "inputHash": "3cf2f1dce4e367428af6a6037fe363a26ee7e3b48f121aa3e970ed447e7826f1",
+    "input": {
+      "strategy": "v10",
+      "board": {
+        "width": 2742,
+        "height": 1822,
+        "thickness": 3
+      },
+      "material": {
+        "code": "MDF PINTADO EUTX BLANCO 1C 3",
+        "description": "MDF PINTADO EUTX BLANCO 1C 3",
+        "hasGrain": false,
+        "thickness": 3
+      },
+      "kerf": 4.5,
+      "trim": {
+        "x": 0,
+        "y": 0
+      },
+      "constraints": {
+        "profile": "balanced",
+        "stages": 4,
+        "minRemnant": 250,
+        "minCommercialRemnantLongSide": 400
+      },
+      "pieces": [
+        {
+          "reference": "1",
+          "quantity": 2,
+          "width": 1800,
+          "height": 1050,
+          "grain": false,
+          "canRotate": true,
+          "edges": {
+            "left": false,
+            "right": false,
+            "top": false,
+            "bottom": false
+          }
+        },
+        {
+          "reference": "3",
+          "quantity": 2,
+          "width": 2000,
+          "height": 1100,
+          "grain": false,
+          "canRotate": true,
+          "edges": {
+            "left": false,
+            "right": false,
+            "top": false,
+            "bottom": false
+          }
+        },
+        {
+          "reference": "2",
+          "quantity": 1,
+          "width": 1900,
+          "height": 1500,
+          "grain": false,
+          "canRotate": true,
+          "edges": {
+            "left": false,
+            "right": false,
+            "top": false,
+            "bottom": false
+          }
+        },
+        {
+          "reference": "4",
+          "quantity": 14,
+          "width": 744,
+          "height": 450,
+          "grain": false,
+          "canRotate": true,
+          "edges": {
+            "left": false,
+            "right": false,
+            "top": false,
+            "bottom": false
+          }
+        }
+      ]
+    },
+    "binding": "physical-xml-historical-validity-v1",
+    "parserStats": {
+      "root": "Order",
+      "format": "order",
+      "boardFormats": [
+        "2742x1822x3|MDF PINTADO EUTX BLANCO 1C 3|kerf=4.5"
+      ],
+      "materials": [
+        "MDF PINTADO EUTX BLANCO 1C 3"
+      ],
+      "kerfSource": "default",
+      "pieceTypes": 4,
+      "pieceQuantity": 19,
+      "warnings": 3,
+      "pieceOrientation": "xml-declared"
+    },
+    "parserWarnings": [
+      "4057401__GABRIEL_TUMBACO CRUZ4057401.xml: Order XML has no saw/kerf; using default 4.5",
+      "4057401__GABRIEL_TUMBACO CRUZ4057401.xml: Order XML has no saw/kerf; using default 4.5",
+      "4057401__GABRIEL_TUMBACO CRUZ4057401.xml: Order XML has no saw/kerf; using default 4.5"
+    ],
+    "preflightCacheSha256": "d34317e7e587620d05b292b81fcaf1cefaadc921b2c5026c048f246f50e3be39",
+    "referencePanels": 3
+  },
+  "pairs": [
+    {
+      "repeat": 1,
+      "order": "AB",
+      "q1": "FAIL",
+      "q2": "FAIL",
+      "observedQualityRegression": true,
+      "A": {
+        "boards": 4,
+        "remnant": {
+          "mayor": 721146,
+          "segundo": 721146,
+          "fragmentos": 10,
+          "total": 3577592,
+          "areas": [
+            721146,
+            721146,
+            603250,
+            311300,
+            311300,
+            223425,
+            223425,
+            158175,
+            158175,
+            146250
+          ]
+        },
+        "measurement": {
+          "units": "process CPU microseconds",
+          "patternGenCPU": 3719000,
+          "materializationCPU": 0,
+          "masterCPU": 0,
+          "totalCPU": 7344000,
+          "otherCPU": 3625000,
+          "poolProductionCPU": 3719000,
+          "b0MaterializationCPU": 0,
+          "monotypeCPU": 15000,
+          "phaseCPUus": {
+            "exclusive": {
+              "generation": 3704000,
+              "monotype": 15000,
+              "master": 0,
+              "materialization": 0,
+              "pipelineOther": 3625000
+            },
+            "inclusive": {
+              "generation": 3704000,
+              "monotype": 15000,
+              "master": 0,
+              "materialization": 0,
+              "pipelineOther": 7344000
+            },
+            "calls": {
+              "generation": 1,
+              "monotype": 1,
+              "master": 2,
+              "materialization": 1,
+              "pipelineOther": 1
+            }
+          },
+          "wallMs": 5687.2645,
+          "peakMemory": {
+            "value": 154912,
+            "unit": "KiB",
+            "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+          },
+          "heapAtOptimizerReturn": {
+            "rss": 156762112,
+            "heapTotal": 104112128,
+            "heapUsed": 74072296,
+            "external": 2123363,
+            "arrayBuffers": 24827
+          },
+          "totalScope": "optimizeProject including its validation, fallback and coarse observers; excludes module load and deferred harness validation",
+          "generationScope": "A includes fused geometry construction and monotype; B excludes separately observed materializePattern",
+          "masterMaterializationScope": "materializar after coverage selection; included in materializationCPU",
+          "coldProcess": true,
+          "detailedKernelTelemetry": false
+        }
+      },
+      "B": {
+        "boards": 5,
+        "remnant": {
+          "mayor": 3074625,
+          "segundo": 1967385,
+          "fragmentos": 9,
+          "total": 8845085,
+          "areas": [
+            3074625,
+            1967385,
+            1343725,
+            811250,
+            603250,
+            526000,
+            226350,
+            146250,
+            146250
+          ]
+        },
+        "measurement": {
+          "units": "process CPU microseconds",
+          "patternGenCPU": 796000,
+          "materializationCPU": 0,
+          "masterCPU": 0,
+          "totalCPU": 4297000,
+          "otherCPU": 3501000,
+          "poolProductionCPU": 796000,
+          "b0MaterializationCPU": 0,
+          "monotypeCPU": 0,
+          "phaseCPUus": {
+            "exclusive": {
+              "generation": 796000,
+              "master": 0,
+              "pipelineOther": 3501000
+            },
+            "inclusive": {
+              "generation": 796000,
+              "master": 0,
+              "pipelineOther": 4297000
+            },
+            "calls": {
+              "generation": 1,
+              "master": 1,
+              "pipelineOther": 1
+            }
+          },
+          "wallMs": 3010.1766,
+          "peakMemory": {
+            "value": 146784,
+            "unit": "KiB",
+            "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+          },
+          "heapAtOptimizerReturn": {
+            "rss": 141721600,
+            "heapTotal": 90218496,
+            "heapUsed": 68140160,
+            "external": 2123363,
+            "arrayBuffers": 24827
+          },
+          "totalScope": "optimizeProject including its validation, fallback and coarse observers; excludes module load and deferred harness validation",
+          "generationScope": "A includes fused geometry construction and monotype; B excludes separately observed materializePattern",
+          "masterMaterializationScope": "materializar after coverage selection; included in materializationCPU",
+          "coldProcess": true,
+          "detailedKernelTelemetry": false
+        },
+        "generator": [
+          {
+            "status": "WORK_LIMIT",
+            "searchRestricted": true,
+            "restrictionReasons": [
+              "piece-multiples-v1",
+              "maxVariantsPerUsageVector"
+            ],
+            "failures": [],
+            "telemetry": {
+              "cacheHits": 2051,
+              "coordinateStreams": 7616,
+              "coordinateProposals": 1664,
+              "duplicateCoordinates": 51,
+              "andPairsConsidered": 14448,
+              "andPairsAccepted": 14448,
+              "limits": {
+                "maxExpansions": 20000,
+                "maxAndCombinations": 50000,
+                "maxFrontierEntries": 10000,
+                "maxMaterializations": 500
+              },
+              "used": {
+                "expansions": 20000,
+                "andCombinations": 14448,
+                "materializations": 0
+              },
+              "hits": {
+                "maxExpansions": 1,
+                "maxAndCombinations": 0,
+                "maxFrontierEntries": 0,
+                "maxMaterializations": 0
+              },
+              "frontierLive": 3137,
+              "frontierPeak": 3137,
+              "frontierInserted": 4792,
+              "replaced": 1655,
+              "searchStopReason": "maxExpansions",
+              "materializationStopped": false,
+              "geometryStates": 1016,
+              "demandStates": 1097,
+              "duplicateUsageVectors": 14371,
+              "frontierPruned": {
+                "duplicate": 43,
+                "heuristic": 12288,
+                "dominated": 0
+              },
+              "retainedTreeNodes": 3137,
+              "retainedRootTreeNodes": 1,
+              "cachedCompleteStates": 1001,
+              "incompleteStates": 15,
+              "materializations": 0,
+              "invalid": 0,
+              "searchComplete": false,
+              "rootVisits": [
+                {
+                  "axis": "x",
+                  "status": "WORK_LIMIT"
+                },
+                {
+                  "axis": "y",
+                  "status": "NOT_STARTED"
+                }
+              ]
+            },
+            "provenance": {
+              "contextHash": "3a084d9e8a90cafe918c479b47cbf6517b93528870bd71848148d1689017d39c",
+              "generatorVersion": "b0-and-or-h2-v1",
+              "materializerVersion": "b0-physical-pattern-v1",
+              "budgetHash": "e167635f6f0bb6a70aecebd355298cce1a8f49284cc9ffb43f5efe29592743bd",
+              "policyHash": "90647034b521709098be1dacced4fb321bdca3e1d2205026078eb4a867bb1352"
+            },
+            "rootHash": "f87d9ed820d7416c018447a39043721c3d0e6dff70a7e638d8b4cc80b54f5785",
+            "patternPoolHash": "8158e2e07adb5896d48f2145223f8b1e4f5c45cfd89dd594a5351f4092ec3b0a",
+            "orderedPoolHash": "0dd19f0877c728ef04f8ec1d326a90973d11bbb4ca9476dbd55d046398b2a883"
+          }
+        ]
+      }
+    },
+    {
+      "repeat": 2,
+      "order": "BA",
+      "q1": "FAIL",
+      "q2": "FAIL",
+      "observedQualityRegression": true,
+      "A": {
+        "boards": 4,
+        "remnant": {
+          "mayor": 721146,
+          "segundo": 721146,
+          "fragmentos": 10,
+          "total": 3577592,
+          "areas": [
+            721146,
+            721146,
+            603250,
+            311300,
+            311300,
+            223425,
+            223425,
+            158175,
+            158175,
+            146250
+          ]
+        },
+        "measurement": {
+          "units": "process CPU microseconds",
+          "patternGenCPU": 3812000,
+          "materializationCPU": 0,
+          "masterCPU": 0,
+          "totalCPU": 7234000,
+          "otherCPU": 3422000,
+          "poolProductionCPU": 3812000,
+          "b0MaterializationCPU": 0,
+          "monotypeCPU": 31000,
+          "phaseCPUus": {
+            "exclusive": {
+              "generation": 3781000,
+              "monotype": 31000,
+              "master": 0,
+              "materialization": 0,
+              "pipelineOther": 3422000
+            },
+            "inclusive": {
+              "generation": 3781000,
+              "monotype": 31000,
+              "master": 0,
+              "materialization": 0,
+              "pipelineOther": 7234000
+            },
+            "calls": {
+              "generation": 1,
+              "monotype": 1,
+              "master": 2,
+              "materialization": 1,
+              "pipelineOther": 1
+            }
+          },
+          "wallMs": 5705.1336,
+          "peakMemory": {
+            "value": 150160,
+            "unit": "KiB",
+            "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+          },
+          "heapAtOptimizerReturn": {
+            "rss": 153772032,
+            "heapTotal": 118792192,
+            "heapUsed": 88395808,
+            "external": 2123363,
+            "arrayBuffers": 24827
+          },
+          "totalScope": "optimizeProject including its validation, fallback and coarse observers; excludes module load and deferred harness validation",
+          "generationScope": "A includes fused geometry construction and monotype; B excludes separately observed materializePattern",
+          "masterMaterializationScope": "materializar after coverage selection; included in materializationCPU",
+          "coldProcess": true,
+          "detailedKernelTelemetry": false
+        }
+      },
+      "B": {
+        "boards": 5,
+        "remnant": {
+          "mayor": 3074625,
+          "segundo": 1967385,
+          "fragmentos": 9,
+          "total": 8845085,
+          "areas": [
+            3074625,
+            1967385,
+            1343725,
+            811250,
+            603250,
+            526000,
+            226350,
+            146250,
+            146250
+          ]
+        },
+        "measurement": {
+          "units": "process CPU microseconds",
+          "patternGenCPU": 968000,
+          "materializationCPU": 0,
+          "masterCPU": 0,
+          "totalCPU": 4719000,
+          "otherCPU": 3751000,
+          "poolProductionCPU": 968000,
+          "b0MaterializationCPU": 0,
+          "monotypeCPU": 0,
+          "phaseCPUus": {
+            "exclusive": {
+              "generation": 968000,
+              "master": 0,
+              "pipelineOther": 3751000
+            },
+            "inclusive": {
+              "generation": 968000,
+              "master": 0,
+              "pipelineOther": 4719000
+            },
+            "calls": {
+              "generation": 1,
+              "master": 1,
+              "pipelineOther": 1
+            }
+          },
+          "wallMs": 3159.7939,
+          "peakMemory": {
+            "value": 146844,
+            "unit": "KiB",
+            "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+          },
+          "heapAtOptimizerReturn": {
+            "rss": 140161024,
+            "heapTotal": 97034240,
+            "heapUsed": 71893496,
+            "external": 2123363,
+            "arrayBuffers": 24827
+          },
+          "totalScope": "optimizeProject including its validation, fallback and coarse observers; excludes module load and deferred harness validation",
+          "generationScope": "A includes fused geometry construction and monotype; B excludes separately observed materializePattern",
+          "masterMaterializationScope": "materializar after coverage selection; included in materializationCPU",
+          "coldProcess": true,
+          "detailedKernelTelemetry": false
+        },
+        "generator": [
+          {
+            "status": "WORK_LIMIT",
+            "searchRestricted": true,
+            "restrictionReasons": [
+              "piece-multiples-v1",
+              "maxVariantsPerUsageVector"
+            ],
+            "failures": [],
+            "telemetry": {
+              "cacheHits": 2051,
+              "coordinateStreams": 7616,
+              "coordinateProposals": 1664,
+              "duplicateCoordinates": 51,
+              "andPairsConsidered": 14448,
+              "andPairsAccepted": 14448,
+              "limits": {
+                "maxExpansions": 20000,
+                "maxAndCombinations": 50000,
+                "maxFrontierEntries": 10000,
+                "maxMaterializations": 500
+              },
+              "used": {
+                "expansions": 20000,
+                "andCombinations": 14448,
+                "materializations": 0
+              },
+              "hits": {
+                "maxExpansions": 1,
+                "maxAndCombinations": 0,
+                "maxFrontierEntries": 0,
+                "maxMaterializations": 0
+              },
+              "frontierLive": 3137,
+              "frontierPeak": 3137,
+              "frontierInserted": 4792,
+              "replaced": 1655,
+              "searchStopReason": "maxExpansions",
+              "materializationStopped": false,
+              "geometryStates": 1016,
+              "demandStates": 1097,
+              "duplicateUsageVectors": 14371,
+              "frontierPruned": {
+                "duplicate": 43,
+                "heuristic": 12288,
+                "dominated": 0
+              },
+              "retainedTreeNodes": 3137,
+              "retainedRootTreeNodes": 1,
+              "cachedCompleteStates": 1001,
+              "incompleteStates": 15,
+              "materializations": 0,
+              "invalid": 0,
+              "searchComplete": false,
+              "rootVisits": [
+                {
+                  "axis": "x",
+                  "status": "WORK_LIMIT"
+                },
+                {
+                  "axis": "y",
+                  "status": "NOT_STARTED"
+                }
+              ]
+            },
+            "provenance": {
+              "contextHash": "3a084d9e8a90cafe918c479b47cbf6517b93528870bd71848148d1689017d39c",
+              "generatorVersion": "b0-and-or-h2-v1",
+              "materializerVersion": "b0-physical-pattern-v1",
+              "budgetHash": "e167635f6f0bb6a70aecebd355298cce1a8f49284cc9ffb43f5efe29592743bd",
+              "policyHash": "90647034b521709098be1dacced4fb321bdca3e1d2205026078eb4a867bb1352"
+            },
+            "rootHash": "f87d9ed820d7416c018447a39043721c3d0e6dff70a7e638d8b4cc80b54f5785",
+            "patternPoolHash": "8158e2e07adb5896d48f2145223f8b1e4f5c45cfd89dd594a5351f4092ec3b0a",
+            "orderedPoolHash": "0dd19f0877c728ef04f8ec1d326a90973d11bbb4ca9476dbd55d046398b2a883"
+          }
+        ]
+      }
+    },
+    {
+      "repeat": 3,
+      "order": "AB",
+      "q1": "FAIL",
+      "q2": "FAIL",
+      "observedQualityRegression": true,
+      "A": {
+        "boards": 4,
+        "remnant": {
+          "mayor": 721146,
+          "segundo": 721146,
+          "fragmentos": 10,
+          "total": 3577592,
+          "areas": [
+            721146,
+            721146,
+            603250,
+            311300,
+            311300,
+            223425,
+            223425,
+            158175,
+            158175,
+            146250
+          ]
+        },
+        "measurement": {
+          "units": "process CPU microseconds",
+          "patternGenCPU": 3720000,
+          "materializationCPU": 0,
+          "masterCPU": 0,
+          "totalCPU": 7173000,
+          "otherCPU": 3453000,
+          "poolProductionCPU": 3720000,
+          "b0MaterializationCPU": 0,
+          "monotypeCPU": 31000,
+          "phaseCPUus": {
+            "exclusive": {
+              "generation": 3689000,
+              "monotype": 31000,
+              "master": 0,
+              "materialization": 0,
+              "pipelineOther": 3453000
+            },
+            "inclusive": {
+              "generation": 3689000,
+              "monotype": 31000,
+              "master": 0,
+              "materialization": 0,
+              "pipelineOther": 7173000
+            },
+            "calls": {
+              "generation": 1,
+              "monotype": 1,
+              "master": 2,
+              "materialization": 1,
+              "pipelineOther": 1
+            }
+          },
+          "wallMs": 5904.5106,
+          "peakMemory": {
+            "value": 149184,
+            "unit": "KiB",
+            "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+          },
+          "heapAtOptimizerReturn": {
+            "rss": 152768512,
+            "heapTotal": 118005760,
+            "heapUsed": 87618408,
+            "external": 2123363,
+            "arrayBuffers": 24827
+          },
+          "totalScope": "optimizeProject including its validation, fallback and coarse observers; excludes module load and deferred harness validation",
+          "generationScope": "A includes fused geometry construction and monotype; B excludes separately observed materializePattern",
+          "masterMaterializationScope": "materializar after coverage selection; included in materializationCPU",
+          "coldProcess": true,
+          "detailedKernelTelemetry": false
+        }
+      },
+      "B": {
+        "boards": 5,
+        "remnant": {
+          "mayor": 3074625,
+          "segundo": 1967385,
+          "fragmentos": 9,
+          "total": 8845085,
+          "areas": [
+            3074625,
+            1967385,
+            1343725,
+            811250,
+            603250,
+            526000,
+            226350,
+            146250,
+            146250
+          ]
+        },
+        "measurement": {
+          "units": "process CPU microseconds",
+          "patternGenCPU": 750000,
+          "materializationCPU": 0,
+          "masterCPU": 0,
+          "totalCPU": 4407000,
+          "otherCPU": 3657000,
+          "poolProductionCPU": 750000,
+          "b0MaterializationCPU": 0,
+          "monotypeCPU": 0,
+          "phaseCPUus": {
+            "exclusive": {
+              "generation": 750000,
+              "master": 0,
+              "pipelineOther": 3657000
+            },
+            "inclusive": {
+              "generation": 750000,
+              "master": 0,
+              "pipelineOther": 4407000
+            },
+            "calls": {
+              "generation": 1,
+              "master": 1,
+              "pipelineOther": 1
+            }
+          },
+          "wallMs": 3136.7899,
+          "peakMemory": {
+            "value": 138220,
+            "unit": "KiB",
+            "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+          },
+          "heapAtOptimizerReturn": {
+            "rss": 132173824,
+            "heapTotal": 85499904,
+            "heapUsed": 64853048,
+            "external": 2123363,
+            "arrayBuffers": 24827
+          },
+          "totalScope": "optimizeProject including its validation, fallback and coarse observers; excludes module load and deferred harness validation",
+          "generationScope": "A includes fused geometry construction and monotype; B excludes separately observed materializePattern",
+          "masterMaterializationScope": "materializar after coverage selection; included in materializationCPU",
+          "coldProcess": true,
+          "detailedKernelTelemetry": false
+        },
+        "generator": [
+          {
+            "status": "WORK_LIMIT",
+            "searchRestricted": true,
+            "restrictionReasons": [
+              "piece-multiples-v1",
+              "maxVariantsPerUsageVector"
+            ],
+            "failures": [],
+            "telemetry": {
+              "cacheHits": 2051,
+              "coordinateStreams": 7616,
+              "coordinateProposals": 1664,
+              "duplicateCoordinates": 51,
+              "andPairsConsidered": 14448,
+              "andPairsAccepted": 14448,
+              "limits": {
+                "maxExpansions": 20000,
+                "maxAndCombinations": 50000,
+                "maxFrontierEntries": 10000,
+                "maxMaterializations": 500
+              },
+              "used": {
+                "expansions": 20000,
+                "andCombinations": 14448,
+                "materializations": 0
+              },
+              "hits": {
+                "maxExpansions": 1,
+                "maxAndCombinations": 0,
+                "maxFrontierEntries": 0,
+                "maxMaterializations": 0
+              },
+              "frontierLive": 3137,
+              "frontierPeak": 3137,
+              "frontierInserted": 4792,
+              "replaced": 1655,
+              "searchStopReason": "maxExpansions",
+              "materializationStopped": false,
+              "geometryStates": 1016,
+              "demandStates": 1097,
+              "duplicateUsageVectors": 14371,
+              "frontierPruned": {
+                "duplicate": 43,
+                "heuristic": 12288,
+                "dominated": 0
+              },
+              "retainedTreeNodes": 3137,
+              "retainedRootTreeNodes": 1,
+              "cachedCompleteStates": 1001,
+              "incompleteStates": 15,
+              "materializations": 0,
+              "invalid": 0,
+              "searchComplete": false,
+              "rootVisits": [
+                {
+                  "axis": "x",
+                  "status": "WORK_LIMIT"
+                },
+                {
+                  "axis": "y",
+                  "status": "NOT_STARTED"
+                }
+              ]
+            },
+            "provenance": {
+              "contextHash": "3a084d9e8a90cafe918c479b47cbf6517b93528870bd71848148d1689017d39c",
+              "generatorVersion": "b0-and-or-h2-v1",
+              "materializerVersion": "b0-physical-pattern-v1",
+              "budgetHash": "e167635f6f0bb6a70aecebd355298cce1a8f49284cc9ffb43f5efe29592743bd",
+              "policyHash": "90647034b521709098be1dacced4fb321bdca3e1d2205026078eb4a867bb1352"
+            },
+            "rootHash": "f87d9ed820d7416c018447a39043721c3d0e6dff70a7e638d8b4cc80b54f5785",
+            "patternPoolHash": "8158e2e07adb5896d48f2145223f8b1e4f5c45cfd89dd594a5351f4092ec3b0a",
+            "orderedPoolHash": "0dd19f0877c728ef04f8ec1d326a90973d11bbb4ca9476dbd55d046398b2a883"
+          }
+        ]
+      }
+    }
+  ],
+  "statuses": [
+    {
+      "jobId": "control-a-direct",
+      "executionStatus": "COMPLETE",
+      "q1": "FAIL",
+      "generator": [],
+      "failures": [
+        {
+          "code": "INVALID_FINAL",
+          "detail": {
+            "validation": {
+              "ok": true,
+              "industrial": {
+                "ok": true,
+                "placas": 4,
+                "piezasEsperadas": 19,
+                "piezasColocadas": 19,
+                "idsUnicos": 19,
+                "duplicados": [],
+                "coberturaCompleta": true,
+                "geometriaValida": true,
+                "secuenciaCompleta": true,
+                "cortesTerminales": 0,
+                "detallePlacas": [
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 4,
+                    "piezas": 4,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  }
+                ]
+              },
+              "independentSlices": {
+                "ok": true,
+                "errores": []
+              }
+            },
+            "xmlDemandOk": false,
+            "tracesOk": true,
+            "xmlPhysical": {
+              "ok": true,
+              "panels": 4,
+              "placements": 19
+            },
+            "exportUnchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "jobId": "control-b-native",
+      "executionStatus": "COMPLETE",
+      "q1": "PASS",
+      "generator": [
+        {
+          "status": "WORK_LIMIT",
+          "restrictions": [
+            "piece-multiples-v1",
+            "maxVariantsPerUsageVector"
+          ],
+          "telemetry": {
+            "cacheHits": 2051,
+            "coordinateStreams": 7616,
+            "coordinateProposals": 1664,
+            "duplicateCoordinates": 51,
+            "andPairsConsidered": 14448,
+            "andPairsAccepted": 14448,
+            "limits": {
+              "maxExpansions": 20000,
+              "maxAndCombinations": 50000,
+              "maxFrontierEntries": 10000,
+              "maxMaterializations": 500
+            },
+            "used": {
+              "expansions": 20000,
+              "andCombinations": 14448,
+              "materializations": 0
+            },
+            "hits": {
+              "maxExpansions": 1,
+              "maxAndCombinations": 0,
+              "maxFrontierEntries": 0,
+              "maxMaterializations": 0
+            },
+            "frontierLive": 3137,
+            "frontierPeak": 3137,
+            "frontierInserted": 4792,
+            "replaced": 1655,
+            "searchStopReason": "maxExpansions",
+            "materializationStopped": false,
+            "geometryStates": 1016,
+            "demandStates": 1097,
+            "duplicateUsageVectors": 14371,
+            "frontierPruned": {
+              "duplicate": 43,
+              "heuristic": 12288,
+              "dominated": 0
+            },
+            "retainedTreeNodes": 3137,
+            "retainedRootTreeNodes": 1,
+            "cachedCompleteStates": 1001,
+            "incompleteStates": 15,
+            "materializations": 0,
+            "invalid": 0,
+            "searchComplete": false,
+            "rootVisits": [
+              {
+                "axis": "x",
+                "status": "WORK_LIMIT"
+              },
+              {
+                "axis": "y",
+                "status": "NOT_STARTED"
+              }
+            ]
+          }
+        }
+      ],
+      "failures": []
+    },
+    {
+      "jobId": "a-1",
+      "executionStatus": "COMPLETE",
+      "q1": "FAIL",
+      "generator": [],
+      "failures": [
+        {
+          "code": "INVALID_FINAL",
+          "detail": {
+            "validation": {
+              "ok": true,
+              "industrial": {
+                "ok": true,
+                "placas": 4,
+                "piezasEsperadas": 19,
+                "piezasColocadas": 19,
+                "idsUnicos": 19,
+                "duplicados": [],
+                "coberturaCompleta": true,
+                "geometriaValida": true,
+                "secuenciaCompleta": true,
+                "cortesTerminales": 0,
+                "detallePlacas": [
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 4,
+                    "piezas": 4,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  }
+                ]
+              },
+              "independentSlices": {
+                "ok": true,
+                "errores": []
+              }
+            },
+            "xmlDemandOk": false,
+            "tracesOk": true,
+            "xmlPhysical": {
+              "ok": true,
+              "panels": 4,
+              "placements": 19
+            },
+            "exportUnchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "jobId": "b-1",
+      "executionStatus": "COMPLETE",
+      "q1": "PASS",
+      "generator": [
+        {
+          "status": "WORK_LIMIT",
+          "restrictions": [
+            "piece-multiples-v1",
+            "maxVariantsPerUsageVector"
+          ],
+          "telemetry": {
+            "cacheHits": 2051,
+            "coordinateStreams": 7616,
+            "coordinateProposals": 1664,
+            "duplicateCoordinates": 51,
+            "andPairsConsidered": 14448,
+            "andPairsAccepted": 14448,
+            "limits": {
+              "maxExpansions": 20000,
+              "maxAndCombinations": 50000,
+              "maxFrontierEntries": 10000,
+              "maxMaterializations": 500
+            },
+            "used": {
+              "expansions": 20000,
+              "andCombinations": 14448,
+              "materializations": 0
+            },
+            "hits": {
+              "maxExpansions": 1,
+              "maxAndCombinations": 0,
+              "maxFrontierEntries": 0,
+              "maxMaterializations": 0
+            },
+            "frontierLive": 3137,
+            "frontierPeak": 3137,
+            "frontierInserted": 4792,
+            "replaced": 1655,
+            "searchStopReason": "maxExpansions",
+            "materializationStopped": false,
+            "geometryStates": 1016,
+            "demandStates": 1097,
+            "duplicateUsageVectors": 14371,
+            "frontierPruned": {
+              "duplicate": 43,
+              "heuristic": 12288,
+              "dominated": 0
+            },
+            "retainedTreeNodes": 3137,
+            "retainedRootTreeNodes": 1,
+            "cachedCompleteStates": 1001,
+            "incompleteStates": 15,
+            "materializations": 0,
+            "invalid": 0,
+            "searchComplete": false,
+            "rootVisits": [
+              {
+                "axis": "x",
+                "status": "WORK_LIMIT"
+              },
+              {
+                "axis": "y",
+                "status": "NOT_STARTED"
+              }
+            ]
+          }
+        }
+      ],
+      "failures": []
+    },
+    {
+      "jobId": "b-2",
+      "executionStatus": "COMPLETE",
+      "q1": "PASS",
+      "generator": [
+        {
+          "status": "WORK_LIMIT",
+          "restrictions": [
+            "piece-multiples-v1",
+            "maxVariantsPerUsageVector"
+          ],
+          "telemetry": {
+            "cacheHits": 2051,
+            "coordinateStreams": 7616,
+            "coordinateProposals": 1664,
+            "duplicateCoordinates": 51,
+            "andPairsConsidered": 14448,
+            "andPairsAccepted": 14448,
+            "limits": {
+              "maxExpansions": 20000,
+              "maxAndCombinations": 50000,
+              "maxFrontierEntries": 10000,
+              "maxMaterializations": 500
+            },
+            "used": {
+              "expansions": 20000,
+              "andCombinations": 14448,
+              "materializations": 0
+            },
+            "hits": {
+              "maxExpansions": 1,
+              "maxAndCombinations": 0,
+              "maxFrontierEntries": 0,
+              "maxMaterializations": 0
+            },
+            "frontierLive": 3137,
+            "frontierPeak": 3137,
+            "frontierInserted": 4792,
+            "replaced": 1655,
+            "searchStopReason": "maxExpansions",
+            "materializationStopped": false,
+            "geometryStates": 1016,
+            "demandStates": 1097,
+            "duplicateUsageVectors": 14371,
+            "frontierPruned": {
+              "duplicate": 43,
+              "heuristic": 12288,
+              "dominated": 0
+            },
+            "retainedTreeNodes": 3137,
+            "retainedRootTreeNodes": 1,
+            "cachedCompleteStates": 1001,
+            "incompleteStates": 15,
+            "materializations": 0,
+            "invalid": 0,
+            "searchComplete": false,
+            "rootVisits": [
+              {
+                "axis": "x",
+                "status": "WORK_LIMIT"
+              },
+              {
+                "axis": "y",
+                "status": "NOT_STARTED"
+              }
+            ]
+          }
+        }
+      ],
+      "failures": []
+    },
+    {
+      "jobId": "a-2",
+      "executionStatus": "COMPLETE",
+      "q1": "FAIL",
+      "generator": [],
+      "failures": [
+        {
+          "code": "INVALID_FINAL",
+          "detail": {
+            "validation": {
+              "ok": true,
+              "industrial": {
+                "ok": true,
+                "placas": 4,
+                "piezasEsperadas": 19,
+                "piezasColocadas": 19,
+                "idsUnicos": 19,
+                "duplicados": [],
+                "coberturaCompleta": true,
+                "geometriaValida": true,
+                "secuenciaCompleta": true,
+                "cortesTerminales": 0,
+                "detallePlacas": [
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 4,
+                    "piezas": 4,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  }
+                ]
+              },
+              "independentSlices": {
+                "ok": true,
+                "errores": []
+              }
+            },
+            "xmlDemandOk": false,
+            "tracesOk": true,
+            "xmlPhysical": {
+              "ok": true,
+              "panels": 4,
+              "placements": 19
+            },
+            "exportUnchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "jobId": "a-3",
+      "executionStatus": "COMPLETE",
+      "q1": "FAIL",
+      "generator": [],
+      "failures": [
+        {
+          "code": "INVALID_FINAL",
+          "detail": {
+            "validation": {
+              "ok": true,
+              "industrial": {
+                "ok": true,
+                "placas": 4,
+                "piezasEsperadas": 19,
+                "piezasColocadas": 19,
+                "idsUnicos": 19,
+                "duplicados": [],
+                "coberturaCompleta": true,
+                "geometriaValida": true,
+                "secuenciaCompleta": true,
+                "cortesTerminales": 0,
+                "detallePlacas": [
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 4,
+                    "piezas": 4,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  },
+                  {
+                    "geometriaValida": true,
+                    "errores": [],
+                    "secuenciaValida": true,
+                    "secuenciaCompleta": true,
+                    "liberadas": 5,
+                    "piezas": 5,
+                    "corteFallido": -1,
+                    "terminales": 0
+                  }
+                ]
+              },
+              "independentSlices": {
+                "ok": true,
+                "errores": []
+              }
+            },
+            "xmlDemandOk": false,
+            "tracesOk": true,
+            "xmlPhysical": {
+              "ok": true,
+              "panels": 4,
+              "placements": 19
+            },
+            "exportUnchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "jobId": "b-3",
+      "executionStatus": "COMPLETE",
+      "q1": "PASS",
+      "generator": [
+        {
+          "status": "WORK_LIMIT",
+          "restrictions": [
+            "piece-multiples-v1",
+            "maxVariantsPerUsageVector"
+          ],
+          "telemetry": {
+            "cacheHits": 2051,
+            "coordinateStreams": 7616,
+            "coordinateProposals": 1664,
+            "duplicateCoordinates": 51,
+            "andPairsConsidered": 14448,
+            "andPairsAccepted": 14448,
+            "limits": {
+              "maxExpansions": 20000,
+              "maxAndCombinations": 50000,
+              "maxFrontierEntries": 10000,
+              "maxMaterializations": 500
+            },
+            "used": {
+              "expansions": 20000,
+              "andCombinations": 14448,
+              "materializations": 0
+            },
+            "hits": {
+              "maxExpansions": 1,
+              "maxAndCombinations": 0,
+              "maxFrontierEntries": 0,
+              "maxMaterializations": 0
+            },
+            "frontierLive": 3137,
+            "frontierPeak": 3137,
+            "frontierInserted": 4792,
+            "replaced": 1655,
+            "searchStopReason": "maxExpansions",
+            "materializationStopped": false,
+            "geometryStates": 1016,
+            "demandStates": 1097,
+            "duplicateUsageVectors": 14371,
+            "frontierPruned": {
+              "duplicate": 43,
+              "heuristic": 12288,
+              "dominated": 0
+            },
+            "retainedTreeNodes": 3137,
+            "retainedRootTreeNodes": 1,
+            "cachedCompleteStates": 1001,
+            "incompleteStates": 15,
+            "materializations": 0,
+            "invalid": 0,
+            "searchComplete": false,
+            "rootVisits": [
+              {
+                "axis": "x",
+                "status": "WORK_LIMIT"
+              },
+              {
+                "axis": "y",
+                "status": "NOT_STARTED"
+              }
+            ]
+          }
+        }
+      ],
+      "failures": []
+    }
+  ],
+  "peakMemory": [
+    {
+      "jobId": "a-1",
+      "value": 154912,
+      "unit": "KiB",
+      "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+    },
+    {
+      "jobId": "b-1",
+      "value": 146784,
+      "unit": "KiB",
+      "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+    },
+    {
+      "jobId": "b-2",
+      "value": 146844,
+      "unit": "KiB",
+      "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+    },
+    {
+      "jobId": "a-2",
+      "value": 150160,
+      "unit": "KiB",
+      "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+    },
+    {
+      "jobId": "a-3",
+      "value": 149184,
+      "unit": "KiB",
+      "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+    },
+    {
+      "jobId": "b-3",
+      "value": 138220,
+      "unit": "KiB",
+      "scope": "process RSS high-water from process start through optimizer return, before harness validation"
+    }
+  ],
+  "stop": "No further order or budget configuration authorized in this pilot.",
+  "derivation": {
+    "inputManifestSha256": "128c8032643eaec1d91740698b1cb779ce458c755e6ec5755bfe4e976aaae1a3",
+    "originalReportSha256": "5c2914b057e2ab3be8a69a6c39f758d6295b2db6689704c4637e22a9c064ab15",
+    "recordFiles": [
+      [
+        "control-a-direct/result.json",
+        "2eec60f0bb9cd173295c63a63732871f08178ae0f225450509b616c6cbcadaa9"
+      ],
+      [
+        "control-b-native/result.json",
+        "7b58dade84923731825c5fa02fb473be87cbb92d1e3bf1c492e18d6863c5982c"
+      ],
+      [
+        "a-1/result.json",
+        "5e83232d8ac5d654e04caea98bedb7e07d16885ee5f5d0037f532ca85e2339ef"
+      ],
+      [
+        "b-1/result.json",
+        "b9c1469602598eeb966b9eaec1b7dd6c5ce1d72d53dbd1dc86f09a96b85d86c7"
+      ],
+      [
+        "b-2/result.json",
+        "e2d52b26bba7ff1a5668a4695d4c358aa2d01f55a4dd067521ea2aed64c466fd"
+      ],
+      [
+        "a-2/result.json",
+        "cc643670780eda80cee305da9dff95e78b199bdd60e4e373b31162bff7907012"
+      ],
+      [
+        "a-3/result.json",
+        "4ea501fddae299e60e977b4023f635e1c4a74a1d6102c44e6a9d24c314b5568b"
+      ],
+      [
+        "b-3/result.json",
+        "9ac3c0ba049f266ac5f2c959cac7b57266403d217abc7c1146ec0cc9930b8192"
+      ]
+    ],
+    "measuredIdentity": {
+      "kernelCommit": "4063963260abb10c8d68d0e553942899c925cc2f",
+      "kernelTreeHash": "059ff2b0ed6c13adcd9c526f63496e80a27ab7665cab760315de6ab1f7d79adb",
+      "h2LockHash": "015a8dfb1bff6a21ec192c7df8f222e51bf57c054d4fee5b21c71d5530cf47d9",
+      "generatorSourceHash": "afcfd714828627d609e40c75a0c7bfde9fbf052757a4aaea288eff79a064bb05",
+      "harnessSourceHash": "a9932907a69bbeef057aca4e527da2bee04ef2a8f860314715ba9fb901a8200f",
+      "lockfileHash": "3617e76341b3ac47e6f73065aa51bd4744e95dfc2780a53058936aba5e5eb9f8",
+      "kernelPolicyHash": "e8fbeb231aa62020bea91d02f266c5337c40a51e287d3fcb0ed6c26a7470c64e",
+      "xmlReaderSourceHash": "d24067ba000e3ee5db8798f021ca91a33e1c8c820ed27562e3afb37ea2d64d00"
+    },
+    "reportIdentity": {
+      "kernelCommit": "4063963260abb10c8d68d0e553942899c925cc2f",
+      "kernelTreeHash": "059ff2b0ed6c13adcd9c526f63496e80a27ab7665cab760315de6ab1f7d79adb",
+      "h2LockHash": "015a8dfb1bff6a21ec192c7df8f222e51bf57c054d4fee5b21c71d5530cf47d9",
+      "generatorSourceHash": "afcfd714828627d609e40c75a0c7bfde9fbf052757a4aaea288eff79a064bb05",
+      "harnessSourceHash": "6e8809e2fc81c5a4de21df2a965caad8f56089297bc800c3c96206dce363aa43",
+      "lockfileHash": "3617e76341b3ac47e6f73065aa51bd4744e95dfc2780a53058936aba5e5eb9f8",
+      "kernelPolicyHash": "e8fbeb231aa62020bea91d02f266c5337c40a51e287d3fcb0ed6c26a7470c64e",
+      "xmlReaderSourceHash": "d24067ba000e3ee5db8798f021ca91a33e1c8c820ed27562e3afb37ea2d64d00"
+    },
+    "reason": "Report-only correction: Q2 FAIL for observed 5 vs 4 boards remains visible even when independent Q1 is FAIL. No optimizer rerun or budget change."
+  }
+}

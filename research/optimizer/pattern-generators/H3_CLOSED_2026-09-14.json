@@ -1,0 +1,154 @@
+{
+    "schemaVersion":  1,
+    "status":  "H3_CLOSED",
+    "date":  "2026-09-14",
+    "scope":  "SYNTHETIC_INTEGRATION_ONLY",
+    "identity":  {
+                     "kernelCommit":  "4063963260abb10c8d68d0e553942899c925cc2f",
+                     "kernelTreeHash":  "059ff2b0ed6c13adcd9c526f63496e80a27ab7665cab760315de6ab1f7d79adb",
+                     "h2LockHash":  "015a8dfb1bff6a21ec192c7df8f222e51bf57c054d4fee5b21c71d5530cf47d9",
+                     "generatorSourceHash":  "afcfd714828627d609e40c75a0c7bfde9fbf052757a4aaea288eff79a064bb05",
+                     "harnessSourceHash":  "67ed048d424a559acd9f898e2838c5783d1ef2b10cb674cecdb6e5684bb58402",
+                     "lockfileHash":  "3617e76341b3ac47e6f73065aa51bd4744e95dfc2780a53058936aba5e5eb9f8",
+                     "kernelPolicyHash":  "e8fbeb231aa62020bea91d02f266c5337c40a51e287d3fcb0ed6c26a7470c64e",
+                     "xmlReaderSourceHash":  "d24067ba000e3ee5db8798f021ca91a33e1c8c820ed27562e3afb37ea2d64d00"
+                 },
+    "evidence":  {
+                     "h3TestsPassed":  2,
+                     "h0H1H2TestsPassed":  84,
+                     "typesPassed":  true,
+                     "childProcesses":  27,
+                     "nonControlJobs":  22,
+                     "deliberateFailures":  5
+                 },
+    "localArtifacts":  "test-results/pattern-h3-1789386679367",
+    "manifestHash":  "db4f33ee1ff8f3bfe5cfc005d2d38a57c3d4152304a8cface91e830d7abf4d99",
+    "reportFileSha256":  "f0f3d26aa8fdf40d2e2da3422732bd7dea5de092da946405e719256292084714",
+    "report":  {
+                   "status":  "PASS",
+                   "scope":  "H3_SYNTHETIC_INTEGRATION",
+                   "jobs":  27,
+                   "nonControlJobs":  22,
+                   "parity":  [
+                                  {
+                                      "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/end-to-end",
+                                      "exercised":  true,
+                                      "ok":  true
+                                  },
+                                  {
+                                      "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/generation-only",
+                                      "exercised":  true,
+                                      "ok":  true
+                                  },
+                                  {
+                                      "key":  "2f6a0bd4bad92bdab578be4f50173537305ea1fb94e85a4c0f7833724912004f/end-to-end",
+                                      "exercised":  false,
+                                      "ok":  true
+                                  }
+                              ],
+                   "repeatability":  [
+                                         {
+                                             "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/end-to-end",
+                                             "arm":  "A-direct",
+                                             "policy":  "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                                             "runs":  3,
+                                             "ok":  true
+                                         },
+                                         {
+                                             "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/end-to-end",
+                                             "arm":  "A-adapter",
+                                             "policy":  "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                                             "runs":  3,
+                                             "ok":  true
+                                         },
+                                         {
+                                             "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/end-to-end",
+                                             "arm":  "B",
+                                             "policy":  "2931d5ea9ef8d58730fafa954d26c5c23335e0a5bff14682e11af74e8fa1ba04",
+                                             "runs":  3,
+                                             "ok":  true
+                                         },
+                                         {
+                                             "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/generation-only",
+                                             "arm":  "A-direct",
+                                             "policy":  "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                                             "runs":  3,
+                                             "ok":  true
+                                         },
+                                         {
+                                             "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/generation-only",
+                                             "arm":  "A-adapter",
+                                             "policy":  "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                                             "runs":  3,
+                                             "ok":  true
+                                         },
+                                         {
+                                             "key":  "5c1cb3e21fbff94b64fbcc75ca228bfb7ef0ad2629a9674704829671be0e5927/generation-only",
+                                             "arm":  "B",
+                                             "policy":  "2931d5ea9ef8d58730fafa954d26c5c23335e0a5bff14682e11af74e8fa1ba04",
+                                             "runs":  3,
+                                             "ok":  true
+                                         }
+                                     ],
+                   "bIsolation":  true,
+                   "inactiveReported":  true,
+                   "controlsDetected":  true,
+                   "controls":  [
+                                    {
+                                        "fault":  "throw-generator",
+                                        "jobId":  "control-throw-generator",
+                                        "status":  "COMPLETE",
+                                        "q1":  "FAIL",
+                                        "codes":  [
+                                                      "GENERATOR_EXCEPTION"
+                                                  ],
+                                        "finalValid":  true
+                                    },
+                                    {
+                                        "fault":  "invalid-pattern",
+                                        "jobId":  "control-invalid-pattern",
+                                        "status":  "COMPLETE",
+                                        "q1":  "FAIL",
+                                        "codes":  [
+                                                      "INVALID_POOL",
+                                                      "INVALID_POOL"
+                                                  ],
+                                        "finalValid":  true
+                                    },
+                                    {
+                                        "fault":  "late-load",
+                                        "jobId":  "control-late-load",
+                                        "status":  "OPERATIONAL_ABORT",
+                                        "q1":  "FAIL",
+                                        "codes":  [
+                                                      "OPERATIONAL_ABORT"
+                                                  ],
+                                        "finalValid":  null
+                                    },
+                                    {
+                                        "fault":  "crash",
+                                        "jobId":  "control-crash",
+                                        "status":  "OPERATIONAL_ABORT",
+                                        "q1":  "FAIL",
+                                        "codes":  [
+                                                      "CHILD_ABORT"
+                                                  ],
+                                        "finalValid":  null
+                                    },
+                                    {
+                                        "fault":  "hang",
+                                        "jobId":  "control-hang",
+                                        "status":  "OPERATIONAL_ABORT",
+                                        "q1":  "FAIL",
+                                        "codes":  [
+                                                      "CHILD_ABORT"
+                                                  ],
+                                        "finalValid":  null
+                                    }
+                                ],
+                   "q1":  "PASS",
+                   "q2":  "NOT_EVALUATED",
+                   "q3":  "DIAGNOSTIC_ONLY"
+               },
+    "next":  "H4 bounded pilot, exclusive CPU phases and quality reporting; no scored corpus execution yet"
+}
