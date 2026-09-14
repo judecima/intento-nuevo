@@ -1,0 +1,15 @@
+{
+  "pilot":"WEAK_REPEATED_STRIPS",
+  "date":"2026-09-14",
+  "status":"PROMISING_NOT_PROMOTED",
+  "baseline":"industrial-portfolio-v1.3",
+  "candidateConfig":{"ruido":0.3,"pases":2,"restartsPorPlaca":6,"usarRescue":false,"maxPiezasBeam":0,"multiVariantes":false,"semilla":1000},
+  "cases":[
+    {"id":"4061388","types":19,"pieces":48,"focused":{"cpuMs":379.394,"boards":5,"quality":{"mayor":996252.0,"segundo":134969.55,"fragmentos":3,"total":1263734.15}},"legacy":{"cpuMs":6550.635,"boards":5,"quality":{"mayor":941980.0,"segundo":336550.2,"fragmentos":3,"total":1391489.55},"pool":138},"generationSavingPct":94.2083,"industrialValid":true},
+    {"id":"4026481","types":19,"pieces":48,"focused":{"cpuMs":154.031,"boards":3,"quality":{"mayor":1293444.0,"segundo":0,"fragmentos":1,"total":1293444.0}},"legacy":{"cpuMs":6594.774,"boards":3,"quality":{"mayor":1293444.0,"segundo":0,"fragmentos":1,"total":1293444.0},"pool":96},"generationSavingPct":97.6643,"industrialValid":true},
+    {"id":"4026528","types":19,"pieces":47,"focused":{"cpuMs":77.95,"boards":3,"quality":{"mayor":1293444.0,"segundo":0,"fragmentos":1,"total":1293444.0}},"legacy":{"cpuMs":6363.935,"boards":3,"quality":{"mayor":1293444.0,"segundo":0,"fragmentos":1,"total":1293444.0},"pool":96},"generationSavingPct":98.7751,"industrialValid":true}
+  ],
+  "residualClusterSize":2116,
+  "nextGate":"expand to stratified sample before defining a weaker repeated-strip detector",
+  "productionModified":false
+}
