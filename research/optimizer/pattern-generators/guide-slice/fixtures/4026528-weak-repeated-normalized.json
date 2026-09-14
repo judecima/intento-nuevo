@@ -1,0 +1,28 @@
+{
+  "source": "4026528__Lucas_Pineiro4026528.xml",
+  "format": "project",
+  "lines": [
+    {"ref":"6","detalle":"6","base":1042,"altura":579.5,"cant":1,"veta":false,"cantos":null},
+    {"ref":"18","detalle":"18","base":1010,"altura":99.5,"cant":1,"veta":false,"cantos":null},
+    {"ref":"8","detalle":"8","base":549,"altura":516,"cant":3,"veta":false,"cantos":null},
+    {"ref":"2","detalle":"2","base":1008,"altura":579.5,"cant":1,"veta":false,"cantos":null},
+    {"ref":"17","detalle":"17","base":1348,"altura":796,"cant":2,"veta":false,"cantos":null},
+    {"ref":"9","detalle":"9","base":596,"altura":167,"cant":3,"veta":false,"cantos":null},
+    {"ref":"1","detalle":"1","base":1659.5,"altura":579,"cant":3,"veta":false,"cantos":null},
+    {"ref":"16","detalle":"16","base":346,"altura":146,"cant":1,"veta":false,"cantos":null},
+    {"ref":"15","detalle":"15","base":376,"altura":146,"cant":3,"veta":false,"cantos":null},
+    {"ref":"11","detalle":"11","base":533.5,"altura":167,"cant":6,"veta":false,"cantos":null},
+    {"ref":"5","detalle":"5","base":611,"altura":149,"cant":2,"veta":false,"cantos":null},
+    {"ref":"14","detalle":"14","base":533.5,"altura":167,"cant":6,"veta":false,"cantos":null},
+    {"ref":"4","detalle":"4","base":579,"altura":342,"cant":2,"veta":false,"cantos":null},
+    {"ref":"7","detalle":"7","base":579,"altura":339.5,"cant":2,"veta":false,"cantos":null},
+    {"ref":"19","detalle":"19","base":561,"altura":339.5,"cant":1,"veta":false,"cantos":null},
+    {"ref":"12","detalle":"12","base":549,"altura":515.5,"cant":3,"veta":false,"cantos":null},
+    {"ref":"10","detalle":"10","base":549,"altura":167.5,"cant":3,"veta":false,"cantos":null},
+    {"ref":"13","detalle":"13","base":549,"altura":167.5,"cant":3,"veta":false,"cantos":null},
+    {"ref":"3","detalle":"3","base":611,"altura":579.5,"cant":1,"veta":false,"cantos":null}
+  ],
+  "config": {"placaBase":2600,"placaAltura":1830,"refiladoX":0,"refiladoY":0,"sierra":4.4,"etapas":4,"materialConVeta":false,"descontarCanto":false,"cantoEspesor":0,"restoMin":250,"restoMax":400,"usarCache":true,"maxPiezasCache":160},
+  "expectedBoards": 3,
+  "expectedDetection": {"stripTypes":[2,5,6,8,9,10,11,12,13,15,16,17],"stripQuantity":39,"totalPieces":47,"ratio":0.8297872340425532,"narrowRatio":0.25,"minRepeat":2}
+}
