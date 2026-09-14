@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "status": "GUIDE_SLICE_4057401_CHECKPOINT",
+  "date": "2026-09-14",
+  "scope": "4057401_ONLY",
+  "baseBranch": "feature/optimizar-patrones",
+  "baseCommit": "218048034a42f55a0594fa6ce6b447cc2699ec13",
+  "policy": {
+    "hub": "stable highest-demand logical type",
+    "subproblems": "one guide + hub per other logical type",
+    "motor": {
+      "ruido": 0,
+      "pases": 1,
+      "restartsPorPlaca": 1,
+      "usarRescue": false,
+      "maxPiezasBeam": 0,
+      "multiVariantes": false
+    },
+    "panelRootAxis": "independent per physical panel",
+    "cutRule": "every saw cut must cross the current free region edge-to-edge"
+  },
+  "tests": {
+    "executed": 67,
+    "passed": 67,
+    "failed": 0
+  },
+  "guide": {
+    "runs": 3,
+    "generationCPUms": [29.425, 28.976, 22.425],
+    "medianGenerationCPUms": 28.976,
+    "poolSize": [7, 7, 7],
+    "boards": [4, 4, 4],
+    "valid": [true, true, true],
+    "patternPoolHashes": [
+      "f33e92cc13cf97cc183d3215d5aba2f5c68185c847e7a655ad5c70fe961ef372",
+      "f33e92cc13cf97cc183d3215d5aba2f5c68185c847e7a655ad5c70fe961ef372",
+      "f33e92cc13cf97cc183d3215d5aba2f5c68185c847e7a655ad5c70fe961ef372"
+    ],
+    "orderedPoolHashes": [
+      "256ccc9fa3f190658c204c93f7b58f619ac476d26d1a199d54317433bf516f87",
+      "256ccc9fa3f190658c204c93f7b58f619ac476d26d1a199d54317433bf516f87",
+      "256ccc9fa3f190658c204c93f7b58f619ac476d26d1a199d54317433bf516f87"
+    ],
+    "selectedVectors": [[0,1,0,4],[2,0,0,2],[0,1,0,4],[0,0,1,4]],
+    "rootAxes": ["y","x","y","x"],
+    "quality": {"mayor":721146,"segundo":721146,"fragmentos":10,"total":3577592}
+  },
+  "legacy40": {
+    "runs": 3,
+    "generationCPUms": [3430.97, 3401.943, 3423.459],
+    "medianGenerationCPUms": 3423.459,
+    "poolSize": [21,21,21],
+    "boards": [4,4,4],
+    "valid": [true,true,true],
+    "patternPoolHashes": [
+      "622d80eaaff538e768f1d7a0521622b38618d9b649b83b9c9ad780bbb93751ad",
+      "622d80eaaff538e768f1d7a0521622b38618d9b649b83b9c9ad780bbb93751ad",
+      "622d80eaaff538e768f1d7a0521622b38618d9b649b83b9c9ad780bbb93751ad"
+    ],
+    "orderedPoolHashes": [
+      "fb8453228980d96685dcf7b0c1a0c5c428d2df480a4a71af750ce31fe57e2d4e",
+      "fb8453228980d96685dcf7b0c1a0c5c428d2df480a4a71af750ce31fe57e2d4e",
+      "fb8453228980d96685dcf7b0c1a0c5c428d2df480a4a71af750ce31fe57e2d4e"
+    ],
+    "selectedVectors": [[0,1,0,4],[2,0,0,2],[0,1,0,4],[0,0,1,4]],
+    "rootAxes": ["y","x","y","x"],
+    "quality": {"mayor":721146,"segundo":721146,"fragmentos":10,"total":3577592}
+  },
+  "comparison": {
+    "sameBoards": true,
+    "sameSelectedVectors": true,
+    "sameRootAxes": true,
+    "sameRemnantQuality": true,
+    "generationCPUSavingPct": 99.15360458530392
+  }
+}
