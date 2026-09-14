@@ -1,0 +1,11 @@
+{
+  "id": "4060744",
+  "file": "4060744__Mega_Maderas4060744.xml",
+  "lines": [
+    {"ref":"3","detalle":"3","base":550,"altura":400,"cant":62,"veta":false,"cantos":null},
+    {"ref":"1","detalle":"1","base":526,"altura":460,"cant":62,"veta":false,"cantos":null},
+    {"ref":"2","detalle":"2","base":460,"altura":400,"cant":62,"veta":false,"cantos":null}
+  ],
+  "config": {"placaBase":2440,"placaAltura":1220,"refiladoX":0,"refiladoY":0,"sierra":4.4,"etapas":4,"materialConVeta":false,"descontarCanto":false,"cantoEspesor":0,"restoMin":250,"restoMax":400,"usarCache":false,"maxPiezasCache":0},
+  "referenceBoards": 15
+}

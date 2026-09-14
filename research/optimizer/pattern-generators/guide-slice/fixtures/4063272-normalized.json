@@ -1,0 +1,26 @@
+{
+  "id": "4063272",
+  "file": "4063272__Baraclosets_saltillo4063272.xml",
+  "lines": [
+    {"ref":"7","detalle":"7","base":570,"altura":100,"cant":2,"veta":false,"cantos":null},
+    {"ref":"11","detalle":"11","base":570,"altura":100,"cant":2,"veta":false,"cantos":null},
+    {"ref":"3","detalle":"3","base":570,"altura":100,"cant":2,"veta":false,"cantos":null},
+    {"ref":"15","detalle":"15","base":2500,"altura":400,"cant":1,"veta":false,"cantos":null},
+    {"ref":"5","detalle":"5","base":1800,"altura":400,"cant":2,"veta":false,"cantos":null},
+    {"ref":"2","detalle":"2","base":570,"altura":400,"cant":5,"veta":false,"cantos":null},
+    {"ref":"4","detalle":"4","base":1800,"altura":400,"cant":1,"veta":false,"cantos":null},
+    {"ref":"1","detalle":"1","base":1800,"altura":400,"cant":2,"veta":false,"cantos":null},
+    {"ref":"16","detalle":"16","base":2700,"altura":100,"cant":3,"veta":false,"cantos":null},
+    {"ref":"9","detalle":"9","base":1800,"altura":400,"cant":2,"veta":false,"cantos":null},
+    {"ref":"12","detalle":"12","base":1800,"altura":400,"cant":2,"veta":false,"cantos":null},
+    {"ref":"17","detalle":"17","base":1800,"altura":400,"cant":2,"veta":false,"cantos":null},
+    {"ref":"18","detalle":"18","base":760,"altura":300,"cant":2,"veta":false,"cantos":null},
+    {"ref":"8","detalle":"8","base":2500,"altura":100,"cant":1,"veta":false,"cantos":null},
+    {"ref":"13","detalle":"13","base":570,"altura":400,"cant":5,"veta":false,"cantos":null},
+    {"ref":"14","detalle":"14","base":570,"altura":100,"cant":2,"veta":false,"cantos":null},
+    {"ref":"10","detalle":"10","base":570,"altura":400,"cant":5,"veta":false,"cantos":null},
+    {"ref":"6","detalle":"6","base":570,"altura":400,"cant":5,"veta":false,"cantos":null}
+  ],
+  "config": {"placaBase":2795,"placaAltura":2060,"refiladoX":0,"refiladoY":0,"sierra":4.5,"etapas":4,"materialConVeta":false,"descontarCanto":false,"cantoEspesor":0,"restoMin":250,"restoMax":400,"usarCache":true,"maxPiezasCache":160},
+  "referenceBoards": 3
+}

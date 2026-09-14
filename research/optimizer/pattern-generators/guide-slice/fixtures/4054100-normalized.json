@@ -1,0 +1,13 @@
+{
+  "id": "4054100",
+  "file": "4054100__Andres_Silva4054100.xml",
+  "lines": [
+    {"ref":"2","detalle":"2","base":1200,"altura":500,"cant":2,"veta":false,"cantos":null},
+    {"ref":"4","detalle":"4","base":1600,"altura":600,"cant":2,"veta":false,"cantos":null},
+    {"ref":"3","detalle":"3","base":1400,"altura":900,"cant":2,"veta":false,"cantos":null},
+    {"ref":"5","detalle":"5","base":1400,"altura":600,"cant":2,"veta":false,"cantos":null},
+    {"ref":"1","detalle":"1","base":1200,"altura":600,"cant":1,"veta":false,"cantos":null}
+  ],
+  "config": {"placaBase":2600,"placaAltura":1830,"refiladoX":0,"refiladoY":0,"sierra":4.4,"etapas":4,"materialConVeta":false,"descontarCanto":false,"cantoEspesor":0,"restoMin":250,"restoMax":400,"usarCache":true,"maxPiezasCache":160},
+  "referenceBoards": 2
+}

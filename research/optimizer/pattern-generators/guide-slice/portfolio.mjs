@@ -1,14 +1,16 @@
 import { detectCommonBand, generateCommonBandPatterns } from "./common-band.mjs";
 import { generateGuideSlicePatterns, selectHubType } from "./generator.mjs";
 import { detectRepeatedStrips, generateRepeatedStripPatterns } from "./repeated-strips.mjs";
+import { detectPartialCommonBand, generatePartialCommonBandPatterns } from "./partial-common-band.mjs";
 
-export const INDUSTRIAL_PORTFOLIO_VERSION = "industrial-portfolio-v1.2";
+export const INDUSTRIAL_PORTFOLIO_VERSION = "industrial-portfolio-v1.3";
 
 export function selectIndustrialMode(lines, config = {}, {
   hubDominance = 0.5,
   maxHubTypes = 8,
   maxCommonBandTypes = 4,
   repeatedStrips = {},
+  partialCommonBand = {},
 } = {}) {
   const band = detectCommonBand(lines, { maxTypes: maxCommonBandTypes });
   if (band) return { mode: "COMMON_BAND", band };
@@ -22,6 +24,8 @@ export function selectIndustrialMode(lines, config = {}, {
   }
   const strips = detectRepeatedStrips(lines, config, repeatedStrips);
   if (strips) return { mode: "REPEATED_STRIPS", strips };
+  const partialBand = detectPartialCommonBand(lines, config, partialCommonBand);
+  if (partialBand) return { mode: "PARTIAL_COMMON_BAND", partialBand };
   return { mode: "NOT_APPLICABLE" };
 }
 
@@ -37,6 +41,10 @@ export function generateIndustrialPortfolio(lines, config, options = {}) {
   }
   if (selected.mode === "REPEATED_STRIPS") {
     const result = generateRepeatedStripPatterns(lines, config, options.repeatedStrips ?? {});
+    return { ...result, telemetry: { ...result.telemetry, portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode } };
+  }
+  if (selected.mode === "PARTIAL_COMMON_BAND") {
+    const result = generatePartialCommonBandPatterns(lines, config, options.partialCommonBand ?? {});
     return { ...result, telemetry: { ...result.telemetry, portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode } };
   }
   return { status: "NOT_APPLICABLE", patterns: [], telemetry: { portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode, reason: selected.reason ?? null, calls: 0 } };
