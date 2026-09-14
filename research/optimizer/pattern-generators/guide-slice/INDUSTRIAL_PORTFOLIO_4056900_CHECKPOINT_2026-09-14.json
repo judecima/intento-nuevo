@@ -1,0 +1,77 @@
+{
+  "checkpoint": "industrial-portfolio-v1-4056900",
+  "date": "2026-09-14",
+  "source": {
+    "file": "4056900__Alfredo_Arrua4056900.xml",
+    "format": "project",
+    "board": {"width": 2740, "height": 1820, "kerf": 4.4, "trim": 0},
+    "historicalEquivalentPanels": 6,
+    "pieceTypes": 4,
+    "pieceQuantity": 94,
+    "lines": [
+      {"ref": "1", "quantity": 16, "width": 2000, "height": 350},
+      {"ref": "2", "quantity": 24, "width": 964, "height": 350},
+      {"ref": "3", "quantity": 30, "width": 378, "height": 350},
+      {"ref": "4", "quantity": 24, "width": 564, "height": 350}
+    ]
+  },
+  "protocol": {
+    "repeats": 3,
+    "freshProcesses": true,
+    "alternatingOrder": true,
+    "commonBandSeeds": [1000, 1005],
+    "triples": 4,
+    "calls": 8,
+    "passes": 1,
+    "restarts": 1,
+    "beam": false,
+    "rescue": false
+  },
+  "legacy": {
+    "medianGenerationCPUms": 13109.347,
+    "poolSize": 66,
+    "boards": 6,
+    "nodes": 162,
+    "quality": {"mayor": 163240.00000000003, "segundo": 0, "fragmentos": 1, "total": 163240.00000000003},
+    "hashRepeatability": true
+  },
+  "portfolio": {
+    "medianGenerationCPUms": 367.345,
+    "poolSize": 27,
+    "boards": 6,
+    "nodes": 8,
+    "quality": {"mayor": 164220.00000000003, "segundo": 0, "fragmentos": 1, "total": 164220.00000000003},
+    "vectors": [[5,1,7,0],[5,1,7,0],[5,1,7,0],[0,5,0,15],[0,10,9,0],[1,6,0,9]],
+    "rootAxes": ["x","x","x","x","x","y"],
+    "validation": {
+      "ok": true,
+      "placas": 6,
+      "piezasEsperadas": 94,
+      "piezasColocadas": 94,
+      "idsUnicos": 94,
+      "duplicados": [],
+      "coberturaCompleta": true,
+      "geometriaValida": true,
+      "secuenciaCompleta": true,
+      "cortesTerminales": 0
+    },
+    "hashRepeatability": true
+  },
+  "generationCpuSavingPct": 97.19783906856688,
+  "external4961912": {
+    "sourceFormat": "project",
+    "historicalPanels": 2,
+    "board": {"width": 2750, "height": 1830, "kerf": 4.5, "trim": 10},
+    "pieceTypes": 31,
+    "pieceQuantity": 61,
+    "maxRepeat": 6,
+    "areaLowerBound": 2,
+    "portfolioMode": "NOT_APPLICABLE",
+    "motorCalls": 0,
+    "intendedUse": "negative-gate/generalization-stress; project XML does not declare grain"
+  },
+  "regression": {
+    "directedGuideSliceTests": "12/12 PASS including external fixture",
+    "broadResearchRun": "76 PASS / 2 harness-environment failures (H3 frozen runtime drift; H4 missing test-results directory); no directed failure"
+  }
+}
