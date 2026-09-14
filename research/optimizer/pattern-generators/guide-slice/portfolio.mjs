@@ -1,12 +1,13 @@
 import { detectCommonBand, generateCommonBandPatterns } from "./common-band.mjs";
 import { generateGuideSlicePatterns, selectHubType } from "./generator.mjs";
 
-export const INDUSTRIAL_PORTFOLIO_VERSION = "industrial-portfolio-v1";
+export const INDUSTRIAL_PORTFOLIO_VERSION = "industrial-portfolio-v1.1";
 
 export function selectIndustrialMode(lines, { hubDominance = 0.5, maxHubTypes = 8, maxCommonBandTypes = 4 } = {}) {
   const band = detectCommonBand(lines, { maxTypes: maxCommonBandTypes });
   if (band) return { mode: "COMMON_BAND", band };
   if (!Array.isArray(lines) || !lines.length || lines.length > maxHubTypes) return { mode: "NOT_APPLICABLE" };
+  if (lines.length === 1) return { mode: "NOT_APPLICABLE", reason: "MONOTYPE_EXISTING_PATH" };
   const total = lines.reduce((sum, line) => sum + Number(line.cant || 0), 0);
   if (!(total > 0)) return { mode: "NOT_APPLICABLE" };
   const hubType = selectHubType(lines), ratio = Number(lines[hubType].cant) / total;
@@ -24,5 +25,5 @@ export function generateIndustrialPortfolio(lines, config, options = {}) {
     const result = generateGuideSlicePatterns(lines, config, { hubType: selected.hubType });
     return { status: "COMPLETE", ...result, telemetry: { ...result.telemetry, portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode, hubRatio: selected.ratio } };
   }
-  return { status: "NOT_APPLICABLE", patterns: [], telemetry: { portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode, calls: 0 } };
+  return { status: "NOT_APPLICABLE", patterns: [], telemetry: { portfolioVersion: INDUSTRIAL_PORTFOLIO_VERSION, mode: selected.mode, reason: selected.reason ?? null, calls: 0 } };
 }
