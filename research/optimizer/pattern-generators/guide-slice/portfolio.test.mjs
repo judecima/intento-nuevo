@@ -20,3 +20,15 @@ test("4961912 is a useful negative gate fixture, not a triple-enumeration target
   assert.equal(result.patterns.length, 0);
   assert.equal(result.telemetry.calls, 0);
 });
+
+test("monotype is routed to the existing monotype path, not Guide-Slice", () => {
+  const mono = [{ ref: "M", detalle: "M", cant: 24, base: 500, altura: 300, veta: false, cantos: null }];
+  const selected = selectIndustrialMode(mono);
+  assert.equal(selected.mode, "NOT_APPLICABLE");
+  assert.equal(selected.reason, "MONOTYPE_EXISTING_PATH");
+  const result = generateIndustrialPortfolio(mono, config);
+  assert.equal(result.status, "NOT_APPLICABLE");
+  assert.equal(result.patterns.length, 0);
+  assert.equal(result.telemetry.reason, "MONOTYPE_EXISTING_PATH");
+  assert.equal(result.telemetry.calls, 0);
+});
