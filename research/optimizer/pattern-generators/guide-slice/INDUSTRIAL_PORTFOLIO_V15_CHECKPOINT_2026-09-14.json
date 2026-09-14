@@ -1,0 +1,82 @@
+{
+  "version": "industrial-portfolio-v1.5",
+  "date": "2026-09-14",
+  "canonicalCorpus": 8650,
+  "archiveXml": 8669,
+  "excluded": {
+    "mixedBoardFormats": 13,
+    "malformedXml": 6
+  },
+  "router": {
+    "COMMON_BAND": 144,
+    "GUIDE_HUB": 1291,
+    "REPEATED_STRIPS": 1903,
+    "PARTIAL_COMMON_BAND": 478,
+    "WEAK_REPEATED_STRIPS": 2060,
+    "LARGE_REPEATED_STRIPS": 725,
+    "WEAK_PARTIAL_BAND": 181,
+    "MONOTYPE_EXISTING_PATH": 860,
+    "GENERIC_FAST_PLUS_FALLBACK": 1008
+  },
+  "specializedCases": 6782,
+  "specializedPercent": 78.40462427745665,
+  "directStructuralIncludingMonotype": 7642,
+  "directStructuralPercent": 88.34682080924856,
+  "genericResidual": 1008,
+  "genericResidualPercent": 11.653179190751445,
+  "weakPartialBand": {
+    "valid": 181,
+    "total": 181,
+    "medianCpuMs": 21.179,
+    "p95CpuMs": 65.886,
+    "maxCpuMs": 155.371
+  },
+  "fastIncumbent": {
+    "valid": 1008,
+    "total": 1008,
+    "requiresFallbackCertification": true,
+    "medianCpuMs": 65.4235,
+    "p95CpuMs": 451.476,
+    "p99CpuMs": 1329.433,
+    "maxCpuMs": 14106.127,
+    "le160": {
+      "count": 764,
+      "medianCpuMs": 36.0755,
+      "p95CpuMs": 183.897,
+      "maxCpuMs": 303.184
+    },
+    "gt160": {
+      "count": 244,
+      "medianCpuMs": 250.6835,
+      "p95CpuMs": 1199.318,
+      "maxCpuMs": 14106.127
+    },
+    "comparisonToMoreCompleteRound": {
+      "count": 373,
+      "fewerBoards": 3,
+      "sameBoards": 352,
+      "moreBoards": 18,
+      "equalBoardQualityBetter": 111,
+      "equalBoardQualityEqual": 80,
+      "equalBoardQualityWorse": 161,
+      "medianCpuSavingPercent": 92.54
+    }
+  },
+  "monotype": {
+    "valid": 860,
+    "total": 860,
+    "medianCpuMs": 0.552,
+    "p95CpuMs": 20.354
+  },
+  "largeRepeatedStrictRerun": {
+    "completed": 281,
+    "total": 725,
+    "valid": 281,
+    "note": "Stopped at work budget; prior physical-corpus full pass covered 725/725 and risk A/B."
+  },
+  "researchRegression": {
+    "pass": 67,
+    "fail": 0
+  },
+  "productionFilesModified": false
+}
