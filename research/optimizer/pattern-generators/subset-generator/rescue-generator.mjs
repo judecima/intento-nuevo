@@ -55,6 +55,7 @@ export function generateSubsetPatterns(lines, config, {
   restartsPerBoard = SUBSET_RESCUE_POLICY.restartsPerBoard,
   rescue = SUBSET_RESCUE_POLICY.rescue,
   beam = SUBSET_RESCUE_POLICY.beam,
+  seedOffset = 0,
 } = {}) {
   if (!Array.isArray(lines) || !lines.length) {
     return { patterns: [], byRound: new Map(), selectedRounds: [], generationCpuMs: 0, masks: [] };
@@ -82,7 +83,7 @@ export function generateSubsetPatterns(lines, config, {
       try {
         const result = optimizar(subset, {
           ...config,
-          semilla: 1000 + round,
+          semilla: 1000 + round + seedOffset,
           pases: passes,
           restartsPorPlaca: restartsPerBoard,
           usarRescue: rescue,

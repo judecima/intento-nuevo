@@ -1,0 +1,57 @@
+{
+  "date": "2026-09-14",
+  "status": "GOLD_CASE_GATE_PASSED",
+  "productionPromotion": false,
+  "baseCommit": "3783a5f538213f4f721c17fd859e4f28071a05ca",
+  "case": {
+    "id": "4006648",
+    "baselineBoards": 12,
+    "areaLowerBound": 9,
+    "legacy40Boards": 10,
+    "targetBoards": 10
+  },
+  "directedPolicy": {
+    "maskUniverse": 40,
+    "probePasses": 1,
+    "probeRestartsPerBoard": 1,
+    "probeRescue": false,
+    "probeBeam": false,
+    "probeSeedOffsets": [10000, 40000],
+    "score": "z(averageUtilization) + 0.5 * z(boardCountInstability)",
+    "escalationCount": 10,
+    "escalationRestartsPerBoard": 14,
+    "escalationRescue": true,
+    "escalationBeam": false,
+    "selectedRounds": [14, 31, 5, 3, 10, 34, 13, 35, 11, 29]
+  },
+  "validation": {
+    "boards": 10,
+    "masterNodes": 3503,
+    "poolSize": 61,
+    "masterExhausted": false,
+    "directedTotalCpuMsObservedRange": [1220.234, 1329.708],
+    "directedTotalCpuMsMedian": 1239.249,
+    "rescue28TotalCpuMsObservedRange": [3161.004, 3428.235],
+    "rescue28TotalCpuMsMedian": 3210.096,
+    "medianSpeedupVsRescue28": 2.59,
+    "timingGateAssertedInTests": false
+  },
+  "smoke": {
+    "frontier": "9/9 PASS",
+    "tinyOracle": "2/2 PASS",
+    "cutPolicy": "2/2 PASS",
+    "andOr": "18/18 PASS",
+    "h2Repeat": "1/1 PASS",
+    "total": "32/32 PASS",
+    "typecheck": "NOT_RUN_NO_NODE_MODULES_IN_RECOVERED_SNAPSHOT"
+  },
+  "scopeBoundary": {
+    "goldCaseOnly": true,
+    "midDensity239Validated": false,
+    "previousMidDensityCompleted": 13,
+    "previousMidDensityNotEvaluated": 226,
+    "note": "The score was discovered on the gold case and must not be treated as a general production policy until the MID_DENSITY cohort is evaluated."
+  },
+  "productionFilesModified": false,
+  "nextGate": "Run directed policy on the MID_DENSITY open cohort and require zero regressions plus materially lower median/p95 CPU than Rescue28."
+}
