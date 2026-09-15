@@ -46,6 +46,8 @@ Los pedidos grandes:
 6. persiste exactamente las mismas tablas/validaciones que el camino inline;
 7. termina en `completed`/`optimized` o `failed`/`draft`.
 
+Solo puede existir **un job activo por project/version**. Una solicitud identica reutiliza el job existente; una solicitud con otra strategy/profile debe esperar. Esto evita resultados concurrentes compitiendo por el mismo estado del proyecto.
+
 El endpoint interno es `POST /api/internal/optimizer-worker` y exige `Authorization: Bearer $OPTIMIZER_WORKER_SECRET`.
 
 Un consumidor desplegable se ejecuta con:
@@ -114,7 +116,7 @@ La impresion del navegador permite papel o `Guardar como PDF`, evitando otra dep
 
 Aplicar `supabase/migrations/20260915203000_optimizer_job_profile.sql`.
 
-Agrega `optimization_jobs.profile` y una unicidad parcial para impedir dos jobs activos del mismo proyecto/version/algoritmo/strategy/profile.
+Agrega `optimization_jobs.profile` y una unicidad parcial que permite **un solo job `queued/running` por proyecto y version**.
 
 Los accesos nuevos a `profile` estan aislados en la capa de cola/worker hasta la siguiente regeneracion normal de `database.types.ts` desde Supabase.
 
