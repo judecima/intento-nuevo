@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-15",
+  "status": "REJECTED",
+  "scope": "research-only",
+  "productionChanged": false,
+  "baseline": {"branch":"prototipo-inicial","commit":"a58c8615ba345c5d93bc347946914288f9455cc7"},
+  "researchParent": "70433ee6b274238a21eda6bf34a6fd15a9657e84",
+  "corpusReconciliation": {
+    "physicalXml": 20818,
+    "canonicalParseable": 20783,
+    "canonicalRejected": 35,
+    "literalSyncRule": "physical pieces <= 50 and canonical logical types <= 20",
+    "physicalSyncCohort": 15565,
+    "physicalSyncProject": 12998,
+    "physicalSyncOrder": 2567,
+    "previousPublishedUniverse": {"canonicalCases":20844,"eligible":15758,"project":13168,"order":2590},
+    "resolution": "Do not tune thresholds to force the old 15758 count. Bind final freeze to the reproducible 20818 physical XML archive and record the historical-universe mismatch."
+  },
+  "candidate": {
+    "name": "Remnant-Aware Generation V1",
+    "variantsTried": 1,
+    "seed": 7919,
+    "passes": 2,
+    "restartsPerBoard": 14,
+    "rescue": true,
+    "beam": false,
+    "penalizarFranjaMuerta": true,
+    "structuralDeltas": "existing V10 deterministic dead-strip detector",
+    "acceptance": "candidate patterns may replace only an existing identical usage vector through Certified Remnant Dominance; new vectors are ignored"
+  },
+  "screen": {
+    "selection": "32 deterministic physical-cohort cases: 8 contiguous cases at offsets 0, 4000, 8000 and 12000",
+    "cases": 32,
+    "errors": 0,
+    "coverageSkeletonRegressions": 0,
+    "baselineCertifiedDominanceReplacements": 2,
+    "baselineCasesWithCertifiedReplacement": 2,
+    "generatedCandidatePatterns": 64,
+    "generatedEquivalentCandidates": 43,
+    "generatedCertifiedReplacements": 2,
+    "generatedCasesWithCertifiedReplacement": 2,
+    "ignoredNewVectors": 21,
+    "rejectedUncertified": 41,
+    "p13GenerationCpuMs": 34082.004,
+    "candidateGenerationCpuMs": 5952.198,
+    "candidateOverheadVsP13GenerationPct": 17.464342765759906,
+    "candidateGenerationCpuMedianMs": 195.047,
+    "p13GenerationCpuMedianMs": 891.317
+  },
+  "tests": {"combined":"13/13 PASS","dominancePropertyTrials":20000,"dominancePropertyCounterexamples":0},
+  "decision": {
+    "result": "REJECT",
+    "reason": "The only allowed direct remnant-aware generation variant produced certified gains in 2/32 cases but added 17.46% generation CPU. This does not meet the frozen goal of a materially useful near-free synchronous improvement. No V2, seed tuning, score tuning or threshold tuning is permitted."
+  }
+}

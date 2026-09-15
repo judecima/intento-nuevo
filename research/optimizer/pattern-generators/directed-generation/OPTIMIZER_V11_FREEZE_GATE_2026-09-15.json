@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-15",
+  "status": "FROZEN",
+  "productionBaseline": {"branch":"prototipo-inicial","commit":"a58c8615ba345c5d93bc347946914288f9455cc7","changed":false},
+  "researchStart": "1fb58917921258bff4642bea37b5ce1d811256fa",
+  "milestones": [
+    {
+      "name": "Certified Remnant Dominance V1",
+      "status": "PASS_AS_SAFE_RESEARCH_PRIMITIVE_NOT_PROMOTED",
+      "tests": 10,
+      "compositionTrials": 20000,
+      "counterexamples": 0,
+      "screeningEvidence": "prior 32-case projection: 3 certified replacements; current 32-case physical screen: 2 certified replacements",
+      "productionDecision": "NOT_PROMOTED",
+      "reason": "Safety is locally certified, but promotion would require wiring a research P13 path that earlier integration gates found redundant relative to balanced V10."
+    },
+    {
+      "name": "Remnant-Aware Generation V1",
+      "status": "REJECTED",
+      "variantsTried": 1,
+      "cases": 32,
+      "certifiedImprovementCases": 2,
+      "generationOverheadPct": 17.464342765759906,
+      "errors": 0,
+      "coverageSkeletonRegressions": 0
+    }
+  ],
+  "definitionOfDone": {
+    "plateRegressionsIntroducedIntoProduction": 0,
+    "remnantRegressionsIntroducedIntoProduction": 0,
+    "invalidSolutionsIntroducedIntoProduction": 0,
+    "synchronousLatencyRegressionIntroducedIntoProduction": 0,
+    "productionSourceChanged": false
+  },
+  "closure": {
+    "optimizerResearchLoop": "CLOSED",
+    "noFurther": ["Beam V2/V3","more restarts","tree V2","new remnant-safe classifier","ML policy","threshold retuning","XML-specific exceptions","additional remnant score variants"],
+    "reopenOnlyFor": "a concrete recurring production gap demonstrated by real orders, not speculative percentage hunting"
+  }
+}
