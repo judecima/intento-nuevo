@@ -15,12 +15,9 @@ begin
   end if;
 end $$;
 
-create unique index if not exists optimization_jobs_one_active_variant_idx
-  on public.optimization_jobs (
-    project_id,
-    project_version,
-    algorithm_version,
-    strategy,
-    coalesce(profile, '')
-  )
+drop index if exists public.optimization_jobs_one_active_variant_idx;
+drop index if exists public.optimization_jobs_one_active_per_project_version_idx;
+
+create unique index if not exists optimization_jobs_one_active_project_version_idx
+  on public.optimization_jobs (project_id, project_version)
   where status in ('queued', 'running');
