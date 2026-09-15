@@ -1,3 +1,4 @@
+import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canManagePlatform } from "@/lib/domain/platform";
 import { getOrderSnapshotSummary } from "@/lib/domain/orders";
