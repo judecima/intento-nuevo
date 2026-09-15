@@ -19,6 +19,8 @@ import { scopedPath } from "@/lib/routing/server";
 import { getMaterialForOrganization } from "@/lib/materials/queries";
 import { customerBelongsToOrganization } from "@/lib/customers/queries";
 import { getDefaultMachineCutSettings } from "@/lib/production/queries";
+import { optimizationExecutionPolicy } from "@/lib/optimizations/execution-policy";
+import { enqueueOptimizationJob } from "@/lib/optimizations/queue";
 import { runAndStoreOptimization } from "@/lib/optimizations/run";
 import { getProjectEditorData } from "@/lib/projects/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -232,42 +234,60 @@ async function persistProjectDraftAction(
   }
 
   const version = Number(refreshed?.version ?? project.version);
+  const preloaded = {
+    project: {
+      ...project,
+      material_id: selectedMaterial.id,
+      name: parsed.name,
+      description: parsed.description || null,
+      board_width: selectedMaterial.width,
+      board_height: selectedMaterial.height,
+      board_thickness: selectedThickness,
+      kerf: parsed.kerf,
+      trim_x: parsed.trimX,
+      trim_y: parsed.trimY,
+      min_remnant: parsed.minRemnant,
+      min_cut_size: parsed.minCutSize,
+      grain_enabled: selectedMaterial.has_grain,
+      version
+    },
+    material: selectedMaterial,
+    items: rows.map((row) => ({
+      ...row,
+      metadata: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }))
+  };
 
-  const optimization =
-    optimizeAfterSave && rows.length > 0
-      ? await runAndStoreOptimization({
-          projectId: parsed.projectId,
-          strategy: parsed.strategy,
-          profile: parsed.profile,
-          requestedBy: context.user.id,
-          // Ya tenemos proyecto, material y piezas: evita releer todo.
-          preloaded: {
-            project: {
-              ...project,
-              material_id: selectedMaterial.id,
-              name: parsed.name,
-              description: parsed.description || null,
-              board_width: selectedMaterial.width,
-              board_height: selectedMaterial.height,
-              board_thickness: selectedThickness,
-              kerf: parsed.kerf,
-              trim_x: parsed.trimX,
-              trim_y: parsed.trimY,
-              min_remnant: parsed.minRemnant,
-              min_cut_size: parsed.minCutSize,
-              grain_enabled: selectedMaterial.has_grain,
-              version
-            },
-            material: selectedMaterial,
-            items: rows.map((row) => ({
-              ...row,
-              metadata: {},
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }))
-          }
-        })
-      : { ok: false as const, error: optimizeAfterSave ? "OPTIMIZATION_NO_ITEMS" : "NOT_REQUESTED" };
+  let optimization: { ok: boolean; error?: string } = {
+    ok: false,
+    error: optimizeAfterSave ? "OPTIMIZATION_NO_ITEMS" : "NOT_REQUESTED"
+  };
+
+  if (optimizeAfterSave && rows.length > 0) {
+    const policy = optimizationExecutionPolicy(rows);
+
+    if (policy.mode === "inline") {
+      optimization = await runAndStoreOptimization({
+        projectId: parsed.projectId,
+        strategy: parsed.strategy,
+        profile: parsed.profile,
+        requestedBy: context.user.id,
+        preloaded
+      });
+    } else {
+      optimization = await enqueueOptimizationJob({
+        supabase,
+        organizationId: project.organization_id,
+        projectId: parsed.projectId,
+        projectVersion: version,
+        strategy: parsed.strategy,
+        profile: parsed.profile,
+        requestedBy: context.user.id
+      });
+    }
+  }
 
   revalidateProject(parsed.projectId);
 
