@@ -1,0 +1,32 @@
+name: Optimizer Productization
+
+on:
+  push:
+    branches:
+      - feature/optimizer-productization-v1
+  pull_request:
+    branches:
+      - prototipo-inicial
+    paths:
+      - "src/lib/optimizations/**"
+      - "src/lib/projects/actions.ts"
+      - "src/app/api/internal/optimizer-worker/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/optimizer-productization.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  productization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx vitest run src/lib/optimizations/execution-policy.test.ts
