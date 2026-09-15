@@ -1,0 +1,68 @@
+{
+  "date": "2026-09-15",
+  "status": "INTEGRATION_GATE_CLOSED_REJECTED",
+  "baselineBranch": "prototipo-inicial",
+  "baselineCommit": "a58c8615ba345c5d93bc347946914288f9455cc7",
+  "researchCommit": "9340468c412ac3ab66e58e0ee17710002b5d4fb7",
+  "researchGate": {
+    "status": "PASS",
+    "testGeometries": 368,
+    "usefulClosuresRetained": "79/82",
+    "retentionPct": 96.34,
+    "generationCpuReductionPct": 42.78,
+    "round0ClosuresAmongRetained": "77/79"
+  },
+  "productionIntegrationFinding": {
+    "status": "REJECTED_FOR_PROMOTION",
+    "reason": "The current production V10 balanced baseline is materially stronger than the research Fast baseline used to train Directed Generation V2. Layering Directed P13 after the balanced path is mostly redundant; moving a Fast-first early return ahead of V10 violates the equal-board remnant objective on the replay sample.",
+    "productionFilesPersisted": false
+  },
+  "safeRound0PrototypeReplay": {
+    "cohort": "24 deterministic cases, source-balanced, pieceQty <= 50, types <= 20, reference-area gap=1 and Directed policy eligible",
+    "completed": 22,
+    "externallyCensored": 2,
+    "routed": 15,
+    "round0CertifiedAfterCurrentV10FastStages": 0,
+    "boardRegressions": 0,
+    "remnantRegressions": 0,
+    "invalidPlans": 0,
+    "censoredCaseIds": [
+      "Joel _Verber4116513",
+      "4061883__lujan agustin_encinas4061883"
+    ]
+  },
+  "hardControlsReplay": {
+    "completed": 5,
+    "boardRegressions": 0,
+    "remnantRegressions": 0,
+    "invalidPlans": 0
+  },
+  "fastFirstCertifiedProbe": {
+    "completedReplayCases": 22,
+    "fastCertified": 5,
+    "sameBoardRemnantRegressions": 3,
+    "finding": "Fast lower-bound certification is insufficient for early return because objective #2 can regress even when objective #1 is certified."
+  },
+  "cheapCertifiedPolishProbe": {
+    "bestVariant": "passes=2,restartsPerBoard=4,rescue=false,beam=false",
+    "cases": 5,
+    "sameOrBetterRemnant": 4,
+    "remnantRegressions": 1,
+    "boardRegressions": 0,
+    "medianCpuMs": 38.999,
+    "finding": "Cheap polish reduces but does not eliminate the remnant regression, so it cannot be promoted under the frozen no-regression objective."
+  },
+  "validation": {
+    "integrationUnitTests": "3/3 PASS",
+    "kernelDeterminismSmoke": "PASS",
+    "step0SyntheticSmoke": "PASS",
+    "researchDirectedTests": "17/17 PASS at research checkpoint",
+    "historicalSmoke": "32/32 PASS at research checkpoint"
+  },
+  "decision": {
+    "keepResearch": true,
+    "promoteCurrentIntegration": false,
+    "touchProduction": false,
+    "nextMilestone": "Design a directed generator against the actual production objective tuple (boards, then remnant quality) or move the synchronous production architecture to a Fast-first cascade only after a remnant-safe certificate exists."
+  }
+}
