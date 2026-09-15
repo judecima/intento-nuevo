@@ -1,0 +1,98 @@
+{
+  "date": "2026-09-15",
+  "status": "RESEARCH_CHECKPOINT",
+  "portfolio": [0,7,11,12,14,15,16,17,18,19,21,26,35],
+  "router": {
+    "rule": "Fast-LB == 1 AND pieceQty <= 50 AND logicalPieceTypes <= 20",
+    "syncBudgetMs": 1500
+  },
+  "orderLe160": {
+    "canonicalCases": 3354,
+    "validUnderRotationAllowedAdapter": 3353,
+    "sourceAnomalies": 1,
+    "sourceAnomaly": "fabricio_enrique4111522.xml",
+    "adapterSemantics": "legacy veta = (rotationAllowed === false); materialConVeta = true",
+    "fast": {
+      "certified": 2776,
+      "certifiedPct": 82.79,
+      "gaps": 577,
+      "cpuMsP50": 6.6,
+      "cpuMsP95": 80.6,
+      "cpuMsP99": 153.2,
+      "cpuMsMax": 322.6
+    },
+    "p13AllGaps": {
+      "uniqueGeometries": 546,
+      "representedCases": 577,
+      "improvedFastCases": 108,
+      "certifiedToLB": 98,
+      "exhaustedMastersUnique": 9,
+      "cpuMsP50": 974.0,
+      "cpuMsP95": 9700.2,
+      "cpuMsP99": 12976.2,
+      "cpuMsMax": 21541.0
+    },
+    "directRescue28Gate": {
+      "uniqueGeometries": 451,
+      "representedCases": 479,
+      "p13WorseUnique": 4,
+      "equalUnique": 446,
+      "p13BetterUnique": 1,
+      "p13WorseRepresentedCases": 6,
+      "equalRepresentedCases": 472,
+      "p13BetterRepresentedCases": 1,
+      "rescue28ReachedLBUnique": 2,
+      "rescue28ReachedLBRepresentedCases": 4,
+      "rescue28ExhaustedUnique": 15,
+      "cpuMsP50": 1980.2,
+      "cpuMsP95": 20710.4,
+      "cpuMsP99": 32118.6,
+      "cpuMsMax": 36973.2,
+      "differences": [
+        {"file":"Eliu_Perez4090282.xml","lb":2,"fast":3,"p13":3,"rescue28":2,"representedCases":3},
+        {"file":"4026040__GABRIEL_TUMBACO CRUZ4026040.xml","lb":5,"fast":6,"p13":6,"rescue28":5,"representedCases":1},
+        {"file":"4058501__Marcos _Cumini Londero4058501.xml","lb":7,"fast":9,"p13":9,"rescue28":8,"representedCases":1},
+        {"file":"4059776__diego_primo4059776.xml","lb":24,"fast":30,"p13":30,"rescue28":29,"representedCases":1,"rescue28Exhausted":true},
+        {"file":"matias_abal4081528.xml","lb":10,"fast":12,"p13":11,"rescue28":12,"representedCases":1,"rescue28Exhausted":true,"note":"P13 preserves a better incumbent than exhausted Rescue28"}
+      ]
+    },
+    "routerGeneralization": {
+      "routedGapCases": 322,
+      "routedGapPct": 55.81,
+      "quickClosuresWithin500ms": 40,
+      "quickClosuresWithin500msCaptured": 40,
+      "quickClosuresWithin1000ms": 58,
+      "quickClosuresWithin1000msCaptured": 56,
+      "quickClosuresWithin1500ms": 64,
+      "quickClosuresWithin1500msCaptured": 61,
+      "quickClosureCapturePct1500": 95.31,
+      "estimatedCappedP13AvgGlobalMs": 54.55,
+      "certifiedBeforeBackground": 2837,
+      "certifiedBeforeBackgroundPct": 84.61,
+      "backgroundFallback": 516,
+      "backgroundFallbackPct": 15.39
+    }
+  },
+  "combinedProjectAndOrderLe160": {
+    "validCases": 20074,
+    "fastCertified": 16439,
+    "fastCertifiedPct": 81.89,
+    "routedToSyncP13": 1967,
+    "routedToSyncP13Pct": 9.80,
+    "quickP13AdditionalCertified": 402,
+    "certifiedBeforeBackground": 16841,
+    "certifiedBeforeBackgroundPct": 83.89,
+    "backgroundFallback": 3233,
+    "backgroundFallbackPct": 16.11,
+    "estimatedCappedP13AvgGlobalMs": 58.04,
+    "note": "Project and Order use the same deterministic router; final quality remains protected by background Rescue28 preserving the best incumbent."
+  },
+  "decision": {
+    "freezeP13": true,
+    "keepCommonRouter": true,
+    "doNotRetunePortfolioForOrder": true,
+    "orderHeavyTail": "background",
+    "productionIntegration": false,
+    "nextGate": "characterize >160 piece background tier and decide worker budgets/fallback policy"
+  }
+}
