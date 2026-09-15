@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { optimizationDomainErrors } from "@/lib/domain/optimizations";
 import { getProjectEditorData, type ProjectEditorData } from "@/lib/projects/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/optimizer";
 import { buildOptimizationInputFromProject, optimizerProfileForStrategy } from "./project-input";
 
+type Supabase = SupabaseClient<Database, "public">;
 type OptimizationResultInsert = Database["public"]["Tables"]["optimization_results"]["Insert"];
 type OptimizationBoardInsert = Database["public"]["Tables"]["optimization_boards"]["Insert"];
 type OptimizationPieceInsert = Database["public"]["Tables"]["optimization_pieces"]["Insert"];
@@ -29,15 +31,20 @@ export type RunOptimizationOutcome =
 /**
  * Ejecuta y persiste la optimizacion contra el estado actual del proyecto.
  *
- * Lee la version desde la base en el momento de correr, para que un guardado
- * previo en la misma request quede reflejado y el resultado no nazca vencido.
+ * Productization V1 mantiene exactamente el mismo kernel. La unica extension
+ * es que el runner puede consumir un job previamente encolado por un worker
+ * interno y un cliente Supabase service-role.
  */
 export async function runAndStoreOptimization({
   projectId,
   strategy,
   profile,
   requestedBy,
-  preloaded
+  preloaded,
+  supabaseClient,
+  existingJobId,
+  existingJobClaimed = false,
+  expectedProjectVersion
 }: {
   projectId: string;
   strategy: OptimizerStrategy;
@@ -45,7 +52,16 @@ export async function runAndStoreOptimization({
   requestedBy: string;
   /** Estado ya leido por quien llama, para no repetir la consulta. */
   preloaded?: Pick<ProjectEditorData, "project" | "material" | "items">;
+  /** Worker interno: usa service-role. El flujo normal sigue usando RLS/cookies. */
+  supabaseClient?: Supabase;
+  /** Job queued ya creado. Si falta, se conserva el comportamiento inline historico. */
+  existingJobId?: string;
+  /** El worker reclama atomicamente el job antes de entrar al runner. */
+  existingJobClaimed?: boolean;
+  /** Protege al worker contra ejecutar una version de proyecto distinta de la encolada. */
+  expectedProjectVersion?: number;
 }): Promise<RunOptimizationOutcome> {
+  const supabase = supabaseClient ?? createSupabaseServerClient();
   const data = preloaded ?? (await getProjectEditorData(projectId));
 
   if (!data) {
@@ -56,8 +72,21 @@ export async function runAndStoreOptimization({
     return { ok: false, error: optimizationDomainErrors.noItems };
   }
 
-  const supabase = createSupabaseServerClient();
   const projectVersion = Number(data.project.version);
+  if (expectedProjectVersion != null && projectVersion !== expectedProjectVersion) {
+    if (existingJobId) {
+      await supabase
+        .from("optimization_jobs")
+        .update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          error: optimizationDomainErrors.projectVersionConflict
+        })
+        .eq("id", existingJobId);
+    }
+    return { ok: false, error: optimizationDomainErrors.projectVersionConflict };
+  }
+
   const input = buildOptimizationInputFromProject({
     project: data.project,
     material: data.material,
@@ -76,6 +105,17 @@ export async function runAndStoreOptimization({
   });
 
   if (cachedResultId) {
+    if (existingJobId) {
+      await supabase
+        .from("optimization_jobs")
+        .update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          error: `CACHE_HIT:${cachedResultId}`
+        })
+        .eq("id", existingJobId);
+    }
+
     if (data.project.status !== "optimized") {
       await supabase.from("projects").update({ status: "optimized" }).eq("id", data.project.id);
     }
@@ -83,26 +123,41 @@ export async function runAndStoreOptimization({
     return { ok: true, resultId: cachedResultId, projectVersion };
   }
 
-  let jobId: string | null = null;
+  let jobId: string | null = existingJobId ?? null;
 
   try {
-    const { data: job, error: jobError } = await supabase
-      .from("optimization_jobs")
-      .insert({
-        organization_id: data.project.organization_id,
-        project_id: data.project.id,
-        project_version: projectVersion,
-        status: "running",
-        algorithm_version: LEGACY_OPTIMIZER_VERSION,
-        strategy,
-        requested_by: requestedBy,
-        started_at: new Date().toISOString()
-      })
-      .select("id")
-      .single();
+    if (jobId) {
+      if (!existingJobClaimed) {
+        const { data: claimed, error: claimError } = await supabase
+          .from("optimization_jobs")
+          .update({ status: "running", started_at: new Date().toISOString(), error: null })
+          .eq("id", jobId)
+          .eq("status", "queued")
+          .select("id")
+          .maybeSingle();
 
-    if (jobError) throw new Error(`${optimizationDomainErrors.jobCreateFailed}: ${jobError.message}`);
-    jobId = job.id;
+        if (claimError) throw new Error(`OPTIMIZATION_JOB_CLAIM_FAILED: ${claimError.message}`);
+        if (!claimed) throw new Error("OPTIMIZATION_JOB_NOT_QUEUED");
+      }
+    } else {
+      const { data: job, error: jobError } = await supabase
+        .from("optimization_jobs")
+        .insert({
+          organization_id: data.project.organization_id,
+          project_id: data.project.id,
+          project_version: projectVersion,
+          status: "running",
+          algorithm_version: LEGACY_OPTIMIZER_VERSION,
+          strategy,
+          requested_by: requestedBy,
+          started_at: new Date().toISOString()
+        })
+        .select("id")
+        .single();
+
+      if (jobError) throw new Error(`${optimizationDomainErrors.jobCreateFailed}: ${jobError.message}`);
+      jobId = job.id;
+    }
 
     const result = optimizeProject(input);
 
@@ -134,7 +189,8 @@ export async function runAndStoreOptimization({
       const { error: projectUpdateError } = await supabase
         .from("projects")
         .update({ status: "optimized" })
-        .eq("id", data.project.id);
+        .eq("id", data.project.id)
+        .eq("version", projectVersion);
 
       if (projectUpdateError) throw new Error(`PROJECT_STATUS_UPDATE_FAILED: ${projectUpdateError.message}`);
     }
@@ -152,6 +208,17 @@ export async function runAndStoreOptimization({
           error: message.slice(0, 2000)
         })
         .eq("id", jobId);
+    }
+
+    // Solo el worker deja el proyecto en `optimizing`. Si falla esa version,
+    // vuelve a draft para que el usuario pueda corregir/reintentar.
+    if (data.project.status === "optimizing") {
+      await supabase
+        .from("projects")
+        .update({ status: "draft" })
+        .eq("id", data.project.id)
+        .eq("version", projectVersion)
+        .eq("status", "optimizing");
     }
 
     return { ok: false, error: message };
@@ -187,7 +254,7 @@ async function findCachedOptimizationResultId({
   strategy,
   inputHash
 }: {
-  supabase: ReturnType<typeof createSupabaseServerClient>;
+  supabase: Supabase;
   organizationId: string;
   projectId: string;
   projectVersion: number;
@@ -235,7 +302,7 @@ async function persistOptimizationResult({
   projectVersion,
   result
 }: {
-  supabase: ReturnType<typeof createSupabaseServerClient>;
+  supabase: Supabase;
   jobId: string;
   organizationId: string;
   projectId: string;
@@ -270,7 +337,7 @@ async function persistOptimizationDetails({
   resultId,
   result
 }: {
-  supabase: ReturnType<typeof createSupabaseServerClient>;
+  supabase: Supabase;
   resultId: string;
   result: OptimizationResult;
 }) {
@@ -279,7 +346,6 @@ async function persistOptimizationDetails({
   const cuts: OptimizationCutInsert[] = result.cuts.map((cut) => cutInsert(resultId, cut));
   const remnants: OptimizationRemnantInsert[] = result.remnants.map((remnant) => remnantInsert(resultId, remnant));
 
-  // Las cuatro tablas son independientes entre si: van en paralelo.
   const [boardsResult, piecesResult, cutsResult, remnantsResult] = await Promise.all([
     boards.length > 0 ? supabase.from("optimization_boards").insert(boards) : emptyWrite(),
     pieces.length > 0 ? supabase.from("optimization_pieces").insert(pieces) : emptyWrite(),
