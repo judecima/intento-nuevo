@@ -1,0 +1,95 @@
+{
+  "date": "2026-09-15",
+  "status": "RESEARCH_CHECKPOINT",
+  "scope": {
+    "canonicalValid": 20783,
+    "project": 17258,
+    "projectLe160": 16721,
+    "coverageOfProjectPct": 96.89,
+    "orderExcludedReason": "Order rotation/grain semantics are not represented by the current Legacy research adapter.",
+    "projectGt160": 537
+  },
+  "cascade": {
+    "fastCertifiedCases": 13663,
+    "fastCertifiedPct": 81.71,
+    "fastGapCases": 3058,
+    "fastGapPct": 18.29,
+    "fastGapUniqueGeometries": 2689,
+    "fullP13CertifiedAdditionalCases": 490,
+    "fullP13CertifiedAdditionalGlobalPct": 2.93,
+    "fullP13FallbackCases": 2568,
+    "fullP13FallbackGlobalPct": 15.36
+  },
+  "p13LatencyObservedCpuMs": {
+    "fast": {"p50": 9, "p95": 97, "p99": 187},
+    "p13OnGaps": {"p50": 785, "p95": 4700, "p99": 9900},
+    "over5s": {
+      "uniqueGeometries": 479,
+      "representedCases": 573,
+      "completedOver5sUnique": 93,
+      "timeoutAtApprox6sUnique": 386
+    }
+  },
+  "timeoutSimulationCpu": [
+    {"budgetMs":500,"additionalCertifiedCases":180,"syncCertifiedGlobalPct":82.79,"fallbackCases":2878,"fallbackGlobalPct":17.21,"avgAdditionalP13CpuMsPerGlobalCase":80.56},
+    {"budgetMs":1000,"additionalCertifiedCases":293,"syncCertifiedGlobalPct":83.46,"fallbackCases":2765,"fallbackGlobalPct":16.54,"avgAdditionalP13CpuMsPerGlobalCase":135.21},
+    {"budgetMs":1500,"additionalCertifiedCases":359,"syncCertifiedGlobalPct":83.86,"fallbackCases":2699,"fallbackGlobalPct":16.14,"avgAdditionalP13CpuMsPerGlobalCase":177.95},
+    {"budgetMs":2000,"additionalCertifiedCases":407,"syncCertifiedGlobalPct":84.15,"fallbackCases":2651,"fallbackGlobalPct":15.85,"avgAdditionalP13CpuMsPerGlobalCase":213.65}
+  ],
+  "routerCandidate": {
+    "rule": "run P13 synchronously only when Fast-LB == 1 AND pieceQty <= 50 AND logicalPieceTypes <= 20; otherwise route directly to background/fallback",
+    "syncBudgetMs": 1500,
+    "routedResidualCases": 1645,
+    "skippedResidualCases": 1413,
+    "cpuProjection": {
+      "additionalCertifiedCases": 341,
+      "quickClosuresAvailableAt1500MsAllResidual": 359,
+      "quickClosureCapturePct": 94.99,
+      "syncCertifiedGlobalPct": 83.75,
+      "fallbackCases": 2717,
+      "fallbackGlobalPct": 16.25,
+      "avgAdditionalP13CpuMsPerGlobalCase": 58.74,
+      "cpuReductionVsRunningP13OnAllGapsAt1500Pct": 66.99,
+      "extraFallbackCasesVsAllGapsAt1500": 18,
+      "extraFallbackGlobalPercentagePoints": 0.11
+    },
+    "splitValidation": {
+      "evenGeometryQuickClosureCapturePct": 96.30,
+      "oddGeometryQuickClosureCapturePct": 93.53
+    }
+  },
+  "wallClockCalibration": {
+    "fourProcessHardTimeoutTrial": {
+      "note": "Pessimistic for production: each case starts a fresh Node process and four subprocesses contend for CPU.",
+      "uniqueGeometries": 1465,
+      "representedCases": 1645,
+      "hardTimeoutMs": 1550,
+      "completedUnique": 1054,
+      "hardTimeoutUnique": 411,
+      "certifiedCases": 255,
+      "completedWallP50Ms": 823,
+      "completedWallP95Ms": 1457
+    },
+    "persistentWorkerSample": {
+      "note": "Closer to SaaS/Web Worker execution because Node stays resident. Stratified by historical P13 CPU among router-eligible completed cases.",
+      "requestedSample": 100,
+      "completedBeforeHarnessLimit": 98,
+      "completedWithin1000ms": 97,
+      "completedWithin1500ms": 98,
+      "wallP50Ms": 278,
+      "wallP95Ms": 823,
+      "maxCompletedWallMs": 1074,
+      "wallVsHistoricalCpuCorrelation": 0.947,
+      "caution": "Two tail cases did not complete before the outer 5-minute harness limit, so this sample is calibration evidence, not a production SLA proof."
+    }
+  },
+  "decision": {
+    "freezeP13": true,
+    "doNotSearchForNewFixedPortfolios": true,
+    "recommendedNextArchitecture": "Fast -> deterministic router -> P13 with hard synchronous budget -> background Rescue28 for unresolved cases",
+    "recommendedRouterForNextGate": "gap=1 && pieceQty<=50 && logicalPieceTypes<=20",
+    "recommendedSyncBudgetForNextGateMs": 1500,
+    "productionPromotion": false,
+    "nextGate": "Implement the router as research-only policy and replay the cascade end-to-end, measuring synchronous response distribution and background Rescue28 volume; then validate Project >160 and Order separately."
+  }
+}
