@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { deduplicatePatterns, generateSubsetPatterns } from '../subset-generator/rescue-generator.mjs';
+import { P13_AFTER_ROUND0, P13_FROZEN_ROUNDS, runDirectedP13 } from './directed-generator.mjs';
+const config={placaBase:2600,placaAltura:1830,refiladoX:0,refiladoY:0,sierra:4.4,etapas:4,materialConVeta:false,descontarCanto:false,cantoEspesor:0,restoMin:250,restoMax:400};
+const lines=[{ref:'a',detalle:'a',cant:2,base:900,altura:400,veta:false,cantos:null},{ref:'b',detalle:'b',cant:2,base:700,altura:300,veta:false,cantos:null},{ref:'c',detalle:'c',cant:1,base:500,altura:500,veta:false,cantos:null}];
+const opts={passes:2,restartsPerBoard:14,rescue:true,beam:false};
+const vectorKey=(p)=>[...p.uso.entries()].sort((a,b)=>a[0]-b[0]).map(([k,v])=>`${k}:${v}`).join('|');
+test('P13 split contains exactly the frozen rounds',()=>assert.deepEqual([0,...P13_AFTER_ROUND0],P13_FROZEN_ROUNDS));
+test('round0 + remaining rounds generate the same deduplicated usage vectors as full P13',()=>{const full=generateSubsetPatterns(lines,config,{maskRounds:P13_FROZEN_ROUNDS,...opts});const r0=generateSubsetPatterns(lines,config,{maskRounds:[0],...opts});const rest=generateSubsetPatterns(lines,config,{maskRounds:P13_AFTER_ROUND0,...opts});const split=deduplicatePatterns([...r0.patterns,...rest.patterns]);assert.deepEqual(full.patterns.map(vectorKey).sort(),split.map(vectorKey).sort());});
+test('directed cascade never exceeds the supplied incumbent',()=>{const result=runDirectedP13(lines,config,{lowerBound:1,incumbentBoards:2,earlyMasterLimitMs:500,fullMasterLimitMs:2000});assert.ok(result.placas<=2);assert.ok(['ROUND0','P13_FULL'].includes(result.stage));});

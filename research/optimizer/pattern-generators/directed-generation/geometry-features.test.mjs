@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { canonicalGeometryObject, describeCaseForDirectedGeneration, extractGeometryFeatures, geometrySignature, splitGeometry } from './geometry-features.mjs';
+
+const baseCase = { lb: 2, config: { placaBase:2600,placaAltura:1830,refiladoX:0,refiladoY:0,sierra:4.4,etapas:4,materialConVeta:false,descontarCanto:false,cantoEspesor:0 }, lines:[{ref:'a',detalle:'A',cant:3,base:1000,altura:300,veta:false},{ref:'b',detalle:'B',cant:1,base:400,altura:800,veta:false}] };
+
+test('signature ignores refs, descriptions and input ordering',()=>assert.equal(geometrySignature(baseCase),geometrySignature({...baseCase,lines:[{ref:'x',detalle:'renamed',cant:1,base:800,altura:400,veta:false},{ref:'y',detalle:'other',cant:3,base:300,altura:1000,veta:false}]})));
+test('signature preserves orientation for grain-locked pieces',()=>assert.notEqual(geometrySignature({...baseCase,config:{...baseCase.config,materialConVeta:true},lines:[{cant:1,base:1000,altura:300,veta:true}]}),geometrySignature({...baseCase,config:{...baseCase.config,materialConVeta:true},lines:[{cant:1,base:300,altura:1000,veta:true}]})));
+test('signature changes when panel or kerf changes',()=>{assert.notEqual(geometrySignature(baseCase),geometrySignature({...baseCase,config:{...baseCase.config,sierra:4.5}}));assert.notEqual(geometrySignature(baseCase),geometrySignature({...baseCase,config:{...baseCase.config,placaBase:2750}}));});
+test('split is deterministic and uses only signature',()=>{const sig=geometrySignature(baseCase);assert.equal(splitGeometry(sig),splitGeometry(sig));assert.ok(['train','validation','test'].includes(splitGeometry(sig)));});
+test('feature extraction exposes cheap geometry and gap metrics',()=>{const f=extractGeometryFeatures(baseCase,{lb:2,fastBoards:3});assert.equal(f.pieceQty,4);assert.equal(f.pieceTypes,2);assert.equal(f.fastGap,1);assert.equal(f.repeatedTypeRatio,.5);assert.equal(f.repeatedQtyRatio,.75);assert.equal(f.stripTypeDensity,.5);assert.ok(f.totalAreaRatio>0);assert.ok(f.areaFillVsLB>0);});
+test('description keeps duplicate geometries in the same split',()=>{const a=describeCaseForDirectedGeneration(baseCase,{fastBoards:3}),b=describeCaseForDirectedGeneration({...baseCase,file:'duplicate.xml'},{fastBoards:3});assert.equal(a.signature,b.signature);assert.equal(a.split,b.split);});
+test('canonical object contains only geometry/configuration fields',()=>{const c=canonicalGeometryObject({...baseCase,file:'ignored.xml',sourcePath:'/tmp/ignored'});assert.equal(c.lines.length,2);assert.equal('file' in c,false);assert.equal('sourcePath' in c,false);});

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { shouldAttemptSynchronousDirectedP13 } from './directed-generation-policy.mjs';
+const keep={areaFillVsLB:.85,largeQtyRatio:.10,pieceTypes:10,largeTypeRatio:.20,avgQtyPerType:2,totalAreaRatio:1.7};
+test('keeps ordinary routed geometry',()=>assert.equal(shouldAttemptSynchronousDirectedP13(keep),true));
+test('rejects missing/invalid features',()=>{assert.equal(shouldAttemptSynchronousDirectedP13(null),false);assert.equal(shouldAttemptSynchronousDirectedP13({...keep,totalAreaRatio:NaN}),false);});
+test('skips low-fill few-type large-quantity leaf',()=>assert.equal(shouldAttemptSynchronousDirectedP13({...keep,areaFillVsLB:.90,largeQtyRatio:.50,pieceTypes:4}),false));
+test('skips low-fill many-type low-large-type leaf',()=>assert.equal(shouldAttemptSynchronousDirectedP13({...keep,areaFillVsLB:.90,largeQtyRatio:.50,pieceTypes:8,largeTypeRatio:.20}),false));
+test('keeps low-fill many-type case when large-type ratio is high',()=>assert.equal(shouldAttemptSynchronousDirectedP13({...keep,areaFillVsLB:.90,largeQtyRatio:.50,pieceTypes:8,largeTypeRatio:.70}),true));
+test('skips very-high-fill near-integer-area leaf',()=>assert.equal(shouldAttemptSynchronousDirectedP13({...keep,areaFillVsLB:.98,avgQtyPerType:3,totalAreaRatio:.99}),false));
+test('keeps very-high-fill case with high repetition per type',()=>assert.equal(shouldAttemptSynchronousDirectedP13({...keep,areaFillVsLB:.98,avgQtyPerType:12,totalAreaRatio:.99}),true));

@@ -1,0 +1,11 @@
+{
+  "status":"PASS",
+  "baselineBranch":"prototipo-inicial",
+  "baselineCommit":"a58c8615ba345c5d93bc347946914288f9455cc7",
+  "frozenP13Rounds":[0,7,11,12,14,15,16,17,18,19,21,26,35],
+  "dataset":{"executableProjectOrderLe160":20074,"uniqueGeometry":17775,"split":{"trainBuckets":"0-5","validationBuckets":"6-7","testBuckets":"8-9"},"leakage":"exact geometry duplicates share one SHA-256 signature and one fold"},
+  "acceptanceGate":{"minUsefulClosureRecall":0.95,"minGenerationCpuReduction":0.25,"finalBoardRegressionAllowed":0,"maxRefinementsAfterValidation":1},
+  "validation":{"policy":"depth-4 tree distilled to three low-value skip regions; threshold refined once on validation","usefulClosureRecall":0.962,"projectedGenerationCpuReductionBeforeRound0Cascade":0.329},
+  "untouchedTest":{"routerCohortUniqueGeometry":368,"baselineUsefulClosures":82,"retainedUsefulClosures":79,"usefulClosureRecall":0.9634146341463414,"baselineGenerationCpuMs":204119.495,"directedSynchronousGenerationCpuMs":116790.227,"generationCpuReduction":0.42783,"geometrySelected":267,"round0EarlyCertified":77,"selectedBaselineClosures":79,"executionErrors":0},
+  "qualitySafety":{"skippedGeometry":"existing background fallback retains final quality","selectedGeometry":"round0 miss generates the other 12 frozen rounds; union is exactly frozen P13","validationDirectBoardParity":"280/280 directed-vs-P13 comparisons equal before the final test"}
+}
