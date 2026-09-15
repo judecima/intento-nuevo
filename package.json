@@ -16,7 +16,8 @@
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "catalog:extract": "node scripts/extract-legacy-materials.mjs",
     "catalog:import": "node scripts/import-legacy-materials.mjs",
-    "optimizer:extract": "node scripts/extract-legacy-optimizer.mjs"
+    "optimizer:extract": "node scripts/extract-legacy-optimizer.mjs",
+    "optimizer:worker": "node scripts/run-optimizer-worker.mjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
