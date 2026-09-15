@@ -1,0 +1,79 @@
+{
+  "date": "2026-09-15",
+  "status": "RESEARCH_CHECKPOINT",
+  "scope": "Project <=160 physical pieces",
+  "cases": 16721,
+  "stages": {
+    "fast": {
+      "attempted": 16721,
+      "certified": 13663,
+      "certifiedPct": 81.71,
+      "cpuMsAvg": 23.01,
+      "cpuMsP50": 9.19,
+      "cpuMsP95": 97.21,
+      "cpuMsP99": 187.29
+    },
+    "router": {
+      "rule": "Fast-LB == 1 AND pieceQty <= 50 AND logicalPieceTypes <= 20",
+      "syncBudgetMs": 1500,
+      "routedToSyncP13": 1645,
+      "routedToSyncP13Pct": 9.84,
+      "directToBackground": 1413,
+      "directToBackgroundPct": 8.45
+    },
+    "syncP13CpuProjection": {
+      "additionalCertified": 341,
+      "additionalCertifiedPctGlobal": 2.04,
+      "unresolvedAfterP13": 1304,
+      "unresolvedAfterP13PctGlobal": 7.80,
+      "avgAdditionalCpuMsPerGlobalCase": 58.74
+    },
+    "synchronousOutcome": {
+      "certifiedBeforeBackground": 14004,
+      "certifiedBeforeBackgroundPct": 83.75,
+      "backgroundFallback": 2717,
+      "backgroundFallbackPct": 16.25,
+      "estimatedAvgCpuMsFastPlusP13": 81.75
+    }
+  },
+  "comparison": {
+    "blanketP13AllGapsAt1500Ms": {
+      "additionalCertified": 359,
+      "backgroundFallback": 2699,
+      "avgAdditionalP13CpuMsPerGlobalCase": 177.95
+    },
+    "routerVsBlanket1500": {
+      "fewerSynchronousCertifications": 18,
+      "extraFallbackGlobalPercentagePoints": 0.11,
+      "p13CpuReductionPct": 66.99
+    },
+    "fullP13Approx6sBudget": {
+      "additionalCertified": 490,
+      "backgroundFallback": 2568,
+      "avgAdditionalP13CpuMsPerGlobalCase": 386.09
+    },
+    "routerVsFullP13": {
+      "fewerSynchronousCertifications": 149,
+      "extraFallbackGlobalPercentagePoints": 0.89,
+      "p13CpuReductionPct": 84.79,
+      "estimatedFastPlusP13CpuReductionPct": 80.02
+    }
+  },
+  "qualityInvariant": {
+    "rule": "Background Rescue28 must preserve the best incumbent from Fast/P13 and may only replace it with an equal-or-better board count.",
+    "effect": "Routing changes synchronous latency, not the final no-regression quality contract."
+  },
+  "validation": {
+    "evenGeometryQuickClosureCapturePct": 96.30,
+    "oddGeometryQuickClosureCapturePct": 93.53,
+    "smokeTestsHistorical": "32/32 PASS",
+    "routerBoundaryTests": "10/10 PASS",
+    "portfolio4006648": 10
+  },
+  "decision": {
+    "candidateArchitecture": "Fast -> router -> bounded synchronous P13 -> background Rescue28",
+    "freezeP13": true,
+    "productionIntegration": false,
+    "nextGate": "Project >160 physical pieces, then Order with native rotation/grain semantics."
+  }
+}
