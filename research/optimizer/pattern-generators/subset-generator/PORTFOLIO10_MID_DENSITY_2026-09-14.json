@@ -1,0 +1,87 @@
+{
+  "date": "2026-09-14",
+  "status": "CURRENT_CANONICAL_MID_DENSITY_GATE_PASSED",
+  "productionPromotion": false,
+  "baseCommit": "8ac6080e7a6f3d87927571ee9e23d229ec4e7490",
+  "canonicalParser": {
+    "xmlTotal": 20818,
+    "accepted": 20783,
+    "excludedMixedOrMalformed": 35,
+    "ordering": "current parseCanonicalXml deterministic canonical piece order",
+    "orderingCorrection": "The 8ac6080 directed fixture used a recovered manual piece order. Masks are position-indexed, so that gold result is historical evidence only and is superseded for current-parser validation by this checkpoint."
+  },
+  "cohort": {
+    "source": "part-1 through part-6",
+    "format": "project",
+    "maxPhysicalPieces": 160,
+    "minLogicalTypes": 20,
+    "stripDefinition": "cant >= 2 and max(base,altura)/min(base,altura) >= 2",
+    "midDensityDefinition": "0.50 <= stripTypeFraction < 0.70",
+    "openFilter": "Fast > area lower bound",
+    "cases": 90,
+    "uniqueGeometriesAndConfigs": 67,
+    "uniqueRescue28ComparisonsNeededAfterDedupAndLb": 60
+  },
+  "portfolio10": {
+    "rounds": [0, 8, 12, 16, 17, 19, 26, 33, 35, 37],
+    "count": 10,
+    "passes": 2,
+    "restartsPerBoard": 14,
+    "rescue": true,
+    "beam": false,
+    "perCaseProbe": false
+  },
+  "quality": {
+    "casesCompared": 90,
+    "regressionsVsRescue28": 0,
+    "betterThanRescue28Cases": 3,
+    "equalToRescue28Cases": 87,
+    "betterThanRescue28UniqueGeometries": 2,
+    "portfolioImprovementsVsFast": 14,
+    "rescue28ImprovementsVsFast": 11,
+    "portfolioReachedAreaLowerBound": 7,
+    "rescue28ReachedAreaLowerBound": 7,
+    "wins": [
+      {"index": 11, "file": "Damian_Vazquez4129718.xml", "lb": 11, "fast": 14, "portfolio": 13, "rescue28": 14},
+      {"index": 12, "file": "Damian_Vazquez4129782.xml", "lb": 11, "fast": 14, "portfolio": 13, "rescue28": 14},
+      {"index": 60, "file": "Luis Alberto_Cuevas4073456.xml", "lb": 11, "fast": 13, "portfolio": 12, "rescue28": 13}
+    ],
+    "sharedMasterExhaustion": {
+      "index": 34,
+      "file": "Rodolfo Dario_Gonzalez4108232.xml",
+      "areaLowerBound": 15,
+      "fastBoards": 17,
+      "portfolioBoards": 17,
+      "rescue28Boards": 17,
+      "portfolioExhausted": true,
+      "rescue28Exhausted": true,
+      "note": "Both policies exhaust at the same board count; this is neither an optimality claim nor a Portfolio10 regression."
+    }
+  },
+  "serialBenchmarkTelemetry": {
+    "timingAssertions": false,
+    "speedupRange": [1.814, 3.099],
+    "sampleMedianSpeedup": 2.458,
+    "cases": [
+      {"case": "4006648", "portfolioBoards": 10, "portfolioNodes": 1578, "portfolioCpuMs": 1435.131, "rescue28Boards": 10, "rescue28Nodes": 4959, "rescue28CpuMs": 2603.987, "speedup": 1.814},
+      {"case": "MID_5", "portfolioBoards": 10, "portfolioNodes": 7504, "portfolioCpuMs": 945.315, "rescue28Boards": 10, "rescue28Nodes": 204014, "rescue28CpuMs": 2929.823, "speedup": 3.099},
+      {"case": "MID_22", "portfolioBoards": 10, "portfolioNodes": 2202, "portfolioCpuMs": 1858.72, "rescue28Boards": 10, "rescue28Nodes": 157196, "rescue28CpuMs": 4821.867, "speedup": 2.594},
+      {"case": "MID_89", "portfolioBoards": 7, "portfolioNodes": 1, "portfolioCpuMs": 1427.919, "rescue28Boards": 7, "rescue28Nodes": 1, "rescue28CpuMs": 3314.912, "speedup": 2.321}
+    ],
+    "note": "Serial same-host telemetry only; CPU timing is not asserted in tests."
+  },
+  "smoke": {
+    "frontier": "9/9 PASS",
+    "tinyOracle": "2/2 PASS",
+    "cutPolicy": "2/2 PASS",
+    "andOr": "18/18 PASS",
+    "h2Repeat": "1/1 PASS",
+    "total": "32/32 PASS",
+    "typecheck": "NOT_RUN_NO_NODE_MODULES_IN_RECOVERED_SNAPSHOT"
+  },
+  "scopeBoundary": {
+    "researchOnly": true,
+    "productionFilesModified": false,
+    "nextGate": "Validate Portfolio10 on the broader heterogeneous open cohort and other density families, then measure clean serial p50/p95 before any production integration."
+  }
+}
