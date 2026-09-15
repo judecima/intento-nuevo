@@ -10,7 +10,9 @@ on:
     paths:
       - "src/lib/optimizations/**"
       - "src/lib/projects/actions.ts"
+      - "src/components/optimizer/**"
       - "src/app/api/internal/optimizer-worker/**"
+      - "src/app/(dashboard)/projects/**"
       - "scripts/run-optimizer-worker.mjs"
       - "tests/optimizer-*.test.ts"
       - "supabase/migrations/**"
