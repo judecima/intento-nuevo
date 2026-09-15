@@ -1,0 +1,17 @@
+{
+  "date":"2026-09-15",
+  "status":"REJECTED",
+  "milestone":"Remnant-Safe Directed Generation",
+  "baselineBranch":"prototipo-inicial",
+  "baselineCommit":"a58c8615ba345c5d93bc347946914288f9455cc7",
+  "directedV2ResearchCommit":"9340468c412ac3ab66e58e0ee17710002b5d4fb7",
+  "acceptanceGate":{"boardRegressionsAllowed":0,"equalBoardRemnantRegressionsAllowed":0,"postAuditRetuningAllowed":false},
+  "universe":{"canonicalCases":20844,"eligibleLe50PiecesLe20Types":15758,"project":13168,"order":2590,"split":{"train":9511,"validation":3154,"test":3093}},
+  "cheapCandidate":{"passes":2,"restartsPerBoard":4,"rescue":false,"beam":false,"lbCertified":13957,"lbCertifiedPct":88.57088463002919,"cpuMs":{"median":9.59049,"p95":52.36690815,"max":326.110824}},
+  "labelDataset":{"uniqueGeometries":1500,"train":800,"validation":300,"developmentTest":400},
+  "singleRefinement":{"passes":4,"restartsPerBoard":14,"rescue":false,"beam":false,"safeVsV10":{"train":{"safe":642,"cases":800},"validation":{"safe":238,"cases":300},"developmentTest":{"safe":313,"cases":400}},"cpuMs":{"median":70.307787,"p95":486.716726,"max":897.009329}},
+  "frozenPolicy":{"type":"shallow decision tree","depth":5,"minLeaf":15,"unsafeClassWeight":4,"acceptedLeaves":[5,11],"validation":{"promoted":52,"cases":300,"coveragePct":17.333333333333336,"boardRegressions":0,"remnantRegressions":0,"safeRecallPct":21.84873949579832}},
+  "freshAudit":{"cases":500,"project":416,"order":84,"executionErrors":0,"promoted":63,"coveragePct":12.6,"promotedProject":58,"promotedOrder":5,"boardRegressions":0,"equalBoardRemnantRegressions":1,"promotedLatencyMs":{"polishMedian":17.873122,"v10Median":17.129279,"polishP95":56.346397,"v10P95":74.366288,"netSavedAcrossPromoted":298.190257}},
+  "counterexample":{"caseId":"4006562__rafael_ibanez4006562","format":"order","lb":1,"pieces":10,"types":4,"candidate":{"boards":1,"largest":249412.5,"second":235029,"fragments":3,"total":700104},"v10":{"boards":1,"largest":280188.5,"second":0,"fragments":1,"total":280188.5},"finding":"real equal-board commercial-remnant regression; no adapter anomaly"},
+  "decision":{"promote":false,"productionFilesChanged":false,"retuneClassifier":false,"nextValidDirection":"derive a remnant-quality certificate/upper bound or make generation itself remnant-aware; do not continue threshold/classifier tuning"}
+}
