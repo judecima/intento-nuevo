@@ -1,3 +1,4 @@
+import "server-only";
 import { cache } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, isSupabaseServerConfigured, getPublicEnv } from "@/lib/env";
