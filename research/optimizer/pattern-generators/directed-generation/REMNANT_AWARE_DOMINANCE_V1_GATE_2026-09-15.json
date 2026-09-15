@@ -1,0 +1,43 @@
+{
+  "status": "RESEARCH_MILESTONE_PASS",
+  "productionPromotion": false,
+  "scope": "equivalent-usage-vector local dominance only",
+  "certificate": {
+    "sameUsageVector": true,
+    "sameConsumedAreaWithinEpsilon": true,
+    "depthMetricsComponentwiseNonWorse": true,
+    "largestCommercialRemnantNonWorse": true,
+    "secondCommercialRemnantNonWorse": true,
+    "commercialFragmentCountNonWorse": true,
+    "totalCommercialAreaNonWorseWhenFragmentCountTies": true,
+    "strictImprovementRequired": true
+  },
+  "unitEvidence": {
+    "runtime": "Node 22",
+    "tests": 10,
+    "passed": 10,
+    "failed": 0,
+    "deterministicCompositionTrials": 20000
+  },
+  "projectionScreen": {
+    "binding": "non-gating provenance projection",
+    "source": "experiencia/canonical_cases.json",
+    "projectionCohortLe50PiecesLe20Types": 15760,
+    "sampleDesign": "4 slices x 8 cases at offsets 0, 5000, 10000, 15000",
+    "cases": 32,
+    "errors": 0,
+    "coverageSkeletonFailures": 0,
+    "duplicateVectors": 142,
+    "equalAreaDuplicates": 142,
+    "certifiedReplacements": 3,
+    "casesWithCertifiedReplacement": 3,
+    "anomalousAreaDuplicates": 0,
+    "examples": [
+      "emporio_madera4090675",
+      "4017854__Adrian_Maru4017854",
+      "4052685__dario.siciliani_dario.siciliani4052685"
+    ],
+    "note": "The embedded projection is older than the current physical-XML canonical cohort (15760 vs 15758), so this screen demonstrates signal only and is not a production gate."
+  },
+  "nextGate": "physical-XML replay over the frozen 15758 synchronous cohort; require zero board/depth/remnant regressions and measure replacement yield/latency"
+}
