@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-15",
+  "scope": "research-only",
+  "portfolio13Rounds": [0, 7, 11, 12, 14, 15, 16, 17, 18, 19, 21, 26, 35],
+  "policy": {
+    "passes": 2,
+    "restartsPerBoard": 14,
+    "rescue": true,
+    "beam": false
+  },
+  "gold4006648": {
+    "areaLB": 9,
+    "fast": 12,
+    "portfolio13": 10,
+    "rescue28": 10
+  },
+  "midDensity": {
+    "caseCount": 90,
+    "uniqueCount": 67,
+    "p13VsPublishedP10EqualUnique": 67,
+    "p13Worse": 0,
+    "uniqueImprovementsVsFast": 12,
+    "uniqueReachedAreaLB": 7,
+    "note": "inherits published 0-regression vs Rescue28 MID gate by equality to P10 on all unique inputs"
+  },
+  "highDensity": {
+    "uniqueCompared": 332,
+    "p13WorseThanRescue28": 0,
+    "p13EqualRescue28": 332,
+    "p13BetterThanRescue28": 0,
+    "p13ImprovementsVsFast": 63,
+    "rescue28ImprovementsVsFast": 63,
+    "p13ReachedAreaLB": 58,
+    "rescue28ReachedAreaLB": 58,
+    "p13MasterNodesTotal": 17570385,
+    "rescue28MasterNodesTotal": 22746774
+  },
+  "cpuTelemetryMs": {
+    "p13Median": 696.4725,
+    "rescue28Median": 1448.4355,
+    "p13P90": 4025.973,
+    "rescue28P90": 7156.759,
+    "p13P95": 5179,
+    "rescue28P95": 10242.454,
+    "p13P99": 23827.978,
+    "rescue28P99": 24811.368,
+    "p13Max": 25393.925,
+    "rescue28Max": 34048.747,
+    "medianSpeedupRescue28OverP13": 1.7691214707431122
+  },
+  "smoke": {
+    "passed": 32,
+    "failed": 0
+  },
+  "productionPromoted": false
+}
