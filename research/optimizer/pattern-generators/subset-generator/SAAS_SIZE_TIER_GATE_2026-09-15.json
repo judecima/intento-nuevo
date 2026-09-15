@@ -1,0 +1,83 @@
+{
+  "date": "2026-09-15",
+  "status": "RESEARCH_CHECKPOINT",
+  "scope": "Project+Order size-tier routing",
+  "policy": {
+    "syncFastMaxPieceQty": 350,
+    "syncP13Rule": "Fast-LB == 1 AND pieceQty <= 50 AND logicalPieceTypes <= 20",
+    "syncP13BudgetMs": 1500,
+    "deepRescue28MaxPieceQty": 160,
+    "largeCaseRoute": "BACKGROUND_LARGE_CASE"
+  },
+  "le160": {
+    "validCases": 20074,
+    "fastCertifiedPct": 81.89,
+    "syncP13RoutedPct": 9.80,
+    "certifiedBeforeBackgroundPct": 83.89,
+    "backgroundFallbackPct": 16.11,
+    "estimatedCappedP13AvgGlobalMs": 58.04
+  },
+  "gt160": {
+    "totalCases": 708,
+    "validFastCases": 707,
+    "sourceOrSolverAnomalies": 1,
+    "fastCertified": 168,
+    "fastCertifiedPct": 23.76,
+    "fastGaps": 539,
+    "fastCpuMsP50": 325.85,
+    "fastCpuMsP95": 2015.80,
+    "fastCpuMsP99": 5591.35,
+    "fastCpuMsMax": 15487.69,
+    "pieceBands": [
+      {"range":"161-200","cases":247,"fastCertifiedPct":32.0,"cpuMsP50":230,"cpuMsP95":372,"cpuMsP99":445,"cpuMsMax":469},
+      {"range":"201-250","cases":181,"fastCertifiedPct":27.6,"cpuMsP50":328,"cpuMsP95":496,"cpuMsP99":610,"cpuMsMax":724},
+      {"range":"251-350","cases":119,"fastCertifiedPct":22.7,"cpuMsP50":420,"cpuMsP95":904,"cpuMsP99":1176,"cpuMsMax":1178},
+      {"range":"351-500","cases":68,"fastCertifiedPct":5.9,"cpuMsP50":695,"cpuMsP95":1367,"cpuMsP99":1982,"cpuMsMax":1982},
+      {"range":"501-1000","cases":67,"fastCertifiedPct":10.4,"cpuMsP50":1166,"cpuMsP95":3431,"cpuMsP99":4623,"cpuMsMax":4623},
+      {"range":"1001+","cases":25,"fastCertifiedPct":4.0,"cpuMsP50":3624,"cpuMsP95":15451,"cpuMsP99":15488,"cpuMsMax":15488}
+    ],
+    "syncFastThresholdEvidence": {
+      "pieceQty161To350Cases": 547,
+      "cpuMsP50": 280,
+      "cpuMsP95": 570,
+      "cpuMsP99": 904,
+      "cpuMsMax": 1178,
+      "decision": "allow Fast synchronously through 350 pieces"
+    },
+    "above350Evidence": {
+      "cases": 160,
+      "cpuMsP50": 986,
+      "cpuMsP95": 4902,
+      "cpuMsP99": 15451,
+      "cpuMsMax": 15488,
+      "decision": "route before Fast to background worker"
+    }
+  },
+  "largeCaseDeepRescueProbe": {
+    "populationGaps": 539,
+    "stratifiedSamplePlanned": 38,
+    "rescue28ObservedBeforeStop": {
+      "completedOrTimedOut": 14,
+      "externalBudgetMs": 30000,
+      "timeouts": 12,
+      "improvedFast": 1,
+      "reachedLB": 0,
+      "decision": "stop; Rescue28 is not a general large-case fallback"
+    },
+    "p13ObservedBeforeStop": {
+      "completedOrTimedOut": 8,
+      "externalBudgetMs": 10000,
+      "timeouts": 7,
+      "improvedFast": 0,
+      "reachedLB": 0,
+      "decision": "stop; subset portfolio generation does not scale generally above 160 pieces"
+    },
+    "finding": "The large-case bottleneck is pattern generation scaling, not Master search. Large cases need a separate structural/background rescue strategy rather than more subset contexts."
+  },
+  "validation": {
+    "routerTests": "19/19 PASS",
+    "historicalSmokeTests": "32/32 PASS",
+    "productionFilesChanged": false
+  },
+  "nextGate": "design and benchmark a large-case-specific background strategy; do not use blanket P13/Rescue28 for >160"
+}
