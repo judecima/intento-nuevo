@@ -77,6 +77,12 @@ struct PackOptions {
     // frozen Vec-based pool until the A/B gate proves semantic parity.
     #[serde(default)]
     family_pool_index: bool,
+    // Exact monotonic pruning within one fill region. If no orientation of a
+    // family fits (remaining, perpendicular), remaining only shrinks while
+    // perpendicular stays constant, so that family cannot become feasible
+    // later in the same row/column.
+    #[serde(default)]
+    family_fit_prune: bool,
 }
 
 fn default_true() -> bool { true }
@@ -490,6 +496,7 @@ fn choose_indexed(
     mut rng: Option<&mut Rng>,
     level: u32,
     scratch: &mut Scratch,
+    blocked: &mut [bool],
 ) -> Option<Candidate> {
     let criterion = if !opts.criterios.is_empty() {
         &opts.criterios[usize::min(level.saturating_sub(1) as usize, opts.criterios.len() - 1)]
@@ -512,11 +519,14 @@ fn choose_indexed(
     top.clear();
     for rep_index in pool.representative_indices() {
         let piece = pool.piece(rep_index);
+        if opts.family_fit_prune && blocked[piece.sig] { continue; }
         let available = pool.count(piece.sig);
+        let mut any_fit = false;
         for orientation in piece.orientations() {
             let a = if en_x { orientation.base } else { orientation.altura };
             let b = if en_x { orientation.altura } else { orientation.base };
             if a > remaining + EPS || b > perp + EPS { continue; }
+            any_fit = true;
             let sobra = perp - b;
 
             let mut riesgo: f64 = 0.0;
@@ -590,6 +600,9 @@ fn choose_indexed(
                 }
             }
         }
+        if opts.family_fit_prune && !any_fit {
+            blocked[piece.sig] = true;
+        }
     }
 
     if top.is_empty() { return None; }
@@ -617,10 +630,11 @@ impl PackPool {
         rng: Option<&mut Rng>,
         level: u32,
         scratch: &mut Scratch,
+        blocked: &mut [bool],
     ) -> Option<Candidate> {
         match self {
             Self::Legacy(pool) => choose(pool, region, remaining, perp, opts, rng, level, scratch),
-            Self::Indexed(pool) => choose_indexed(pool, region, remaining, perp, opts, rng, level, scratch),
+            Self::Indexed(pool) => choose_indexed(pool, region, remaining, perp, opts, rng, level, scratch, blocked),
         }
     }
 
@@ -742,9 +756,10 @@ fn fill(
     let perp = region.perp();
     let total = region.length();
     let mut pos = 0.0;
+    let mut blocked = vec![false; scratch.counts.len()];
 
     while pos < total - EPS {
-        let selected = match pool.choose(region, total - pos, perp, opts, rng.as_mut(), level, scratch) {
+        let selected = match pool.choose(region, total - pos, perp, opts, rng.as_mut(), level, scratch, &mut blocked) {
             Some(value) => value,
             None => break,
         };
@@ -1234,6 +1249,7 @@ mod tests {
             },
             contraer_rebanada_real: true,
             family_pool_index: false,
+            family_fit_prune: false,
         }
     }
 
@@ -1263,18 +1279,22 @@ mod tests {
                     for penalize in [false, true] {
                         for seed in [None, Some(7), Some(1000), Some(20260812)] {
                             let mut legacy = parity_options(dir, criterion, multi, penalize);
-                            let mut indexed = legacy.clone();
                             legacy.family_pool_index = false;
-                            indexed.family_pool_index = true;
-
+                            legacy.family_fit_prune = false;
                             let a = pack_prepared(&inputs, &legacy, seed).expect("legacy pack");
-                            let b = pack_prepared(&inputs, &indexed, seed).expect("indexed pack");
                             let a_json = serde_json::to_string(&a).expect("serialize legacy");
-                            let b_json = serde_json::to_string(&b).expect("serialize indexed");
-                            assert_eq!(
-                                a_json, b_json,
-                                "family pool parity failed dir={dir} criterion={criterion} multi={multi} penalize={penalize} seed={seed:?}"
-                            );
+
+                            for prune in [false, true] {
+                                let mut indexed = legacy.clone();
+                                indexed.family_pool_index = true;
+                                indexed.family_fit_prune = prune;
+                                let b = pack_prepared(&inputs, &indexed, seed).expect("indexed pack");
+                                let b_json = serde_json::to_string(&b).expect("serialize indexed");
+                                assert_eq!(
+                                    a_json, b_json,
+                                    "family pool parity failed dir={dir} criterion={criterion} multi={multi} penalize={penalize} prune={prune} seed={seed:?}"
+                                );
+                            }
                         }
                     }
                 }
