@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use napi::{Error, Result, Status};
@@ -269,7 +268,7 @@ fn choose(
             if a > remaining + EPS || b > perp + EPS { continue; }
             let sobra = perp - b;
 
-            let mut riesgo = 0.0;
+            let mut riesgo: f64 = 0.0;
             if opts.penalizar_franja_muerta && level <= 2 {
                 let area_candidate = a * b;
                 for (_, other) in &reps {
