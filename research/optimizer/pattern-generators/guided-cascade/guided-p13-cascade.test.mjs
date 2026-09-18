@@ -66,10 +66,10 @@ test("4056900 closes at the lower bound in the guided family stage", () => {
     guideMasterLimitMs: 5_000,
     p13MasterLimitMs: 5_000,
   });
-  assert.equal(result.status, "CERTIFIED");
+  assert.equal(result.status, "BOARD_CERTIFIED_CANDIDATE");
   assert.equal(result.stage, "GUIDE");
   assert.equal(result.placas, 6);
-  assert.equal(result.validation?.ok, true);
+  assert.equal(result.validation?.ok, true);\n  assert.equal(result.certificationScope, "board-count-only");
   assert.equal(result.telemetry.p13, null);
 });
 
@@ -80,10 +80,10 @@ test("4057401 closes at the lower bound in the guided family stage", () => {
     guideMasterLimitMs: 5_000,
     p13MasterLimitMs: 5_000,
   });
-  assert.equal(result.status, "CERTIFIED");
+  assert.equal(result.status, "BOARD_CERTIFIED_CANDIDATE");
   assert.equal(result.stage, "GUIDE");
   assert.equal(result.placas, 4);
-  assert.equal(result.validation?.ok, true);
+  assert.equal(result.validation?.ok, true);\n  assert.equal(result.certificationScope, "board-count-only");
   assert.equal(result.telemetry.p13, null);
 });
 
@@ -95,10 +95,10 @@ test("4050594 closes at the lower bound with the current guided portfolio", () =
     guideMasterLimitMs: 5_000,
     p13MasterLimitMs: 5_000,
   });
-  assert.equal(result.status, "CERTIFIED");
+  assert.equal(result.status, "BOARD_CERTIFIED_CANDIDATE");
   assert.equal(result.stage, "GUIDE");
   assert.equal(result.placas, 7);
-  assert.equal(result.validation?.ok, true);
+  assert.equal(result.validation?.ok, true);\n  assert.equal(result.certificationScope, "board-count-only");
   assert.equal(result.telemetry.p13, null);
 });
 
@@ -111,10 +111,10 @@ test("P13 escalation independently closes 4050594 when Guide is disabled", () =>
     guideMasterLimitMs: 5_000,
     p13MasterLimitMs: 5_000,
   });
-  assert.equal(result.status, "CERTIFIED");
+  assert.equal(result.status, "BOARD_CERTIFIED_CANDIDATE");
   assert.equal(result.stage, "P13");
   assert.equal(result.placas, 7);
-  assert.equal(result.validation?.ok, true);
+  assert.equal(result.validation?.ok, true);\n  assert.equal(result.certificationScope, "board-count-only");
   assert.equal(result.telemetry.guide?.skipped, true);
   assert.deepEqual(result.telemetry.p13?.rounds, [...P13_FROZEN_ROUNDS]);
 });
