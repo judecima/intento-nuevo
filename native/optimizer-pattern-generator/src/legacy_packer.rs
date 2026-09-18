@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use napi::{Error, Result, Status};
 use napi_derive::napi;
@@ -681,6 +681,70 @@ fn pack_prepared(inputs: &[PieceInput], opts: &PackOptions, random_seed: Option<
     Ok(PackOutput { colocadas: placed, cortes: cuts, restos: rests, arbol: tree, area, area_resto })
 }
 
+
+#[derive(Debug, Clone, Copy)]
+struct RemnantQuality {
+    largest: f64,
+    second: f64,
+    fragments: usize,
+    total: f64,
+}
+
+fn remnant_quality(output: &PackOutput, opts: &PackOptions) -> RemnantQuality {
+    let mut largest = 0.0;
+    let mut second = 0.0;
+    let mut fragments = 0usize;
+    let mut total = 0.0;
+    for rest in &output.restos {
+        if !useful(rest, opts) { continue; }
+        let area = rest.w * rest.h;
+        fragments += 1;
+        total += area;
+        if area > largest {
+            second = largest;
+            largest = area;
+        } else if area > second {
+            second = area;
+        }
+    }
+    RemnantQuality { largest, second, fragments, total }
+}
+
+fn compare_quality(a: RemnantQuality, b: RemnantQuality) -> i8 {
+    let eps = 1e-6;
+    if a.largest > b.largest + eps { return 1; }
+    if b.largest > a.largest + eps { return -1; }
+    if a.second > b.second + eps { return 1; }
+    if b.second > a.second + eps { return -1; }
+    if a.fragments != b.fragments { return if a.fragments < b.fragments { 1 } else { -1 }; }
+    if a.total > b.total + eps { return 1; }
+    if b.total > a.total + eps { return -1; }
+    0
+}
+
+fn board_candidate_better(a: &PackOutput, b: &PackOutput, opts: &PackOptions) -> bool {
+    compare_quality(remnant_quality(a, opts), remnant_quality(b, opts)) > 0
+}
+
+fn usage_signature(output: &PackOutput) -> String {
+    let mut ids: Vec<u32> = output.colocadas.iter().map(|p| p.id).collect();
+    ids.sort_unstable();
+    let mut signature = String::new();
+    for id in ids {
+        use std::fmt::Write;
+        let _ = write!(signature, "{id},");
+    }
+    signature
+}
+
+fn pending_area(inputs: &[PieceInput], output: &PackOutput) -> f64 {
+    let used: HashSet<u32> = output.colocadas.iter().map(|p| p.id).collect();
+    inputs.iter()
+        .filter(|piece| !used.contains(&piece.id))
+        .map(|piece| piece.cut_base * piece.cut_altura)
+        .sum()
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PackBatchRequest {
@@ -705,6 +769,126 @@ pub fn pack_board_legacy_batch(pieces_json: String, requests_json: String) -> Re
 
     serde_json::to_string(&outputs)
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy pack batch: {e}")))
+}
+
+
+#[napi(js_name = "packBoardLegacyGreedyBest")]
+pub fn pack_board_legacy_greedy_best(
+    pieces_json: String,
+    requests_json: String,
+    tolerance: f64,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+    if requests.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    let quality_opts = &requests[0].options;
+    let mut outputs = Vec::with_capacity(requests.len());
+    for request in &requests {
+        let output = pack_prepared(&inputs, &request.options, request.random_seed)
+            .map_err(|e| Error::new(Status::InvalidArg, e))?;
+        if !output.colocadas.is_empty() {
+            outputs.push(output);
+        }
+    }
+    if outputs.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    let mut best_close: Option<usize> = None;
+    for (index, output) in outputs.iter().enumerate() {
+        if output.colocadas.len() != inputs.len() { continue; }
+        match best_close {
+            None => best_close = Some(index),
+            Some(prev) => {
+                let q = compare_quality(remnant_quality(output, quality_opts), remnant_quality(&outputs[prev], quality_opts));
+                if q > 0 || (q == 0 && output.area > outputs[prev].area) {
+                    best_close = Some(index);
+                }
+            }
+        }
+    }
+    if let Some(index) = best_close {
+        return serde_json::to_string(&outputs[index])
+            .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy best: {e}")));
+    }
+
+    let max_area = outputs.iter().fold(0.0_f64, |acc, output| acc.max(output.area));
+    let threshold = max_area * (1.0 - tolerance);
+    let mut best: Option<usize> = None;
+    for (index, output) in outputs.iter().enumerate() {
+        if output.area < threshold { continue; }
+        match best {
+            None => best = Some(index),
+            Some(prev) => {
+                let q = compare_quality(remnant_quality(output, quality_opts), remnant_quality(&outputs[prev], quality_opts));
+                if q > 0 || (q == 0 && output.area > outputs[prev].area + 1e-6) {
+                    best = Some(index);
+                }
+            }
+        }
+    }
+
+    match best {
+        Some(index) => serde_json::to_string(&outputs[index])
+            .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy best: {e}"))),
+        None => Ok("null".to_string()),
+    }
+}
+
+#[napi(js_name = "packBoardLegacyBeamCandidates")]
+pub fn pack_board_legacy_beam_candidates(
+    pieces_json: String,
+    requests_json: String,
+    beam_width: u32,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+    if requests.is_empty() {
+        return Ok("[]".to_string());
+    }
+
+    let quality_opts = &requests[0].options;
+    let mut dedup: HashMap<String, PackOutput> = HashMap::new();
+    for request in &requests {
+        let output = pack_prepared(&inputs, &request.options, request.random_seed)
+            .map_err(|e| Error::new(Status::InvalidArg, e))?;
+        if output.colocadas.is_empty() { continue; }
+        let signature = usage_signature(&output);
+        if let Some(previous) = dedup.get(&signature) {
+            let q = compare_quality(remnant_quality(&output, quality_opts), remnant_quality(previous, quality_opts));
+            if q < 0 || (q == 0 && output.area <= previous.area + 1e-6) {
+                continue;
+            }
+        }
+        dedup.insert(signature, output);
+    }
+
+    let board_area = quality_opts.ancho_util * quality_opts.alto_util;
+    let mut outputs: Vec<PackOutput> = dedup.into_values().collect();
+    outputs.sort_by(|a, b| {
+        let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
+        let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
+        lb_a.cmp(&lb_b)
+            .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| {
+                let q = compare_quality(remnant_quality(a, quality_opts), remnant_quality(b, quality_opts));
+                if q > 0 { std::cmp::Ordering::Less }
+                else if q < 0 { std::cmp::Ordering::Greater }
+                else { std::cmp::Ordering::Equal }
+            })
+    });
+    let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
+    outputs.truncate(limit);
+
+    serde_json::to_string(&outputs)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize beam candidates: {e}")))
 }
 
 #[napi(js_name = "packBoardLegacyCore")]

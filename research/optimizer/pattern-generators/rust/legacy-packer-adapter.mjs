@@ -11,8 +11,13 @@ const addonPath = join(
 let addon;
 function native() {
   addon ??= require(addonPath);
-  if (typeof addon.packBoardLegacyCore !== "function" || typeof addon.packBoardLegacyBatch !== "function") {
-    throw new Error("native addon does not expose legacy packer core/batch");
+  if (
+    typeof addon.packBoardLegacyCore !== "function" ||
+    typeof addon.packBoardLegacyBatch !== "function" ||
+    typeof addon.packBoardLegacyGreedyBest !== "function" ||
+    typeof addon.packBoardLegacyBeamCandidates !== "function"
+  ) {
+    throw new Error("native addon does not expose legacy packer core/batch/selectors");
   }
   return addon;
 }
@@ -49,6 +54,14 @@ function pieces(pool) {
     detalle: piece.detalle ?? "",
     refValue: piece.ref ?? null,
   }));
+}
+
+
+function serializeRequests(requests) {
+  return JSON.stringify(requests.map(({ opts, randomSeed = null }) => ({
+    options: packOptions(opts),
+    randomSeed: randomSeed == null ? null : randomSeed >>> 0,
+  })));
 }
 
 function hydrateTree(node, byId) {
@@ -91,10 +104,29 @@ export function packBoardLegacyRustBatch(pool, requests) {
   const raw = JSON.parse(
     native().packBoardLegacyBatch(
       JSON.stringify(pieces(pool)),
-      JSON.stringify(requests.map(({ opts, randomSeed = null }) => ({
-        options: packOptions(opts),
-        randomSeed: randomSeed == null ? null : randomSeed >>> 0,
-      }))),
+      serializeRequests(requests),
+    ),
+  );
+  return raw.map((result) => hydrateResult(result, pool));
+}
+
+export function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
+  const raw = JSON.parse(
+    native().packBoardLegacyGreedyBest(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      tolerance,
+    ),
+  );
+  return raw == null ? null : hydrateResult(raw, pool);
+}
+
+export function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
+  const raw = JSON.parse(
+    native().packBoardLegacyBeamCandidates(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      beamWidth >>> 0,
     ),
   );
   return raw.map((result) => hydrateResult(result, pool));

@@ -6,10 +6,14 @@ const {
   empacarPlaca,
   orientaciones,
   medidaCorte,
+  calidadRestos,
+  compararCalidad,
 } = require("../../src/lib/optimizer/legacy/motor.cjs");
 const {
   packBoardLegacyRustCore,
   packBoardLegacyRustBatch,
+  packBoardLegacyRustGreedyBest,
+  packBoardLegacyRustBeamCandidates,
   legacyJsRng,
 } = require("../../research/optimizer/pattern-generators/rust/legacy-packer-adapter.mjs");
 
@@ -187,6 +191,88 @@ describe("Rust legacy single-board packer", () => {
       normalizeBoard(packBoardLegacyRustCore(pool, requestOptions, randomSeed)),
     );
     expect(batch).toEqual(individual);
+  });
+
+  it("native greedy selector matches the JS candidate policy", () => {
+    const opts: any = { ...BASE_OPTIONS, ruido: 0.35, tolerancia: 0.02 };
+    const pool = prepare([
+      { detalle: "A", cant: 4, base: 700, altura: 500 },
+      { detalle: "B", cant: 5, base: 520, altura: 420 },
+      { detalle: "C", cant: 3, base: 450, altura: 820 },
+    ], opts);
+    const requests = [
+      { opts: { ...opts, criterio: "area", criterios: ["area", "perp"], dirInicial: "x" }, randomSeed: 7 },
+      { opts: { ...opts, criterio: "perp", criterios: ["perp", "area"], dirInicial: "y" }, randomSeed: 123456789 },
+      { opts: { ...opts, criterio: "largo", criterios: ["largo", "perp"], dirInicial: "x", ruido: 0 }, randomSeed: null },
+    ];
+    const all = packBoardLegacyRustBatch(pool, requests);
+    const closing = all.filter((candidate: any) => candidate.colocadas.length === pool.length);
+    let expected: any;
+    if (closing.length) {
+      expected = closing.sort((a: any, b: any) => {
+        const q = compararCalidad(calidadRestos(b.restos ?? [], opts), calidadRestos(a.restos ?? [], opts));
+        return q || b.area - a.area;
+      })[0];
+    } else {
+      const maxArea = Math.max(...all.map((candidate: any) => candidate.area));
+      const threshold = maxArea * (1 - opts.tolerancia);
+      expected = null;
+      for (const candidate of all) {
+        if (candidate.area < threshold) continue;
+        if (
+          !expected ||
+          compararCalidad(calidadRestos(candidate.restos ?? [], opts), calidadRestos(expected.restos ?? [], opts)) > 0 ||
+          (
+            compararCalidad(calidadRestos(candidate.restos ?? [], opts), calidadRestos(expected.restos ?? [], opts)) === 0 &&
+            candidate.area > expected.area + 1e-6
+          )
+        ) expected = candidate;
+      }
+    }
+    const selected = packBoardLegacyRustGreedyBest(pool, requests, opts.tolerancia);
+    expect(normalizeBoard(selected)).toEqual(normalizeBoard(expected));
+  });
+
+  it("native Beam selector preserves the JS dedup/top candidate set", () => {
+    const opts: any = { ...BASE_OPTIONS, ruido: 0.35, beamWidth: 4 };
+    const pool = prepare([
+      { detalle: "A", cant: 4, base: 700, altura: 500 },
+      { detalle: "B", cant: 5, base: 520, altura: 420 },
+      { detalle: "C", cant: 3, base: 450, altura: 820 },
+    ], opts);
+    const requests = [
+      { opts: { ...opts, criterio: "area", criterios: ["area", "perp"], dirInicial: "x" }, randomSeed: 7 },
+      { opts: { ...opts, criterio: "perp", criterios: ["perp", "area"], dirInicial: "y" }, randomSeed: 123456789 },
+      { opts: { ...opts, criterio: "largo", criterios: ["largo", "perp"], dirInicial: "x", ruido: 0 }, randomSeed: null },
+      { opts: { ...opts, criterio: "area", criterios: ["area", "area"], dirInicial: "y" }, randomSeed: 99 },
+    ];
+    const all = packBoardLegacyRustBatch(pool, requests);
+    const byUsage = new Map<string, any>();
+    for (const candidate of all) {
+      const signature = candidate.colocadas.map((p: any) => p.pieza.id).sort((a: number, b: number) => a - b).join(",");
+      const previous = byUsage.get(signature);
+      const q = previous == null ? 1 :
+        compararCalidad(calidadRestos(candidate.restos ?? [], opts), calidadRestos(previous.restos ?? [], opts));
+      if (!previous || q > 0 || (q === 0 && candidate.area > previous.area + 1e-6)) byUsage.set(signature, candidate);
+    }
+    const boardArea = opts.anchoUtil * opts.altoUtil;
+    const expected = [...byUsage.values()].map((candidate: any) => {
+      const used = new Set(candidate.colocadas.map((p: any) => p.pieza.id));
+      const pending = pool.filter((p: any) => !used.has(p.id))
+        .reduce((sum: number, p: any) => sum + p._corte.base * p._corte.altura, 0);
+      return { candidate, lb: Math.ceil(Math.max(0, pending) / boardArea) };
+    }).sort((a: any, b: any) => {
+      const primary = a.lb - b.lb || b.candidate.area - a.candidate.area;
+      if (primary) return primary;
+      return -compararCalidad(
+        calidadRestos(a.candidate.restos ?? [], opts),
+        calidadRestos(b.candidate.restos ?? [], opts),
+      );
+    }).slice(0, Math.max(opts.beamWidth * 3, opts.beamWidth))
+      .map((x: any) => normalizeBoard(x.candidate));
+
+    const selected = packBoardLegacyRustBeamCandidates(pool, requests, opts.beamWidth).map(normalizeBoard);
+    expect(selected).toEqual(expected);
   });
 
   it("matches multi-rebanada proposals", () => {
