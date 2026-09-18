@@ -62,8 +62,10 @@ const LINES_4057401 = [
   { ref: "4", detalle: "4", cant: 14, base: 744, altura: 450, veta: false, cantos: null },
 ];
 
+type InstrumentedOptions = Record<string, any>;
+
 function runMaster(lines: any[], config: Record<string, unknown>, incumbent: number) {
-  const options = {
+  const options: InstrumentedOptions = {
     ...config,
     usarRustPatternGenerator: true,
     usarMascarasUnicasMasterLe4: true,
@@ -103,13 +105,13 @@ function runMaster(lines: any[], config: Record<string, unknown>, incumbent: num
 describe("Master unique-mask <=4 policy", () => {
   it("stays disabled unless the experimental flag or option is enabled", () => {
     process.env.OPTIMIZER_MASTER_UNIQUE_MASKS_LE4_EXPERIMENTAL = "0";
-    const options = { ...CONFIG_4057401, usarRustPatternGenerator: false };
+    const options: InstrumentedOptions = { ...CONFIG_4057401, usarRustPatternGenerator: false };
     generarPatrones(LINES_4057401, options, 1, 7);
     expect(options._patternMaskPolicy).toBeUndefined();
   });
 
   it("deduplicates the 40-round four-type schedule to 15 first-occurrence masks in JS", () => {
-    const options = {
+    const options: InstrumentedOptions = {
       ...CONFIG_4057401,
       usarRustPatternGenerator: false,
       usarMascarasUnicasMasterLe4: true,
