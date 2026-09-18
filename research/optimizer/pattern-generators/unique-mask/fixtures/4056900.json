@@ -1,0 +1,60 @@
+{
+  "order": 4056900,
+  "expectedBoards": 6,
+  "preMasterBoards": 7,
+  "cota": 6,
+  "legacyGenMs": 21568,
+  "config": {
+    "placaBase": 2740,
+    "placaAltura": 1820,
+    "refiladoX": 0,
+    "refiladoY": 0,
+    "sierra": 4.4,
+    "etapas": 4,
+    "materialConVeta": false,
+    "descontarCanto": false,
+    "cantoEspesor": 0,
+    "restoMin": 250,
+    "restoMax": 400,
+    "usarCache": true,
+    "maxPiezasCache": 160
+  },
+  "lines": [
+    {
+      "ref": "3",
+      "detalle": "3",
+      "cant": 30,
+      "base": 378,
+      "altura": 350,
+      "veta": false,
+      "cantos": null
+    },
+    {
+      "ref": "2",
+      "detalle": "2",
+      "cant": 24,
+      "base": 964,
+      "altura": 350,
+      "veta": false,
+      "cantos": null
+    },
+    {
+      "ref": "1",
+      "detalle": "1",
+      "cant": 16,
+      "base": 2000,
+      "altura": 350,
+      "veta": false,
+      "cantos": null
+    },
+    {
+      "ref": "4",
+      "detalle": "4",
+      "cant": 24,
+      "base": 564,
+      "altura": 350,
+      "veta": false,
+      "cantos": null
+    }
+  ]
+}
