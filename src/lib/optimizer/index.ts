@@ -26,7 +26,7 @@ export {
   RUST_LEGACY_PATTERN_GENERATOR_VERSION,
   optimizeProject,
 } from "./engine/legacy-engine";
-export type { OptimizeProjectRuntimeOptions } from "./engine/legacy-engine";
+export type { OptimizeProjectDiagnostics, OptimizeProjectRuntimeOptions } from "./engine/legacy-engine";
 export { validateIndependentSlices } from "./validators/independent-slices";
 export type * from "./canonical-case";
 export type * from "./canonical-xml";
