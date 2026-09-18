@@ -1,0 +1,31 @@
+name: Optimizer Safe Performance Stack
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-safe-performance-stack
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - name: OneBoard reuse contract
+        run: npx vitest run tests/optimizer/oneboard-baseline-reuse.test.ts
+      - name: PreMaster cheap LB contract
+        run: npx vitest run tests/optimizer/premaster-cheap-lb.test.ts
+      - run: npm run typecheck
+      - run: npm test
