@@ -14,6 +14,13 @@ const requireRust = process.env.FULL_OPTIMIZE_REQUIRE_RUST !== "0";
 const results = [];
 const failures = [];
 
+function orderFromFixture(fixturePath: string, input: OptimizationInput): string {
+  if (input.projectId) return String(input.projectId);
+  const match = /(?:^|[/\\])(\d{7})(?:\.json)?$/.exec(fixturePath);
+  if (!match) throw new Error(`CANNOT_RESOLVE_ORDER:${fixturePath}`);
+  return match[1];
+}
+
 for (const fixturePath of fixturePaths) {
   const input = JSON.parse(await readFile(fixturePath, "utf8")) as OptimizationInput;
   const diagnostics = createRustCertificationDiagnostics();
@@ -29,16 +36,17 @@ for (const fixturePath of fixturePaths) {
     if (result.metrics.cacheHit === true) throw new Error(`CACHE_HIT:${fixturePath}`);
     if (!result.validation.ok) throw new Error(`INVALID_RESULT:${fixturePath}`);
 
+    const { result: _normalizedResult, ...summary } = fullOptimizeContractSummary(result, diagnostics);
     results.push({
       fixturePath,
-      order: input.projectId ?? fixturePath,
+      order: orderFromFixture(fixturePath, input),
       certificationRequired: requireRust,
-      ...fullOptimizeContractSummary(result, diagnostics),
+      ...summary,
     });
   } catch (error) {
     failures.push({
       fixturePath,
-      order: input.projectId ?? fixturePath,
+      order: orderFromFixture(fixturePath, input),
       certificationRequired: requireRust,
       diagnostics,
       error: error instanceof Error ? error.message : String(error),
