@@ -76,7 +76,7 @@ afterEach(() => {
 
 describe("production Rust Pattern Master routing", () => {
   it("keeps JS as the default path", () => {
-    const options = { ...CONFIG };
+    const options: any = { ...CONFIG };
     expect(normalize(generarPatrones(LINES, options, 6, 7))).toEqual(
       normalize(generarPatronesJs(LINES, options, 6, 7)),
     );
