@@ -1,0 +1,40 @@
+FROM public.ecr.aws/lambda/nodejs:22 AS build
+
+RUN dnf install -y gcc gcc-c++ make && dnf clean all
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+COPY native/optimizer-pattern-generator ./native/optimizer-pattern-generator
+COPY scripts/install-rust-pattern-generator.mjs ./scripts/install-rust-pattern-generator.mjs
+RUN cargo build --manifest-path native/optimizer-pattern-generator/Cargo.toml --release \
+ && node scripts/install-rust-pattern-generator.mjs
+
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts \
+ && npm install --no-save esbuild@0.25.10
+
+COPY src/lib/optimizer ./src/lib/optimizer
+COPY infra/optimizer-rust-lambda/full-optimize-handler.ts ./infra/optimizer-rust-lambda/full-optimize-handler.ts
+COPY infra/optimizer-rust-lambda/full-optimize-contract.ts ./infra/optimizer-rust-lambda/full-optimize-contract.ts
+
+RUN mkdir -p /tmp/full/src/lib/optimizer/engine \
+ && ./node_modules/.bin/esbuild infra/optimizer-rust-lambda/full-optimize-handler.ts \
+      --bundle \
+      --platform=node \
+      --target=node22 \
+      --format=esm \
+      --outfile=/tmp/full/src/lib/optimizer/engine/full-optimize-handler.mjs
+
+FROM public.ecr.aws/lambda/nodejs:22
+
+COPY --from=build ${LAMBDA_TASK_ROOT}/native/optimizer-pattern-generator/optimizer_pattern_generator.node \
+  ${LAMBDA_TASK_ROOT}/native/optimizer-pattern-generator/optimizer_pattern_generator.node
+COPY src/lib/optimizer/legacy ${LAMBDA_TASK_ROOT}/src/lib/optimizer/legacy
+COPY src/lib/optimizer/experimental ${LAMBDA_TASK_ROOT}/src/lib/optimizer/experimental
+COPY --from=build /tmp/full/src/lib/optimizer/engine/full-optimize-handler.mjs \
+  ${LAMBDA_TASK_ROOT}/src/lib/optimizer/engine/full-optimize-handler.mjs
+COPY infra/optimizer-rust-lambda/full-optimize-wrapper.mjs ${LAMBDA_TASK_ROOT}/full-optimize-wrapper.mjs
+
+CMD ["full-optimize-wrapper.handler"]
