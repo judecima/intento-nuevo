@@ -921,6 +921,128 @@ pub fn generate_roots(
     .map_err(|e| Error::new(Status::GenericFailure, format!("serialize native output: {e}")))
 }
 
+
+const LEGACY_OUTER_VERSION: &str = "rust-legacy-pattern-outer-v1";
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyPlacementInput {
+    type_index: Option<usize>,
+    base: f64,
+    altura: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyBoardCandidateInput {
+    payload_index: u32,
+    placements: Vec<LegacyPlacementInput>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacySelectedPattern {
+    payload_index: u32,
+    usage_vector: Vec<u32>,
+    area: f64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyRoundSchedule {
+    version: &'static str,
+    rounds: Vec<Vec<u32>>,
+}
+
+#[napi(js_name = "legacyRoundSubsets")]
+pub fn legacy_round_subsets(line_count: u32, rounds: u32, seed: u32) -> Result<String> {
+    let mut state = seed;
+    let mut next_random = || {
+        state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+        (state & 0x7fff_ffff) as f64 / 2_147_483_647_f64
+    };
+
+    let mut schedule = Vec::with_capacity(rounds as usize);
+    for round in 0..rounds {
+        if round == 0 {
+            schedule.push((0..line_count).collect());
+            continue;
+        }
+        let mut subset = Vec::new();
+        for index in 0..line_count {
+            if next_random() > 0.45 {
+                subset.push(index);
+            }
+        }
+        schedule.push(subset);
+    }
+
+    serde_json::to_string(&LegacyRoundSchedule {
+        version: LEGACY_OUTER_VERSION,
+        rounds: schedule,
+    })
+    .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy schedule: {e}")))
+}
+
+#[napi(js_name = "legacyDedupBoards")]
+pub fn legacy_dedup_boards(candidates_json: String, line_count: u32) -> Result<String> {
+    let candidates: Vec<LegacyBoardCandidateInput> = serde_json::from_str(&candidates_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid legacy candidates JSON: {e}")))?;
+
+    let mut selected: Vec<LegacySelectedPattern> = Vec::new();
+    let mut position_by_key: HashMap<String, usize> = HashMap::new();
+
+    for candidate in candidates {
+        let mut usage = vec![0_u32; line_count as usize];
+        let mut area = 0_f64;
+        let mut valid = true;
+
+        for placement in candidate.placements {
+            let Some(type_index) = placement.type_index else {
+                valid = false;
+                break;
+            };
+            if type_index >= usage.len() || !placement.base.is_finite() || !placement.altura.is_finite() {
+                valid = false;
+                break;
+            }
+            usage[type_index] = usage[type_index].saturating_add(1);
+            area += placement.base * placement.altura;
+        }
+
+        if !valid || usage.iter().all(|value| *value == 0) {
+            continue;
+        }
+
+        let mut key = String::new();
+        for (index, value) in usage.iter().enumerate() {
+            if *value > 0 {
+                key.push_str(&format!("{index}:{value},"));
+            }
+        }
+
+        if let Some(slot) = position_by_key.get(&key).copied() {
+            if area > selected[slot].area {
+                selected[slot] = LegacySelectedPattern {
+                    payload_index: candidate.payload_index,
+                    usage_vector: usage,
+                    area,
+                };
+            }
+        } else {
+            position_by_key.insert(key, selected.len());
+            selected.push(LegacySelectedPattern {
+                payload_index: candidate.payload_index,
+                usage_vector: usage,
+                area,
+            });
+        }
+    }
+
+    serde_json::to_string(&selected)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy patterns: {e}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
