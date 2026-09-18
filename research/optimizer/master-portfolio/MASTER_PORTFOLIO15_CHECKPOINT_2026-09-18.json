@@ -1,0 +1,101 @@
+{
+  "schema": "master-portfolio15-checkpoint-v1",
+  "date": "2026-09-18",
+  "sourceHead": "760aeb0d5274acea83d07483a7d35c952206ab92",
+  "rounds": [
+    0,
+    2,
+    6,
+    10,
+    12,
+    13,
+    16,
+    17,
+    18,
+    19,
+    21,
+    22,
+    25,
+    34,
+    36
+  ],
+  "winners": [
+    {
+      "order": 4050594,
+      "preMaster": 8,
+      "boards": 7,
+      "usedRounds": [
+        0
+      ],
+      "rust40GenerationMs": 4899.985845,
+      "portfolioGenerationMs": 1764.278417,
+      "sameQuality": true,
+      "valid": true
+    },
+    {
+      "order": 4056900,
+      "preMaster": 7,
+      "boards": 6,
+      "usedRounds": [
+        6,
+        17,
+        19,
+        34,
+        36
+      ],
+      "rust40GenerationMs": 4219.355462,
+      "portfolioGenerationMs": 2190.019441,
+      "sameQuality": true,
+      "valid": true
+    },
+    {
+      "order": 4057401,
+      "preMaster": 5,
+      "boards": 4,
+      "usedRounds": [
+        0,
+        2,
+        6
+      ],
+      "rust40GenerationMs": 1371.979502,
+      "portfolioGenerationMs": 646.810996,
+      "sameQuality": true,
+      "valid": true
+    },
+    {
+      "order": 4059200,
+      "preMaster": 18,
+      "boards": 17,
+      "usedRounds": [
+        0,
+        2,
+        6,
+        10,
+        12,
+        13,
+        16,
+        18,
+        21,
+        22,
+        25
+      ],
+      "rust40GenerationMs": 11404.260318,
+      "portfolioGenerationMs": 4274.160853,
+      "sameQuality": true,
+      "valid": true
+    }
+  ],
+  "expandedReplay": {
+    "architecture": "post-compact-cheap-LB first; portfolio only on remaining Master candidates",
+    "lowerBoundCertifiedFrozenGate": 97,
+    "extraUnpromotedWideBoundCase": 4059488,
+    "replayedSoFar": 68,
+    "boardRegressions": 0,
+    "invalidPlans": 0,
+    "extraBoardImprovements": 0,
+    "masterWinnersEncountered": [
+      4050594
+    ],
+    "note": "Replay incomplete; portfolio is research-only and must retain full fallback until all remaining cases/tails are gated."
+  }
+}
