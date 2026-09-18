@@ -1,0 +1,26 @@
+{
+  "requestId": "4057401",
+  "lines": [
+    { "ref": "1", "detalle": "1", "cant": 2, "base": 1800, "altura": 1050, "veta": false },
+    { "ref": "3", "detalle": "3", "cant": 2, "base": 2000, "altura": 1100, "veta": false },
+    { "ref": "2", "detalle": "2", "cant": 1, "base": 1900, "altura": 1500, "veta": false },
+    { "ref": "4", "detalle": "4", "cant": 14, "base": 744, "altura": 450, "veta": false }
+  ],
+  "options": {
+    "placaBase": 2742,
+    "placaAltura": 1822,
+    "refiladoX": 0,
+    "refiladoY": 0,
+    "sierra": 4.5,
+    "etapas": 4,
+    "materialConVeta": false,
+    "descontarCanto": false,
+    "cantoEspesor": 0,
+    "restoMin": 250,
+    "restoMax": 400,
+    "multiVariantes": false,
+    "trazaDiag": false
+  },
+  "rounds": 60,
+  "seed": 7
+}
