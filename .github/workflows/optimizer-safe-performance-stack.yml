@@ -27,5 +27,9 @@ jobs:
         run: npx vitest run tests/optimizer/oneboard-baseline-reuse.test.ts
       - name: PreMaster cheap LB contract
         run: npx vitest run tests/optimizer/premaster-cheap-lb.test.ts
+      - name: Four historical winner gate
+        env:
+          OPTIMIZER_RUST_LEGACY_STRICT: "1"
+        run: node research/optimizer/safe-performance-stack/winner-gate.cjs
       - run: npm run typecheck
       - run: npm test
