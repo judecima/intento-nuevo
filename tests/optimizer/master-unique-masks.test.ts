@@ -33,10 +33,11 @@ const CONFIG_4056900 = {
   maxPiezasCache: 160,
 };
 const LINES_4056900 = [
+  // Exact current canonical XML order: 1, 2, 4, 3. Masks are position-indexed.
   { ref: "1", detalle: "1", cant: 16, base: 2000, altura: 350, veta: false, cantos: null },
   { ref: "2", detalle: "2", cant: 24, base: 964, altura: 350, veta: false, cantos: null },
-  { ref: "3", detalle: "3", cant: 30, base: 378, altura: 350, veta: false, cantos: null },
   { ref: "4", detalle: "4", cant: 24, base: 564, altura: 350, veta: false, cantos: null },
+  { ref: "3", detalle: "3", cant: 30, base: 378, altura: 350, veta: false, cantos: null },
 ];
 
 const CONFIG_4057401 = {
