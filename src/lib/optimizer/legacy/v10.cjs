@@ -44,6 +44,13 @@ function nuevasMetricas() {
       cheapMs: 0,
       cheapValue: 0,
       cheapReason: null,
+      preMasterRuns: 0,
+      preMasterCertified: 0,
+      preMasterViolation: 0,
+      preMasterErrors: 0,
+      preMasterMs: 0,
+      preMasterValue: 0,
+      preMasterReason: null,
     },
     remnantPolish: {
       runs: 0,
@@ -76,6 +83,11 @@ function usarCotaBarataPostBaseline(config) {
   // El flag V20 es independiente del pipeline staged para poder hacer un A/B
   // contra el V10 legacy cambiando una sola variable.
   return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+}
+
+function usarCotaBarataPreMaster(config) {
+  if (config.usarCotaBarataAntesMaster === true) return true;
+  return envFlag('OPTIMIZER_PREMASTER_CHEAP_LB_EXPERIMENTAL');
 }
 
 function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
@@ -147,6 +159,33 @@ function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
     return 0;
   } finally {
     metricas.lowerBound.cheapMs += Number(process.hrtime.bigint() - t0) / 1e6;
+  }
+}
+
+function calcularCotaBarataPreMaster(lineas, config, plan, metricas) {
+  const t0 = process.hrtime.bigint();
+  metricas.lowerBound.preMasterRuns++;
+  try {
+    const optsLB = plan?.opts || config;
+    const { computeHybridLowerBound } = require('../experimental/hybrid-lower-bound.cjs');
+    const r = computeHybridLowerBound(
+      lineas,
+      optsLB,
+      plan?.resumen?.placas,
+      {
+        useRaster: false,
+        claude: { usarRaster: false },
+      },
+    );
+    const value = Math.max(0, Math.floor(Number(r?.cheapLowerBound ?? r?.lowerBound ?? 0)));
+    metricas.lowerBound.preMasterValue = value;
+    metricas.lowerBound.preMasterReason = r?.reason || null;
+    return value;
+  } catch (_) {
+    metricas.lowerBound.preMasterErrors++;
+    return 0;
+  } finally {
+    metricas.lowerBound.preMasterMs += Number(process.hrtime.bigint() - t0) / 1e6;
   }
 }
 
@@ -431,6 +470,31 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
     const res = rescatarUnaPlaca(lineas, config, baselineOneBoard);
     if (res.exito) probar('oneboard', res.plan, Date.now() - t);
     else registrar(metricas.oneboard, Date.now() - t, false, 0, false);
+  }
+
+  // ---- cota barata pre-Master.
+  // A esta altura baseline/compactacion/MultiSlice/OneBoard ya terminaron. Si
+  // una cota inferior segura iguala al incumbent fisico, Pattern Master no
+  // puede reducir placas. El Master legacy no acepta empates de cantidad, por
+  // lo que conservar `mejor` preserva tambien su remanente.
+  if (
+    config.usarMaster !== false &&
+    mejor.resumen.placas > cota &&
+    usarCotaBarataPreMaster(config)
+  ) {
+    const cheapMaster = calcularCotaBarataPreMaster(lineas, config, mejor, metricas);
+    if (cheapMaster > 0) {
+      if (cheapMaster <= mejor.resumen.placas) {
+        cota = Math.max(cota, cheapMaster);
+      } else {
+        metricas.lowerBound.preMasterViolation++;
+      }
+    }
+    if (mejor.resumen.placas <= cota) {
+      metricas.lowerBound.preMasterCertified++;
+      metricas.total.ms += Date.now() - t0;
+      return { plan: mejor, metricas, cota, cotaArea };
+    }
   }
 
   // ---- pattern master: generar pool, resolver cobertura, materializar
