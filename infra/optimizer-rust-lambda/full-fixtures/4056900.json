@@ -1,0 +1,88 @@
+{
+  "board": {
+    "width": 2740,
+    "height": 1820,
+    "thickness": 18
+  },
+  "material": {
+    "description": "SMDF 18 TXT135-BLANCO",
+    "hasGrain": false,
+    "thickness": 18
+  },
+  "kerf": 4.4,
+  "trim": {
+    "x": 0,
+    "y": 0
+  },
+  "constraints": {
+    "profile": "balanced",
+    "stages": 4,
+    "minRemnant": 250,
+    "minCommercialRemnantLongSide": 400,
+    "allowOneBoard": true,
+    "allowPatternMaster": true,
+    "allowMultiSlice": true,
+    "allowDeadStripCompaction": true
+  },
+  "pieces": [
+    {
+      "reference": "1",
+      "description": "4056900-1",
+      "quantity": 2,
+      "width": 350,
+      "height": 378,
+      "grain": false
+    },
+    {
+      "reference": "2",
+      "description": "4056900-2",
+      "quantity": 6,
+      "width": 350,
+      "height": 564,
+      "grain": false
+    },
+    {
+      "reference": "3",
+      "description": "4056900-3",
+      "quantity": 1,
+      "width": 350,
+      "height": 964,
+      "grain": false
+    },
+    {
+      "reference": "4",
+      "description": "4056900-4",
+      "quantity": 14,
+      "width": 378,
+      "height": 350,
+      "grain": false
+    },
+    {
+      "reference": "5",
+      "description": "4056900-5",
+      "quantity": 18,
+      "width": 564,
+      "height": 350,
+      "grain": false
+    },
+    {
+      "reference": "6",
+      "description": "4056900-6",
+      "quantity": 21,
+      "width": 964,
+      "height": 350,
+      "grain": false
+    },
+    {
+      "reference": "7",
+      "description": "4056900-7",
+      "quantity": 6,
+      "width": 2000,
+      "height": 350,
+      "grain": false
+    }
+  ],
+  "strategy": "v10",
+  "projectId": "4056900",
+  "projectVersion": 1
+}
