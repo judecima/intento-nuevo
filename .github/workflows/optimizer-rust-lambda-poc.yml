@@ -93,6 +93,8 @@ jobs:
       - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
       - run: npm run optimizer:rust:build
       - run: npm run typecheck
+      - name: Runtime contract tests
+        run: npm test -- tests/optimizer/optimizer.test.ts tests/optimizer/rust-worker-routing.test.ts
       - name: Exact domain reference on native architecture
         shell: bash
         run: |
