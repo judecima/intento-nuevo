@@ -37,39 +37,43 @@ function canonicalPool(patterns: Array<any>, context: any) {
 }
 
 describeNative("Rust B0.1 pattern generator parity", () => {
-  it.each(H2_FIXTURES)("matches JS root grammar exactly: $name", ({ context }: any) => {
-    const js = generatePatternsJs(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
-    const rust = generatePatternsRust(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
+  for (const fixture of H2_FIXTURES as Array<{ name: string; context: any }>) {
+    it(`matches JS root grammar exactly: ${fixture.name}`, () => {
+      const { context } = fixture;
+      const js = generatePatternsJs(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
+      const rust = generatePatternsRust(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
 
-    expect(js.status).toBe("COMPLETE");
-    expect(rust.status).toBe("COMPLETE");
-    expect(canonicalRoots(rust.roots)).toEqual(canonicalRoots(js.roots));
-    expect(rust.failures).toEqual([]);
-  });
+      expect(js.status).toBe("COMPLETE");
+      expect(rust.status).toBe("COMPLETE");
+      expect(canonicalRoots(rust.roots)).toEqual(canonicalRoots(js.roots));
+      expect(rust.failures).toEqual([]);
+    });
 
-  it.each(H2_FIXTURES)("materializes the same physical pattern pool: $name", ({ context }: any) => {
-    const js = generatePatternsJs(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
-    const rust = generatePatternsRust(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
+    it(`materializes the same physical pattern pool: ${fixture.name}`, () => {
+      const { context } = fixture;
+      const js = generatePatternsJs(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
+      const rust = generatePatternsRust(context, H2_LIMITS, { maxVariantsPerUsageVector: K });
 
-    expect(canonicalPool(rust.patterns, context)).toEqual(canonicalPool(js.patterns, context));
+      expect(canonicalPool(rust.patterns, context)).toEqual(canonicalPool(js.patterns, context));
 
-    for (const pattern of rust.patterns) {
-      const lines = context.lines.map((line: object, type: number) => ({
-        ...line,
-        cant: pattern.uso.get(type) ?? 0,
-      }));
-      const plan = materializar([pattern], lines, context.opts);
-      const expected = lines.reduce((sum: number, line: { cant: number }) => sum + line.cant, 0);
+      for (const pattern of rust.patterns) {
+        const lines = context.lines.map((line: object, type: number) => ({
+          ...line,
+          cant: pattern.uso.get(type) ?? 0,
+        }));
+        const plan = materializar([pattern], lines, context.opts);
+        const expected = lines.reduce((sum: number, line: { cant: number }) => sum + line.cant, 0);
 
-      expect(plan).not.toBeNull();
-      expect(validarPlanIndustrial(plan, expected).ok).toBe(true);
-      expect(validateIndependentSlices(plan).ok).toBe(true);
+        expect(plan).not.toBeNull();
+        expect(validarPlanIndustrial(plan, expected).ok).toBe(true);
+        expect(validateIndependentSlices(plan).ok).toBe(true);
 
-      const xml = exportPlanCopy(plan);
-      const parsed = parseCanonicalXml(xml);
-      expect(parsed.stats.pieceQuantity).toBe(expected);
-    }
-  });
+        const xml = exportPlanCopy(plan);
+        const parsed = parseCanonicalXml(xml);
+        expect(parsed.stats.pieceQuantity).toBe(expected);
+      }
+    });
+  }
 
   it("is deterministic across repeated native calls", () => {
     const context = H2_FIXTURES.find((fixture: any) => fixture.name === "two-stages").context;
