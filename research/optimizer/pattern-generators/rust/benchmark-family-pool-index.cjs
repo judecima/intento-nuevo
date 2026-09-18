@@ -111,12 +111,13 @@ function mix(...nums) {
   return h >>> 0;
 }
 
-function requests(base, indexed, pass) {
+function requests(base, indexed, pass, prune = false) {
   return configs(base).map((cfg, index) => ({
     opts: {
       ...base,
       ...cfg,
       rustFamilyPoolIndex: indexed,
+      rustFamilyFitPrune: prune,
     },
     randomSeed: cfg.ruido > 0 ? mix(20260812, pass, cfg._id, index, 0) : null,
   }));
@@ -165,7 +166,7 @@ const orderings = [
   (a, b) => b.base - a.base || b.altura - a.altura,
 ];
 
-const wallOld = [], wallIndexed = [], cpuOld = [], cpuIndexed = [];
+const wallOld = [], wallIndexed = [], wallPruned = [], cpuOld = [], cpuIndexed = [], cpuPruned = [];
 const workloads = [];
 
 for (const id of IDS) {
@@ -174,38 +175,51 @@ for (const id of IDS) {
 
   for (let pass = 0; pass < orderings.length; pass++) {
     const pool = pieces.slice().sort(orderings[pass]);
-    const oldReqs = requests(opts, false, pass);
-    const indexedReqs = requests(opts, true, pass);
+    const oldReqs = requests(opts, false, pass, false);
+    const indexedReqs = requests(opts, true, pass, false);
+    const prunedReqs = requests(opts, true, pass, true);
 
-    // Warm both implementations before samples.
+    // Warm all implementations before samples.
     const warmOld = timed(pool, oldReqs);
     const warmIndexed = timed(pool, indexedReqs);
-    if (warmOld.digest !== warmIndexed.digest) {
+    const warmPruned = timed(pool, prunedReqs);
+    if (warmOld.digest !== warmIndexed.digest || warmOld.digest !== warmPruned.digest) {
       throw new Error(`warm parity mismatch ${id} pass=${pass}`);
     }
 
     const row = { id, pass, pieces: pool.length, types, samples: [] };
     for (let repeat = 0; repeat < REPEATS; repeat++) {
-      const indexedFirst = repeat % 2 === 1;
-      const first = timed(pool, indexedFirst ? indexedReqs : oldReqs);
-      const second = timed(pool, indexedFirst ? oldReqs : indexedReqs);
-      const old = indexedFirst ? second : first;
-      const indexed = indexedFirst ? first : second;
+      const variants = [
+        ["legacy", oldReqs],
+        ["indexed", indexedReqs],
+        ["pruned", prunedReqs],
+      ];
+      const shift = repeat % variants.length;
+      const ordered = variants.slice(shift).concat(variants.slice(0, shift));
+      const measured = {};
+      for (const [name, reqs] of ordered) measured[name] = timed(pool, reqs);
+      const old = measured.legacy;
+      const indexed = measured.indexed;
+      const pruned = measured.pruned;
 
-      if (old.digest !== indexed.digest) {
+      if (old.digest !== indexed.digest || old.digest !== pruned.digest) {
         throw new Error(`parity mismatch ${id} pass=${pass} repeat=${repeat}`);
       }
 
       wallOld.push(old.wallMs);
       wallIndexed.push(indexed.wallMs);
+      wallPruned.push(pruned.wallMs);
       cpuOld.push(old.cpuMs);
       cpuIndexed.push(indexed.cpuMs);
+      cpuPruned.push(pruned.cpuMs);
       row.samples.push({
         repeat,
         oldWallMs: old.wallMs,
         indexedWallMs: indexed.wallMs,
+        prunedWallMs: pruned.wallMs,
         oldCpuMs: old.cpuMs,
         indexedCpuMs: indexed.cpuMs,
+        prunedCpuMs: pruned.cpuMs,
       });
     }
     workloads.push(row);
@@ -216,6 +230,8 @@ const oldWall = stats(wallOld);
 const newWall = stats(wallIndexed);
 const oldCpu = stats(cpuOld);
 const newCpu = stats(cpuIndexed);
+const prunedWall = stats(wallPruned);
+const prunedCpu = stats(cpuPruned);
 const result = {
   operation: "rust-family-pool-index-benchmark",
   repeatsPerWorkload: REPEATS,
@@ -225,25 +241,34 @@ const result = {
   wall: {
     legacy: oldWall,
     indexed: newWall,
-    aggregateReductionPct: (1 - newWall.total / oldWall.total) * 100,
-    aggregateSpeedup: oldWall.total / newWall.total,
+    indexedPlusFitPrune: prunedWall,
+    indexedReductionPct: (1 - newWall.total / oldWall.total) * 100,
+    indexedSpeedup: oldWall.total / newWall.total,
+    prunedReductionPct: (1 - prunedWall.total / oldWall.total) * 100,
+    prunedSpeedup: oldWall.total / prunedWall.total,
   },
   cpu: {
     legacy: oldCpu,
     indexed: newCpu,
-    aggregateReductionPct: (1 - newCpu.total / oldCpu.total) * 100,
-    aggregateSpeedup: oldCpu.total / newCpu.total,
+    indexedPlusFitPrune: prunedCpu,
+    indexedReductionPct: (1 - newCpu.total / oldCpu.total) * 100,
+    indexedSpeedup: oldCpu.total / newCpu.total,
+    prunedReductionPct: (1 - prunedCpu.total / oldCpu.total) * 100,
+    prunedSpeedup: oldCpu.total / prunedCpu.total,
   },
   byFixture: IDS.map((id) => {
     const samples = workloads.filter((x) => x.id === id).flatMap((x) => x.samples);
     const old = samples.map((x) => x.oldWallMs);
     const indexed = samples.map((x) => x.indexedWallMs);
+    const pruned = samples.map((x) => x.prunedWallMs);
     return {
       id,
       n: samples.length,
       legacyWall: stats(old),
       indexedWall: stats(indexed),
-      reductionPct: (1 - indexed.reduce((a,b)=>a+b,0) / old.reduce((a,b)=>a+b,0)) * 100,
+      prunedWall: stats(pruned),
+      indexedReductionPct: (1 - indexed.reduce((a,b)=>a+b,0) / old.reduce((a,b)=>a+b,0)) * 100,
+      prunedReductionPct: (1 - pruned.reduce((a,b)=>a+b,0) / old.reduce((a,b)=>a+b,0)) * 100,
     };
   }),
 };
