@@ -22,18 +22,18 @@ struct PieceInput {
     ref_value: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct Piece {
     id: u32,
-    base: f64,
-    altura: f64,
-    cut_base: f64,
-    cut_altura: f64,
-    veta: bool,
-    sig: u32,
-    detalle: String,
-    ref_value: serde_json::Value,
-    orientations: Vec<Orientation>,
+    sig: usize,
+    orientations: [Orientation; 2],
+    orientation_count: u8,
+}
+
+impl Piece {
+    fn orientations(&self) -> &[Orientation] {
+        &self.orientations[..self.orientation_count as usize]
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -127,8 +127,6 @@ struct Candidate {
 #[serde(rename_all = "camelCase")]
 struct Placed {
     id: u32,
-    ref_value: serde_json::Value,
-    detalle: String,
     x: f64,
     y: f64,
     base: f64,
@@ -206,15 +204,38 @@ impl Rng {
     }
 }
 
-fn make_orientations(piece: &PieceInput, material_with_grain: bool) -> Vec<Orientation> {
+fn make_piece(piece: &PieceInput, material_with_grain: bool) -> Piece {
     let base = Orientation { base: piece.cut_base, altura: piece.cut_altura, rotada: false };
-    if (material_with_grain && piece.veta) || (piece.cut_base - piece.cut_altura).abs() < EPS {
-        vec![base]
-    } else {
-        vec![
-            base,
-            Orientation { base: piece.cut_altura, altura: piece.cut_base, rotada: true },
-        ]
+    let rotated = Orientation { base: piece.cut_altura, altura: piece.cut_base, rotada: true };
+    let single = (material_with_grain && piece.veta) || (piece.cut_base - piece.cut_altura).abs() < EPS;
+    Piece {
+        id: piece.id,
+        sig: piece.sig as usize,
+        orientations: [base, rotated],
+        orientation_count: if single { 1 } else { 2 },
+    }
+}
+
+fn prepare_pieces(inputs: &[PieceInput], material_with_grain: bool) -> Vec<Piece> {
+    inputs.iter().map(|piece| make_piece(piece, material_with_grain)).collect()
+}
+
+struct Scratch {
+    counts: Vec<usize>,
+    reps: Vec<usize>,
+    measures: Vec<f64>,
+    top: Vec<Candidate>,
+}
+
+impl Scratch {
+    fn new(pool: &[Piece]) -> Self {
+        let sig_count = pool.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+        Self {
+            counts: vec![0; sig_count],
+            reps: Vec::with_capacity(sig_count),
+            measures: Vec::with_capacity(sig_count.saturating_mul(2)),
+            top: Vec::with_capacity(4),
+        }
     }
 }
 
@@ -259,6 +280,7 @@ fn choose(
     opts: &PackOptions,
     mut rng: Option<&mut Rng>,
     level: u32,
+    scratch: &mut Scratch,
 ) -> Option<Candidate> {
     let criterion = if !opts.criterios.is_empty() {
         &opts.criterios[usize::min(level.saturating_sub(1) as usize, opts.criterios.len() - 1)]
@@ -266,32 +288,32 @@ fn choose(
         &opts.criterio
     };
     let en_x = region.dir == Axis::X;
+    let Scratch { counts, reps, measures, top } = scratch;
 
-    let mut counts: HashMap<u32, usize> = HashMap::new();
-    let mut reps: Vec<(usize, &Piece)> = Vec::new();
+    counts.fill(0);
+    reps.clear();
     for (index, piece) in pool.iter().enumerate() {
-        if let Some(count) = counts.get_mut(&piece.sig) {
-            *count += 1;
-        } else {
-            counts.insert(piece.sig, 1);
-            reps.push((index, piece));
+        if counts[piece.sig] == 0 {
+            reps.push(index);
         }
+        counts[piece.sig] += 1;
     }
 
-    let mut measures = Vec::new();
+    measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
-        for (_, piece) in &reps {
-            for orientation in &piece.orientations {
+        for &index in reps.iter() {
+            let piece = &pool[index];
+            for orientation in piece.orientations() {
                 measures.push(if en_x { orientation.base } else { orientation.altura });
             }
         }
     }
 
-    let mut top: Vec<Candidate> = Vec::with_capacity(3);
-
-    for (rep_index, piece) in &reps {
-        let available = *counts.get(&piece.sig).unwrap_or(&1);
-        for orientation in &piece.orientations {
+    top.clear();
+    for &rep_index in reps.iter() {
+        let piece = &pool[rep_index];
+        let available = counts[piece.sig];
+        for orientation in piece.orientations() {
             let a = if en_x { orientation.base } else { orientation.altura };
             let b = if en_x { orientation.altura } else { orientation.base };
             if a > remaining + EPS || b > perp + EPS { continue; }
@@ -300,9 +322,10 @@ fn choose(
             let mut riesgo: f64 = 0.0;
             if opts.penalizar_franja_muerta && level <= 2 {
                 let area_candidate = a * b;
-                for (_, other) in &reps {
-                    let q_count = *counts.get(&other.sig).unwrap_or(&1) as f64;
-                    for qo in &other.orientations {
+                for &other_index in reps.iter() {
+                    let other = &pool[other_index];
+                    let q_count = counts[other.sig] as f64;
+                    for qo in other.orientations() {
                         let d = if en_x { qo.base } else { qo.altura };
                         let qb = if en_x { qo.altura } else { qo.base };
                         if qb > perp + EPS || d >= a - EPS { continue; }
@@ -312,22 +335,22 @@ fn choose(
                         if q_area > area_candidate * 1.05 {
                             riesgo = riesgo.max(residual * q_area * q_count);
                         }
-                        if opts.deltas_estructurales.iter().any(|x| (x.delta - residual).abs() <= 0.6)
-                            && (qb - b).abs() <= (opts.sierra + 0.5).max(1.0)
+                        if let Some(delta) = opts.deltas_estructurales.iter()
+                            .find(|x| (x.delta - residual).abs() <= 0.6)
                         {
-                            let repeat = opts.deltas_estructurales.iter()
-                                .find(|x| (x.delta - residual).abs() <= 0.6)
-                                .map(|x| x.n)
-                                .unwrap_or(2.0)
-                                .max(2.0);
-                            riesgo = riesgo.max(residual * area_candidate.max(q_area) * repeat * q_count);
+                            if (qb - b).abs() <= (opts.sierra + 0.5).max(1.0) {
+                                riesgo = riesgo.max(
+                                    residual * area_candidate.max(q_area) * delta.n.max(2.0) * q_count
+                                );
+                            }
                         }
                     }
                 }
             }
 
-            let mut insert = |candidate: Candidate, top: &mut Vec<Candidate>| {
-                let pos = top.iter().position(|existing| candidate_better(&candidate, existing, opts, level, criterion));
+            let insert = |candidate: Candidate, top: &mut Vec<Candidate>| {
+                let pos = top.iter()
+                    .position(|existing| candidate_better(&candidate, existing, opts, level, criterion));
                 match pos {
                     Some(i) => top.insert(i, candidate),
                     None => top.push(candidate),
@@ -336,7 +359,7 @@ fn choose(
             };
 
             insert(Candidate {
-                index: *rep_index,
+                index: rep_index,
                 orientation: *orientation,
                 a,
                 b,
@@ -345,7 +368,7 @@ fn choose(
                 area: a * b,
                 mult: 1,
                 riesgo_franja: riesgo,
-            }, &mut top);
+            }, top);
 
             if opts.multi_rebanada && level < opts.etapas && available >= 2 {
                 for mult in 2..=usize::min(3, available) {
@@ -354,7 +377,7 @@ fn choose(
                     let useful = measures.iter().any(|d| *d > a + EPS && *d <= thickness + EPS);
                     if !useful { continue; }
                     insert(Candidate {
-                        index: *rep_index,
+                        index: rep_index,
                         orientation: *orientation,
                         a: thickness,
                         b,
@@ -363,7 +386,7 @@ fn choose(
                         area: thickness * b,
                         mult: mult as u32,
                         riesgo_franja: 0.0,
-                    }, &mut top);
+                    }, top);
                 }
             }
         }
@@ -484,13 +507,14 @@ fn fill(
     cuts: &mut Vec<Cut>,
     rests: &mut Vec<Rest>,
     tree: &mut TreeNode,
+    scratch: &mut Scratch,
 ) {
     let perp = region.perp();
     let total = region.length();
     let mut pos = 0.0;
 
     while pos < total - EPS {
-        let selected = match choose(pool, region, total - pos, perp, opts, rng.as_mut(), level) {
+        let selected = match choose(pool, region, total - pos, perp, opts, rng.as_mut(), level, scratch) {
             Some(value) => value,
             None => break,
         };
@@ -507,8 +531,6 @@ fn fill(
             let piece_id = piece.id;
             placed.push(Placed {
                 id: piece.id,
-                ref_value: piece.ref_value.clone(),
-                detalle: piece.detalle.clone(),
                 x: block.x,
                 y: block.y,
                 base: selected.orientation.base,
@@ -590,7 +612,7 @@ fn fill(
             let cut_mark = cuts.len();
             let mut child = new_tree(sub, level + 1);
 
-            fill(sub, pool, placed, level + 1, opts, rng, cuts, rests, &mut child);
+            fill(sub, pool, placed, level + 1, opts, rng, cuts, rests, &mut child, scratch);
 
             if placed.len() == before {
                 rests.truncate(rest_mark);
@@ -647,40 +669,62 @@ fn useful(rest: &Rest, opts: &PackOptions) -> bool {
 }
 
 
-fn pack_prepared(inputs: &[PieceInput], opts: &PackOptions, random_seed: Option<u32>) -> std::result::Result<PackOutput, String> {
+fn pack_template(
+    template: &[Piece],
+    opts: &PackOptions,
+    random_seed: Option<u32>,
+) -> std::result::Result<PackOutput, String> {
     if opts.ancho_util <= 0.0 || opts.alto_util <= 0.0 || opts.sierra < 0.0 || opts.etapas == 0 {
         return Err("invalid pack geometry".to_string());
     }
     let dir = Axis::parse(&opts.dir_inicial)?;
-
-    let mut pool: Vec<Piece> = inputs.iter().map(|input| Piece {
-        id: input.id,
-        base: input.base,
-        altura: input.altura,
-        cut_base: input.cut_base,
-        cut_altura: input.cut_altura,
-        veta: input.veta,
-        sig: input.sig,
-        detalle: input.detalle.clone(),
-        ref_value: input.ref_value.clone(),
-        orientations: make_orientations(input, opts.material_con_veta),
-    }).collect();
-
+    let mut pool = template.to_vec();
+    let mut scratch = Scratch::new(&pool);
     let mut rng = random_seed.map(Rng::new);
     let mut placed = Vec::new();
     let mut cuts = Vec::new();
     let mut rests = Vec::new();
     let region = Region { x: 0.0, y: 0.0, w: opts.ancho_util, h: opts.alto_util, dir };
     let mut tree = new_tree(region, 1);
-    fill(region, &mut pool, &mut placed, 1, opts, &mut rng, &mut cuts, &mut rests, &mut tree);
+    fill(
+        region, &mut pool, &mut placed, 1, opts, &mut rng,
+        &mut cuts, &mut rests, &mut tree, &mut scratch,
+    );
     cuts.sort_by(|a, b| a.nivel.cmp(&b.nivel));
 
     let area = placed.iter().map(|item| item.base * item.altura).sum();
     let area_resto = rests.iter().filter(|rest| useful(rest, opts)).map(|rest| rest.w * rest.h).sum();
-
     Ok(PackOutput { colocadas: placed, cortes: cuts, restos: rests, arbol: tree, area, area_resto })
 }
 
+fn pack_prepared(
+    inputs: &[PieceInput],
+    opts: &PackOptions,
+    random_seed: Option<u32>,
+) -> std::result::Result<PackOutput, String> {
+    let template = prepare_pieces(inputs, opts.material_con_veta);
+    pack_template(&template, opts, random_seed)
+}
+
+fn common_template(inputs: &[PieceInput], requests: &[PackBatchRequest]) -> Option<Vec<Piece>> {
+    let first = requests.first()?;
+    if requests.iter().all(|request| request.options.material_con_veta == first.options.material_con_veta) {
+        Some(prepare_pieces(inputs, first.options.material_con_veta))
+    } else {
+        None
+    }
+}
+
+fn pack_request(
+    inputs: &[PieceInput],
+    template: Option<&[Piece]>,
+    request: &PackBatchRequest,
+) -> std::result::Result<PackOutput, String> {
+    match template {
+        Some(template) => pack_template(template, &request.options, request.random_seed),
+        None => pack_prepared(inputs, &request.options, request.random_seed),
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct RemnantQuality {
@@ -759,10 +803,11 @@ pub fn pack_board_legacy_batch(pieces_json: String, requests_json: String) -> Re
     let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
         .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
 
+    let template = common_template(&inputs, &requests);
     let mut outputs = Vec::with_capacity(requests.len());
-    for request in requests {
+    for request in &requests {
         outputs.push(
-            pack_prepared(&inputs, &request.options, request.random_seed)
+            pack_request(&inputs, template.as_deref(), request)
                 .map_err(|e| Error::new(Status::InvalidArg, e))?
         );
     }
@@ -787,9 +832,10 @@ pub fn pack_board_legacy_greedy_best(
     }
 
     let quality_opts = &requests[0].options;
+    let template = common_template(&inputs, &requests);
     let mut outputs = Vec::with_capacity(requests.len());
     for request in &requests {
-        let output = pack_prepared(&inputs, &request.options, request.random_seed)
+        let output = pack_request(&inputs, template.as_deref(), request)
             .map_err(|e| Error::new(Status::InvalidArg, e))?;
         if !output.colocadas.is_empty() {
             outputs.push(output);
@@ -855,9 +901,10 @@ pub fn pack_board_legacy_beam_candidates(
     }
 
     let quality_opts = &requests[0].options;
+    let template = common_template(&inputs, &requests);
     let mut dedup: HashMap<String, PackOutput> = HashMap::new();
     for request in &requests {
-        let output = pack_prepared(&inputs, &request.options, request.random_seed)
+        let output = pack_request(&inputs, template.as_deref(), request)
             .map_err(|e| Error::new(Status::InvalidArg, e))?;
         if output.colocadas.is_empty() { continue; }
         let signature = usage_signature(&output);
