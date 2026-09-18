@@ -143,24 +143,30 @@ pre-Master incumbent
 Monotype patterns are invariant between the guide and P13 stages and are
 generated once, then reused by both solves.
 
-## 5. Why the early return is safe
+## 5. Board-count safety and the remaining remnant gate
 
-The cascade may return only when all of the following are true:
+The cascade marks a candidate only when all of the following are true:
 
 1. the coverage result uses exactly the valid lower-bound number of boards;
 2. the selected patterns are materialized into physical boards;
 3. the complete plan passes the existing industrial validator.
 
-At that point the primary objective (minimum number of boards) is certified.
-The optimizer objective explicitly does not permit retaining an additional board
-to obtain a better remnant, so an incumbent with LB+1 boards cannot beat a
-validated LB-board plan.
+This **certifies objective #1 only**: minimum board count. It does not by itself
+certify objective #2. The frozen full generator may also reach the same lower
+bound while producing a better commercial remnant, in which case an immediate
+Guide/P13 return would be a quality regression.
 
-Any non-certified candidate is ignored and the exact existing generator remains
-the fallback.
+Therefore the current research status is `BOARD_CERTIFIED_CANDIDATE`, not a
+production early-return certificate.
 
-No heuristic result from Guide/P13 is accepted merely because it is faster or
-looks promising.
+Before promotion, every board-certified candidate must be compared against the
+frozen full result whenever both use the same number of boards. The promotion
+gate remains zero equal-board remnant regressions. A true online early return
+would require either a remnant-quality certificate/upper bound or a separately
+validated remnant-preserving policy.
+
+Any candidate that does not reach the lower bound is ignored and the exact
+existing generator remains the fallback.
 
 ## 6. Sentinel evidence
 
