@@ -97,9 +97,25 @@ function hydrateResult(raw, pool) {
   };
 }
 
+function useParallelPack() {
+  return /^(1|true|yes|on)$/i.test(
+    String(process.env.OPTIMIZER_RUST_PARALLEL_PACK_EXPERIMENTAL || ""),
+  );
+}
+
+function nativePackFunction(sequentialName, parallelName) {
+  const addon = native();
+  if (!useParallelPack()) return addon[sequentialName];
+  const fn = addon[parallelName];
+  if (typeof fn !== "function") {
+    throw new Error(`native addon does not expose experimental parallel export ${parallelName}`);
+  }
+  return fn;
+}
+
 function packBoardLegacyRustBatch(pool, requests) {
   const raw = JSON.parse(
-    native().packBoardLegacyBatch(
+    nativePackFunction("packBoardLegacyBatch", "packBoardLegacyBatchParallel")(
       JSON.stringify(pieces(pool)),
       serializeRequests(requests),
     ),
@@ -109,7 +125,7 @@ function packBoardLegacyRustBatch(pool, requests) {
 
 function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
   const raw = JSON.parse(
-    native().packBoardLegacyGreedyBest(
+    nativePackFunction("packBoardLegacyGreedyBest", "packBoardLegacyGreedyBestParallel")(
       JSON.stringify(pieces(pool)),
       serializeRequests(requests),
       tolerance,
@@ -120,7 +136,7 @@ function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
 
 function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   const raw = JSON.parse(
-    native().packBoardLegacyBeamCandidates(
+    nativePackFunction("packBoardLegacyBeamCandidates", "packBoardLegacyBeamCandidatesParallel")(
       JSON.stringify(pieces(pool)),
       serializeRequests(requests),
       beamWidth >>> 0,
