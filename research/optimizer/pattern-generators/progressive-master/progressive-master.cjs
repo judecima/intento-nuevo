@@ -1,26 +1,11 @@
 "use strict";
 
-const path = require("node:path");
 const { optimizarLegacyHybrid } = require("../../../../src/lib/optimizer/legacy/rust/rust-hybrid.cjs");
 const { legacyRoundSubsets } = require("../../../../src/lib/optimizer/legacy/rust/rust-patrones.cjs");
-const { patronesMonotipo } = require("../../../../src/lib/optimizer/legacy/patrones.cjs");
+const { generarPatrones, patronesMonotipo } = require("../../../../src/lib/optimizer/legacy/patrones.cjs");
 const { resolverCobertura } = require("../../../../src/lib/optimizer/legacy/cobertura.cjs");
 const { materializar } = require("../../../../src/lib/optimizer/legacy/materializar.cjs");
 const { validarPlanIndustrial } = require("../../../../src/lib/optimizer/legacy/validador_industrial_v3.cjs");
-
-const addonPath = path.join(
-  __dirname,
-  "../../../../native/optimizer-pattern-generator/optimizer_pattern_generator.node",
-);
-
-let addon;
-function native() {
-  addon ??= require(addonPath);
-  if (typeof addon.legacyDedupBoards !== "function") {
-    throw new Error("native addon does not expose legacyDedupBoards");
-  }
-  return addon;
-}
 
 function patternKey(pattern) {
   return [...pattern.uso.entries()]
@@ -55,21 +40,6 @@ function compareTuple(a, b, eps = 1e-6) {
   return 0;
 }
 
-function buildPool(boards, candidates, lineCount) {
-  const selected = JSON.parse(
-    native().legacyDedupBoards(JSON.stringify(candidates), lineCount),
-  );
-  return selected.map((entry) => ({
-    uso: new Map(
-      entry.usageVector
-        .map((count, index) => [index, count])
-        .filter(([, count]) => count > 0),
-    ),
-    area: entry.area,
-    placa: boards[entry.payloadIndex],
-  }));
-}
-
 function createRustRoundStream(lineas, options, rounds = 40, seed = 7) {
   const schedule = legacyRoundSubsets(lineas.length, rounds, seed);
   const indexed = lineas.map((line, index) => ({
@@ -77,21 +47,50 @@ function createRustRoundStream(lineas, options, rounds = 40, seed = 7) {
     ref: index,
     _refOriginal: line.ref,
   }));
-  const boards = [];
-  const candidates = [];
+
+  // Exact incremental equivalent of legacyDedupBoards:
+  // first vector fixes insertion order; a later board replaces it only when its
+  // placed area is strictly larger. Map.set(existingKey, ...) preserves order.
+  const byVector = new Map();
   let cursor = 0;
-  let previousFingerprint = "";
+
+  function registerBoard(board) {
+    const usage = new Map();
+    let area = 0;
+    for (const placement of board.colocadas ?? []) {
+      const type = placement?.pieza?.ref;
+      if (!Number.isSafeInteger(type) || type < 0 || type >= lineas.length) return false;
+      usage.set(type, (usage.get(type) || 0) + 1);
+      area += placement.base * placement.altura;
+    }
+    if (!usage.size) return false;
+
+    const key = patternKey({ uso: usage });
+    const previous = byVector.get(key);
+    if (!previous) {
+      byVector.set(key, { uso: usage, area, placa: board });
+      return true;
+    }
+    if (area > previous.area) {
+      byVector.set(key, { uso: usage, area, placa: board });
+      return true;
+    }
+    return false;
+  }
 
   function currentPool() {
-    return buildPool(boards, candidates, lineas.length);
+    return [...byVector.values()];
   }
 
   function advance() {
-    if (cursor >= schedule.length) return { done: true, round: cursor, pool: currentPool(), changed: false };
+    if (cursor >= schedule.length) {
+      return { done: true, round: cursor, pool: currentPool(), changed: false };
+    }
 
     const round = cursor++;
     const indices = schedule[round];
     let generatedBoards = 0;
+    let changed = false;
 
     if (indices.length) {
       try {
@@ -101,41 +100,20 @@ function createRustRoundStream(lineas, options, rounds = 40, seed = 7) {
         );
 
         for (const board of result.placas ?? []) {
-          const payloadIndex = boards.length;
-          boards.push(board);
-          candidates.push({
-            payloadIndex,
-            placements: (board.colocadas ?? []).map((placement) => ({
-              typeIndex:
-                typeof placement?.pieza?.ref === "number"
-                  ? placement.pieza.ref
-                  : null,
-              base: placement.base,
-              altura: placement.altura,
-            })),
-          });
           generatedBoards++;
+          if (registerBoard(board)) changed = true;
         }
       } catch (error) {
         if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
       }
     }
 
-    const pool = currentPool();
-    // Include area and vector key: replacing a vector by a physically denser
-    // board is information even when pool cardinality stays unchanged.
-    const fingerprint = pool
-      .map((pattern) => patternKey(pattern) + "@" + pattern.area)
-      .join("|");
-    const changed = fingerprint !== previousFingerprint;
-    previousFingerprint = fingerprint;
-
     return {
       done: cursor >= schedule.length,
       round,
       subsetSize: indices.length,
       generatedBoards,
-      pool,
+      pool: currentPool(),
       changed,
     };
   }
@@ -222,6 +200,54 @@ function runProgressivePatternMaster(
   }
 
   const started = process.hrtime.bigint();
+  const gap = incumbentBoards - lowerBound;
+
+  // Conservative applicability gate. Progressive is aimed at +1 closure:
+  // one certified board reduction reaches the lower bound. Wider gaps require
+  // discovering intermediate improvements and can make repeated probes costly,
+  // so preserve the current monolithic Master exactly.
+  if (gap !== 1) {
+    const generationStarted = process.hrtime.bigint();
+    const generatedPool = generarPatrones(lineas, config, rounds, seed);
+    const monotypes = patronesMonotipo(lineas, config);
+    const generationMs = Number(process.hrtime.bigint() - generationStarted) / 1e6;
+
+    const solverStarted = process.hrtime.bigint();
+    const full = solvePool({
+      generatedPool,
+      monotypes,
+      lineas,
+      config,
+      opts,
+      incumbentBoards,
+      limitMs: finalMs,
+      maxNodes: finalMaxNodes,
+      watchdogMs: finalWatchdogMs,
+    });
+    const solverMs = Number(process.hrtime.bigint() - solverStarted) / 1e6;
+
+    return {
+      status: "MONOLITHIC_BYPASS",
+      round: null,
+      candidate: full.candidate,
+      validation: full.validation,
+      pool: full.patterns,
+      generatedPool,
+      monotypes,
+      history: [],
+      telemetry: {
+        applicabilityGap: gap,
+        roundsGenerated: rounds,
+        totalRounds: rounds,
+        roundsSkipped: 0,
+        probes: 0,
+        generationMs,
+        solverMs,
+        totalMs: Number(process.hrtime.bigint() - started) / 1e6,
+      },
+    };
+  }
+
   const generationStarted = process.hrtime.bigint();
   const stream = createRustRoundStream(lineas, config, rounds, seed);
   const monotypes = patronesMonotipo(lineas, config);
@@ -297,6 +323,7 @@ function runProgressivePatternMaster(
         monotypes,
         history,
         telemetry: {
+          applicabilityGap: gap,
           roundsGenerated: step.round + 1,
           totalRounds: stream.roundCount,
           roundsSkipped: stream.roundCount - step.round - 1,
@@ -335,6 +362,7 @@ function runProgressivePatternMaster(
     monotypes,
     history,
     telemetry: {
+      applicabilityGap: gap,
       roundsGenerated: stream.roundCount,
       totalRounds: stream.roundCount,
       roundsSkipped: 0,
