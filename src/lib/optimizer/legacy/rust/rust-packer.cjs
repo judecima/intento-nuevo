@@ -36,6 +36,8 @@ function packOptions(opts) {
     penalizarFranjaMuerta: Boolean(opts.penalizarFranjaMuerta),
     deltasEstructurales: Array.isArray(opts.deltasEstructurales) ? opts.deltasEstructurales : [],
     contraerRebanadaReal: opts.contraerRebanadaReal !== false,
+    // Research-only opt-in. Rust defaults this to false when absent.
+    familyPoolIndex: Boolean(opts.rustFamilyPoolIndex),
   };
 }
 
