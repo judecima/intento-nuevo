@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use napi::{Error, Result, Status};
 use napi_derive::napi;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 const EPS: f64 = 1e-9;
@@ -910,6 +911,167 @@ pub fn pack_board_legacy_beam_candidates(
         let signature = usage_signature(&output);
         if let Some(previous) = dedup.get(&signature) {
             let q = compare_quality(remnant_quality(&output, quality_opts), remnant_quality(previous, quality_opts));
+            if q < 0 || (q == 0 && output.area <= previous.area + 1e-6) {
+                continue;
+            }
+        }
+        dedup.insert(signature, output);
+    }
+
+    let board_area = quality_opts.ancho_util * quality_opts.alto_util;
+    let mut outputs: Vec<PackOutput> = dedup.into_values().collect();
+    outputs.sort_by(|a, b| {
+        let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
+        let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
+        lb_a.cmp(&lb_b)
+            .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| {
+                let q = compare_quality(remnant_quality(a, quality_opts), remnant_quality(b, quality_opts));
+                if q > 0 { std::cmp::Ordering::Less }
+                else if q < 0 { std::cmp::Ordering::Greater }
+                else { std::cmp::Ordering::Equal }
+            })
+    });
+    let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
+    outputs.truncate(limit);
+
+    serde_json::to_string(&outputs)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize beam candidates: {e}")))
+}
+
+
+fn pack_requests_parallel(
+    inputs: &[PieceInput],
+    requests: &[PackBatchRequest],
+) -> Vec<std::result::Result<PackOutput, String>> {
+    let template = common_template(inputs, requests);
+    requests
+        .par_iter()
+        .map(|request| pack_request(inputs, template.as_deref(), request))
+        .collect()
+}
+
+#[napi(js_name = "packBoardLegacyBatchParallel")]
+pub fn pack_board_legacy_batch_parallel(pieces_json: String, requests_json: String) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+
+    let results = pack_requests_parallel(&inputs, &requests);
+    let mut outputs = Vec::with_capacity(results.len());
+    for result in results {
+        outputs.push(result.map_err(|e| Error::new(Status::InvalidArg, e))?);
+    }
+
+    serde_json::to_string(&outputs)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy pack batch: {e}")))
+}
+
+#[napi(js_name = "packBoardLegacyGreedyBestParallel")]
+pub fn pack_board_legacy_greedy_best_parallel(
+    pieces_json: String,
+    requests_json: String,
+    tolerance: f64,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+    if requests.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    let quality_opts = &requests[0].options;
+    let results = pack_requests_parallel(&inputs, &requests);
+    let mut outputs = Vec::with_capacity(results.len());
+    for result in results {
+        let output = result.map_err(|e| Error::new(Status::InvalidArg, e))?;
+        if !output.colocadas.is_empty() {
+            outputs.push(output);
+        }
+    }
+    if outputs.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    // Selection stays sequential and in original request order so all existing
+    // tie-break semantics remain identical to packBoardLegacyGreedyBest.
+    let mut best_close: Option<usize> = None;
+    for (index, output) in outputs.iter().enumerate() {
+        if output.colocadas.len() != inputs.len() { continue; }
+        match best_close {
+            None => best_close = Some(index),
+            Some(prev) => {
+                let q = compare_quality(
+                    remnant_quality(output, quality_opts),
+                    remnant_quality(&outputs[prev], quality_opts),
+                );
+                if q > 0 || (q == 0 && output.area > outputs[prev].area) {
+                    best_close = Some(index);
+                }
+            }
+        }
+    }
+    if let Some(index) = best_close {
+        return serde_json::to_string(&outputs[index])
+            .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy best: {e}")));
+    }
+
+    let max_area = outputs.iter().fold(0.0_f64, |acc, output| acc.max(output.area));
+    let threshold = max_area * (1.0 - tolerance);
+    let mut best: Option<usize> = None;
+    for (index, output) in outputs.iter().enumerate() {
+        if output.area < threshold { continue; }
+        match best {
+            None => best = Some(index),
+            Some(prev) => {
+                let q = compare_quality(
+                    remnant_quality(output, quality_opts),
+                    remnant_quality(&outputs[prev], quality_opts),
+                );
+                if q > 0 || (q == 0 && output.area > outputs[prev].area + 1e-6) {
+                    best = Some(index);
+                }
+            }
+        }
+    }
+
+    match best {
+        Some(index) => serde_json::to_string(&outputs[index])
+            .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy best: {e}"))),
+        None => Ok("null".to_string()),
+    }
+}
+
+#[napi(js_name = "packBoardLegacyBeamCandidatesParallel")]
+pub fn pack_board_legacy_beam_candidates_parallel(
+    pieces_json: String,
+    requests_json: String,
+    beam_width: u32,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+    if requests.is_empty() {
+        return Ok("[]".to_string());
+    }
+
+    let quality_opts = &requests[0].options;
+    let results = pack_requests_parallel(&inputs, &requests);
+    let mut dedup: HashMap<String, PackOutput> = HashMap::new();
+
+    // Dedup insertion stays sequential and follows original request order.
+    for result in results {
+        let output = result.map_err(|e| Error::new(Status::InvalidArg, e))?;
+        if output.colocadas.is_empty() { continue; }
+        let signature = usage_signature(&output);
+        if let Some(previous) = dedup.get(&signature) {
+            let q = compare_quality(
+                remnant_quality(&output, quality_opts),
+                remnant_quality(previous, quality_opts),
+            );
             if q < 0 || (q == 0 && output.area <= previous.area + 1e-6) {
                 continue;
             }
