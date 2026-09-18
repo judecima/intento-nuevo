@@ -1,0 +1,39 @@
+{
+  "protocol": {
+    "sourceCommit": "425ebba5de48eb0105d5cb46b08594b3dc50ff49",
+    "parser": "parseCanonicalXml(xml, { fileName })",
+    "adapter": "benchmarkInputFromCanonicalCase(canonical.case, { strategy: \"v10\" })",
+    "referenceScript": "scripts/deferred-trace-gate.mjs",
+    "note": "The checked-in JSON fixtures are the canonical OptimizationInput boundary produced by the frozen sentinel protocol. XML bytes remain external corpus evidence."
+  },
+  "fixtures": {
+    "4050594": {
+      "source": "4050594__Mega_Maderas4050594.xml",
+      "xmlSha256": "7e3618f6561130cd0123a2d32bb7779237ff502096bae4f6c402c1c007904004",
+      "types": 14,
+      "pieces": 103,
+      "expectedBoards": 7
+    },
+    "4056900": {
+      "source": "4056900__Alfredo_Arrua4056900.xml",
+      "xmlSha256": "af570a1aab2524fdee370d1044dcb9693b942a09ec98d80808b936f759cf8c3d",
+      "types": 4,
+      "pieces": 94,
+      "expectedBoards": 6
+    },
+    "4057401": {
+      "source": "4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+      "xmlSha256": "5afad463754e6e7d4866a4f45652adfdc4aba012e0ae3cc08bd5228786b8c7f9",
+      "types": 4,
+      "pieces": 19,
+      "expectedBoards": 4
+    },
+    "4059200": {
+      "source": "4059200__ALEJANDRA_RUIZ4059200.xml",
+      "xmlSha256": "0879f56d7dfc27f487900c2eb7e20b2ba193419b1bf59ed14bb5ba83f55335c4",
+      "types": 17,
+      "pieces": 64,
+      "expectedBoards": 17
+    }
+  }
+}
