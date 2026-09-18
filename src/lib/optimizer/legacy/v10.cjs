@@ -445,6 +445,11 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       if (cand) probar('master', cand, Date.now() - t);
       else registrar(metricas.master, Date.now() - t, false,0,false);
     } catch (e) {
+      const certification = config && config._rustCertificationTelemetry;
+      if (certification) {
+        certification.rustMasterSwallowedError = true;
+        certification.rustMasterError = e instanceof Error ? e.message : String(e);
+      }
       registrar(metricas.master, Date.now() - t, false, 0, false);
     }
   }
