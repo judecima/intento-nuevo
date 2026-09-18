@@ -73,7 +73,18 @@ function hydrateTree(node, byId) {
 
 
 function hydrateResult(raw, pool) {
-  return hydrateResult(raw, pool);
+  const byId = new Map(pool.map((piece) => [piece.id, piece]));
+  return {
+    colocadas: raw.colocadas.map(({ id, refValue: _refValue, detalle: _detalle, ...placement }) => ({
+      ...placement,
+      pieza: byId.get(id),
+    })),
+    cortes: raw.cortes,
+    restos: raw.restos,
+    arbol: hydrateTree(raw.arbol, byId),
+    area: raw.area,
+    areaResto: raw.areaResto,
+  };
 }
 
 export function packBoardLegacyRustBatch(pool, requests) {
@@ -97,18 +108,7 @@ export function packBoardLegacyRustCore(pool, opts, randomSeed = null) {
       randomSeed == null ? undefined : randomSeed >>> 0,
     ),
   );
-  const byId = new Map(pool.map((piece) => [piece.id, piece]));
-  return {
-    colocadas: raw.colocadas.map(({ id, refValue: _refValue, detalle: _detalle, ...placement }) => ({
-      ...placement,
-      pieza: byId.get(id),
-    })),
-    cortes: raw.cortes,
-    restos: raw.restos,
-    arbol: hydrateTree(raw.arbol, byId),
-    area: raw.area,
-    areaResto: raw.areaResto,
-  };
+  return hydrateResult(raw, pool);
 }
 
 export function legacyJsRng(seed) {
