@@ -73,3 +73,46 @@ node research/optimizer/pattern-generators/rust/report-master-active-percentiles
 ```
 
 The reporter computes percentiles from one successful result per physical order and explicitly reports unscored cases, regressions, invalid outputs and slower Rust cases.
+
+
+## Performance-tail extension
+
+A second, generator-only runner was used for cases that previously failed because the combined quality runner saturated CPU/RAM. It uses the same frozen Rust/JS generators, 40 rounds, symmetric warm-up and per-process CPU accounting, but intentionally omits coverage solving and materialization.
+
+This produces two separate evidence populations:
+
+- **Quality cohort:** 130 fully scored orders with coverage/materialization; 0 board regressions, 0 invalid Rust pattern cases, 0 invalid Rust materializations.
+- **Performance cohort:** **138 unique orders** with valid per-case generator timings.
+
+The performance cohort now has the following per-order distributions:
+
+### CPU time — performance cohort (n=138)
+
+| Percentile | Legacy JS | Rust |
+|---|---:|---:|
+| p50 | 4,839.653 ms | 2,769.481 ms |
+| p90 | 24,477.551 ms | 9,143.890 ms |
+| p95 | 28,038.688 ms | 12,565.346 ms |
+| p99 | 43,847.657 ms | 15,508.156 ms |
+
+### Wall time — performance cohort (n=138)
+
+| Percentile | Legacy JS | Rust |
+|---|---:|---:|
+| p50 | 10,322.194 ms | 5,365.168 ms |
+| p90 | 43,032.127 ms | 19,574.572 ms |
+| p95 | 56,589.352 ms | 24,025.488 ms |
+| p99 | 85,871.880 ms | 27,364.788 ms |
+
+### Per-case CPU speedup — performance cohort (n=138)
+
+| Percentile | Speedup |
+|---|---:|
+| p50 | 1.958× |
+| p90 | 3.226× |
+| p95 | 3.744× |
+| p99 | 4.677× |
+
+Aggregate CPU speedup is **2.366×** and aggregate wall-time speedup is **2.234×**. Rust is slower in only **2 / 138** scored performance cases.
+
+These percentile values have been independently cross-checked with NumPy's linear percentile implementation. They are validated for the **138-case performance cohort**. They are **not yet the final 323-case p99**, because the remaining unscored tail can still move p95/p99.

@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 
-const path = process.argv[2];
-if (!path) {
-  console.error("Usage: node report-master-active-percentiles.mjs <results.jsonl>");
+const paths = process.argv.slice(2);
+if (!paths.length) {
+  console.error("Usage: node report-master-active-percentiles.mjs <results.jsonl> [more-results.jsonl ...]");
   process.exit(2);
 }
 
-const rows = fs.readFileSync(path, "utf8")
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => JSON.parse(line));
+const rows = paths.flatMap((path) =>
+  fs.readFileSync(path, "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line)),
+);
 
 const byFile = new Map();
 for (const row of rows) {
