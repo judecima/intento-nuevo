@@ -27,4 +27,6 @@ jobs:
         run: npm run optimizer:rust:build
       - name: Existing Rust packer parity
         run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts
+      - name: Family pool A/B benchmark
+        run: node research/optimizer/pattern-generators/rust/benchmark-family-pool-index.cjs
       - run: npm run typecheck
