@@ -1,0 +1,64 @@
+{
+  "board": {
+    "width": 2742,
+    "height": 1822,
+    "thickness": 3
+  },
+  "material": {
+    "description": "MDF PINTADO EUTX BLANCO 1C 3",
+    "hasGrain": false,
+    "thickness": 3
+  },
+  "kerf": 4.5,
+  "trim": {
+    "x": 0,
+    "y": 0
+  },
+  "constraints": {
+    "profile": "balanced",
+    "stages": 4,
+    "minRemnant": 250,
+    "minCommercialRemnantLongSide": 400,
+    "allowOneBoard": true,
+    "allowPatternMaster": true,
+    "allowMultiSlice": true,
+    "allowDeadStripCompaction": true
+  },
+  "pieces": [
+    {
+      "reference": "1",
+      "description": "4057401-1",
+      "quantity": 14,
+      "width": 744,
+      "height": 450,
+      "grain": false
+    },
+    {
+      "reference": "2",
+      "description": "4057401-2",
+      "quantity": 2,
+      "width": 1800,
+      "height": 1050,
+      "grain": false
+    },
+    {
+      "reference": "3",
+      "description": "4057401-3",
+      "quantity": 1,
+      "width": 1900,
+      "height": 1500,
+      "grain": false
+    },
+    {
+      "reference": "4",
+      "description": "4057401-4",
+      "quantity": 2,
+      "width": 2000,
+      "height": 1100,
+      "grain": false
+    }
+  ],
+  "strategy": "v10",
+  "projectId": "4057401",
+  "projectVersion": 1
+}
