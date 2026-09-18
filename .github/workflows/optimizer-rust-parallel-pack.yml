@@ -1,0 +1,57 @@
+name: Optimizer Rust Parallel Pack Research
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-rust-parallel-pack
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - name: Parallel pack exactness
+        run: npx vitest run tests/optimizer/rust-parallel-pack.test.ts
+      - name: Prefix7 regression
+        run: npx vitest run tests/optimizer/master-prefix7.test.ts
+      - name: Unique-mask regression
+        run: npx vitest run tests/optimizer/master-unique-masks.test.ts
+      - name: Post-compact lower-bound regression
+        run: npx vitest run tests/optimizer/post-compact-cheap-lb.test.ts
+      - name: OneBoard reuse regression
+        run: npx vitest run tests/optimizer/oneboard-baseline-reuse.test.ts
+      - run: npm run typecheck
+      - run: npm test
+      - name: Upload parallel native addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-parallel-pack-native-x64
+          path: native/optimizer-pattern-generator/optimizer_pattern_generator.node
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload exact research source
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-parallel-pack-source
+          path: |
+            src/lib/optimizer
+            research/optimizer
+            tests/optimizer
+            package.json
+            package-lock.json
+            tsconfig.json
+          if-no-files-found: error
+          retention-days: 7
