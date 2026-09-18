@@ -184,6 +184,7 @@ function runProgressivePatternMaster(
     rounds = 40,
     seed = 7,
     probeMs = 250,
+    probeEvery = 5,
     probeMaxNodes = null,
     probeWatchdogMs = null,
     finalMs = 8000,
@@ -263,12 +264,18 @@ function runProgressivePatternMaster(
     generationMs += Number(process.hrtime.bigint() - g0) / 1e6;
     lastPool = step.pool;
 
-    if (!step.changed) {
+    const checkpoint =
+      step.round === 0 ||
+      step.round === stream.roundCount - 1 ||
+      ((step.round + 1) % Math.max(1, Math.floor(probeEvery)) === 0);
+
+    if (!step.changed || !checkpoint) {
       history.push({
         round: step.round,
         poolSize: step.pool.length,
         generatedBoards: step.generatedBoards,
-        changed: false,
+        changed: step.changed,
+        checkpoint,
         solved: false,
       });
       continue;
@@ -303,6 +310,7 @@ function runProgressivePatternMaster(
       poolSize: step.pool.length,
       generatedBoards: step.generatedBoards,
       changed: true,
+      checkpoint: true,
       solved: true,
       solverBoards: probe.solution?.placas ?? null,
       materializedBoards: boards,
@@ -328,6 +336,7 @@ function runProgressivePatternMaster(
           totalRounds: stream.roundCount,
           roundsSkipped: stream.roundCount - step.round - 1,
           probes,
+          probeEvery: Math.max(1, Math.floor(probeEvery)),
           generationMs,
           solverMs,
           totalMs: Number(process.hrtime.bigint() - started) / 1e6,
@@ -367,6 +376,7 @@ function runProgressivePatternMaster(
       totalRounds: stream.roundCount,
       roundsSkipped: 0,
       probes,
+      probeEvery: Math.max(1, Math.floor(probeEvery)),
       generationMs,
       solverMs,
       totalMs: Number(process.hrtime.bigint() - started) / 1e6,
