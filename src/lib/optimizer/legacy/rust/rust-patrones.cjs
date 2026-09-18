@@ -93,6 +93,12 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
         });
       }
     } catch (error) {
+      const certification = O && O._rustCertificationTelemetry;
+      if (certification) {
+        certification.rustGeneratorCaughtError =
+          error instanceof Error ? error.message : String(error);
+      }
+      if (O && O._rustCertificationStrict === true) throw error;
       if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
       // Same policy as legacy generarPatrones: invalid subsets are skipped.
     }
