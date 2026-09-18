@@ -424,7 +424,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   // ---- rescate de una placa: solo cuando por area todo podria entrar en una
   if (config.usarOneBoard !== false && cotaArea === 1 && mejor.resumen.placas > 1) {
     const t = Date.now();
-    const res = rescatarUnaPlaca(lineas, config);
+    // El baseline de V10 es equivalente al baseline interno de OneBoard salvo\n    // que un caller fuerce multiVariantes=true. En ese caso conservamos el\n    // recalculo historico para no cambiar semantica fuera del flujo productivo.\n    const baselineOneBoard = config.multiVariantes === true ? null : baseline;\n    const res = rescatarUnaPlaca(lineas, config, baselineOneBoard);
     if (res.exito) probar('oneboard', res.plan, Date.now() - t);
     else registrar(metricas.oneboard, Date.now() - t, false, 0, false);
   }
