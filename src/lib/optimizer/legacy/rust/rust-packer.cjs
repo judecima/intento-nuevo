@@ -38,6 +38,7 @@ function packOptions(opts) {
     contraerRebanadaReal: opts.contraerRebanadaReal !== false,
     // Research-only opt-in. Rust defaults this to false when absent.
     familyPoolIndex: Boolean(opts.rustFamilyPoolIndex),
+    familyFitPrune: Boolean(opts.rustFamilyFitPrune),
   };
 }
 
