@@ -26,3 +26,20 @@ jobs:
         run: node --test research/optimizer/pattern-generators/guide-slice/4056900.test.mjs research/optimizer/pattern-generators/guide-slice/4057401.test.mjs
       - run: npm run typecheck
       - run: npm test
+      - name: Package exact research source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guided-cascade-source
+          path: |
+            research/optimizer/pattern-generators/guided-cascade
+            research/optimizer/pattern-generators/guide-slice
+            research/optimizer/pattern-generators/subset-generator
+            research/optimizer/pattern-generators/context.mjs
+            research/optimizer/pattern-generators/ordering.mjs
+            src/lib/optimizer/legacy
+            src/lib/optimizer/canonical-case.ts
+            src/lib/optimizer/canonical-xml.ts
+            src/lib/optimizer/experience/benchmark-input.ts
+          if-no-files-found: error
+          retention-days: 7
