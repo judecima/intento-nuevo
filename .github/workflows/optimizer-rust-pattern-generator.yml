@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/optimizer-rust-pattern-generator
+      - feature/optimizer-rust-legacy-pattern-generator
   pull_request:
     branches:
       - prototipo-inicial
