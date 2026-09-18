@@ -20,6 +20,31 @@ function claveVector(uso) {
   return [...uso.entries()].sort((a, b) => a[0] - b[0]).map(([k, v]) => k + ':' + v).join(',');
 }
 
+function usarMascarasUnicasLe4(lineas, O, rondas, semilla) {
+  const flag =
+    O?.usarMascarasUnicasMasterLe4 === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_MASTER_UNIQUE_MASKS_LE4_EXPERIMENTAL || ''));
+  return !!(
+    flag &&
+    Array.isArray(lineas) &&
+    lineas.length >= 1 &&
+    lineas.length <= 4 &&
+    rondas === 40 &&
+    semilla === 7
+  );
+}
+
+function registrarTelemetriaMascaras(O, ejecutadas, omitidas, total, tipos) {
+  if (!O || typeof O !== 'object') return;
+  O._patternMaskPolicy = {
+    policy: 'first-unique-mask-le4',
+    typeCount: tipos,
+    totalRounds: total,
+    executedRounds: ejecutadas,
+    skippedDuplicateRounds: omitidas,
+  };
+}
+
 /* Oculta subconjuntos de tipos al constructor: asi propone placas que nunca
    elegiria con el pool completo, que son justamente las que el optimo global
    necesita aunque sean peores por placa. */
@@ -44,16 +69,39 @@ function generarPatronesJs(lineas, O, rondas = 60, semilla = 7) {
     if (!previo || area > previo.area) porVector.set(k, { uso, area, placa });
   };
 
+  const uniqueMasks = usarMascarasUnicasLe4(lineas, O, rondas, semilla);
+  const seenMasks = uniqueMasks ? new Set() : null;
+  let executedRounds = 0;
+  let skippedDuplicateRounds = 0;
+
   const warn = console.warn; console.warn = () => {};
   for (let r = 0; r < rondas; r++) {
     const sub = r === 0 ? conRef : conRef.filter(() => R() > 0.45);
     if (!sub.length) continue;
+    if (seenMasks) {
+      const maskKey = sub.map((linea) => linea.ref).join(',');
+      if (seenMasks.has(maskKey)) {
+        skippedDuplicateRounds++;
+        continue;
+      }
+      seenMasks.add(maskKey);
+    }
+    executedRounds++;
     try {
       const res = optimizar(sub.map(l => ({ ...l })), { ...O, semilla: 1000 + r, pases: 2 });
       for (const p of res.placas) registrar(p);
     } catch (e) { /* subconjunto invalido: continuar */ }
   }
   console.warn = warn;
+  if (uniqueMasks) {
+    registrarTelemetriaMascaras(
+      O,
+      executedRounds,
+      skippedDuplicateRounds,
+      rondas,
+      lineas.length,
+    );
+  }
   return [...porVector.values()];
 }
 
