@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use napi::{Error, Result, Status};
 use napi_derive::napi;
@@ -73,6 +73,10 @@ struct PackOptions {
     deltas_estructurales: Vec<StructuralDelta>,
     #[serde(default = "default_true")]
     contraer_rebanada_real: bool,
+    // Experimental exact optimization. OFF by default so production keeps the
+    // frozen Vec-based pool until the A/B gate proves semantic parity.
+    #[serde(default)]
+    family_pool_index: bool,
 }
 
 fn default_true() -> bool { true }
@@ -239,6 +243,80 @@ impl Scratch {
     }
 }
 
+
+/*
+ * Exact family-indexed pool.
+ *
+ * The legacy chooser rebuilds, at every free position:
+ *   - count per signature/family;
+ *   - the first active piece of each family, in current pool order.
+ *
+ * Every legal choice is one of those family representatives. Because packing
+ * only removes pieces (there is no backtracking inside one board pack), the
+ * same state can be maintained incrementally. The representative set is keyed
+ * by the original piece index so iteration order is exactly the order produced
+ * by scanning the legacy Vec after removals. This is an execution optimization,
+ * not a candidate-space prune.
+ */
+struct IndexedPool {
+    pieces: Vec<Piece>,
+    members_by_sig: Vec<Vec<usize>>,
+    cursor_by_sig: Vec<usize>,
+    counts: Vec<usize>,
+    representatives: BTreeSet<(usize, usize)>, // (original index, sig)
+}
+
+impl IndexedPool {
+    fn new(template: &[Piece]) -> Self {
+        let sig_count = template.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+        let mut members_by_sig = vec![Vec::new(); sig_count];
+        for (index, piece) in template.iter().enumerate() {
+            members_by_sig[piece.sig].push(index);
+        }
+        let cursor_by_sig = vec![0; sig_count];
+        let counts = members_by_sig.iter().map(Vec::len).collect::<Vec<_>>();
+        let mut representatives = BTreeSet::new();
+        for (sig, members) in members_by_sig.iter().enumerate() {
+            if let Some(&index) = members.first() {
+                representatives.insert((index, sig));
+            }
+        }
+        Self {
+            pieces: template.to_vec(),
+            members_by_sig,
+            cursor_by_sig,
+            counts,
+            representatives,
+        }
+    }
+
+    fn piece(&self, index: usize) -> &Piece {
+        &self.pieces[index]
+    }
+
+    fn count(&self, sig: usize) -> usize {
+        self.counts[sig]
+    }
+
+    fn representative_indices(&self) -> impl Iterator<Item = usize> + '_ {
+        self.representatives.iter().map(|(index, _)| *index)
+    }
+
+    fn remove_representative(&mut self, index: usize) -> Piece {
+        let piece = self.pieces[index];
+        let sig = piece.sig;
+        let cursor = self.cursor_by_sig[sig];
+        debug_assert_eq!(self.members_by_sig[sig].get(cursor).copied(), Some(index));
+        self.representatives.remove(&(index, sig));
+        self.cursor_by_sig[sig] += 1;
+        self.counts[sig] -= 1;
+        if let Some(&next) = self.members_by_sig[sig].get(self.cursor_by_sig[sig]) {
+            self.representatives.insert((next, sig));
+        }
+        piece
+    }
+}
+
 fn better_fit(u: &Candidate, v: &Candidate, criterion: &str) -> bool {
     match criterion {
         "perp" => {
@@ -402,6 +480,158 @@ fn choose(
     Some(top[0].clone())
 }
 
+
+fn choose_indexed(
+    pool: &IndexedPool,
+    region: Region,
+    remaining: f64,
+    perp: f64,
+    opts: &PackOptions,
+    mut rng: Option<&mut Rng>,
+    level: u32,
+    scratch: &mut Scratch,
+) -> Option<Candidate> {
+    let criterion = if !opts.criterios.is_empty() {
+        &opts.criterios[usize::min(level.saturating_sub(1) as usize, opts.criterios.len() - 1)]
+    } else {
+        &opts.criterio
+    };
+    let en_x = region.dir == Axis::X;
+    let Scratch { measures, top, .. } = scratch;
+
+    measures.clear();
+    if opts.multi_rebanada && level < opts.etapas {
+        for index in pool.representative_indices() {
+            let piece = pool.piece(index);
+            for orientation in piece.orientations() {
+                measures.push(if en_x { orientation.base } else { orientation.altura });
+            }
+        }
+    }
+
+    top.clear();
+    for rep_index in pool.representative_indices() {
+        let piece = pool.piece(rep_index);
+        let available = pool.count(piece.sig);
+        for orientation in piece.orientations() {
+            let a = if en_x { orientation.base } else { orientation.altura };
+            let b = if en_x { orientation.altura } else { orientation.base };
+            if a > remaining + EPS || b > perp + EPS { continue; }
+            let sobra = perp - b;
+
+            let mut riesgo: f64 = 0.0;
+            if opts.penalizar_franja_muerta && level <= 2 {
+                let area_candidate = a * b;
+                for other_index in pool.representative_indices() {
+                    let other = pool.piece(other_index);
+                    let q_count = pool.count(other.sig) as f64;
+                    for qo in other.orientations() {
+                        let d = if en_x { qo.base } else { qo.altura };
+                        let qb = if en_x { qo.altura } else { qo.base };
+                        if qb > perp + EPS || d >= a - EPS { continue; }
+                        let residual = a - d;
+                        if residual <= opts.sierra.max(10.0) || residual >= opts.resto_min { continue; }
+                        let q_area = d * qb;
+                        if q_area > area_candidate * 1.05 {
+                            riesgo = riesgo.max(residual * q_area * q_count);
+                        }
+                        if let Some(delta) = opts.deltas_estructurales.iter()
+                            .find(|x| (x.delta - residual).abs() <= 0.6)
+                        {
+                            if (qb - b).abs() <= (opts.sierra + 0.5).max(1.0) {
+                                riesgo = riesgo.max(
+                                    residual * area_candidate.max(q_area) * delta.n.max(2.0) * q_count
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            let insert = |candidate: Candidate, top: &mut Vec<Candidate>| {
+                let pos = top.iter()
+                    .position(|existing| candidate_better(&candidate, existing, opts, level, criterion));
+                match pos {
+                    Some(i) => top.insert(i, candidate),
+                    None => top.push(candidate),
+                }
+                if top.len() > 3 { top.truncate(3); }
+            };
+
+            insert(Candidate {
+                index: rep_index,
+                orientation: *orientation,
+                a,
+                b,
+                sobra,
+                exacta: if sobra < EPS { 0 } else { 1 },
+                area: a * b,
+                mult: 1,
+                riesgo_franja: riesgo,
+            }, top);
+
+            if opts.multi_rebanada && level < opts.etapas && available >= 2 {
+                for mult in 2..=usize::min(3, available) {
+                    let thickness = mult as f64 * a + (mult as f64 - 1.0) * opts.sierra;
+                    if thickness > remaining + EPS { continue; }
+                    let useful = measures.iter().any(|d| *d > a + EPS && *d <= thickness + EPS);
+                    if !useful { continue; }
+                    insert(Candidate {
+                        index: rep_index,
+                        orientation: *orientation,
+                        a: thickness,
+                        b,
+                        sobra,
+                        exacta: 1,
+                        area: thickness * b,
+                        mult: mult as u32,
+                        riesgo_franja: 0.0,
+                    }, top);
+                }
+            }
+        }
+    }
+
+    if top.is_empty() { return None; }
+    if let Some(rng) = rng.as_deref_mut() {
+        if top.len() >= 2 && rng.next() < opts.ruido {
+            if top.len() >= 3 && rng.next() < 0.5 { return Some(top[2].clone()); }
+            return Some(top[1].clone());
+        }
+    }
+    Some(top[0].clone())
+}
+
+enum PackPool {
+    Legacy(Vec<Piece>),
+    Indexed(IndexedPool),
+}
+
+impl PackPool {
+    fn choose(
+        &self,
+        region: Region,
+        remaining: f64,
+        perp: f64,
+        opts: &PackOptions,
+        rng: Option<&mut Rng>,
+        level: u32,
+        scratch: &mut Scratch,
+    ) -> Option<Candidate> {
+        match self {
+            Self::Legacy(pool) => choose(pool, region, remaining, perp, opts, rng, level, scratch),
+            Self::Indexed(pool) => choose_indexed(pool, region, remaining, perp, opts, rng, level, scratch),
+        }
+    }
+
+    fn remove_selected(&mut self, index: usize) -> Piece {
+        match self {
+            Self::Legacy(pool) => pool.remove(index),
+            Self::Indexed(pool) => pool.remove_representative(index),
+        }
+    }
+}
+
 fn used_thickness(block: Region, parent_axis: Axis, placed: &[Placed], from: usize) -> f64 {
     let mut used: f64 = 0.0;
     for item in placed.iter().skip(from) {
@@ -499,7 +729,7 @@ fn crop_tree(node: &mut TreeNode, axis: Axis, limit: f64) {
 
 fn fill(
     region: Region,
-    pool: &mut Vec<Piece>,
+    pool: &mut PackPool,
     placed: &mut Vec<Placed>,
     level: u32,
     opts: &PackOptions,
@@ -514,7 +744,7 @@ fn fill(
     let mut pos = 0.0;
 
     while pos < total - EPS {
-        let selected = match choose(pool, region, total - pos, perp, opts, rng.as_mut(), level, scratch) {
+        let selected = match pool.choose(region, total - pos, perp, opts, rng.as_mut(), level, scratch) {
             Some(value) => value,
             None => break,
         };
@@ -527,7 +757,7 @@ fn fill(
         };
 
         if selected.mult == 1 && (selected.sobra < EPS || level >= opts.etapas) {
-            let piece = pool.remove(selected.index);
+            let piece = pool.remove_selected(selected.index);
             let piece_id = piece.id;
             placed.push(Placed {
                 id: piece.id,
@@ -678,8 +908,12 @@ fn pack_template(
         return Err("invalid pack geometry".to_string());
     }
     let dir = Axis::parse(&opts.dir_inicial)?;
-    let mut pool = template.to_vec();
-    let mut scratch = Scratch::new(&pool);
+    let mut pool = if opts.family_pool_index {
+        PackPool::Indexed(IndexedPool::new(template))
+    } else {
+        PackPool::Legacy(template.to_vec())
+    };
+    let mut scratch = Scratch::new(template);
     let mut rng = random_seed.map(Rng::new);
     let mut placed = Vec::new();
     let mut cuts = Vec::new();
