@@ -8,16 +8,25 @@ on:
     paths:
       - "native/optimizer-pattern-generator/**"
       - "src/lib/optimizer/legacy/**"
+      - "src/lib/optimizer/engine/**"
+      - "src/lib/optimizer/experimental/**"
+      - "src/lib/optimizer/validators/**"
+      - "src/lib/optimizer/schema.ts"
+      - "src/lib/optimizer/types.ts"
+      - "src/lib/optimizer/index.ts"
       - "scripts/install-rust-pattern-generator.mjs"
       - "scripts/benchmark-optimizer-lambda.mjs"
       - "infra/optimizer-rust-lambda/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/optimizer-rust-lambda-poc.yml"
 
 permissions:
   contents: read
 
 jobs:
-  native-and-container-smoke:
+  pattern-generator-smoke:
+    name: Pattern Generator / ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,3 +66,102 @@ jobs:
           done
           cat /tmp/lambda-response.json
           node -e 'const r=require("/tmp/lambda-response.json"); if(!r.ok || r.arch!==process.argv[1] || !(r.patterns>0)) process.exit(1)' "${{ matrix.arch }}"
+
+  full-optimize-smoke:
+    name: Full Optimize / ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - run: npm run typecheck
+      - name: Exact domain reference on native architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/vite-node infra/optimizer-rust-lambda/full-domain-reference.ts \
+            infra/optimizer-rust-lambda/full-fixtures/4050594.json \
+            infra/optimizer-rust-lambda/full-fixtures/4056900.json \
+            infra/optimizer-rust-lambda/full-fixtures/4057401.json \
+            infra/optimizer-rust-lambda/full-fixtures/4059200.json \
+            > /tmp/full-domain-${{ matrix.arch }}.json
+          cat /tmp/full-domain-${{ matrix.arch }}.json
+      - name: Build Full Optimize Lambda image
+        run: |
+          docker buildx build --platform ${{ matrix.platform }} --provenance=false --load \
+            -f infra/optimizer-rust-lambda/Dockerfile.full \
+            -t optimizer-rust-lambda-full:${{ matrix.arch }} .
+      - name: Record final image size
+        shell: bash
+        run: |
+          set -euo pipefail
+          size=$(docker image inspect optimizer-rust-lambda-full:${{ matrix.arch }} --format '{{.Size}}')
+          echo "FULL_OPTIMIZE_IMAGE_SIZE_BYTES=$size" >> "$GITHUB_ENV"
+          echo "Full Optimize image bytes: $size"
+      - name: Full Optimize RIE parity and determinism
+        shell: bash
+        env:
+          FULL_OPTIMIZE_EXPECTED_ARCH: ${{ matrix.arch }}
+          FULL_OPTIMIZE_RIE_REPEATS: "3"
+        run: |
+          set -euo pipefail
+          cid=$(docker run -d -p 9000:8080 optimizer-rust-lambda-full:${{ matrix.arch }})
+          trap 'docker logs "$cid" || true; docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/2015-03-31/functions/function/invocations \
+              --data '{"operation":"health"}' > /tmp/full-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/full-health.json
+          node infra/optimizer-rust-lambda/full-rie-gate.mjs \
+            /tmp/full-domain-${{ matrix.arch }}.json \
+            /tmp/full-rie-${{ matrix.arch }}.json \
+            infra/optimizer-rust-lambda/full-fixtures/4050594.json \
+            infra/optimizer-rust-lambda/full-fixtures/4056900.json \
+            infra/optimizer-rust-lambda/full-fixtures/4057401.json \
+            infra/optimizer-rust-lambda/full-fixtures/4059200.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: full-optimize-${{ matrix.arch }}
+          path: /tmp/full-rie-${{ matrix.arch }}.json
+          if-no-files-found: error
+
+  full-optimize-architecture-parity:
+    name: Full Optimize / x86_64 vs ARM64
+    needs: full-optimize-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: full-optimize-x64
+          path: /tmp/full-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: full-optimize-arm64
+          path: /tmp/full-arm64
+      - name: Compare architecture results
+        run: |
+          node infra/optimizer-rust-lambda/full-parity-gate.mjs \
+            /tmp/full-x64/full-rie-x64.json \
+            /tmp/full-arm64/full-rie-arm64.json
