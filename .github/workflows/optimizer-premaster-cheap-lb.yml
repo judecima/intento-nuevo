@@ -19,7 +19,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
       - name: PreMaster cheap LB contract
         run: npx vitest run tests/optimizer/premaster-cheap-lb.test.ts
       - run: npm run typecheck
