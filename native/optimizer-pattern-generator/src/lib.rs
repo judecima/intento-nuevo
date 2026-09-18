@@ -709,8 +709,8 @@ impl Engine {
         if !group.is_empty() {
             self.telemetry.duplicate_usage_vectors += 1;
         }
-        let signature = signature(&candidate);
-        if group.iter().any(|existing| signature(existing) == signature) {
+        let candidate_signature = signature(&candidate);
+        if group.iter().any(|existing| signature(existing) == candidate_signature) {
             self.telemetry.duplicate_entries += 1;
             return;
         }
@@ -750,7 +750,7 @@ impl Engine {
             }
         }
 
-        if selected.iter().any(|item| signature(item) == signature) {
+        if selected.iter().any(|item| signature(item) == candidate_signature) {
             *group = selected;
             self.replace_frontier();
         }
