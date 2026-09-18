@@ -17,7 +17,9 @@
     "catalog:extract": "node scripts/extract-legacy-materials.mjs",
     "catalog:import": "node scripts/import-legacy-materials.mjs",
     "optimizer:extract": "node scripts/extract-legacy-optimizer.mjs",
-    "optimizer:worker": "node scripts/run-optimizer-worker.mjs"
+    "optimizer:worker": "node scripts/run-optimizer-worker.mjs",
+    "optimizer:rust:build": "cargo build --manifest-path native/optimizer-pattern-generator/Cargo.toml --release && node scripts/install-rust-pattern-generator.mjs",
+    "optimizer:rust:test": "npm run optimizer:rust:build && REQUIRE_RUST_PATTERN_GENERATOR=1 vitest run tests/optimizer/rust-pattern-generator.test.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",

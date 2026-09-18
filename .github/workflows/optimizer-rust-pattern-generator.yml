@@ -1,0 +1,40 @@
+name: Optimizer Rust Pattern Generator
+
+on:
+  push:
+    branches:
+      - feature/optimizer-rust-pattern-generator
+  pull_request:
+    branches:
+      - prototipo-inicial
+    paths:
+      - "native/optimizer-pattern-generator/**"
+      - "research/optimizer/pattern-generators/rust/**"
+      - "scripts/install-rust-pattern-generator.mjs"
+      - "tests/optimizer/rust-pattern-generator.test.ts"
+      - "src/lib/optimizations/worker.ts"
+      - "tests/security/server-only.test.ts"
+      - "package.json"
+      - ".github/workflows/optimizer-rust-pattern-generator.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rust-pattern-generator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-pattern-generator.test.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

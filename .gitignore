@@ -33,3 +33,7 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/settings.json
+
+# Rust native optimizer artifacts
+native/**/target/
+native/**/*.node

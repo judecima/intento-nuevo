@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ProjectEditorData } from "@/lib/projects/queries";

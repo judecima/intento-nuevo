@@ -35,8 +35,9 @@ describe("server-only Supabase boundaries", () => {
     const allowedPrefixes = ["lib/admin/", "lib/customers/", "lib/production/", "lib/supabase/admin.ts"];
     const offenders = sourceFiles
       .filter((file) => file.content.includes("createSupabaseAdminClient"))
-      .map((file) => file.relativePath)
-      .filter((file) => !allowedPrefixes.some((prefix) => file.startsWith(prefix)));
+      .filter((file) => !allowedPrefixes.some((prefix) => file.relativePath.startsWith(prefix)))
+      .filter((file) => !isExplicitServerOnly(file.content))
+      .map((file) => file.relativePath);
 
     expect(offenders).toEqual([]);
   });
@@ -72,6 +73,10 @@ function isClientComponent(content: string): boolean {
     .find((line) => line.length > 0);
 
   return firstStatement === "\"use client\";" || firstStatement === "'use client';";
+}
+
+function isExplicitServerOnly(content: string): boolean {
+  return /^\s*import\s+["']server-only["'];/m.test(content);
 }
 
 function normalizePath(value: string): string {
