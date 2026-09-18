@@ -51,14 +51,46 @@ function pieces(pool) {
   }));
 }
 
+function hydrateTree(node, byId) {
+  if (!node) return null;
+  return {
+    x: node.x,
+    y: node.y,
+    w: node.w,
+    h: node.h,
+    dir: node.dir,
+    nivel: node.nivel,
+    partes: (node.partes ?? []).map((part) => ({
+      cut: part.cut,
+      type: part.type,
+      pieza: part.pieceId == null ? null : byId.get(part.pieceId) ?? null,
+      bloque: part.bloque,
+      hijo: hydrateTree(part.hijo, byId),
+      ...(part.terminal === undefined ? {} : { terminal: Boolean(part.terminal) }),
+    })),
+  };
+}
+
 export function packBoardLegacyRustCore(pool, opts, randomSeed = null) {
-  return JSON.parse(
+  const raw = JSON.parse(
     native().packBoardLegacyCore(
       JSON.stringify(pieces(pool)),
       JSON.stringify(packOptions(opts)),
       randomSeed == null ? undefined : randomSeed >>> 0,
     ),
   );
+  const byId = new Map(pool.map((piece) => [piece.id, piece]));
+  return {
+    colocadas: raw.colocadas.map(({ id, refValue: _refValue, detalle: _detalle, ...placement }) => ({
+      ...placement,
+      pieza: byId.get(id),
+    })),
+    cortes: raw.cortes,
+    restos: raw.restos,
+    arbol: hydrateTree(raw.arbol, byId),
+    area: raw.area,
+    areaResto: raw.areaResto,
+  };
 }
 
 export function legacyJsRng(seed) {

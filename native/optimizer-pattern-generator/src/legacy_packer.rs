@@ -91,6 +91,9 @@ impl Axis {
     fn opposite(self) -> Self {
         match self { Self::X => Self::Y, Self::Y => Self::X }
     }
+    fn as_str(self) -> &'static str {
+        match self { Self::X => "x", Self::Y => "y" }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -155,12 +158,38 @@ struct Rest {
     h: f64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TreePart {
+    cut: f64,
+    #[serde(rename = "type")]
+    kind: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    piece_id: Option<u32>,
+    bloque: Rest,
+    hijo: Box<TreeNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terminal: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct TreeNode {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    dir: String,
+    nivel: u32,
+    partes: Vec<TreePart>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PackOutput {
     colocadas: Vec<Placed>,
     cortes: Vec<Cut>,
     restos: Vec<Rest>,
+    arbol: TreeNode,
     area: f64,
     area_resto: f64,
 }
@@ -412,6 +441,39 @@ fn crop_rests(rests: &mut Vec<Rest>, from: usize, axis: Axis, limit: f64) {
     }
 }
 
+fn new_tree(region: Region, level: u32) -> TreeNode {
+    TreeNode {
+        x: region.x,
+        y: region.y,
+        w: region.w,
+        h: region.h,
+        dir: region.dir.as_str().to_string(),
+        nivel: level,
+        partes: Vec::new(),
+    }
+}
+
+fn crop_tree(node: &mut TreeNode, axis: Axis, limit: f64) {
+    if axis == Axis::X {
+        node.w = 0.0_f64.max((node.x + node.w).min(limit) - node.x);
+    } else {
+        node.h = 0.0_f64.max((node.y + node.h).min(limit) - node.y);
+    }
+
+    let mut next = Vec::with_capacity(node.partes.len());
+    for mut part in node.partes.drain(..) {
+        if !crop_rest(&mut part.bloque, axis, limit) {
+            continue;
+        }
+        if node.dir == axis.as_str() {
+            part.cut = if axis == Axis::X { part.bloque.w } else { part.bloque.h };
+        }
+        crop_tree(&mut part.hijo, axis, limit);
+        next.push(part);
+    }
+    node.partes = next;
+}
+
 fn fill(
     region: Region,
     pool: &mut Vec<Piece>,
@@ -421,6 +483,7 @@ fn fill(
     rng: &mut Option<Rng>,
     cuts: &mut Vec<Cut>,
     rests: &mut Vec<Rest>,
+    tree: &mut TreeNode,
 ) {
     let perp = region.perp();
     let total = region.length();
@@ -441,6 +504,7 @@ fn fill(
 
         if selected.mult == 1 && (selected.sobra < EPS || level >= opts.etapas) {
             let piece = pool.remove(selected.index);
+            let piece_id = piece.id;
             placed.push(Placed {
                 id: piece.id,
                 ref_value: piece.ref_value.clone(),
@@ -452,6 +516,55 @@ fn fill(
                 rotada: selected.orientation.rotada,
                 nivel: level,
             });
+
+            let child_region = Region {
+                x: block.x,
+                y: block.y,
+                w: block.w,
+                h: block.h,
+                dir: region.dir.opposite(),
+            };
+            let mut child = new_tree(child_region, level + 1);
+            if selected.sobra > EPS && level >= opts.etapas {
+                let piece_block = if region.dir == Axis::X {
+                    Rest { x: block.x, y: block.y, w: thickness, h: selected.b }
+                } else {
+                    Rest { x: block.x, y: block.y, w: selected.b, h: thickness }
+                };
+                let leaf_region = Region {
+                    x: piece_block.x,
+                    y: piece_block.y,
+                    w: piece_block.w,
+                    h: piece_block.h,
+                    dir: region.dir,
+                };
+                let leaf = new_tree(leaf_region, level + 2);
+                child.partes.push(TreePart {
+                    cut: selected.b,
+                    kind: 1,
+                    piece_id: Some(piece_id),
+                    bloque: piece_block,
+                    hijo: Box::new(leaf),
+                    terminal: Some(true),
+                });
+                tree.partes.push(TreePart {
+                    cut: thickness,
+                    kind: 2,
+                    piece_id: None,
+                    bloque: Rest { x: block.x, y: block.y, w: block.w, h: block.h },
+                    hijo: Box::new(child),
+                    terminal: Some(true),
+                });
+            } else {
+                tree.partes.push(TreePart {
+                    cut: thickness,
+                    kind: 1,
+                    piece_id: Some(piece_id),
+                    bloque: Rest { x: block.x, y: block.y, w: block.w, h: block.h },
+                    hijo: Box::new(child),
+                    terminal: None,
+                });
+            }
 
             if selected.sobra > EPS {
                 if level >= opts.etapas {
@@ -475,8 +588,9 @@ fn fill(
             let before = placed.len();
             let rest_mark = rests.len();
             let cut_mark = cuts.len();
+            let mut child = new_tree(sub, level + 1);
 
-            fill(sub, pool, placed, level + 1, opts, rng, cuts, rests);
+            fill(sub, pool, placed, level + 1, opts, rng, cuts, rests, &mut child);
 
             if placed.len() == before {
                 rests.truncate(rest_mark);
@@ -490,10 +604,19 @@ fn fill(
                     let limit = if region.dir == Axis::X { block.x + used } else { block.y + used };
                     crop_cuts(cuts, cut_mark, region.dir, limit);
                     crop_rests(rests, rest_mark, region.dir, limit);
+                    crop_tree(&mut child, region.dir, limit);
                     thickness = used;
                     if region.dir == Axis::X { block.w = thickness; } else { block.h = thickness; }
                 }
             }
+            tree.partes.push(TreePart {
+                cut: thickness,
+                kind: 2,
+                piece_id: None,
+                bloque: Rest { x: block.x, y: block.y, w: block.w, h: block.h },
+                hijo: Box::new(child),
+                terminal: None,
+            });
         }
 
         if pos + thickness < total - EPS {
@@ -552,13 +675,14 @@ pub fn pack_board_legacy_core(pieces_json: String, options_json: String, random_
     let mut cuts = Vec::new();
     let mut rests = Vec::new();
     let region = Region { x: 0.0, y: 0.0, w: opts.ancho_util, h: opts.alto_util, dir };
-    fill(region, &mut pool, &mut placed, 1, &opts, &mut rng, &mut cuts, &mut rests);
+    let mut tree = new_tree(region, 1);
+    fill(region, &mut pool, &mut placed, 1, &opts, &mut rng, &mut cuts, &mut rests, &mut tree);
     cuts.sort_by(|a, b| a.nivel.cmp(&b.nivel));
 
     let area = placed.iter().map(|item| item.base * item.altura).sum();
     let area_resto = rests.iter().filter(|rest| useful(rest, &opts)).map(|rest| rest.w * rest.h).sum();
 
-    serde_json::to_string(&PackOutput { colocadas: placed, cortes: cuts, restos: rests, area, area_resto })
+    serde_json::to_string(&PackOutput { colocadas: placed, cortes: cuts, restos: rests, arbol: tree, area, area_resto })
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy pack result: {e}")))
 }
 

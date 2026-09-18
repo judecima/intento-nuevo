@@ -47,12 +47,35 @@ function prepare(lines: any[], opts: any) {
   return pieces;
 }
 
-function normalizeJs(result: any) {
+function normalizeTree(node: any): any {
+  if (!node) return null;
+  return {
+    x: node.x,
+    y: node.y,
+    w: node.w,
+    h: node.h,
+    dir: node.dir,
+    nivel: node.nivel,
+    partes: (node.partes ?? []).map((part: any) => ({
+      cut: part.cut,
+      type: part.type,
+      pieceId: part.pieza?.id ?? null,
+      bloque: {
+        x: part.bloque.x,
+        y: part.bloque.y,
+        w: part.bloque.w,
+        h: part.bloque.h,
+      },
+      hijo: normalizeTree(part.hijo),
+      ...(part.terminal === undefined ? {} : { terminal: Boolean(part.terminal) }),
+    })),
+  };
+}
+
+function normalizeBoard(result: any) {
   return {
     colocadas: result.colocadas.map((item: any) => ({
-      id: item.pieza.id,
-      refValue: item.pieza.ref,
-      detalle: item.pieza.detalle ?? "",
+      pieceId: item.pieza.id,
       x: item.x,
       y: item.y,
       base: item.base,
@@ -68,6 +91,7 @@ function normalizeJs(result: any) {
     restos: result.restos.map((rest: any) => ({
       x: rest.x, y: rest.y, w: rest.w, h: rest.h,
     })),
+    arbol: normalizeTree(result.arbol),
     area: result.area,
     areaResto: result.areaResto,
   };
@@ -127,7 +151,7 @@ describe("Rust legacy single-board packer", () => {
       const pool = prepare(fixture.lines, opts);
       const js = empacarPlaca(pool.map((piece: any) => ({ ...piece })), opts, null);
       const rust = packBoardLegacyRustCore(pool, opts);
-      expect(rust).toEqual(normalizeJs(js));
+      expect(normalizeBoard(rust)).toEqual(normalizeBoard(js));
     });
   }
 
@@ -141,7 +165,7 @@ describe("Rust legacy single-board packer", () => {
     for (const seed of [7, 123456789, 0xffffffff]) {
       const js = empacarPlaca(pool.map((piece: any) => ({ ...piece })), opts, legacyJsRng(seed));
       const rust = packBoardLegacyRustCore(pool, opts, seed);
-      expect(rust).toEqual(normalizeJs(js));
+      expect(normalizeBoard(rust)).toEqual(normalizeBoard(js));
     }
   });
 
@@ -154,6 +178,6 @@ describe("Rust legacy single-board packer", () => {
     ], opts);
     const js = empacarPlaca(pool.map((piece: any) => ({ ...piece })), opts, null);
     const rust = packBoardLegacyRustCore(pool, opts);
-    expect(rust).toEqual(normalizeJs(js));
+    expect(normalizeBoard(rust)).toEqual(normalizeBoard(js));
   });
 });
