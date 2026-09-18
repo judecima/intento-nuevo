@@ -118,3 +118,98 @@ Do not route production jobs to Lambda from this branch. Promotion requires real
 - 323/323 Master-active cases completed and persisted per case;
 - cold-start, p50, p90, p95, p99, max-memory and billed-GB-second measurements for both architectures;
 - no global switch of inline/preview paths.
+
+
+## Full Optimize Lambda boundary
+
+The Pattern Generator handler above remains unchanged as the focused hotspot microbenchmark. A second, separate artifact now exercises the complete domain boundary:
+
+```text
+full-optimize-wrapper.mjs
+        |
+        v
+bundled full-optimize-handler.ts
+        |
+        v
+optimizeProject(canonicalInput, {
+  patternGenerator: "rust",
+  bypassCache: true,
+  rustCertification: true
+})
+        |
+        v
+V10 -> Pattern Master Rust when reached -> coverage solver
+    -> materialization -> V10 acceptance -> industrial validation
+    -> independent-slices validation -> normalized OptimizationResult
+```
+
+The Full handler accepts an `OptimizationInput` directly (or under an AWS `input` envelope). It does not accept `lines/options` as its domain boundary.
+
+### Packaging
+
+The Full image is built by `Dockerfile.full`, independently from the existing Pattern Generator `Dockerfile`.
+
+- Bundler: esbuild `0.25.10`.
+- Source entrypoint: `infra/optimizer-rust-lambda/full-optimize-handler.ts`.
+- Bundle output: `src/lib/optimizer/engine/full-optimize-handler.mjs`.
+- Runtime wrapper: `infra/optimizer-rust-lambda/full-optimize-wrapper.mjs`.
+- Bundled TypeScript dependencies include `legacy-engine.ts`, schema validation (including zod), types needed at build time, and the independent-slices validator.
+- Legacy CJS modules and the experimental directory remain physical runtime files so the existing `createRequire(import.meta.url)` relative resolution in `legacy-engine.ts` is preserved.
+- The certified N-API addon is built from the same `native/optimizer-pattern-generator` source and copied unchanged into the final image.
+
+The bundle is intentionally emitted under the same `src/lib/optimizer/engine` directory shape as the application source. This preserves the existing relative `../legacy/*` module resolution instead of recreating the optimizer entrypoint.
+
+Image byte size is recorded by CI from `docker image inspect`; it is evidence produced by the architecture gate, not a hard-coded value in this document.
+
+### Rust certification mode
+
+Full Optimize benchmarking uses runtime-only diagnostic options. Production callers do not set them.
+
+The certification contract requires all of the following after `optimizeProject()` returns from V10:
+
+```text
+rustRequested = true
+rustExecuted = true
+rustSucceeded = true
+rustFallbackJs = false
+rustMasterSwallowedError = false
+```
+
+The Pattern Master routing records execution/success/fallback in an optional diagnostics sink. The V10 Master catch also records whether it swallowed an exception. In certification mode, the domain entrypoint checks those invariants after V10 and throws if any is false.
+
+The normal worker remains unchanged: when certification mode is absent, its existing Rust-to-JS fallback policy remains in force.
+
+### Cache isolation
+
+`bypassCache: true` skips both the in-process optimizer cache lookup and cache population for that invocation. It does not change production cache keys. Full Optimize telemetry reports both `cacheHit` and `cacheBypassed`, and the benchmark gate rejects any run where `cacheHit !== false` or `cacheBypassed !== true`.
+
+### Full timing boundary
+
+`domainWallMs` and `domainCpuMs` wrap only the call to `optimizeProject(...)`.
+
+- `domainWallMs`: elapsed wall time from `performance.now()`.
+- `domainCpuMs`: Node process CPU delta from `process.cpuUsage()`, user + system, including the in-process Rust N-API work.
+- Lambda `Duration` is an external AWS metric and is intentionally not synthesized from these values.
+
+Module import time is reported separately as `moduleInitMs` by the wrapper. RIE timing is compatibility/diagnostic evidence only, not an AWS cold-start benchmark.
+
+### Result digest
+
+The Full digest hashes the normalized public optimization result: boards, placements, cuts, remnants, deterministic metrics, validations, algorithm version and input identity. It excludes only runtime metadata that is expected to vary between executions (`engineMs` and `cacheHit`) and does not hash the raw V10 telemetry object, because that contains elapsed-time counters.
+
+Semantic geometry, materialization, validation and remnant differences are not normalized away.
+
+### Full CI gate
+
+The same workflow now has separate Pattern Generator and Full Optimize jobs on native x64 and arm64 runners. The Full gate:
+
+1. executes the exact domain `optimizeProject()` as the reference;
+2. builds the matching Lambda image;
+3. invokes the image through the Runtime Interface Emulator three times per real winner;
+4. requires Rust participation, no fallback, no cache hit and valid output;
+5. requires historical board counts for 4050594, 4056900, 4057401 and 4059200;
+6. compares materialized result digest and remnant metrics against the domain reference;
+7. verifies repeated-run determinism;
+8. uploads an architecture result and performs a final x64-vs-arm64 parity gate.
+
+This gate does not deploy AWS resources and does not execute the 323-case cohort.
