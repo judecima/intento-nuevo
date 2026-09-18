@@ -33,10 +33,13 @@ function certifyPhysical(lines, config, result, lowerBound) {
  * Research-only safe cascade for Pattern Master.
  *
  * Safety contract:
- * - It only returns early when a physically materialized/validated plan equals
- *   a valid lower bound, so board count is certified optimal.
- * - Any unresolved case returns FALLBACK_REQUIRED. The current production
- *   generator must remain the fallback and therefore preserves quality.
+ * - A physically materialized/validated plan at a valid lower bound certifies
+ *   only objective #1 (board count).
+ * - It is NOT a production early-return certificate for objective #2: another
+ *   equal-board plan can still have better commercial-remnant quality.
+ * - Any unresolved case returns FALLBACK_REQUIRED. A board-certified candidate
+ *   still requires a remnant-quality gate before it may replace the frozen
+ *   production result.
  * - Gap != 1 is routed directly to fallback: no speculative overhead is added
  *   to multi-board-gap cases such as the historical 4058501 / 4059200 class.
  */
@@ -116,7 +119,7 @@ export function runGuidedP13Cascade(
 
     if (guideCertified) {
       return {
-        status: "CERTIFIED",
+        status: "BOARD_CERTIFIED_CANDIDATE",
         stage: "GUIDE",
         certified: true,
         placas: lowerBound,
@@ -171,9 +174,10 @@ export function runGuidedP13Cascade(
 
   if (p13Certified) {
     return {
-      status: "CERTIFIED",
+      status: "BOARD_CERTIFIED_CANDIDATE",
       stage: "P13",
       certified: true,
+      certificationScope: "board-count-only",
       placas: lowerBound,
       plan: p13Certified.plan,
       validation: p13Certified.validation,
