@@ -87,7 +87,7 @@ test("4057401 closes at the lower bound in the guided family stage", () => {
   assert.equal(result.telemetry.p13, null);
 });
 
-test("4050594 escalates from guide to P13 and closes at the lower bound", () => {
+test("4050594 closes at the lower bound with the current guided portfolio", () => {
   const fixture = load4050594();
   const result = runGuidedP13Cascade(fixture.lines, fixture.config, {
     lowerBound: 7,
@@ -96,8 +96,25 @@ test("4050594 escalates from guide to P13 and closes at the lower bound", () => 
     p13MasterLimitMs: 5_000,
   });
   assert.equal(result.status, "CERTIFIED");
+  assert.equal(result.stage, "GUIDE");
+  assert.equal(result.placas, 7);
+  assert.equal(result.validation?.ok, true);
+  assert.equal(result.telemetry.p13, null);
+});
+
+test("P13 escalation independently closes 4050594 when Guide is disabled", () => {
+  const fixture = load4050594();
+  const result = runGuidedP13Cascade(fixture.lines, fixture.config, {
+    lowerBound: 7,
+    incumbentBoards: 8,
+    allowGuide: false,
+    guideMasterLimitMs: 5_000,
+    p13MasterLimitMs: 5_000,
+  });
+  assert.equal(result.status, "CERTIFIED");
   assert.equal(result.stage, "P13");
   assert.equal(result.placas, 7);
   assert.equal(result.validation?.ok, true);
+  assert.equal(result.telemetry.guide?.skipped, true);
   assert.deepEqual(result.telemetry.p13?.rounds, [...P13_FROZEN_ROUNDS]);
 });
