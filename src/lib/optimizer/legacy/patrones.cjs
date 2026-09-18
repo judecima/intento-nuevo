@@ -20,6 +20,18 @@ function claveVector(uso) {
   return [...uso.entries()].sort((a, b) => a[0] - b[0]).map(([k, v]) => k + ':' + v).join(',');
 }
 
+function combinarPatrones(...grupos) {
+  const porVector = new Map();
+  for (const grupo of grupos) {
+    for (const patron of grupo || []) {
+      const k = claveVector(patron.uso);
+      const previo = porVector.get(k);
+      if (!previo || patron.area > previo.area) porVector.set(k, patron);
+    }
+  }
+  return [...porVector.values()];
+}
+
 function usarMascarasUnicasLe4(lineas, O, rondas, semilla) {
   const flag =
     O?.usarMascarasUnicasMasterLe4 === true ||
@@ -106,6 +118,30 @@ function generarPatronesJs(lineas, O, rondas = 60, semilla = 7) {
 }
 
 let rustGenerator = null;
+let rustRoundGenerator = null;
+
+function generarPatronesRondasRust(lineas, O, rondasSeleccionadas, rondasTotales = 40, semilla = 7) {
+  if (!O || O.usarRustPatternGenerator !== true) {
+    throw new Error('OPTIMIZER_MASTER_PREFIX_REQUIRES_RUST');
+  }
+
+  if (process.env.OPTIMIZER_RUST_LEGACY_FORCE_FALLBACK === '1') {
+    throw new Error('OPTIMIZER_RUST_LEGACY_FORCED_FALLBACK');
+  }
+
+  rustRoundGenerator ??= require('./rust/rust-patrones.cjs').generarPatronesLegacyRustHybridRondas;
+  if (typeof rustRoundGenerator !== 'function') {
+    throw new Error('OPTIMIZER_RUST_LEGACY_ROUND_GENERATOR_UNAVAILABLE');
+  }
+
+  const pool = rustRoundGenerator(lineas, O, rondasSeleccionadas, rondasTotales, semilla);
+  if (!Array.isArray(pool) || pool.length === 0) {
+    throw new Error('OPTIMIZER_RUST_LEGACY_EMPTY_ROUND_POOL');
+  }
+
+  O._rustPatternGeneratorUsed = 'rust';
+  return pool;
+}
 
 function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
   if (!O || O.usarRustPatternGenerator !== true) {
@@ -157,4 +193,11 @@ function patronesMonotipo(lineas, O) {
   return out;
 }
 
-module.exports = { generarPatrones, generarPatronesJs, patronesMonotipo, claveVector };
+module.exports = {
+  generarPatrones,
+  generarPatronesJs,
+  generarPatronesRondasRust,
+  combinarPatrones,
+  patronesMonotipo,
+  claveVector,
+};
