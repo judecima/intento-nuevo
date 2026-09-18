@@ -161,8 +161,58 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
 }
 
 
+function generarPatronesLegacyRustHybridRondas(
+  lineas,
+  O,
+  rondasSeleccionadas,
+  rondasTotales = 40,
+  semilla = 7,
+) {
+  const schedule = legacyRoundSubsets(lineas.length, rondasTotales, semilla);
+  const conRef = lineas.map((linea, index) => ({ ...linea, ref: index, _refOriginal: linea.ref }));
+  const boards = [];
+  const candidates = [];
+  const rounds = [...new Set((rondasSeleccionadas || []).map((value) => Number(value)))]
+    .filter((round) => Number.isInteger(round) && round >= 0 && round < schedule.length)
+    .sort((a, b) => a - b);
+
+  for (const round of rounds) {
+    const indices = schedule[round];
+    if (!indices || !indices.length) continue;
+    try {
+      const result = optimizarLegacyHybrid(
+        indices.map((index) => ({ ...conRef[index] })),
+        { ...O, semilla: 1000 + round, pases: 2 },
+      );
+      for (const board of result.placas) {
+        const payloadIndex = boards.length;
+        boards.push(board);
+        candidates.push({
+          payloadIndex,
+          placements: board.colocadas.map((placement) => ({
+            typeIndex: typeof placement?.pieza?.ref === "number" ? placement.pieza.ref : null,
+            base: placement.base,
+            altura: placement.altura,
+          })),
+        });
+      }
+    } catch (error) {
+      if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
+    }
+  }
+
+  const selected = JSON.parse(native().legacyDedupBoards(JSON.stringify(candidates), lineas.length));
+  return selected.map((entry) => ({
+    uso: new Map(entry.usageVector.map((count, index) => [index, count]).filter(([, count]) => count > 0)),
+    area: entry.area,
+    placa: boards[entry.payloadIndex],
+  }));
+}
+
+
 module.exports = {
   legacyRoundSubsets,
   generarPatronesLegacyRustOuter,
   generarPatronesLegacyRustHybrid,
+  generarPatronesLegacyRustHybridRondas,
 };
