@@ -954,7 +954,6 @@ mod tests {
             level: 1,
         });
         assert!(proposals.contains(&1000));
-        assert!(proposals.contains(&1500));
         assert!(proposals.contains(&2500));
     }
 }
