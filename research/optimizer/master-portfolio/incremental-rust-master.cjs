@@ -10,6 +10,11 @@ const addonPath = path.join(
   "../../../native/optimizer-pattern-generator/optimizer_pattern_generator.node",
 );
 
+const P18_CONTRIBUTION_ROUNDS = Object.freeze([
+  0, 2, 3, 5, 6, 10, 12, 13, 16,
+  17, 18, 19, 21, 22, 25, 33, 34, 36,
+]);
+
 let addon;
 function native() {
   addon ??= require(addonPath);
@@ -181,6 +186,7 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
 }
 
 module.exports = {
+  P18_CONTRIBUTION_ROUNDS,
   createIncrementalRustMasterGenerator,
   normalizeRounds,
 };
