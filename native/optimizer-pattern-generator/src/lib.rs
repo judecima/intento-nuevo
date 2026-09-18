@@ -1,3 +1,5 @@
+mod legacy_packer;
+
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
