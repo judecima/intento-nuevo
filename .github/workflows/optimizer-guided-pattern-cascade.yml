@@ -1,0 +1,28 @@
+name: Optimizer Guided Pattern Cascade
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-guided-pattern-cascade
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Guided cascade sentinels
+        run: node --test research/optimizer/pattern-generators/guided-cascade/guided-p13-cascade.test.mjs
+      - name: Existing guide-slice controls
+        run: node --test research/optimizer/pattern-generators/guide-slice/4056900.test.mjs research/optimizer/pattern-generators/guide-slice/4057401.test.mjs
+      - run: npm run typecheck
+      - run: npm test
