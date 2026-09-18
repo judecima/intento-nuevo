@@ -1,0 +1,30 @@
+name: Optimizer Unique Mask Rounds
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-unique-mask-rounds
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - name: Existing Rust parity
+        run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts tests/optimizer/rust-worker-routing.test.ts
+      - name: Unique-mask tail and winner gate
+        run: node research/optimizer/pattern-generators/unique-mask/gate.cjs
+      - run: npm run typecheck
