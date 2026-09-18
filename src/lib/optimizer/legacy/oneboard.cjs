@@ -19,7 +19,7 @@
 // medidaCorte, hashTexto, DIR_X, DIR_Y.
 const M = require('./motor.cjs');
 
-function rescatarUnaPlaca(lineas, config = {}) {
+function rescatarUnaPlaca(lineas, config = {}, baseline = null) {
   const step0=config._step0Telemetry&&config._step0Telemetry.oneboard;
   const wallStart=Date.now();
   let intentos=0, timeoutRegistrado=false;
@@ -45,7 +45,7 @@ function rescatarUnaPlaca(lineas, config = {}) {
   const marcarWatchdog=()=>{
     if(step0&&!watchdogRegistrado){ step0.watchdogHits++; step0.timeoutHits++; watchdogRegistrado=true; }
   };
-  const base = M.optimizar(lineas, { ...config });
+  // V10 ya construyo este mismo baseline antes de activar OneBoard. Reusarlo\n  // evita repetir optimizar() completo. El fallback conserva compatibilidad con\n  // callers directos y configuraciones donde no exista un baseline equivalente.\n  const base = baseline || M.optimizar(lineas, { ...config });
   const areaTotal = lineas.reduce((s, l) => s + l.cant * l.base * l.altura, 0);
   const areaPlaca = (config.placaBase - (config.refiladoX || 0)) *
                     (config.placaAltura - (config.refiladoY || 0));
