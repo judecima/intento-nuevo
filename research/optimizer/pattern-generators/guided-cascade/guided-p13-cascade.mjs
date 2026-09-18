@@ -49,6 +49,7 @@ export function runGuidedP13Cascade(
     guideMasterLimitMs = 1_500,
     p13MasterLimitMs = 1_500,
     p13MaxPieces = 160,
+    allowGuide = true,
     allowP13 = true,
   } = {},
 ) {
@@ -86,41 +87,46 @@ export function runGuidedP13Cascade(
   const monotypes = patronesMonotipo(lines, config);
   telemetry.monotypes = monotypes.length;
 
-  const guideStarted = process.cpuUsage();
-  const guide = generateIndustrialPortfolio(lines, config);
-  const guideCpu = process.cpuUsage(guideStarted);
-  const guidePatterns = Array.isArray(guide.patterns) ? guide.patterns : [];
-  const guidePool = deduplicatePatterns([...guidePatterns, ...monotypes]);
-  const guideSolve = guidePool.length
-    ? solvePatternPool(lines, config, guidePool, {
-        incumbentBoards,
-        masterLimitMs: guideMasterLimitMs,
-        includeMonotypes: false,
-      })
-    : null;
-  const guideCertified = certifyPhysical(lines, config, guideSolve, lowerBound);
+  let guidePatterns = [];
+  if (allowGuide) {
+    const guideStarted = process.cpuUsage();
+    const guide = generateIndustrialPortfolio(lines, config);
+    const guideCpu = process.cpuUsage(guideStarted);
+    guidePatterns = Array.isArray(guide.patterns) ? guide.patterns : [];
+    const guidePool = deduplicatePatterns([...guidePatterns, ...monotypes]);
+    const guideSolve = guidePool.length
+      ? solvePatternPool(lines, config, guidePool, {
+          incumbentBoards,
+          masterLimitMs: guideMasterLimitMs,
+          includeMonotypes: false,
+        })
+      : null;
+    const guideCertified = certifyPhysical(lines, config, guideSolve, lowerBound);
 
-  telemetry.guide = {
-    mode: guide.telemetry?.mode ?? guide.status ?? "UNKNOWN",
-    calls: guide.telemetry?.calls ?? 0,
-    patterns: guidePatterns.length,
-    poolSize: guidePool.length,
-    cpuMs: (guideCpu.user + guideCpu.system) / 1000,
-    boards: guideSolve?.placas ?? incumbentBoards,
-    nodes: guideSolve?.nodos ?? 0,
-    exhausted: guideSolve?.agotado ?? false,
-  };
-
-  if (guideCertified) {
-    return {
-      status: "CERTIFIED",
-      stage: "GUIDE",
-      certified: true,
-      placas: lowerBound,
-      plan: guideCertified.plan,
-      validation: guideCertified.validation,
-      telemetry,
+    telemetry.guide = {
+      mode: guide.telemetry?.mode ?? guide.status ?? "UNKNOWN",
+      calls: guide.telemetry?.calls ?? 0,
+      patterns: guidePatterns.length,
+      poolSize: guidePool.length,
+      cpuMs: (guideCpu.user + guideCpu.system) / 1000,
+      boards: guideSolve?.placas ?? incumbentBoards,
+      nodes: guideSolve?.nodos ?? 0,
+      exhausted: guideSolve?.agotado ?? false,
     };
+
+    if (guideCertified) {
+      return {
+        status: "CERTIFIED",
+        stage: "GUIDE",
+        certified: true,
+        placas: lowerBound,
+        plan: guideCertified.plan,
+        validation: guideCertified.validation,
+        telemetry,
+      };
+    }
+  } else {
+    telemetry.guide = { skipped: true };
   }
 
   if (!allowP13 || telemetry.pieceQty > p13MaxPieces) {
