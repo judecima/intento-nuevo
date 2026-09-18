@@ -886,6 +886,30 @@ pub fn pack_board_legacy_greedy_best(
     }
 }
 
+fn insert_beam_candidate_ordered(
+    outputs: &mut Vec<PackOutput>,
+    positions: &mut HashMap<String, usize>,
+    output: PackOutput,
+    quality_opts: &PackOptions,
+) {
+    let signature = usage_signature(&output);
+    if let Some(&position) = positions.get(&signature) {
+        let previous = &outputs[position];
+        let q = compare_quality(
+            remnant_quality(&output, quality_opts),
+            remnant_quality(previous, quality_opts),
+        );
+        if q < 0 || (q == 0 && output.area <= previous.area + 1e-6) {
+            return;
+        }
+        outputs[position] = output;
+        return;
+    }
+
+    positions.insert(signature, outputs.len());
+    outputs.push(output);
+}
+
 #[napi(js_name = "packBoardLegacyBeamCandidates")]
 pub fn pack_board_legacy_beam_candidates(
     pieces_json: String,
@@ -902,23 +926,19 @@ pub fn pack_board_legacy_beam_candidates(
 
     let quality_opts = &requests[0].options;
     let template = common_template(&inputs, &requests);
-    let mut dedup: HashMap<String, PackOutput> = HashMap::new();
+    // JavaScript's Map preserves the insertion order of usage signatures.
+    // Keep the same contract here: replacements stay in their original slot,
+    // and only genuinely new signatures append to the candidate stream.
+    let mut outputs: Vec<PackOutput> = Vec::new();
+    let mut positions: HashMap<String, usize> = HashMap::new();
     for request in &requests {
         let output = pack_request(&inputs, template.as_deref(), request)
             .map_err(|e| Error::new(Status::InvalidArg, e))?;
         if output.colocadas.is_empty() { continue; }
-        let signature = usage_signature(&output);
-        if let Some(previous) = dedup.get(&signature) {
-            let q = compare_quality(remnant_quality(&output, quality_opts), remnant_quality(previous, quality_opts));
-            if q < 0 || (q == 0 && output.area <= previous.area + 1e-6) {
-                continue;
-            }
-        }
-        dedup.insert(signature, output);
+        insert_beam_candidate_ordered(&mut outputs, &mut positions, output, quality_opts);
     }
 
     let board_area = quality_opts.ancho_util * quality_opts.alto_util;
-    let mut outputs: Vec<PackOutput> = dedup.into_values().collect();
     outputs.sort_by(|a, b| {
         let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
         let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
@@ -954,6 +974,92 @@ pub fn pack_board_legacy_core(pieces_json: String, options_json: String, random_
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_tree() -> TreeNode {
+        TreeNode {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+            dir: "x".to_string(),
+            nivel: 1,
+            partes: Vec::new(),
+        }
+    }
+
+    fn test_output(ids: &[u32], area: f64, remnant_area: f64) -> PackOutput {
+        PackOutput {
+            colocadas: ids.iter().map(|id| Placed {
+                id: *id,
+                x: 0.0,
+                y: 0.0,
+                base: 10.0,
+                altura: 10.0,
+                rotada: false,
+                nivel: 1,
+            }).collect(),
+            cortes: Vec::new(),
+            restos: if remnant_area > 0.0 {
+                vec![Rest { x: 0.0, y: 0.0, w: remnant_area, h: 1.0 }]
+            } else {
+                Vec::new()
+            },
+            arbol: test_tree(),
+            area,
+            area_resto: remnant_area,
+        }
+    }
+
+    fn test_options() -> PackOptions {
+        PackOptions {
+            ancho_util: 100.0,
+            alto_util: 100.0,
+            sierra: 0.0,
+            etapas: 2,
+            material_con_veta: false,
+            criterio: "area".to_string(),
+            criterios: Vec::new(),
+            dir_inicial: "x".to_string(),
+            ruido: 0.0,
+            resto_min: 0.0,
+            resto_max: 0.0,
+            multi_rebanada: false,
+            penalizar_franja_muerta: false,
+            deltas_estructurales: Vec::new(),
+            contraer_rebanada_real: true,
+        }
+    }
+
+    #[test]
+    fn beam_dedup_preserves_first_signature_order_on_replacement() {
+        let opts = test_options();
+        let mut outputs = Vec::new();
+        let mut positions = HashMap::new();
+
+        insert_beam_candidate_ordered(
+            &mut outputs,
+            &mut positions,
+            test_output(&[1], 100.0, 10.0),
+            &opts,
+        );
+        insert_beam_candidate_ordered(
+            &mut outputs,
+            &mut positions,
+            test_output(&[2], 100.0, 10.0),
+            &opts,
+        );
+        insert_beam_candidate_ordered(
+            &mut outputs,
+            &mut positions,
+            test_output(&[1], 100.0, 20.0),
+            &opts,
+        );
+
+        assert_eq!(outputs.len(), 2);
+        assert_eq!(usage_signature(&outputs[0]), "1,");
+        assert_eq!(usage_signature(&outputs[1]), "2,");
+        assert_eq!(outputs[0].restos[0].w, 20.0);
+    }
 
     #[test]
     fn lcg_matches_js_sequence_shape() {
