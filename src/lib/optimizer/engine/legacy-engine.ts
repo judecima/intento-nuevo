@@ -92,8 +92,26 @@ export const LEGACY_OPTIMIZER_VERSION = "legacy-guillotine-v10-lepton-remnants-2
 export const RUST_LEGACY_PATTERN_GENERATOR_VERSION = `${LEGACY_OPTIMIZER_VERSION}+rust-pattern-v1`;
 export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION}+hybrid-staged-v17`;
 
+export interface OptimizeProjectDiagnostics {
+  cacheBypassed: boolean;
+  rustRequested: boolean;
+  rustExecuted: boolean;
+  rustSucceeded: boolean;
+  rustFallbackJs: boolean;
+  rustMasterSwallowedError: boolean;
+  rustError?: string;
+  rustMasterError?: string;
+  rustGeneratorCaughtError?: string;
+}
+
 export interface OptimizeProjectRuntimeOptions {
   patternGenerator?: OptimizerPatternGenerator;
+  /** Benchmark/diagnostic only: skip both cache lookup and cache population. */
+  bypassCache?: boolean;
+  /** Benchmark/diagnostic only: require an observed successful Rust Master execution. */
+  rustCertification?: boolean;
+  /** Optional mutable diagnostics sink; does not affect production decisions. */
+  diagnostics?: OptimizeProjectDiagnostics;
 }
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
@@ -214,6 +232,19 @@ export function optimizeProject(
   const deterministicBudgets = resolveDeterministicBudgetConfig();
   const patternGenerator: OptimizerPatternGenerator =
     strategy === "v10" ? (runtimeOptions.patternGenerator ?? "js") : "js";
+  const bypassCache = runtimeOptions.bypassCache === true;
+  const diagnostics = runtimeOptions.diagnostics;
+  if (diagnostics) {
+    diagnostics.cacheBypassed = bypassCache;
+    diagnostics.rustRequested = strategy === "v10" && patternGenerator === "rust";
+    diagnostics.rustExecuted = false;
+    diagnostics.rustSucceeded = false;
+    diagnostics.rustFallbackJs = false;
+    diagnostics.rustMasterSwallowedError = false;
+    delete diagnostics.rustError;
+    delete diagnostics.rustMasterError;
+    delete diagnostics.rustGeneratorCaughtError;
+  }
   const cacheKey = [
     inputHash,
     deterministicBudgets.cacheDiscriminator,
@@ -222,7 +253,7 @@ export function optimizeProject(
   ]
     .filter(Boolean)
     .join("|");
-  const cached = optimizationCache.get(cacheKey);
+  const cached = bypassCache ? undefined : optimizationCache.get(cacheKey);
 
   if (cached) {
     const result = cloneOptimizationResult(cached);
@@ -232,6 +263,8 @@ export function optimizeProject(
 
   const lineas = toLegacyLines(parsed);
   const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator);
+  if (diagnostics) options._rustCertificationTelemetry = diagnostics;
+  if (runtimeOptions.rustCertification === true) options._rustCertificationStrict = true;
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
@@ -253,6 +286,10 @@ export function optimizeProject(
           lineas,
           "baseline",
         );
+
+  if (runtimeOptions.rustCertification === true) {
+    assertRustCertification(diagnostics);
+  }
 
   const industrial = legacyV10.validarPlanIndustrial(raw, expectedPieceCount);
   const independentSlices = validateIndependentSlices(raw);
@@ -291,8 +328,32 @@ export function optimizeProject(
     raw
   };
 
-  if (!rustFallback) rememberOptimizationResult(cacheKey, result);
+  if (!rustFallback && !bypassCache) rememberOptimizationResult(cacheKey, result);
   return result;
+}
+
+function assertRustCertification(
+  diagnostics: OptimizeProjectDiagnostics | undefined,
+): asserts diagnostics is OptimizeProjectDiagnostics {
+  const failures: string[] = [];
+  if (!diagnostics) failures.push("diagnostics-missing");
+  else {
+    if (!diagnostics.rustRequested) failures.push("rust-not-requested");
+    if (!diagnostics.rustExecuted) failures.push("rust-not-executed");
+    if (!diagnostics.rustSucceeded) failures.push("rust-not-succeeded");
+    if (diagnostics.rustFallbackJs) failures.push("rust-fallback-js");
+    if (diagnostics.rustMasterSwallowedError) failures.push("master-swallowed-error");
+  }
+  if (failures.length > 0) {
+    const detail = diagnostics
+      ? [diagnostics.rustError, diagnostics.rustMasterError, diagnostics.rustGeneratorCaughtError]
+          .filter(Boolean)
+          .join(" | ")
+      : "";
+    throw new Error(
+      `OPTIMIZER_RUST_CERTIFICATION_FAILED:${failures.join(",")}${detail ? `:${detail}` : ""}`,
+    );
+  }
 }
 
 function toLegacyLines(input: OptimizationInput): LegacyLineInput[] {
