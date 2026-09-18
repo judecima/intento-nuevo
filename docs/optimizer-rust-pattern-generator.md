@@ -79,3 +79,8 @@ Validated on GitHub Actions run `35304112259`:
 Status: **H2 FUNCTIONALLY VALIDATED / NOT PRODUCTION-PROMOTED**.
 
 This evidence proves that the native Rust search can reproduce the tested B0.1 grammar and physical pools while coexisting with the current Next.js build. It does **not** yet prove a real-corpus speedup or authorize replacing V10's production generator. A corpus-level A/B CPU and board-count gate remains mandatory before promotion.
+
+
+## Real-corpus promotion status — 2026-09-18
+
+**REAL-CORPUS REPLACEMENT REJECTED.** The H2-compatible Rust B0.1 implementation is not production-equivalent to the legacy V10 generator. On mandatory real Master winners it exhausts its fixed work budget with an empty pool, and end-to-end reproductions regress board count on 4056900 (6→7), 4057401 (4→5) and 4058501 (8→9). See [the real-corpus gate](optimizer-rust-real-corpus-gate-2026-09-18.md). Production V10 remains unchanged.
