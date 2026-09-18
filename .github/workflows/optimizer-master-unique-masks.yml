@@ -25,6 +25,14 @@ jobs:
       - run: npm run optimizer:rust:build
       - name: Rust routing contract
         run: npx vitest run tests/optimizer/rust-worker-routing.test.ts tests/optimizer/rust-legacy-hybrid.test.ts tests/optimizer/rust-legacy-outer.test.ts
+      - name: Unique-mask policy contract
+        run: npx vitest run tests/optimizer/master-unique-masks.test.ts
+      - name: Post-compact lower-bound regression
+        run: npx vitest run tests/optimizer/post-compact-cheap-lb.test.ts
+      - name: OneBoard reuse regression
+        run: npx vitest run tests/optimizer/oneboard-baseline-reuse.test.ts
+      - run: npm run typecheck
+      - run: npm test
       - name: Upload certified native addon
         uses: actions/upload-artifact@v4
         with:
