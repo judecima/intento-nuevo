@@ -1,0 +1,35 @@
+name: Optimizer Master Prefix7 Research
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-master-contribution-portfolio
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - name: Prefix7 incremental Master contract
+        run: npx vitest run tests/optimizer/master-prefix7.test.ts
+      - name: Unique-mask regression
+        run: npx vitest run tests/optimizer/master-unique-masks.test.ts
+      - name: Post-compact lower-bound regression
+        run: npx vitest run tests/optimizer/post-compact-cheap-lb.test.ts
+      - name: OneBoard reuse regression
+        run: npx vitest run tests/optimizer/oneboard-baseline-reuse.test.ts
+      - run: npm run typecheck
+      - run: npm test
