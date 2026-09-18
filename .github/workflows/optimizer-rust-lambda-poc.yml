@@ -19,6 +19,7 @@ on:
       - "infra/optimizer-rust-lambda/**"
       - "package.json"
       - "package-lock.json"
+      - "tests/optimizer/**"
       - ".github/workflows/optimizer-rust-lambda-poc.yml"
 
 permissions:
