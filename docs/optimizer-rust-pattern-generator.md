@@ -64,3 +64,18 @@ The Rust-specific test suite requires the native addon and checks the nine estab
 7. work limits return `WORK_LIMIT` rather than false completion.
 
 Promotion to V10 requires a later real-corpus gate with zero board-count regressions and measured CPU improvement. This branch does not make that promotion claim.
+
+
+## Validation result — 2026-09-18
+
+Validated on GitHub Actions run `35304112259`:
+
+- Rust unit tests: **1/1 PASS**.
+- Native JS/Rust H2 parity suite: **20/20 PASS** across the nine established fixtures, including canonical root grammar, physical pool equality, industrial validation, independent slices, XML roundtrip, determinism and work-limit behavior.
+- TypeScript `tsc --noEmit`: **PASS**.
+- Full application suite with the native addon present: **323/323 PASS**.
+- Next.js production build: **PASS**, including generation of **30/30** static pages.
+
+Status: **H2 FUNCTIONALLY VALIDATED / NOT PRODUCTION-PROMOTED**.
+
+This evidence proves that the native Rust search can reproduce the tested B0.1 grammar and physical pools while coexisting with the current Next.js build. It does **not** yet prove a real-corpus speedup or authorize replacing V10's production generator. A corpus-level A/B CPU and board-count gate remains mandatory before promotion.
