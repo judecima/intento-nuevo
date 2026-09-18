@@ -1,0 +1,59 @@
+name: Optimizer Rust Lambda POC
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/optimizer-rust-lambda-poc
+    paths:
+      - "native/optimizer-pattern-generator/**"
+      - "src/lib/optimizer/legacy/**"
+      - "scripts/install-rust-pattern-generator.mjs"
+      - "scripts/benchmark-optimizer-lambda.mjs"
+      - "infra/optimizer-rust-lambda/**"
+      - ".github/workflows/optimizer-rust-lambda-poc.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  native-and-container-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - name: Native host smoke
+        run: node infra/optimizer-rust-lambda/smoke.mjs
+      - name: Build Lambda image on target architecture
+        run: docker buildx build --platform ${{ matrix.platform }} --provenance=false --load -f infra/optimizer-rust-lambda/Dockerfile -t optimizer-rust-lambda-poc:${{ matrix.arch }} .
+      - name: Lambda Runtime Interface Emulator smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          cid=$(docker run -d -p 9000:8080 optimizer-rust-lambda-poc:${{ matrix.arch }})
+          trap 'docker logs "$cid" || true; docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/2015-03-31/functions/function/invocations \
+              --data-binary @infra/optimizer-rust-lambda/fixtures/4057401.json > /tmp/lambda-response.json; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/lambda-response.json
+          node -e 'const r=require("/tmp/lambda-response.json"); if(!r.ok || r.arch!==process.argv[1] || !(r.patterns>0)) process.exit(1)' "${{ matrix.arch }}"
