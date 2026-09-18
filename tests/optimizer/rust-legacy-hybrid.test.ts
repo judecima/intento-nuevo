@@ -86,6 +86,8 @@ const CONFIG = {
   presupuestoRescueMs: 300,
   multiRebanada: false,
   multiVariantes: false,
+  usarCache: true,
+  maxPiezasCache: 160,
   trazaDiag: false,
 };
 

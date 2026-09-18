@@ -6,6 +6,7 @@ import {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  createLegacyPackerSession,
 } from "./legacy-packer-adapter.mjs";
 
 const require = createRequire(import.meta.url);
@@ -68,29 +69,31 @@ function packBatch(pool, opts, configs, pass, board) {
   return packBoardLegacyRustBatch(pool, buildRequests(opts, configs, pass, board));
 }
 
-function packGreedyBest(pool, opts, configs, pass, board) {
+function packGreedyBest(session, pool, opts, configs, pass, board) {
   return packBoardLegacyRustGreedyBest(
     pool,
     buildRequests(opts, configs, pass, board),
     opts.tolerancia,
+    session,
   );
 }
 
-function packBeamCandidates(pool, opts, configs, pass, board) {
+function packBeamCandidates(session, pool, opts, configs, pass, board) {
   return packBoardLegacyRustBeamCandidates(
     pool,
     buildRequests(opts, configs, pass, board),
     opts.beamWidth,
+    session,
   );
 }
 
-function armGreedy(pieces, opts, configs, pass) {
+function armGreedy(session, pieces, opts, configs, pass) {
   let pool = pieces.slice();
   const boards = [];
   let guard = 0;
 
   while (pool.length && guard++ < 300) {
-    const best = packGreedyBest(pool, opts, configs, pass, boards.length);
+    const best = packGreedyBest(session, pool, opts, configs, pass, boards.length);
     if (!best || !best.colocadas.length) throw new Error("No se pudo empacar la placa.");
 
     const used = new Set(best.colocadas.map((placement) => placement.pieza.id));
@@ -100,8 +103,8 @@ function armGreedy(pieces, opts, configs, pass) {
   return boards;
 }
 
-function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
-  const selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+function generateBoardCandidates(session, pool, opts, configs, pass, boardIndex) {
+  const selected = packBeamCandidates(session, pool, opts, configs, pass, boardIndex);
   const boardArea = opts.anchoUtil * opts.altoUtil;
   const candidates = [];
   for (const result of selected) {
@@ -127,7 +130,7 @@ function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
   return candidates.slice(0, Math.max(opts.beamWidth * 3, opts.beamWidth));
 }
 
-function armBeam(pieces, opts, configs, pass) {
+function armBeam(session, pieces, opts, configs, pass) {
   const boardArea = opts.anchoUtil * opts.altoUtil;
   const started = Date.now();
   const rawMax = Number(opts.maxExpansionesBeam);
@@ -151,7 +154,7 @@ function armBeam(pieces, opts, configs, pass) {
         completed.push(state);
         continue;
       }
-      const candidates = generateBoardCandidates(state.pool, opts, configs, pass, state.placas.length);
+      const candidates = generateBoardCandidates(session, state.pool, opts, configs, pass, state.placas.length);
       if (!candidates.length) continue;
 
       for (const candidate of candidates) {
@@ -208,15 +211,15 @@ function armBeam(pieces, opts, configs, pass) {
   return completed[0].placas;
 }
 
-function armBoards(pieces, opts, configs, pass) {
-  const greedy = armGreedy(pieces, opts, configs, pass);
+function armBoards(session, pieces, opts, configs, pass) {
+  const greedy = armGreedy(session, pieces, opts, configs, pass);
   const totalArea = pieces.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
   const lowerBound = Math.ceil(totalArea / (opts.anchoUtil * opts.altoUtil));
   if (greedy.length <= lowerBound || pieces.length > opts.maxPiezasBeam) return greedy;
 
   let beam = null;
   try {
-    beam = armBeam(pieces, opts, configs, pass);
+    beam = armBeam(session, pieces, opts, configs, pass);
   } catch {
     beam = null;
   }
@@ -353,6 +356,7 @@ export function optimizarLegacyHybrid(lineas, config = {}) {
     opts.restartsPorPlaca = Math.max(3, Math.round(opts.restartsPorPlaca * 60 / Math.max(60, pieces.length)));
   }
 
+  const nativeSession = createLegacyPackerSession();
   const configs = makeConfigs(opts);
   const orders = [
     (a, b) => b.base * b.altura - a.base * a.altura,
@@ -369,7 +373,7 @@ export function optimizarLegacyHybrid(lineas, config = {}) {
   for (let pass = 0; pass < opts.pases; pass++) {
     for (const stages of stageTrials) {
       const stageOpts = { ...opts, etapas: stages };
-      const boards = armBoards(pieces.slice().sort(orders[pass % orders.length]), stageOpts, configs, pass);
+      const boards = armBoards(nativeSession, pieces.slice().sort(orders[pass % orders.length]), stageOpts, configs, pass);
       if (boards.reduce((sum, board) => sum + board.colocadas.length, 0) < pieces.length) continue;
       if (
         !best ||
@@ -394,7 +398,7 @@ export function optimizarLegacyHybrid(lineas, config = {}) {
     let rescued = null;
     for (let pass = 0; pass < opts.pases; pass++) {
       try {
-        const boards = armBoards(pieces.slice().sort(orders[pass % orders.length]), ro, configsRescue, pass + 100);
+        const boards = armBoards(nativeSession, pieces.slice().sort(orders[pass % orders.length]), ro, configsRescue, pass + 100);
         if (boards.reduce((sum, board) => sum + board.colocadas.length, 0) < pieces.length) continue;
         if (
           !rescued ||

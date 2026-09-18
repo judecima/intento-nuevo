@@ -15,7 +15,8 @@ function native() {
     typeof addon.packBoardLegacyCore !== "function" ||
     typeof addon.packBoardLegacyBatch !== "function" ||
     typeof addon.packBoardLegacyGreedyBest !== "function" ||
-    typeof addon.packBoardLegacyBeamCandidates !== "function"
+    typeof addon.packBoardLegacyBeamCandidates !== "function" ||
+    typeof addon.LegacyPackerSession !== "function"
   ) {
     throw new Error("native addon does not expose legacy packer core/batch/selectors");
   }
@@ -39,6 +40,7 @@ function packOptions(opts) {
     penalizarFranjaMuerta: Boolean(opts.penalizarFranjaMuerta),
     deltasEstructurales: Array.isArray(opts.deltasEstructurales) ? opts.deltasEstructurales : [],
     contraerRebanadaReal: opts.contraerRebanadaReal !== false,
+    usarCache: Boolean(opts.usarCache),
   };
 }
 
@@ -100,6 +102,10 @@ function hydrateResult(raw, pool) {
   };
 }
 
+export function createLegacyPackerSession() {
+  return new (native().LegacyPackerSession)();
+}
+
 export function packBoardLegacyRustBatch(pool, requests) {
   const raw = JSON.parse(
     native().packBoardLegacyBatch(
@@ -110,9 +116,10 @@ export function packBoardLegacyRustBatch(pool, requests) {
   return raw.map((result) => hydrateResult(result, pool));
 }
 
-export function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
+export function packBoardLegacyRustGreedyBest(pool, requests, tolerance, session = null) {
+  const target = session ?? native();
   const raw = JSON.parse(
-    native().packBoardLegacyGreedyBest(
+    target.packBoardLegacyGreedyBest(
       JSON.stringify(pieces(pool)),
       serializeRequests(requests),
       tolerance,
@@ -121,9 +128,10 @@ export function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
   return raw == null ? null : hydrateResult(raw, pool);
 }
 
-export function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
+export function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth, session = null) {
+  const target = session ?? native();
   const raw = JSON.parse(
-    native().packBoardLegacyBeamCandidates(
+    target.packBoardLegacyBeamCandidates(
       JSON.stringify(pieces(pool)),
       serializeRequests(requests),
       beamWidth >>> 0,

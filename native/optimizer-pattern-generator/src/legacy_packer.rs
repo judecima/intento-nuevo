@@ -73,6 +73,8 @@ struct PackOptions {
     deltas_estructurales: Vec<StructuralDelta>,
     #[serde(default = "default_true")]
     contraer_rebanada_real: bool,
+    #[serde(default)]
+    usar_cache: bool,
 }
 
 fn default_true() -> bool { true }
@@ -789,6 +791,247 @@ fn pending_area(inputs: &[PieceInput], output: &PackOutput) -> f64 {
         .sum()
 }
 
+
+#[derive(Debug, Clone)]
+struct CachedPack {
+    output: PackOutput,
+    placement_sigs: Vec<usize>,
+}
+
+fn legacy_cache_key(inputs: &[PieceInput], opts: &PackOptions) -> String {
+    let max_sig = inputs.iter().map(|piece| piece.sig as usize).max().map(|value| value + 1).unwrap_or(0);
+    let mut counts = vec![0usize; max_sig];
+    for piece in inputs {
+        counts[piece.sig as usize] += 1;
+    }
+    let mut key = String::new();
+    for (sig, count) in counts.iter().enumerate() {
+        if *count > 0 {
+            use std::fmt::Write;
+            let _ = write!(key, "{sig}:{count},");
+        }
+    }
+    key.push('#');
+    if opts.criterios.is_empty() {
+        key.push_str(&opts.criterio);
+    } else {
+        for criterion in &opts.criterios {
+            key.push_str(criterion);
+        }
+    }
+    key.push('#');
+    key.push_str(&opts.dir_inicial);
+    key
+}
+
+fn placement_sigs(inputs: &[PieceInput], output: &PackOutput) -> std::result::Result<Vec<usize>, String> {
+    let by_id: HashMap<u32, usize> = inputs.iter().map(|piece| (piece.id, piece.sig as usize)).collect();
+    output.colocadas.iter()
+        .map(|placement| by_id.get(&placement.id).copied().ok_or_else(|| "cached placement id not found".to_string()))
+        .collect()
+}
+
+fn rewrite_tree_piece_ids(node: &mut TreeNode, mapping: &HashMap<u32, u32>) {
+    for part in &mut node.partes {
+        if let Some(piece_id) = part.piece_id {
+            if let Some(new_id) = mapping.get(&piece_id) {
+                part.piece_id = Some(*new_id);
+            }
+        }
+        rewrite_tree_piece_ids(&mut part.hijo, mapping);
+    }
+}
+
+fn reassign_cached(entry: &CachedPack, inputs: &[PieceInput]) -> Option<PackOutput> {
+    let max_sig = inputs.iter().map(|piece| piece.sig as usize).max().map(|value| value + 1).unwrap_or(0);
+    let mut by_sig: Vec<Vec<u32>> = vec![Vec::new(); max_sig];
+    for piece in inputs {
+        by_sig[piece.sig as usize].push(piece.id);
+    }
+
+    let mut output = entry.output.clone();
+    let mut id_mapping = HashMap::new();
+    for (index, placement) in output.colocadas.iter_mut().enumerate() {
+        let sig = *entry.placement_sigs.get(index)?;
+        let replacement = by_sig.get_mut(sig)?.pop()?;
+        id_mapping.insert(placement.id, replacement);
+        placement.id = replacement;
+    }
+    // The legacy JS cache retains the old tree piece objects. Rewriting the ids
+    // to the equivalent current pieces preserves the same physical tree while
+    // keeping materialization safe in the native bridge.
+    rewrite_tree_piece_ids(&mut output.arbol, &id_mapping);
+    Some(output)
+}
+
+#[napi(js_name = "LegacyPackerSession")]
+pub struct LegacyPackerSession {
+    cache: HashMap<String, CachedPack>,
+}
+
+impl LegacyPackerSession {
+    fn pack_cached(
+        &mut self,
+        inputs: &[PieceInput],
+        template: Option<&[Piece]>,
+        request: &PackBatchRequest,
+    ) -> std::result::Result<PackOutput, String> {
+        if request.random_seed.is_some() || !request.options.usar_cache {
+            return pack_request(inputs, template, request);
+        }
+
+        let key = legacy_cache_key(inputs, &request.options);
+        if let Some(entry) = self.cache.get(&key) {
+            if let Some(output) = reassign_cached(entry, inputs) {
+                return Ok(output);
+            }
+        }
+
+        let output = pack_request(inputs, template, request)?;
+        let sigs = placement_sigs(inputs, &output)?;
+        self.cache.insert(key, CachedPack {
+            output: output.clone(),
+            placement_sigs: sigs,
+        });
+        Ok(output)
+    }
+}
+
+#[napi]
+impl LegacyPackerSession {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self { cache: HashMap::new() }
+    }
+
+    #[napi(js_name = "packBoardLegacyGreedyBest")]
+    pub fn pack_board_legacy_greedy_best(
+        &mut self,
+        pieces_json: String,
+        requests_json: String,
+        tolerance: f64,
+    ) -> Result<String> {
+        let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+            .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+        let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+            .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+        if requests.is_empty() {
+            return Ok("null".to_string());
+        }
+
+        let quality_opts = &requests[0].options;
+        let template = common_template(&inputs, &requests);
+        let mut outputs = Vec::with_capacity(requests.len());
+        for request in &requests {
+            let output = self.pack_cached(&inputs, template.as_deref(), request)
+                .map_err(|e| Error::new(Status::InvalidArg, e))?;
+            if !output.colocadas.is_empty() {
+                outputs.push(output);
+            }
+        }
+        if outputs.is_empty() {
+            return Ok("null".to_string());
+        }
+
+        let mut best_close: Option<usize> = None;
+        for (index, output) in outputs.iter().enumerate() {
+            if output.colocadas.len() != inputs.len() { continue; }
+            match best_close {
+                None => best_close = Some(index),
+                Some(prev) => {
+                    let q = compare_quality(
+                        remnant_quality(output, quality_opts),
+                        remnant_quality(&outputs[prev], quality_opts),
+                    );
+                    if q > 0 || (q == 0 && output.area > outputs[prev].area) {
+                        best_close = Some(index);
+                    }
+                }
+            }
+        }
+        if let Some(index) = best_close {
+            return serde_json::to_string(&outputs[index])
+                .map_err(|e| Error::new(Status::GenericFailure, format!("serialize cached greedy best: {e}")));
+        }
+
+        let max_area = outputs.iter().fold(0.0_f64, |acc, output| acc.max(output.area));
+        let threshold = max_area * (1.0 - tolerance);
+        let mut best: Option<usize> = None;
+        for (index, output) in outputs.iter().enumerate() {
+            if output.area < threshold { continue; }
+            match best {
+                None => best = Some(index),
+                Some(prev) => {
+                    let q = compare_quality(
+                        remnant_quality(output, quality_opts),
+                        remnant_quality(&outputs[prev], quality_opts),
+                    );
+                    if q > 0 || (q == 0 && output.area > outputs[prev].area + 1e-6) {
+                        best = Some(index);
+                    }
+                }
+            }
+        }
+
+        match best {
+            Some(index) => serde_json::to_string(&outputs[index])
+                .map_err(|e| Error::new(Status::GenericFailure, format!("serialize cached greedy best: {e}"))),
+            None => Ok("null".to_string()),
+        }
+    }
+
+    #[napi(js_name = "packBoardLegacyBeamCandidates")]
+    pub fn pack_board_legacy_beam_candidates(
+        &mut self,
+        pieces_json: String,
+        requests_json: String,
+        beam_width: u32,
+    ) -> Result<String> {
+        let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+            .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+        let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+            .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+        if requests.is_empty() {
+            return Ok("[]".to_string());
+        }
+
+        let quality_opts = &requests[0].options;
+        let template = common_template(&inputs, &requests);
+        let mut outputs: Vec<PackOutput> = Vec::new();
+        let mut positions: HashMap<String, usize> = HashMap::new();
+        for request in &requests {
+            let output = self.pack_cached(&inputs, template.as_deref(), request)
+                .map_err(|e| Error::new(Status::InvalidArg, e))?;
+            if output.colocadas.is_empty() { continue; }
+            insert_beam_candidate_ordered(&mut outputs, &mut positions, output, quality_opts);
+        }
+
+        let board_area = quality_opts.ancho_util * quality_opts.alto_util;
+        outputs.sort_by(|a, b| {
+            let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
+            let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
+            lb_a.cmp(&lb_b)
+                .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| {
+                    let q = compare_quality(remnant_quality(a, quality_opts), remnant_quality(b, quality_opts));
+                    if q > 0 { std::cmp::Ordering::Less }
+                    else if q < 0 { std::cmp::Ordering::Greater }
+                    else { std::cmp::Ordering::Equal }
+                })
+        });
+        let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
+        outputs.truncate(limit);
+
+        serde_json::to_string(&outputs)
+            .map_err(|e| Error::new(Status::GenericFailure, format!("serialize cached beam candidates: {e}")))
+    }
+
+    #[napi(getter)]
+    pub fn cache_size(&self) -> u32 {
+        self.cache.len() as u32
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PackBatchRequest {
@@ -1027,6 +1270,7 @@ mod tests {
             penalizar_franja_muerta: false,
             deltas_estructurales: Vec::new(),
             contraer_rebanada_real: true,
+            usar_cache: false,
         }
     }
 
@@ -1059,6 +1303,25 @@ mod tests {
         assert_eq!(usage_signature(&outputs[0]), "1,");
         assert_eq!(usage_signature(&outputs[1]), "2,");
         assert_eq!(outputs[0].restos[0].w, 20.0);
+    }
+
+    #[test]
+    fn cached_reassignment_uses_lifo_piece_ids_per_signature() {
+        let inputs_a = vec![
+            PieceInput { id: 0, base: 10.0, altura: 10.0, cut_base: 10.0, cut_altura: 10.0, veta: false, sig: 0, detalle: String::new(), ref_value: serde_json::Value::Null },
+            PieceInput { id: 1, base: 10.0, altura: 10.0, cut_base: 10.0, cut_altura: 10.0, veta: false, sig: 0, detalle: String::new(), ref_value: serde_json::Value::Null },
+        ];
+        let output = test_output(&[0], 100.0, 0.0);
+        let entry = CachedPack {
+            placement_sigs: placement_sigs(&inputs_a, &output).unwrap(),
+            output,
+        };
+        let inputs_b = vec![
+            PieceInput { id: 8, base: 10.0, altura: 10.0, cut_base: 10.0, cut_altura: 10.0, veta: false, sig: 0, detalle: String::new(), ref_value: serde_json::Value::Null },
+            PieceInput { id: 9, base: 10.0, altura: 10.0, cut_base: 10.0, cut_altura: 10.0, veta: false, sig: 0, detalle: String::new(), ref_value: serde_json::Value::Null },
+        ];
+        let reassigned = reassign_cached(&entry, &inputs_b).unwrap();
+        assert_eq!(reassigned.colocadas[0].id, 9);
     }
 
     #[test]
