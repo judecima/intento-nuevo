@@ -170,7 +170,7 @@ Local JS generation-stage measurements from the frozen current constructor:
 |---|---:|---:|---|---:|
 | 4056900 | 7 | 6 | Guide -> 6 | ~88 ms guide vs ~9,310 ms legacy |
 | 4057401 | 5 | 4 | Guide -> 4 | ~11 ms guide vs ~2,638 ms legacy |
-| 4050594 | 8 | 7 | Guide miss -> P13 -> 7 | ~2,253 ms cascade vs ~10,682 ms legacy |
+| 4050594 | 8 | 7 | Guide -> 7 (current CI); P13 also -> 7 when Guide is disabled | current Guide closes before P13 |
 | 4059200 | 18 | 13 | gap>1 -> fallback | zero cascade generation work |
 
 For 4050594 the estimate above is ~142 ms guide probe + ~2,111 ms P13 generation.
