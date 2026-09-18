@@ -19,7 +19,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
       - name: Guide-Core contract
         run: node --test research/optimizer/pattern-generators/guide-core/guide-core-master.test.mjs
       - run: npm run typecheck
