@@ -160,6 +160,26 @@ describe("optimizer facade", () => {
     expect(second.validation.ok).toBe(true);
   });
 
+  it("can bypass the in-memory cache without changing the production cache key", () => {
+    const input: OptimizationInput = {
+      ...baseInput,
+      projectId: "cache-bypass-contract",
+      constraints: { ...baseInput.constraints, profile: "fast" }
+    };
+
+    const first = optimizeProject(input, { bypassCache: true });
+    const second = optimizeProject(input, { bypassCache: true });
+    const productionFirst = optimizeProject(input);
+    const productionSecond = optimizeProject(input);
+
+    expect(first.metrics.cacheHit).toBe(false);
+    expect(second.metrics.cacheHit).toBe(false);
+    expect(productionFirst.metrics.cacheHit).toBe(false);
+    expect(productionSecond.metrics.cacheHit).toBe(true);
+    expect(first.metrics.boardCount).toBe(productionFirst.metrics.boardCount);
+    expect(second.validation.ok).toBe(true);
+  });
+
   it("exports machine XML from the exact approved optimization result", () => {
     const result = optimizeProject(baseInput);
     const xml = generateMachineXml(result, {
