@@ -255,7 +255,10 @@ function runProgressivePatternMaster(
       lineas,
       config,
       opts,
-      incumbentBoards,
+      // Probe only for a certificate at the lower bound. Setting the
+      // incumbent to LB+1 makes B&B ignore intermediate improvements that
+      // cannot certify an early stop.
+      incumbentBoards: lowerBound + 1,
       limitMs: probeMs,
       maxNodes: probeMaxNodes,
       watchdogMs: probeWatchdogMs,
