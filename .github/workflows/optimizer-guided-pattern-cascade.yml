@@ -19,7 +19,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
       - name: Guided cascade sentinels
         run: node --test research/optimizer/pattern-generators/guided-cascade/guided-p13-cascade.test.mjs
       - name: Existing guide-slice controls
