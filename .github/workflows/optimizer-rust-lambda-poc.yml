@@ -25,6 +25,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: optimizer-rust-lambda-poc-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pattern-generator-smoke:
     name: Pattern Generator / ${{ matrix.arch }}
