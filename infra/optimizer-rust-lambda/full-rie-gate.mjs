@@ -20,6 +20,13 @@ const domain = JSON.parse(await readFile(domainPath, "utf8"));
 const domainByOrder = new Map(domain.results.map((entry) => [String(entry.order), entry]));
 const results = [];
 
+function orderFromFixture(fixturePath, payload) {
+  if (payload.projectId) return String(payload.projectId);
+  const match = /(?:^|[/\\])(\d{7})(?:\.json)?$/.exec(fixturePath);
+  if (!match) throw new Error(`CANNOT_RESOLVE_ORDER:${fixturePath}`);
+  return match[1];
+}
+
 async function invoke(payload) {
   const response = await fetch(endpoint, {
     method: "POST",
@@ -55,7 +62,7 @@ function assertStrict(entry, label) {
 
 for (const fixturePath of fixturePaths) {
   const payload = JSON.parse(await readFile(fixturePath, "utf8"));
-  const order = String(payload.projectId ?? fixturePath);
+  const order = orderFromFixture(fixturePath, payload);
   const reference = domainByOrder.get(order);
   if (!reference) throw new Error(`Missing domain reference for ${order}`);
   assertStrict(reference, `domain ${order}`);
