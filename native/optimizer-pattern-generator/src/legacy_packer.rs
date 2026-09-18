@@ -1196,4 +1196,89 @@ mod tests {
         assert!(values.iter().all(|value| *value >= 0.0 && *value < 1.0));
         assert!((values[0] - 0.23878083983436227).abs() < 1e-12);
     }
+
+
+    fn test_piece(id: u32, sig: u32, base: f64, altura: f64) -> PieceInput {
+        PieceInput {
+            id,
+            base,
+            altura,
+            cut_base: base,
+            cut_altura: altura,
+            veta: false,
+            sig,
+            detalle: format!("p{id}"),
+            ref_value: serde_json::Value::Null,
+        }
+    }
+
+    fn parity_options(dir: &str, criterion: &str, multi: bool, penalize: bool) -> PackOptions {
+        PackOptions {
+            ancho_util: 2600.0,
+            alto_util: 1830.0,
+            sierra: 4.4,
+            etapas: 4,
+            material_con_veta: false,
+            criterio: criterion.to_string(),
+            criterios: vec![criterion.to_string(), criterion.to_string()],
+            dir_inicial: dir.to_string(),
+            ruido: 0.3,
+            resto_min: 250.0,
+            resto_max: 400.0,
+            multi_rebanada: multi,
+            penalizar_franja_muerta: penalize,
+            deltas_estructurales: if penalize {
+                vec![StructuralDelta { delta: 36.0, n: 3.0 }]
+            } else {
+                Vec::new()
+            },
+            contraer_rebanada_real: true,
+            family_pool_index: false,
+        }
+    }
+
+    #[test]
+    fn family_pool_index_matches_legacy_candidate_order_and_geometry() {
+        // Interleave signatures deliberately. After removing the head of one
+        // family, its next representative can move behind another family;
+        // this catches implementations that iterate in fixed signature order.
+        let inputs = vec![
+            test_piece(0, 0, 770.0, 490.0),
+            test_piece(1, 1, 950.0, 100.0),
+            test_piece(2, 2, 760.0, 70.0),
+            test_piece(3, 0, 770.0, 490.0),
+            test_piece(4, 3, 864.0, 150.0),
+            test_piece(5, 1, 950.0, 100.0),
+            test_piece(6, 2, 760.0, 70.0),
+            test_piece(7, 4, 453.0, 330.0),
+            test_piece(8, 2, 760.0, 70.0),
+            test_piece(9, 1, 950.0, 100.0),
+            test_piece(10, 5, 354.0, 255.0),
+            test_piece(11, 3, 864.0, 150.0),
+        ];
+
+        for dir in ["x", "y"] {
+            for criterion in ["perp", "exacta", "area", "largo"] {
+                for multi in [false, true] {
+                    for penalize in [false, true] {
+                        for seed in [None, Some(7), Some(1000), Some(20260812)] {
+                            let mut legacy = parity_options(dir, criterion, multi, penalize);
+                            let mut indexed = legacy.clone();
+                            legacy.family_pool_index = false;
+                            indexed.family_pool_index = true;
+
+                            let a = pack_prepared(&inputs, &legacy, seed).expect("legacy pack");
+                            let b = pack_prepared(&inputs, &indexed, seed).expect("indexed pack");
+                            let a_json = serde_json::to_string(&a).expect("serialize legacy");
+                            let b_json = serde_json::to_string(&b).expect("serialize indexed");
+                            assert_eq!(
+                                a_json, b_json,
+                                "family pool parity failed dir={dir} criterion={criterion} multi={multi} penalize={penalize} seed={seed:?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
