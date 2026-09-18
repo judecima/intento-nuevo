@@ -37,6 +37,14 @@ function nuevasMetricas() {
       externalUsed: 0,
       externalViolation: 0,
       certifiedAfterBaseline: 0,
+      certifiedAfterCompactation: 0,
+      postCompactRuns: 0,
+      postCompactCertified: 0,
+      postCompactViolation: 0,
+      postCompactErrors: 0,
+      postCompactMs: 0,
+      postCompactValue: 0,
+      postCompactReason: null,
       cheapRuns: 0,
       cheapCertified: 0,
       cheapViolation: 0,
@@ -76,6 +84,46 @@ function usarCotaBarataPostBaseline(config) {
   // El flag V20 es independiente del pipeline staged para poder hacer un A/B
   // contra el V10 legacy cambiando una sola variable.
   return envFlag('OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL');
+}
+
+function usarCotaBarataPostCompactacion(config) {
+  if (config.usarCotaBarataPostCompactacion === true) return true;
+  return envFlag('OPTIMIZER_POST_COMPACT_CHEAP_LB_EXPERIMENTAL');
+}
+
+function calcularCotaBarataPostCompactacion(lineas, config, incumbente, metricas) {
+  const t0 = process.hrtime.bigint();
+  const m = metricas.lowerBound;
+  m.postCompactRuns++;
+  try {
+    const optsLB = incumbente?.opts || config;
+    const trimValido = (v) => v !== null && v !== '' && Number.isFinite(+v);
+    if (!trimValido(optsLB?.refiladoX) || !trimValido(optsLB?.refiladoY)) {
+      m.postCompactErrors++;
+      m.postCompactReason = 'invalid-trim';
+      return 0;
+    }
+
+    const { computeHybridLowerBound } = require('../experimental/hybrid-lower-bound.cjs');
+    const r = computeHybridLowerBound(
+      lineas,
+      optsLB,
+      incumbente?.resumen?.placas,
+      {
+        useRaster: false,
+        claude: { usarRaster: false },
+      },
+    );
+    const value = Math.max(0, Math.floor(Number(r?.cheapLowerBound ?? r?.lowerBound ?? 0)));
+    m.postCompactValue = value;
+    m.postCompactReason = r?.reason || null;
+    return value;
+  } catch (_) {
+    m.postCompactErrors++;
+    return 0;
+  } finally {
+    m.postCompactMs += Number(process.hrtime.bigint() - t0) / 1e6;
+  }
 }
 
 function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
@@ -412,6 +460,32 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   if (mejor.resumen.placas <= cota) {
     metricas.total.ms += Date.now() - t0;
     return { plan: mejor, metricas, cota, cotaArea };
+  }
+
+  // ---- cota barata DESPUES de compactacion.
+  // A esta altura el unico modulo que acepta mejoras de remanente con igual
+  // numero de placas ya corrio. MultiSlice, OneBoard y Master solo reemplazan
+  // el incumbente si reducen placas. Por eso, si una cota inferior valida
+  // alcanza al incumbente fisico post-compactacion, las etapas posteriores no
+  // pueden mejorar el objetivo primario y se pueden omitir sin perder el
+  // remanente que compactacion ya haya mejorado.
+  if (usarCotaBarataPostCompactacion(config) && mejor?.resumen) {
+    const cheapPostCompact = calcularCotaBarataPostCompactacion(lineas, config, mejor, metricas);
+    if (cheapPostCompact > 0) {
+      if (cheapPostCompact <= mejor.resumen.placas) {
+        cota = Math.max(cota, cheapPostCompact);
+      } else {
+        // Nunca usar una cota que contradiga el incumbente fisico factible.
+        metricas.lowerBound.postCompactViolation++;
+      }
+    }
+
+    if (mejor.resumen.placas <= cota) {
+      metricas.lowerBound.postCompactCertified++;
+      metricas.lowerBound.certifiedAfterCompactation++;
+      metricas.total.ms += Date.now() - t0;
+      return { plan: mejor, metricas, cota, cotaArea };
+    }
   }
 
   // ---- multi-rebanada: plan alternativo completo
