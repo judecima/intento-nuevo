@@ -1,0 +1,30 @@
+name: Optimizer Rust Family Pool Index
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-rust-family-pool-index
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Rust unit/parity tests
+        run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - name: Build native addon
+        run: npm run optimizer:rust:build
+      - name: Existing Rust packer parity
+        run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts
+      - run: npm run typecheck
