@@ -1,6 +1,6 @@
 FROM public.ecr.aws/lambda/nodejs:22 AS build
 
-RUN dnf install -y gcc gcc-c++ make curl && dnf clean all
+RUN dnf install -y gcc gcc-c++ make && dnf clean all
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
