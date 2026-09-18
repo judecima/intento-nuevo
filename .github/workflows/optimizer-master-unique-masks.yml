@@ -40,3 +40,16 @@ jobs:
           path: native/optimizer-pattern-generator/optimizer_pattern_generator.node
           if-no-files-found: error
           retention-days: 7
+      - name: Upload exact research source
+        uses: actions/upload-artifact@v4
+        with:
+          name: unique-mask-source
+          path: |
+            src/lib/optimizer
+            research/optimizer
+            tests/optimizer
+            package.json
+            package-lock.json
+            tsconfig.json
+          if-no-files-found: error
+          retention-days: 7
