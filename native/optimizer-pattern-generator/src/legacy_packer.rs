@@ -183,7 +183,7 @@ struct TreeNode {
     partes: Vec<TreePart>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PackOutput {
     colocadas: Vec<Placed>,
@@ -646,16 +646,12 @@ fn useful(rest: &Rest, opts: &PackOptions) -> bool {
     rest.w.min(rest.h) >= opts.resto_min && rest.w.max(rest.h) >= opts.resto_max
 }
 
-#[napi(js_name = "packBoardLegacyCore")]
-pub fn pack_board_legacy_core(pieces_json: String, options_json: String, random_seed: Option<u32>) -> Result<String> {
-    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
-        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
-    let opts: PackOptions = serde_json::from_str(&options_json)
-        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid pack options JSON: {e}")))?;
+
+fn pack_prepared(inputs: &[PieceInput], opts: &PackOptions, random_seed: Option<u32>) -> std::result::Result<PackOutput, String> {
     if opts.ancho_util <= 0.0 || opts.alto_util <= 0.0 || opts.sierra < 0.0 || opts.etapas == 0 {
-        return Err(Error::new(Status::InvalidArg, "invalid pack geometry".to_string()));
+        return Err("invalid pack geometry".to_string());
     }
-    let dir = Axis::parse(&opts.dir_inicial).map_err(|e| Error::new(Status::InvalidArg, e))?;
+    let dir = Axis::parse(&opts.dir_inicial)?;
 
     let mut pool: Vec<Piece> = inputs.iter().map(|input| Piece {
         id: input.id,
@@ -676,13 +672,51 @@ pub fn pack_board_legacy_core(pieces_json: String, options_json: String, random_
     let mut rests = Vec::new();
     let region = Region { x: 0.0, y: 0.0, w: opts.ancho_util, h: opts.alto_util, dir };
     let mut tree = new_tree(region, 1);
-    fill(region, &mut pool, &mut placed, 1, &opts, &mut rng, &mut cuts, &mut rests, &mut tree);
+    fill(region, &mut pool, &mut placed, 1, opts, &mut rng, &mut cuts, &mut rests, &mut tree);
     cuts.sort_by(|a, b| a.nivel.cmp(&b.nivel));
 
     let area = placed.iter().map(|item| item.base * item.altura).sum();
-    let area_resto = rests.iter().filter(|rest| useful(rest, &opts)).map(|rest| rest.w * rest.h).sum();
+    let area_resto = rests.iter().filter(|rest| useful(rest, opts)).map(|rest| rest.w * rest.h).sum();
 
-    serde_json::to_string(&PackOutput { colocadas: placed, cortes: cuts, restos: rests, arbol: tree, area, area_resto })
+    Ok(PackOutput { colocadas: placed, cortes: cuts, restos: rests, arbol: tree, area, area_resto })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PackBatchRequest {
+    options: PackOptions,
+    random_seed: Option<u32>,
+}
+
+#[napi(js_name = "packBoardLegacyBatch")]
+pub fn pack_board_legacy_batch(pieces_json: String, requests_json: String) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+
+    let mut outputs = Vec::with_capacity(requests.len());
+    for request in requests {
+        outputs.push(
+            pack_prepared(&inputs, &request.options, request.random_seed)
+                .map_err(|e| Error::new(Status::InvalidArg, e))?
+        );
+    }
+
+    serde_json::to_string(&outputs)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy pack batch: {e}")))
+}
+
+#[napi(js_name = "packBoardLegacyCore")]
+pub fn pack_board_legacy_core(pieces_json: String, options_json: String, random_seed: Option<u32>) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let opts: PackOptions = serde_json::from_str(&options_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid pack options JSON: {e}")))?;
+    let output = pack_prepared(&inputs, &opts, random_seed)
+        .map_err(|e| Error::new(Status::InvalidArg, e))?;
+
+    serde_json::to_string(&output)
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy pack result: {e}")))
 }
 

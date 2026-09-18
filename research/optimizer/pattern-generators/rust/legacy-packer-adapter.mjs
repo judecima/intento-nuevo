@@ -11,8 +11,8 @@ const addonPath = join(
 let addon;
 function native() {
   addon ??= require(addonPath);
-  if (typeof addon.packBoardLegacyCore !== "function") {
-    throw new Error("native addon does not expose packBoardLegacyCore()");
+  if (typeof addon.packBoardLegacyCore !== "function" || typeof addon.packBoardLegacyBatch !== "function") {
+    throw new Error("native addon does not expose legacy packer core/batch");
   }
   return addon;
 }
@@ -69,6 +69,24 @@ function hydrateTree(node, byId) {
       ...(part.terminal === undefined ? {} : { terminal: Boolean(part.terminal) }),
     })),
   };
+}
+
+
+function hydrateResult(raw, pool) {
+  return hydrateResult(raw, pool);
+}
+
+export function packBoardLegacyRustBatch(pool, requests) {
+  const raw = JSON.parse(
+    native().packBoardLegacyBatch(
+      JSON.stringify(pieces(pool)),
+      JSON.stringify(requests.map(({ opts, randomSeed = null }) => ({
+        options: packOptions(opts),
+        randomSeed: randomSeed == null ? null : randomSeed >>> 0,
+      }))),
+    ),
+  );
+  return raw.map((result) => hydrateResult(result, pool));
 }
 
 export function packBoardLegacyRustCore(pool, opts, randomSeed = null) {

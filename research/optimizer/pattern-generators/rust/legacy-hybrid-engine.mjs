@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { packBoardLegacyRustCore } from "./legacy-packer-adapter.mjs";
+import { packBoardLegacyRustBatch } from "./legacy-packer-adapter.mjs";
 
 const require = createRequire(import.meta.url);
 const legacyPath = join(dirname(fileURLToPath(import.meta.url)), "../../../../src/lib/optimizer/legacy");
@@ -46,10 +46,18 @@ function toBoard(candidate, opts) {
   };
 }
 
-function pack(pool, opts, cfg, pass, restart, board) {
-  const merged = { ...opts, ...cfg };
-  const seed = cfg.ruido > 0 ? randomSeedFor(opts, pass, cfg, restart, board) : null;
-  return packBoardLegacyRustCore(pool, merged, seed);
+function packBatch(pool, opts, configs, pass, board) {
+  const requests = [];
+  for (const cfg of configs) {
+    const reps = cfg.ruido > 0 ? opts.restartsPorPlaca : 1;
+    for (let restart = 0; restart < reps; restart++) {
+      requests.push({
+        opts: { ...opts, ...cfg },
+        randomSeed: cfg.ruido > 0 ? randomSeedFor(opts, pass, cfg, restart, board) : null,
+      });
+    }
+  }
+  return packBoardLegacyRustBatch(pool, requests);
 }
 
 function armGreedy(pieces, opts, configs, pass) {
@@ -58,14 +66,8 @@ function armGreedy(pieces, opts, configs, pass) {
   let guard = 0;
 
   while (pool.length && guard++ < 300) {
-    const candidates = [];
-    for (const cfg of configs) {
-      const reps = cfg.ruido > 0 ? opts.restartsPorPlaca : 1;
-      for (let restart = 0; restart < reps; restart++) {
-        const result = pack(pool, opts, cfg, pass, restart, boards.length);
-        if (result.colocadas.length) candidates.push(result);
-      }
-    }
+    const candidates = packBatch(pool, opts, configs, pass, boards.length)
+      .filter((result) => result.colocadas.length);
     if (!candidates.length) throw new Error("No se pudo empacar la placa.");
 
     const closing = candidates.filter((candidate) => candidate.colocadas.length === pool.length);
@@ -109,26 +111,22 @@ function armGreedy(pieces, opts, configs, pass) {
 
 function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
   const byUsage = new Map();
-  for (const cfg of configs) {
-    const reps = cfg.ruido > 0 ? opts.restartsPorPlaca : 1;
-    for (let restart = 0; restart < reps; restart++) {
-      const result = pack(pool, opts, cfg, pass, restart, boardIndex);
-      if (!result.colocadas.length) continue;
-      const ids = result.colocadas.map((placement) => placement.pieza.id).sort((a, b) => a - b);
-      const signature = ids.join(",");
-      const previous = byUsage.get(signature);
-      if (
-        !previous ||
-        mejorCandidatoPlaca(result, previous, opts) ||
-        (
-          compararCalidad(
-            calidadRestos(result.restos || [], opts),
-            calidadRestos(previous.restos || [], opts),
-          ) === 0 &&
-          result.area > previous.area + 1e-6
-        )
-      ) byUsage.set(signature, result);
-    }
+  for (const result of packBatch(pool, opts, configs, pass, boardIndex)) {
+    if (!result.colocadas.length) continue;
+    const ids = result.colocadas.map((placement) => placement.pieza.id).sort((a, b) => a - b);
+    const signature = ids.join(",");
+    const previous = byUsage.get(signature);
+    if (
+      !previous ||
+      mejorCandidatoPlaca(result, previous, opts) ||
+      (
+        compararCalidad(
+          calidadRestos(result.restos || [], opts),
+          calidadRestos(previous.restos || [], opts),
+        ) === 0 &&
+        result.area > previous.area + 1e-6
+      )
+    ) byUsage.set(signature, result);
   }
 
   const boardArea = opts.anchoUtil * opts.altoUtil;

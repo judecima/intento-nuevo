@@ -9,6 +9,7 @@ const {
 } = require("../../src/lib/optimizer/legacy/motor.cjs");
 const {
   packBoardLegacyRustCore,
+  packBoardLegacyRustBatch,
   legacyJsRng,
 } = require("../../research/optimizer/pattern-generators/rust/legacy-packer-adapter.mjs");
 
@@ -167,6 +168,25 @@ describe("Rust legacy single-board packer", () => {
       const rust = packBoardLegacyRustCore(pool, opts, seed);
       expect(normalizeBoard(rust)).toEqual(normalizeBoard(js));
     }
+  });
+
+  it("batch execution is byte-for-byte equivalent to individual native calls", () => {
+    const opts: any = { ...BASE_OPTIONS, ruido: 0.35, criterio: "area", criterios: ["area", "perp"] };
+    const pool = prepare([
+      { detalle: "A", cant: 4, base: 700, altura: 500 },
+      { detalle: "B", cant: 5, base: 520, altura: 420 },
+      { detalle: "C", cant: 3, base: 450, altura: 820 },
+    ], opts);
+    const requests = [
+      { opts: { ...opts, dirInicial: "x" }, randomSeed: 7 },
+      { opts: { ...opts, dirInicial: "y", criterio: "perp", criterios: ["perp", "area"] }, randomSeed: 123456789 },
+      { opts: { ...opts, dirInicial: "x", ruido: 0, multiRebanada: true }, randomSeed: null },
+    ];
+    const batch = packBoardLegacyRustBatch(pool, requests).map(normalizeBoard);
+    const individual = requests.map(({ opts: requestOptions, randomSeed }) =>
+      normalizeBoard(packBoardLegacyRustCore(pool, requestOptions, randomSeed)),
+    );
+    expect(batch).toEqual(individual);
   });
 
   it("matches multi-rebanada proposals", () => {
