@@ -1,0 +1,26 @@
+name: Optimizer Guide-Core Master
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-guide-core-master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Guide-Core contract
+        run: node --test research/optimizer/pattern-generators/guide-core/guide-core-master.test.mjs
+      - run: npm run typecheck
+      - run: npm test
