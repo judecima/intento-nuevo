@@ -60,9 +60,12 @@ function generarPatronesJs(lineas, O, rondas = 60, semilla = 7) {
 let rustGenerator = null;
 
 function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
+  const certification = O && O._rustCertificationTelemetry;
   if (!O || O.usarRustPatternGenerator !== true) {
     return generarPatronesJs(lineas, O, rondas, semilla);
   }
+
+  if (certification) certification.rustRequested = true;
 
   try {
     if (process.env.OPTIMIZER_RUST_LEGACY_FORCE_FALLBACK === '1') {
@@ -74,17 +77,28 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
       throw new Error('OPTIMIZER_RUST_LEGACY_GENERATOR_UNAVAILABLE');
     }
 
+    if (certification) certification.rustExecuted = true;
     const pool = rustGenerator(lineas, O, rondas, semilla);
     if (!Array.isArray(pool) || pool.length === 0) {
       throw new Error('OPTIMIZER_RUST_LEGACY_EMPTY_POOL');
     }
 
     O._rustPatternGeneratorUsed = 'rust';
+    if (certification) {
+      certification.rustSucceeded = true;
+      certification.rustFallbackJs = false;
+    }
     return pool;
   } catch (error) {
     O._rustPatternGeneratorFallback = true;
     O._rustPatternGeneratorError = error instanceof Error ? error.message : String(error);
+    if (certification) {
+      certification.rustSucceeded = false;
+      certification.rustFallbackJs = true;
+      certification.rustError = O._rustPatternGeneratorError;
+    }
 
+    if (O && O._rustCertificationStrict === true) throw error;
     if (process.env.OPTIMIZER_RUST_LEGACY_STRICT === '1') throw error;
     return generarPatronesJs(lineas, O, rondas, semilla);
   }
