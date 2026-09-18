@@ -58,16 +58,21 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
       return { status: "failed", jobId: job.id, error };
     }
 
+    const strategy = parseStrategy(job.strategy);
+    const patternGenerator =
+      strategy === "v10" && rustPatternGeneratorWorkerEnabled() ? "rust" : "js";
+
     const outcome = await runAndStoreOptimization({
       projectId: job.project_id,
-      strategy: parseStrategy(job.strategy),
+      strategy,
       profile: parseProfile(job.profile),
       requestedBy: job.requested_by,
       preloaded,
       supabaseClient: supabase,
       existingJobId: job.id,
       existingJobClaimed: true,
-      expectedProjectVersion: Number(job.project_version)
+      expectedProjectVersion: Number(job.project_version),
+      patternGenerator
     });
 
     if (!outcome.ok) {
@@ -161,4 +166,9 @@ function parseStrategy(value: string): OptimizerStrategy {
 
 function parseProfile(value: string | null): OptimizerProfile | undefined {
   return value === "fast" || value === "balanced" || value === "deep" ? value : undefined;
+}
+
+
+function rustPatternGeneratorWorkerEnabled(): boolean {
+  return /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_LEGACY_WORKER ?? ""));
 }

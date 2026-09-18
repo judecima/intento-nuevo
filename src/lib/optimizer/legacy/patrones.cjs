@@ -23,7 +23,7 @@ function claveVector(uso) {
 /* Oculta subconjuntos de tipos al constructor: asi propone placas que nunca
    elegiria con el pool completo, que son justamente las que el optimo global
    necesita aunque sean peores por placa. */
-function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
+function generarPatronesJs(lineas, O, rondas = 60, semilla = 7) {
   let s = semilla >>> 0;
   const R = () => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return (s & 0x7fffffff) / 0x7fffffff; };
 
@@ -57,6 +57,39 @@ function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
   return [...porVector.values()];
 }
 
+let rustGenerator = null;
+
+function generarPatrones(lineas, O, rondas = 60, semilla = 7) {
+  if (!O || O.usarRustPatternGenerator !== true) {
+    return generarPatronesJs(lineas, O, rondas, semilla);
+  }
+
+  try {
+    if (process.env.OPTIMIZER_RUST_LEGACY_FORCE_FALLBACK === '1') {
+      throw new Error('OPTIMIZER_RUST_LEGACY_FORCED_FALLBACK');
+    }
+
+    rustGenerator ??= require('./rust/rust-patrones.cjs').generarPatronesLegacyRustHybrid;
+    if (typeof rustGenerator !== 'function') {
+      throw new Error('OPTIMIZER_RUST_LEGACY_GENERATOR_UNAVAILABLE');
+    }
+
+    const pool = rustGenerator(lineas, O, rondas, semilla);
+    if (!Array.isArray(pool) || pool.length === 0) {
+      throw new Error('OPTIMIZER_RUST_LEGACY_EMPTY_POOL');
+    }
+
+    O._rustPatternGeneratorUsed = 'rust';
+    return pool;
+  } catch (error) {
+    O._rustPatternGeneratorFallback = true;
+    O._rustPatternGeneratorError = error instanceof Error ? error.message : String(error);
+
+    if (process.env.OPTIMIZER_RUST_LEGACY_STRICT === '1') throw error;
+    return generarPatronesJs(lineas, O, rondas, semilla);
+  }
+}
+
 /* Patrones de un solo tipo: garantizan que exista alguna cobertura exacta, para
    que "no hay solucion" signifique algo real y no un pool incompleto. */
 function patronesMonotipo(lineas, O) {
@@ -76,4 +109,4 @@ function patronesMonotipo(lineas, O) {
   return out;
 }
 
-module.exports = { generarPatrones, patronesMonotipo, claveVector };
+module.exports = { generarPatrones, generarPatronesJs, patronesMonotipo, claveVector };

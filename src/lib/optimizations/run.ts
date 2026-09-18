@@ -6,12 +6,14 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   getOptimizationInputHash,
   LEGACY_OPTIMIZER_VERSION,
+  RUST_LEGACY_PATTERN_GENERATOR_VERSION,
   optimizeProject,
   type OptimizationBoardResult,
   type OptimizationCut,
   type OptimizationPlacement,
   type OptimizationRemnant,
   type OptimizationResult,
+  type OptimizerPatternGenerator,
   type OptimizerProfile,
   type OptimizerStrategy
 } from "@/lib/optimizer";
@@ -44,7 +46,8 @@ export async function runAndStoreOptimization({
   supabaseClient,
   existingJobId,
   existingJobClaimed = false,
-  expectedProjectVersion
+  expectedProjectVersion,
+  patternGenerator = "js"
 }: {
   projectId: string;
   strategy: OptimizerStrategy;
@@ -60,6 +63,8 @@ export async function runAndStoreOptimization({
   existingJobClaimed?: boolean;
   /** Protege al worker contra ejecutar una version de proyecto distinta de la encolada. */
   expectedProjectVersion?: number;
+  /** Runtime del worker. Inline/preview conserva JS por defecto. */
+  patternGenerator?: OptimizerPatternGenerator;
 }): Promise<RunOptimizationOutcome> {
   const supabase = supabaseClient ?? createSupabaseServerClient();
   const data = preloaded ?? (await getProjectEditorData(projectId));
@@ -95,13 +100,18 @@ export async function runAndStoreOptimization({
     strategy
   });
   const inputHash = getOptimizationInputHash(input);
+  const requestedAlgorithmVersion =
+    strategy === "v10" && patternGenerator === "rust"
+      ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
+      : LEGACY_OPTIMIZER_VERSION;
   const cachedResultId = await findCachedOptimizationResultId({
     supabase,
     organizationId: data.project.organization_id,
     projectId: data.project.id,
     projectVersion,
     strategy,
-    inputHash
+    inputHash,
+    algorithmVersion: requestedAlgorithmVersion
   });
 
   if (cachedResultId) {
@@ -147,7 +157,7 @@ export async function runAndStoreOptimization({
           project_id: data.project.id,
           project_version: projectVersion,
           status: "running",
-          algorithm_version: LEGACY_OPTIMIZER_VERSION,
+          algorithm_version: requestedAlgorithmVersion,
           strategy,
           requested_by: requestedBy,
           started_at: new Date().toISOString()
@@ -159,7 +169,25 @@ export async function runAndStoreOptimization({
       jobId = job.id;
     }
 
-    const result = optimizeProject(input);
+    if (jobId) {
+      const { error: versionError } = await supabase
+        .from("optimization_jobs")
+        .update({ algorithm_version: requestedAlgorithmVersion })
+        .eq("id", jobId);
+      if (versionError) throw new Error(`OPTIMIZATION_JOB_VERSION_UPDATE_FAILED: ${versionError.message}`);
+    }
+
+    const result = optimizeProject(input, { patternGenerator });
+
+    if (jobId && result.algorithmVersion !== requestedAlgorithmVersion) {
+      const { error: fallbackVersionError } = await supabase
+        .from("optimization_jobs")
+        .update({ algorithm_version: result.algorithmVersion })
+        .eq("id", jobId);
+      if (fallbackVersionError) {
+        throw new Error(`OPTIMIZATION_JOB_FALLBACK_VERSION_UPDATE_FAILED: ${fallbackVersionError.message}`);
+      }
+    }
 
     if (!result.validation.ok) {
       throw new Error(`${optimizationDomainErrors.invalidResult}: ${describeValidation(result)}`);
@@ -252,7 +280,8 @@ async function findCachedOptimizationResultId({
   projectId,
   projectVersion,
   strategy,
-  inputHash
+  inputHash,
+  algorithmVersion
 }: {
   supabase: Supabase;
   organizationId: string;
@@ -260,6 +289,7 @@ async function findCachedOptimizationResultId({
   projectVersion: number;
   strategy: OptimizerStrategy;
   inputHash: string;
+  algorithmVersion: string;
 }): Promise<string | null> {
   const { data: jobs, error: jobsError } = await supabase
     .from("optimization_jobs")
@@ -268,7 +298,7 @@ async function findCachedOptimizationResultId({
     .eq("project_id", projectId)
     .eq("project_version", projectVersion)
     .eq("strategy", strategy)
-    .eq("algorithm_version", LEGACY_OPTIMIZER_VERSION)
+    .eq("algorithm_version", algorithmVersion)
     .eq("status", "completed")
     .order("completed_at", { ascending: false })
     .limit(10);

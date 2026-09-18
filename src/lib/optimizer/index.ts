@@ -20,7 +20,13 @@ export {
   revalidateExactHit
 } from "./experience";
 export { generateMachineXml } from "./exporters/machine-xml";
-export { getOptimizationInputHash, LEGACY_OPTIMIZER_VERSION, optimizeProject } from "./engine/legacy-engine";
+export {
+  getOptimizationInputHash,
+  LEGACY_OPTIMIZER_VERSION,
+  RUST_LEGACY_PATTERN_GENERATOR_VERSION,
+  optimizeProject,
+} from "./engine/legacy-engine";
+export type { OptimizeProjectRuntimeOptions } from "./engine/legacy-engine";
 export { validateIndependentSlices } from "./validators/independent-slices";
 export type * from "./canonical-case";
 export type * from "./canonical-xml";

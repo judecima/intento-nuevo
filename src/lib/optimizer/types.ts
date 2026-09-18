@@ -1,5 +1,6 @@
 export type OptimizerStrategy = "baseline" | "v10";
 export type OptimizerProfile = "fast" | "balanced" | "deep";
+export type OptimizerPatternGenerator = "js" | "rust";
 export type OptimizationEdgeBandType = "none" | "thin" | "thick" | "both";
 
 export interface OptimizationBoardInput {
@@ -159,6 +160,7 @@ export interface OptimizationMetrics {
   edgeBand2mmMeters: number;
   engineMs?: number;
   cacheHit?: boolean;
+  patternGenerator?: "js" | "rust" | "rust-fallback-js";
 }
 
 export interface OptimizationValidation {
@@ -230,6 +232,7 @@ export interface LegacyOptimizerOptions {
   usarMaster?: boolean;
   usarMultiSlice?: boolean;
   usarCompactacion?: boolean;
+  usarRustPatternGenerator?: boolean;
   rondasPatrones?: number;
   msMaster?: number;
   semillasRescate?: number;

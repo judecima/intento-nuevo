@@ -5,6 +5,7 @@ on:
     branches:
       - feature/optimizer-rust-pattern-generator
       - feature/optimizer-rust-legacy-pattern-generator
+      - feature/optimizer-rust-worker-candidate
   pull_request:
     branches:
       - prototipo-inicial
@@ -14,6 +15,11 @@ on:
       - "scripts/install-rust-pattern-generator.mjs"
       - "tests/optimizer/rust-pattern-generator.test.ts"
       - "src/lib/optimizations/worker.ts"
+      - "src/lib/optimizations/run.ts"
+      - "src/lib/optimizer/engine/legacy-engine.ts"
+      - "src/lib/optimizer/legacy/patrones.cjs"
+      - "src/lib/optimizer/legacy/rust/**"
+      - "tests/optimizer/rust-worker-routing.test.ts"
       - "tests/security/server-only.test.ts"
       - "package.json"
       - ".github/workflows/optimizer-rust-pattern-generator.yml"
@@ -47,6 +53,7 @@ jobs:
           retention-days: 7
       - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-pattern-generator.test.ts
       - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts
+      - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-worker-routing.test.ts
       - run: RUST_LEGACY_DEBUG_ERRORS=1 node research/optimizer/pattern-generators/rust/benchmark-4057401.mjs
       - run: npm run typecheck
       - run: npm test

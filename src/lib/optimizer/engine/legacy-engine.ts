@@ -21,6 +21,7 @@ import type {
   OptimizationPlacementTrace,
   OptimizationRemnant,
   OptimizationResult,
+  OptimizerPatternGenerator,
   OptimizerStrategy
 } from "../types";
 import { validateIndependentSlices } from "../validators/independent-slices";
@@ -88,7 +89,12 @@ const legacyMotor = require("../legacy/motor.cjs") as LegacyMotorModule;
 const legacyV10 = require("../legacy/v10.cjs") as LegacyV10Module;
 
 export const LEGACY_OPTIMIZER_VERSION = "legacy-guillotine-v10-lepton-remnants-20260813";
+export const RUST_LEGACY_PATTERN_GENERATOR_VERSION = `${LEGACY_OPTIMIZER_VERSION}+rust-pattern-v1`;
 export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION}+hybrid-staged-v17`;
+
+export interface OptimizeProjectRuntimeOptions {
+  patternGenerator?: OptimizerPatternGenerator;
+}
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
 
@@ -196,14 +202,24 @@ function runExperimentalStagedV10(
   return { plan: result.plan, metricas: result.metrics, cota: result.cota };
 }
 
-export function optimizeProject(input: OptimizationInput): OptimizationResult {
+export function optimizeProject(
+  input: OptimizationInput,
+  runtimeOptions: OptimizeProjectRuntimeOptions = {},
+): OptimizationResult {
   const startedAt = Date.now();
   const parsed = optimizationInputSchema.parse(input);
   const inputHash = optimizationInputHash(parsed);
   const strategy = parsed.strategy ?? "baseline";
   const stagedConfig = resolveExperimentalStagedConfig(strategy);
   const deterministicBudgets = resolveDeterministicBudgetConfig();
-  const cacheKey = [inputHash, deterministicBudgets.cacheDiscriminator, stagedConfig?.cacheDiscriminator]
+  const patternGenerator: OptimizerPatternGenerator =
+    strategy === "v10" ? (runtimeOptions.patternGenerator ?? "js") : "js";
+  const cacheKey = [
+    inputHash,
+    deterministicBudgets.cacheDiscriminator,
+    stagedConfig?.cacheDiscriminator,
+    `pattern-generator=${patternGenerator}`,
+  ]
     .filter(Boolean)
     .join("|");
   const cached = optimizationCache.get(cacheKey);
@@ -215,7 +231,7 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
   }
 
   const lineas = toLegacyLines(parsed);
-  const options = toLegacyOptions(parsed, strategy, deterministicBudgets);
+  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator);
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
@@ -241,16 +257,32 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
   const industrial = legacyV10.validarPlanIndustrial(raw, expectedPieceCount);
   const independentSlices = validateIndependentSlices(raw);
   const normalized = normalizeLegacyPlan(raw, expectedPieceCount, parsed.pieces);
+  const rustFallback = options._rustPatternGeneratorFallback === true;
+  const patternGeneratorUsed =
+    patternGenerator === "rust"
+      ? (rustFallback ? "rust-fallback-js" : "rust")
+      : "js";
+  const algorithmVersion =
+    stagedConfig
+      ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
+      : patternGeneratorUsed === "rust"
+        ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
+        : LEGACY_OPTIMIZER_VERSION;
 
   const result: OptimizationResult = {
-    algorithmVersion: stagedConfig ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION : LEGACY_OPTIMIZER_VERSION,
+    algorithmVersion,
     inputHash,
     strategy,
     profile,
     projectId: parsed.projectId,
     projectVersion: parsed.projectVersion,
     ...normalized,
-    metrics: { ...normalized.metrics, cacheHit: false, engineMs: Date.now() - startedAt },
+    metrics: {
+      ...normalized.metrics,
+      cacheHit: false,
+      engineMs: Date.now() - startedAt,
+      patternGenerator: patternGeneratorUsed,
+    },
     validation: {
       ok: industrial.ok && independentSlices.ok,
       industrial,
@@ -259,7 +291,7 @@ export function optimizeProject(input: OptimizationInput): OptimizationResult {
     raw
   };
 
-  rememberOptimizationResult(cacheKey, result);
+  if (!rustFallback) rememberOptimizationResult(cacheKey, result);
   return result;
 }
 
@@ -287,6 +319,7 @@ function toLegacyOptions(
   input: OptimizationInput,
   strategy: OptimizerStrategy,
   deterministicBudgets: DeterministicBudgetConfig,
+  patternGenerator: OptimizerPatternGenerator,
 ): LegacyOptimizerOptions {
   const minLongSide = input.constraints.minCommercialRemnantLongSide;
   const totalPieces = input.pieces.reduce((total, piece) => total + piece.quantity, 0);
@@ -307,6 +340,7 @@ function toLegacyOptions(
     usarMaster: strategy === "v10" ? input.constraints.allowPatternMaster !== false : false,
     usarMultiSlice: strategy === "v10" ? input.constraints.allowMultiSlice !== false : false,
     usarCompactacion: strategy === "v10" ? input.constraints.allowDeadStripCompaction !== false : false,
+    usarRustPatternGenerator: strategy === "v10" && patternGenerator === "rust",
     instrumentarStep0: strategy === "v10" && parseEnvFlag("OPTIMIZER_STEP0_TELEMETRY", false)
   };
 
