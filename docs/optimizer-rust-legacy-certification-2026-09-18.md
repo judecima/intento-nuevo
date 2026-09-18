@@ -14,13 +14,13 @@ Current per-case evidence has been deduplicated so that a successful retry wins 
 ### Scored cohort
 
 - Master-active cohort target: 323 real orders.
-- Unique orders observed so far: 141.
-- Successfully scored: **129**.
+- Unique orders observed so far: 142.
+- Successfully scored: **130**.
 - Unscored operational cases: **12**.
 - Board-count regressions among scored cases: **0**.
 - Cases with invalid Rust physical patterns: **0**.
 - Invalid Rust materializations: **0**.
-- Cases where Rust is slower in CPU time: **2 / 129**.
+- Cases where Rust is slower in CPU time: **2 / 130**.
 
 The percentile method is Type-7 linear interpolation, equivalent to the usual NumPy/R default formulation over the **per-order measurements**.
 
@@ -28,30 +28,30 @@ The percentile method is Type-7 linear interpolation, equivalent to the usual Nu
 
 | Percentile | Legacy JS | Rust |
 |---|---:|---:|
-| p50 | 4,262.196 ms | 2,387.492 ms |
-| p90 | 22,343.883 ms | 8,516.318 ms |
-| p95 | 26,376.059 ms | 10,764.092 ms |
-| p99 | 36,054.395 ms | 12,846.658 ms |
+| p50 | 4,458.610 ms | 2,393.562 ms |
+| p90 | 22,260.422 ms | 8,609.779 ms |
+| p95 | 26,366.385 ms | 11,537.914 ms |
+| p99 | 36,039.377 ms | 13,000.041 ms |
 
 ## Per-case wall latency
 
 | Percentile | Legacy JS | Rust |
 |---|---:|---:|
-| p50 | 9,298.388 ms | 4,852.608 ms |
-| p90 | 40,146.287 ms | 19,131.620 ms |
-| p95 | 52,195.604 ms | 24,546.445 ms |
-| p99 | 83,695.731 ms | 27,464.532 ms |
+| p50 | 9,432.252 ms | 4,971.122 ms |
+| p90 | 40,094.836 ms | 19,085.555 ms |
+| p95 | 52,078.636 ms | 24,487.191 ms |
+| p99 | 83,519.734 ms | 27,453.450 ms |
 
 ## Per-case speedup distribution
 
 | Percentile | Legacy CPU / Rust CPU |
 |---|---:|
-| p50 | 1.920× |
-| p90 | 3.059× |
+| p50 | 1.917× |
+| p90 | 3.055× |
 | p95 | 3.553× |
-| p99 | 4.513× |
+| p99 | 4.505× |
 
-Aggregate CPU across the 129 scored orders is **2.274×** faster in Rust. Aggregate wall time is **2.131×** faster.
+Aggregate CPU across the 130 scored orders is **2.252×** faster in Rust. Aggregate wall time is **2.121×** faster.
 
 ## Winner gate
 
@@ -60,9 +60,9 @@ The isolated promotion gate currently confirms:
 - `4050594`: legacy 7 boards, Rust 7; valid; CPU speedup ~2.081×.
 - `4056900`: legacy 6 boards, Rust 6; valid; CPU speedup ~2.067×.
 - `4057401`: legacy 4 boards, Rust 4; valid; CPU speedup ~1.411×.
-- `4059200`: still unscored in the current balanced/40-round gate because it is an extreme heavy-tail case.
+- `4059200`: legacy 17 boards, Rust 17; valid; equal remnant quality; CPU speedup ~1.470×.
 
-Therefore this checkpoint is **not yet production-promoted**. The p50/p90/p95/p99 figures above are validated for the 129 scored cases, but must not be represented as the final 323-case distribution until the remaining orders are classified.
+All **4/4 Master winners** are now green on board count and industrial validity. This checkpoint is still **not yet production-promoted** because the p50/p90/p95/p99 figures above are validated for the 130 scored cases, not the final 323-case distribution. The remaining cases must still be classified before calling these the final production percentiles.
 
 ## Reproduction
 
