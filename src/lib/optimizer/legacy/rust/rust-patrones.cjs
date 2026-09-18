@@ -20,11 +20,60 @@ function legacyRoundSubsets(lineCount, rounds = 60, seed = 7) {
   return JSON.parse(native().legacyRoundSubsets(lineCount, rounds, seed)).rounds;
 }
 
+function usarMascarasUnicasLe4(lineas, O, rondas, semilla) {
+  const flag =
+    O?.usarMascarasUnicasMasterLe4 === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_MASTER_UNIQUE_MASKS_LE4_EXPERIMENTAL || ''));
+  return !!(
+    flag &&
+    Array.isArray(lineas) &&
+    lineas.length >= 1 &&
+    lineas.length <= 4 &&
+    rondas === 40 &&
+    semilla === 7
+  );
+}
+
+function crearFiltroMascaras(lineas, O, rondas, semilla) {
+  const enabled = usarMascarasUnicasLe4(lineas, O, rondas, semilla);
+  const seen = enabled ? new Set() : null;
+  let executedRounds = 0;
+  let skippedDuplicateRounds = 0;
+
+  return {
+    skip(indices) {
+      if (!enabled) {
+        executedRounds++;
+        return false;
+      }
+      const key = indices.join(",");
+      if (seen.has(key)) {
+        skippedDuplicateRounds++;
+        return true;
+      }
+      seen.add(key);
+      executedRounds++;
+      return false;
+    },
+    finish(totalRounds) {
+      if (!enabled || !O || typeof O !== "object") return;
+      O._patternMaskPolicy = {
+        policy: "first-unique-mask-le4",
+        typeCount: lineas.length,
+        totalRounds,
+        executedRounds,
+        skippedDuplicateRounds,
+      };
+    },
+  };
+}
+
 function generarPatronesLegacyRustOuter(lineas, O, rondas = 60, semilla = 7) {
   const schedule = legacyRoundSubsets(lineas.length, rondas, semilla);
   const conRef = lineas.map((linea, index) => ({ ...linea, ref: index, _refOriginal: linea.ref }));
   const boards = [];
   const candidates = [];
+  const maskFilter = crearFiltroMascaras(lineas, O, rondas, semilla);
 
   const warn = console.warn;
   console.warn = () => {};
@@ -32,6 +81,7 @@ function generarPatronesLegacyRustOuter(lineas, O, rondas = 60, semilla = 7) {
     for (let round = 0; round < schedule.length; round++) {
       const indices = schedule[round];
       if (!indices.length) continue;
+      if (maskFilter.skip(indices)) continue;
       try {
         const result = optimizar(
           indices.map((index) => ({ ...conRef[index] })),
@@ -55,6 +105,7 @@ function generarPatronesLegacyRustOuter(lineas, O, rondas = 60, semilla = 7) {
     }
   } finally {
     console.warn = warn;
+    maskFilter.finish(schedule.length);
   }
 
   const selected = JSON.parse(native().legacyDedupBoards(JSON.stringify(candidates), lineas.length));
@@ -71,10 +122,12 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
   const conRef = lineas.map((linea, index) => ({ ...linea, ref: index, _refOriginal: linea.ref }));
   const boards = [];
   const candidates = [];
+  const maskFilter = crearFiltroMascaras(lineas, O, rondas, semilla);
 
   for (let round = 0; round < schedule.length; round++) {
     const indices = schedule[round];
     if (!indices.length) continue;
+    if (maskFilter.skip(indices)) continue;
     try {
       const result = optimizarLegacyHybrid(
         indices.map((index) => ({ ...conRef[index] })),
@@ -98,6 +151,7 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
     }
   }
 
+  maskFilter.finish(schedule.length);
   const selected = JSON.parse(native().legacyDedupBoards(JSON.stringify(candidates), lineas.length));
   return selected.map((entry) => ({
     uso: new Map(entry.usageVector.map((count, index) => [index, count]).filter(([, count]) => count > 0)),
