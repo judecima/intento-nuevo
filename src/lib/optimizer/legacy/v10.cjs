@@ -13,7 +13,12 @@
    Los contadores por modulo se llevan desde la primera corrida. Medirlos
    despues obliga a repetir un benchmark que tarda horas. */
 const { optimizar, compararCalidad, calidadPlanPlacas } = require('./motor.cjs');
-const { generarPatrones, patronesMonotipo } = require('./patrones.cjs');
+const {
+  generarPatrones,
+  generarPatronesRondasRust,
+  combinarPatrones,
+  patronesMonotipo,
+} = require('./patrones.cjs');
 const { resolverCobertura } = require('./cobertura.cjs');
 const { materializar, aceptar } = require('./materializar.cjs');
 const { rescatarUnaPlaca } = require('./oneboard.cjs');
@@ -33,6 +38,16 @@ function nuevasMetricas() {
                      invalidos: 0, ms: 0, peorMs: 0 });
   return {
     oneboard: m(), master: m(), multislice: m(), compactacion: m(),
+    masterPrefix: {
+      runs: 0,
+      certified: 0,
+      fallthrough: 0,
+      errors: 0,
+      rounds: 7,
+      nodes: 0,
+      exhausted: 0,
+      ms: 0,
+    },
     lowerBound: {
       externalUsed: 0,
       externalViolation: 0,
@@ -89,6 +104,24 @@ function usarCotaBarataPostBaseline(config) {
 function usarCotaBarataPostCompactacion(config) {
   if (config.usarCotaBarataPostCompactacion === true) return true;
   return envFlag('OPTIMIZER_POST_COMPACT_CHEAP_LB_EXPERIMENTAL');
+}
+
+function usarMasterPrefijo7(config) {
+  const enabled =
+    config.usarMasterPrefijo7Experimental === true ||
+    envFlag('OPTIMIZER_MASTER_PREFIX7_EXPERIMENTAL');
+  if (!enabled) return false;
+  if (config.usarRustPatternGenerator !== true) return false;
+  if ((config.rondasPatrones || 40) !== 40) return false;
+
+  // Las dos investigaciones cambian el schedule de manera distinta. Mantenerlas
+  // aisladas hasta tener un gate combinado explicito.
+  if (
+    config.usarMascarasUnicasMasterLe4 === true ||
+    envFlag('OPTIMIZER_MASTER_UNIQUE_MASKS_LE4_EXPERIMENTAL')
+  ) return false;
+
+  return true;
 }
 
 function calcularCotaBarataPostCompactacion(lineas, config, incumbente, metricas) {
@@ -511,8 +544,90 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   if (config.usarMaster !== false && mejor.resumen.placas > cota) {
     const t = Date.now();
     try {
-      const pool = generarPatrones(lineas, config, config.rondasPatrones || 40)
-        .concat(patronesMonotipo(lineas, config));
+      const rondasMaster = config.rondasPatrones || 40;
+      const usarPrefijo =
+        usarMasterPrefijo7(config) &&
+        rondasMaster === 40 &&
+        mejor.resumen.placas - cota === 1;
+
+      let poolGenerado = null;
+      let monotipo = null;
+
+      if (usarPrefijo) {
+        const mp = metricas.masterPrefix;
+        const tp = Date.now();
+        mp.runs++;
+        try {
+          const prefijo = generarPatronesRondasRust(
+            lineas,
+            config,
+            [0, 1, 2, 3, 4, 5, 6],
+            40,
+            7,
+          );
+          monotipo = patronesMonotipo(lineas, config);
+
+          const probe = resolverCobertura(
+            prefijo.concat(monotipo),
+            lineas.map(l => l.cant),
+            areaPlaca,
+            mejor.resumen.placas,
+            999999,
+            {
+              telemetry: null,
+              maxNodos: 5000,
+              watchdogMs: null,
+            },
+          );
+          const solProbe = probe ? probe.resolver(lineas.map(l => l.base * l.altura)) : null;
+          mp.nodes += solProbe?.nodos || 0;
+          if (solProbe?.agotado) mp.exhausted++;
+
+          if (solProbe && solProbe.plan && solProbe.placas <= cota) {
+            const candProbe = materializar(solProbe.plan, lineas, baseline.opts);
+            const aceptado = aceptar(mejor, candProbe, piezasEsperadas, validarPlanIndustrial);
+            if (aceptado.aceptado) {
+              const ahorro = mejor.resumen.placas - aceptado.plan.resumen.placas;
+              mejor = aceptado.plan;
+              mp.certified++;
+              mp.ms += Date.now() - tp;
+              registrar(metricas.master, Date.now() - t, true, ahorro, false);
+              metricas.total.ms += Date.now() - t0;
+              return { plan: mejor, metricas, cota, cotaArea };
+            }
+          }
+
+          mp.fallthrough++;
+          mp.ms += Date.now() - tp;
+
+          // Continuar exactamente desde la ronda 7. Al combinar prefijo+resto
+          // se preserva el orden de primera aparicion de cada vector; no se
+          // vuelve a pagar ninguna de las siete rondas iniciales.
+          const resto = generarPatronesRondasRust(
+            lineas,
+            config,
+            Array.from({ length: 33 }, (_, i) => i + 7),
+            40,
+            7,
+          );
+          poolGenerado = combinarPatrones(prefijo, resto);
+        } catch (_) {
+          mp.errors++;
+          mp.fallthrough++;
+          mp.ms += Date.now() - tp;
+          poolGenerado = null;
+          monotipo = null;
+        }
+      }
+
+      if (!poolGenerado) {
+        poolGenerado = generarPatrones(lineas, config, rondasMaster);
+      }
+      if (!monotipo) {
+        monotipo = patronesMonotipo(lineas, config);
+      }
+
+      const pool = poolGenerado.concat(monotipo);
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
                                   mejor.resumen.placas, config.msMaster || 8000,
                                   { telemetry: config._step0Telemetry || null,
