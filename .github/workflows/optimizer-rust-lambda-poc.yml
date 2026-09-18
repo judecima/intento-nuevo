@@ -95,6 +95,19 @@ jobs:
       - run: npm run typecheck
       - name: Runtime contract tests
         run: npm test -- tests/optimizer/optimizer.test.ts tests/optimizer/rust-worker-routing.test.ts
+      - name: Inspect natural V10 Rust routing
+        shell: bash
+        env:
+          FULL_OPTIMIZE_REQUIRE_RUST: "0"
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/vite-node infra/optimizer-rust-lambda/full-domain-reference.ts \
+            infra/optimizer-rust-lambda/full-fixtures/4050594.json \
+            infra/optimizer-rust-lambda/full-fixtures/4056900.json \
+            infra/optimizer-rust-lambda/full-fixtures/4057401.json \
+            infra/optimizer-rust-lambda/full-fixtures/4059200.json \
+            > /tmp/full-routing-${{ matrix.arch }}.json
+          cat /tmp/full-routing-${{ matrix.arch }}.json
       - name: Exact domain reference on native architecture
         shell: bash
         run: |
