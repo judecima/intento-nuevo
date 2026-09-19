@@ -17,25 +17,34 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect frozen corpus shape
+      - name: Locate frozen inputs
         shell: bash
         run: |
           set -euo pipefail
           {
-            echo '## Master portfolio corpus inspection'
+            echo '## Master portfolio input discovery'
             echo
             echo "commit: $GITHUB_SHA"
             echo
             echo '~~~text'
-            ls -lh experiencia/v7/all20.jsonl research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json
-            wc -l experiencia/v7/all20.jsonl
-            echo '--- first record ---'
-            head -n 1 experiencia/v7/all20.jsonl | cut -c1-12000
-            echo '--- second record ---'
-            sed -n '2p' experiencia/v7/all20.jsonl | cut -c1-12000
+            echo 'XML total:'
+            find . -type f -iname '*.xml' | wc -l
+            echo 'Winner paths:'
+            for f in \
+              '4050594__Mega_Maderas4050594.xml' \
+              '4056900__Alfredo_Arrua4056900.xml' \
+              '4057401__GABRIEL_TUMBACO CRUZ4057401.xml' \
+              '4059200__ALEJANDRA_RUIZ4059200.xml'; do
+              echo "-- $f"
+              find . -type f -name "$f" -print | head -20
+            done
+            echo 'Likely corpus directories:'
+            find . -type f -iname '*.xml' -printf '%h\n' | sort | uniq -c | sort -nr | head -40
+            echo 'Archives:'
+            find . -maxdepth 4 -type f \( -iname '*.zip' -o -iname '*.tar' -o -iname '*.tgz' \) -print | head -80
             echo '~~~'
-          } > /tmp/master-portfolio-inspection.md
-      - name: Publish inspection
+          } > /tmp/master-portfolio-inputs.md
+      - name: Publish discovery
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr comment 21 --repo ${{ github.repository }} --body-file /tmp/master-portfolio-inspection.md
+        run: gh pr comment 21 --repo ${{ github.repository }} --body-file /tmp/master-portfolio-inputs.md
