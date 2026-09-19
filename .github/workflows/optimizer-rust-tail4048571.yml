@@ -1,4 +1,4 @@
-name: Optimizer Rust Tail 4048571 A/B
+name: Optimizer Rust Tail 4048571 A/B\n# benchmark trigger
 
 on:
   push:
