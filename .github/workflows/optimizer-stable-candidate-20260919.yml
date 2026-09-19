@@ -1,0 +1,44 @@
+name: Optimizer Stable Candidate 2026-09-19
+
+on:
+  push:
+    branches:
+      - candidate/optimizer-safe-stack-20260919
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - run: npm run optimizer:rust:build
+      - name: Post-compact lower-bound contract
+        run: npx vitest run tests/optimizer/post-compact-cheap-lb.test.ts
+      - name: Unique-mask <=4 contract
+        env:
+          OPTIMIZER_RUST_LEGACY_STRICT: "1"
+        run: npx vitest run tests/optimizer/master-unique-masks.test.ts
+      - name: FS0 lower-bound contract
+        run: npx vitest run tests/optimizer/dff-fs0-lower-bound.test.ts
+      - name: Four historical winners and remnant parity
+        env:
+          OPTIMIZER_RUST_LEGACY_STRICT: "1"
+        run: node research/optimizer/stable-candidate/winner-gate.cjs
+      - name: Experimental isolation guard
+        run: |
+          ! grep -q "usarMasterPrefijo7" src/lib/optimizer/legacy/v10.cjs
+          ! grep -q "usarReusoGreedyBeamRust" src/lib/optimizer/legacy/rust/rust-hybrid.cjs || true
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
