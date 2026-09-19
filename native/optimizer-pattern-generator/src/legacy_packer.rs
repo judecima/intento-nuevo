@@ -221,7 +221,9 @@ fn prepare_pieces(inputs: &[PieceInput], material_with_grain: bool) -> Vec<Piece
 }
 
 struct Scratch {
+    indexed: bool,
     counts: Vec<usize>,
+    rep_by_sig: Vec<usize>,
     reps: Vec<usize>,
     measures: Vec<f64>,
     top: Vec<Candidate>,
@@ -230,12 +232,78 @@ struct Scratch {
 impl Scratch {
     fn new(pool: &[Piece]) -> Self {
         let sig_count = pool.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+        let indexed = pool.len() > sig_count.saturating_mul(4);
+        let mut counts = vec![0; sig_count];
+        let mut rep_by_sig = vec![usize::MAX; sig_count];
+
+        if indexed {
+            for (index, piece) in pool.iter().enumerate() {
+                if counts[piece.sig] == 0 {
+                    rep_by_sig[piece.sig] = index;
+                }
+                counts[piece.sig] += 1;
+            }
+        }
+
         Self {
-            counts: vec![0; sig_count],
+            indexed,
+            counts,
+            rep_by_sig,
             reps: Vec::with_capacity(sig_count),
             measures: Vec::with_capacity(sig_count.saturating_mul(2)),
             top: Vec::with_capacity(4),
         }
+    }
+
+    fn prepare_reps(&mut self, pool: &[Piece]) {
+        self.reps.clear();
+
+        if !self.indexed {
+            self.counts.fill(0);
+            for (index, piece) in pool.iter().enumerate() {
+                if self.counts[piece.sig] == 0 {
+                    self.reps.push(index);
+                }
+                self.counts[piece.sig] += 1;
+            }
+            return;
+        }
+
+        self.reps.extend(
+            self.rep_by_sig
+                .iter()
+                .copied()
+                .filter(|index| *index != usize::MAX),
+        );
+        self.reps.sort_unstable();
+    }
+
+    fn remove_selected(&mut self, pool: &mut Vec<Piece>, index: usize) -> Piece {
+        if !self.indexed {
+            return pool.remove(index);
+        }
+
+        let sig = pool[index].sig;
+        let piece = pool.remove(index);
+        self.counts[sig] -= 1;
+
+        for rep in &mut self.rep_by_sig {
+            if *rep != usize::MAX && *rep > index {
+                *rep -= 1;
+            }
+        }
+
+        if self.counts[sig] == 0 {
+            self.rep_by_sig[sig] = usize::MAX;
+        } else {
+            self.rep_by_sig[sig] = pool[index..]
+                .iter()
+                .position(|candidate| candidate.sig == sig)
+                .map(|offset| index + offset)
+                .expect("remaining signature must keep a representative");
+        }
+
+        piece
     }
 }
 
@@ -288,16 +356,8 @@ fn choose(
         &opts.criterio
     };
     let en_x = region.dir == Axis::X;
-    let Scratch { counts, reps, measures, top } = scratch;
-
-    counts.fill(0);
-    reps.clear();
-    for (index, piece) in pool.iter().enumerate() {
-        if counts[piece.sig] == 0 {
-            reps.push(index);
-        }
-        counts[piece.sig] += 1;
-    }
+    scratch.prepare_reps(pool);
+    let Scratch { counts, reps, measures, top, .. } = scratch;
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
@@ -527,7 +587,7 @@ fn fill(
         };
 
         if selected.mult == 1 && (selected.sobra < EPS || level >= opts.etapas) {
-            let piece = pool.remove(selected.index);
+            let piece = scratch.remove_selected(pool, selected.index);
             let piece_id = piece.id;
             placed.push(Placed {
                 id: piece.id,
@@ -961,5 +1021,82 @@ mod tests {
         let values = [rng.next(), rng.next(), rng.next()];
         assert!(values.iter().all(|value| *value >= 0.0 && *value < 1.0));
         assert!((values[0] - 0.23878083983436227).abs() < 1e-12);
+    }
+
+    #[test]
+    fn incremental_signature_index_matches_full_rescan_after_removals() {
+        fn piece(id: u32, sig: usize) -> Piece {
+            let orientation = Orientation { base: 100.0, altura: 50.0, rotada: false };
+            Piece {
+                id,
+                sig,
+                orientations: [orientation, orientation],
+                orientation_count: 1,
+            }
+        }
+
+        fn assert_matches_rescan(pool: &[Piece], scratch: &mut Scratch) {
+            let sig_count = scratch.counts.len();
+            let mut expected_counts = vec![0usize; sig_count];
+            let mut expected_reps = Vec::new();
+            for (index, piece) in pool.iter().enumerate() {
+                if expected_counts[piece.sig] == 0 {
+                    expected_reps.push(index);
+                }
+                expected_counts[piece.sig] += 1;
+            }
+
+            scratch.prepare_reps(pool);
+            assert_eq!(scratch.counts, expected_counts);
+            assert_eq!(scratch.reps, expected_reps);
+        }
+
+        let mut pool = vec![
+            piece(0, 0),
+            piece(1, 1),
+            piece(2, 0),
+            piece(3, 2),
+            piece(4, 1),
+        ];
+        let mut scratch = Scratch::new(&pool);
+        assert_matches_rescan(&pool, &mut scratch);
+
+        let removed = scratch.remove_selected(&mut pool, 0);
+        assert_eq!(removed.id, 0);
+        assert_matches_rescan(&pool, &mut scratch);
+
+        let removed = scratch.remove_selected(&mut pool, 0);
+        assert_eq!(removed.id, 1);
+        assert_matches_rescan(&pool, &mut scratch);
+
+        let removed = scratch.remove_selected(&mut pool, 1);
+        assert_eq!(removed.id, 3);
+        assert_matches_rescan(&pool, &mut scratch);
+        assert!(!scratch.indexed);
+
+        let mut indexed_pool = Vec::new();
+        for id in 0..10 {
+            indexed_pool.push(piece(100 + id, 0));
+        }
+        indexed_pool.push(piece(200, 1));
+        indexed_pool.push(piece(201, 1));
+
+        let mut indexed = Scratch::new(&indexed_pool);
+        assert!(indexed.indexed);
+        assert_matches_rescan(&indexed_pool, &mut indexed);
+
+        for expected_id in 100..103 {
+            let removed = indexed.remove_selected(&mut indexed_pool, 0);
+            assert_eq!(removed.id, expected_id);
+            assert_matches_rescan(&indexed_pool, &mut indexed);
+        }
+
+        let sig_one_index = indexed.reps.iter()
+            .copied()
+            .find(|index| indexed_pool[*index].sig == 1)
+            .expect("signature 1 representative");
+        let removed = indexed.remove_selected(&mut indexed_pool, sig_one_index);
+        assert_eq!(removed.id, 200);
+        assert_matches_rescan(&indexed_pool, &mut indexed);
     }
 }
