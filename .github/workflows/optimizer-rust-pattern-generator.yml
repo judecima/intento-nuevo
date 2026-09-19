@@ -6,9 +6,11 @@ on:
       - feature/optimizer-rust-pattern-generator
       - feature/optimizer-rust-legacy-pattern-generator
       - feature/optimizer-rust-worker-candidate
+      - experiment/optimizer-rust-choice-state-memo
   pull_request:
     branches:
       - prototipo-inicial
+      - experiment/optimizer-dff-fs0-lb
     paths:
       - "native/optimizer-pattern-generator/**"
       - "research/optimizer/pattern-generators/rust/**"
@@ -58,3 +60,33 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Benchmark p99 stable pool candidate
+        run: P99_BENCH_LABEL=candidate P99_BENCH_CASE=4048571 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs | tee /tmp/p99-candidate.json
+      - name: Benchmark p99 Rust base
+        run: |
+          git fetch --no-tags --depth=1 origin 6af43e2766b6b0a9d5946bec64b59c20e988757c
+          git show 6af43e2766b6b0a9d5946bec64b59c20e988757c:native/optimizer-pattern-generator/src/legacy_packer.rs > native/optimizer-pattern-generator/src/legacy_packer.rs
+          npm run optimizer:rust:build
+          P99_BENCH_LABEL=base P99_BENCH_CASE=4048571 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs | tee /tmp/p99-base.json
+      - name: Compare p99 stable pool
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const candidate = JSON.parse(fs.readFileSync('/tmp/p99-candidate.json', 'utf8').trim().split('\n').at(-1));
+          const base = JSON.parse(fs.readFileSync('/tmp/p99-base.json', 'utf8').trim().split('\n').at(-1));
+          if (candidate.digest !== base.digest || candidate.patterns !== base.patterns) {
+            throw new Error('p99 pool parity regression');
+          }
+          const speedup = base.ms / candidate.ms;
+          console.log(JSON.stringify({
+            ok: true,
+            benchmark: 'tail4048571-stable-pool-ab-v1',
+            order: candidate.order,
+            patterns: candidate.patterns,
+            baseMs: base.ms,
+            candidateMs: candidate.ms,
+            speedup: +speedup.toFixed(3),
+            savingPct: +((1 - candidate.ms / base.ms) * 100).toFixed(2),
+            digest: candidate.digest,
+          }));
+          NODE
