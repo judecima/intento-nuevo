@@ -1072,5 +1072,31 @@ mod tests {
         let removed = scratch.remove_selected(&mut pool, 1);
         assert_eq!(removed.id, 3);
         assert_matches_rescan(&pool, &mut scratch);
+        assert!(!scratch.indexed);
+
+        let mut indexed_pool = Vec::new();
+        for id in 0..10 {
+            indexed_pool.push(piece(100 + id, 0));
+        }
+        indexed_pool.push(piece(200, 1));
+        indexed_pool.push(piece(201, 1));
+
+        let mut indexed = Scratch::new(&indexed_pool);
+        assert!(indexed.indexed);
+        assert_matches_rescan(&indexed_pool, &mut indexed);
+
+        for expected_id in 100..103 {
+            let removed = indexed.remove_selected(&mut indexed_pool, 0);
+            assert_eq!(removed.id, expected_id);
+            assert_matches_rescan(&indexed_pool, &mut indexed);
+        }
+
+        let sig_one_index = indexed.reps.iter()
+            .copied()
+            .find(|index| indexed_pool[*index].sig == 1)
+            .expect("signature 1 representative");
+        let removed = indexed.remove_selected(&mut indexed_pool, sig_one_index);
+        assert_eq!(removed.id, 200);
+        assert_matches_rescan(&indexed_pool, &mut indexed);
     }
 }
