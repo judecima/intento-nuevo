@@ -1,4 +1,4 @@
-name: Optimizer Rust Pattern Generator\n# 4048571 exact tail gate
+name: Optimizer Rust Pattern Generator\n# 4048571 exact tail gate v2
 
 on:
   push:
