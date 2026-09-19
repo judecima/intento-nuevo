@@ -6,6 +6,7 @@ on:
       - feature/optimizer-rust-pattern-generator
       - feature/optimizer-rust-legacy-pattern-generator
       - feature/optimizer-rust-worker-candidate
+      - experiment/optimizer-rust-greedy-beam-reuse
   pull_request:
     branches:
       - prototipo-inicial
@@ -52,7 +53,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-pattern-generator.test.ts
-      - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts
+      - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts tests/optimizer/rust-greedy-beam-reuse.test.ts
       - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-worker-routing.test.ts
       - run: RUST_LEGACY_DEBUG_ERRORS=1 node research/optimizer/pattern-generators/rust/benchmark-4057401.mjs
       - run: npm run typecheck
