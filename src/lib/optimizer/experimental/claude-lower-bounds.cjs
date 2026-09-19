@@ -11,6 +11,8 @@ const EPS = 1e-9;
 const DEFAULTS = {
   usarKerf: true,
   usarDff: true,
+  usarDffFs0: false,
+  maxKFs0: 20,
   usarRaster: true,
   usarProyeccion: true,
   usarClique: true,
@@ -158,6 +160,54 @@ function cotaDff(items, W, H, s, tope) {
   return Math.ceil(mejor - EPS);
 }
 
+function fs0(x, k) {
+  const scaled = (k + 1) * x;
+  const rounded = Math.round(scaled);
+  if (Math.abs(scaled - rounded) <= 1e-10) return x;
+  return Math.floor(scaled + 1e-12) / k;
+}
+
+function cotaDffFs0(items, W, H, s, tope, maxK) {
+  const anchoPlaca = W + s, altoPlaca = H + s;
+  if (!(anchoPlaca > 0) || !(altoPlaca > 0)) return 0;
+
+  const normalizadas = [], vx = [], vy = [];
+  for (const item of items) {
+    const ors = orientacionesUtiles(item, W, H)
+      .map(([a,b]) => [(a+s)/anchoPlaca, (b+s)/altoPlaca]);
+    if (!ors.length) return 0;
+    normalizadas.push({ cant: item.cant, ors });
+    for (const [x,y] of ors) { vx.push(x); vy.push(y); }
+  }
+
+  const es = candidatos(vx, tope), ds = candidatos(vy, tope);
+  let mejor = 0;
+  const evaluar = (fx, fy) => {
+    let total = 0;
+    for (const { cant, ors } of normalizadas) {
+      let min = Infinity;
+      for (const [x,y] of ors) min = Math.min(min, fx(x) * fy(y));
+      total += cant * min;
+    }
+    if (total > mejor) mejor = total;
+  };
+
+  // Fekete-Schepers u^(k), k=1..maxK, in both axes.
+  for (let kx = 1; kx <= maxK; kx++)
+    for (let ky = 1; ky <= maxK; ky++)
+      evaluar((x) => fs0(x, kx), (y) => fs0(y, ky));
+
+  // Mixed conservative scales: the existing U(epsilon) family on one axis
+  // and u^(k) on the other. Products of dual-feasible functions remain valid
+  // conservative scales for the 2D packing lower bound.
+  for (let k = 1; k <= maxK; k++) {
+    for (const d of ds) evaluar((x) => fs0(x, k), (y) => u(y, d));
+    for (const e of es) evaluar((x) => u(x, e), (y) => fs0(y, k));
+  }
+
+  return Math.ceil(mejor - EPS);
+}
+
 function cotaProyeccion(items, W, H, s, eje) {
   const limite = (eje === "x" ? H : W) / 2;
   const capacidad = (eje === "x" ? W : H) + s;
@@ -216,7 +266,7 @@ function computeLowerBound(lineas, opts, config = {}) {
   const cfg={...DEFAULTS,...config};
   const s=Math.max(0,+(opts.sierra??0));
   const W=+opts.placaBase-+(opts.refiladoX??0), H=+opts.placaAltura-+(opts.refiladoY??0);
-  const vacio={area:0,kerf:0,raster:0,dff:0,proyeccion:0,clique:0,best:0,binding:"area",ancho:W,alto:H,anchoEfectivo:W,altoEfectivo:H,rasterAplicado:false,factible:true};
+  const vacio={area:0,kerf:0,raster:0,dff:0,dffFs0:0,proyeccion:0,clique:0,best:0,binding:"area",ancho:W,alto:H,anchoEfectivo:W,altoEfectivo:H,rasterAplicado:false,factible:true};
   if (!(W>0) || !(H>0) || !lineas.length) return vacio;
   const items=[];
   for (const linea of lineas) {
@@ -232,12 +282,13 @@ function computeLowerBound(lineas, opts, config = {}) {
   const raster=criba(items,W,H,s,cfg), Wf=raster.anchoEfectivo, Hf=raster.altoEfectivo;
   const cotaRaster=raster.aplicado?cotaKerf(items,Wf,Hf,s):0;
   const dff=cfg.usarDff?cotaDff(items,Wf,Hf,s,cfg.maxCandidatosDff):0;
+  const dffFs0=cfg.usarDffFs0?cotaDffFs0(items,Wf,Hf,s,cfg.maxCandidatosDff,cfg.maxKFs0):0;
   const proyeccion=cfg.usarProyeccion?Math.max(cotaProyeccion(items,Wf,Hf,s,"x"),cotaProyeccion(items,Wf,Hf,s,"y")):0;
   const clique=cfg.usarClique?cotaClique(items,Wf,Hf,s,cfg.maxTiposClique):0;
   let best=area,binding="area";
-  for(const [valor,fuente] of [[kerf,"kerf"],[cotaRaster,"raster"],[dff,"dff"],[proyeccion,"proyeccion"],[clique,"clique"]])
+  for(const [valor,fuente] of [[kerf,"kerf"],[cotaRaster,"raster"],[dff,"dff"],[dffFs0,"dff-fs0"],[proyeccion,"proyeccion"],[clique,"clique"]])
     if(valor>best){best=valor;binding=fuente;}
-  return {area,kerf,raster:cotaRaster,dff,proyeccion,clique,best,binding,ancho:W,alto:H,anchoEfectivo:Wf,altoEfectivo:Hf,rasterAplicado:raster.aplicado,factible:true};
+  return {area,kerf,raster:cotaRaster,dff,dffFs0,proyeccion,clique,best,binding,ancho:W,alto:H,anchoEfectivo:Wf,altoEfectivo:Hf,rasterAplicado:raster.aplicado,factible:true};
 }
 
 function strongLowerBound(lineas, opts, config) { return computeLowerBound(lineas,opts,config).best; }
