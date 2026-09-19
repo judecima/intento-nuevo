@@ -330,6 +330,11 @@ fn choose(
     for index in pool.reps.iter().flatten() {
         reps.push(*index);
     }
+    // Legacy Vec::remove preserves the relative order of every remaining
+    // piece. Once the first member of a family is consumed, its next
+    // representative can move behind another family. Sorting by the stable
+    // original index exactly reproduces that legacy representative order.
+    reps.sort_unstable();
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
@@ -986,6 +991,42 @@ pub fn pack_board_legacy_core(pieces_json: String, options_json: String, random_
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stable_pool_preserves_legacy_representative_order() {
+        let orientation = Orientation { base: 10.0, altura: 10.0, rotada: false };
+        let template = vec![
+            Piece { id: 0, sig: 0, orientations: [orientation; 2], orientation_count: 1 },
+            Piece { id: 1, sig: 1, orientations: [orientation; 2], orientation_count: 1 },
+            Piece { id: 2, sig: 0, orientations: [orientation; 2], orientation_count: 1 },
+            Piece { id: 3, sig: 2, orientations: [orientation; 2], orientation_count: 1 },
+            Piece { id: 4, sig: 1, orientations: [orientation; 2], orientation_count: 1 },
+            Piece { id: 5, sig: 0, orientations: [orientation; 2], orientation_count: 1 },
+        ];
+        let mut stable = PoolState::new(&template);
+        let mut legacy = template.clone();
+
+        for _ in 0..template.len() {
+            let legacy_reps = {
+                let mut seen = HashSet::new();
+                legacy.iter()
+                    .enumerate()
+                    .filter_map(|(index, piece)| seen.insert(piece.sig).then_some((index, piece.id)))
+                    .collect::<Vec<_>>()
+            };
+            let mut stable_reps = stable.reps.iter().flatten().copied().collect::<Vec<_>>();
+            stable_reps.sort_unstable();
+            let stable_ids = stable_reps.iter().map(|index| stable.pieces[*index].id).collect::<Vec<_>>();
+            let legacy_ids = legacy_reps.iter().map(|(_, id)| *id).collect::<Vec<_>>();
+            assert_eq!(stable_ids, legacy_ids);
+
+            if legacy.is_empty() { break; }
+            // Consume the first current representative, exactly as choose() can.
+            let stable_index = stable_reps[0];
+            stable.take(stable_index);
+            legacy.remove(legacy_reps[0].0);
+        }
+    }
 
     #[test]
     fn lcg_matches_js_sequence_shape() {
