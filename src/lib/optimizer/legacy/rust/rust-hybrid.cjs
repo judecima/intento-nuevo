@@ -247,7 +247,7 @@ function armBeam(pieces, opts, configs, pass, reuse = null) {
 }
 
 function armBoards(pieces, opts, configs, pass) {
-  const reuse = usarReusoGreedyBeam(opts)
+  const reuse = usarReusoGreedyBeam(opts) && pieces.length <= opts.maxPiezasBeam
     ? {
         cache: new Map(),
         telemetry: opts._greedyBeamReuseTelemetry,
