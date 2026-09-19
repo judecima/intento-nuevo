@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - candidate/optimizer-safe-stack-20260919
+  pull_request:
+    branches:
+      - experiment/optimizer-master-unique-masks
   workflow_dispatch:
 
 permissions:
