@@ -221,6 +221,7 @@ fn prepare_pieces(inputs: &[PieceInput], material_with_grain: bool) -> Vec<Piece
 }
 
 struct Scratch {
+    indexed: bool,
     counts: Vec<usize>,
     rep_by_sig: Vec<usize>,
     reps: Vec<usize>,
@@ -231,15 +232,21 @@ struct Scratch {
 impl Scratch {
     fn new(pool: &[Piece]) -> Self {
         let sig_count = pool.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+        let indexed = pool.len() > sig_count.saturating_mul(4);
         let mut counts = vec![0; sig_count];
         let mut rep_by_sig = vec![usize::MAX; sig_count];
-        for (index, piece) in pool.iter().enumerate() {
-            if counts[piece.sig] == 0 {
-                rep_by_sig[piece.sig] = index;
+
+        if indexed {
+            for (index, piece) in pool.iter().enumerate() {
+                if counts[piece.sig] == 0 {
+                    rep_by_sig[piece.sig] = index;
+                }
+                counts[piece.sig] += 1;
             }
-            counts[piece.sig] += 1;
         }
+
         Self {
+            indexed,
             counts,
             rep_by_sig,
             reps: Vec::with_capacity(sig_count),
@@ -248,24 +255,16 @@ impl Scratch {
         }
     }
 
-    fn refresh_reps(&mut self, pool: &[Piece]) {
+    fn prepare_reps(&mut self, pool: &[Piece]) {
         self.reps.clear();
-        let live_signatures = self
-            .rep_by_sig
-            .iter()
-            .filter(|index| **index != usize::MAX)
-            .count();
 
-        // When most remaining pieces are distinct signatures, the legacy
-        // linear scan is cheaper than sorting representative indices. For
-        // repeated-piece tails, keep the incremental index and sort only the
-        // much smaller signature frontier. Both paths preserve the exact
-        // first-representative order of the current pool.
-        if pool.len() <= live_signatures.saturating_mul(4) {
+        if !self.indexed {
+            self.counts.fill(0);
             for (index, piece) in pool.iter().enumerate() {
-                if self.rep_by_sig[piece.sig] == index {
+                if self.counts[piece.sig] == 0 {
                     self.reps.push(index);
                 }
+                self.counts[piece.sig] += 1;
             }
             return;
         }
@@ -280,6 +279,10 @@ impl Scratch {
     }
 
     fn remove_selected(&mut self, pool: &mut Vec<Piece>, index: usize) -> Piece {
+        if !self.indexed {
+            return pool.remove(index);
+        }
+
         let sig = pool[index].sig;
         let piece = pool.remove(index);
         self.counts[sig] -= 1;
@@ -353,7 +356,7 @@ fn choose(
         &opts.criterio
     };
     let en_x = region.dir == Axis::X;
-    scratch.refresh_reps(pool);
+    scratch.prepare_reps(pool);
     let Scratch { counts, reps, measures, top, .. } = scratch;
 
     measures.clear();
