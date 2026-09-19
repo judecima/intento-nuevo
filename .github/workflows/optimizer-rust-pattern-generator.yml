@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - prototipo-inicial
+      - experiment/optimizer-rust-incremental-pool-index-gate
     paths:
       - "native/optimizer-pattern-generator/**"
       - "research/optimizer/pattern-generators/rust/**"
