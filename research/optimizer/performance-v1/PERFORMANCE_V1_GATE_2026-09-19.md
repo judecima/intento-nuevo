@@ -2,7 +2,7 @@
 
 ## Goal
 
-Close the performance work with one bounded milestone: Fast / Balanced / Deep must reuse safe work from the previous effort level without changing the physical solution. For the Balanced -> Deep transition, Deep60 must reuse the exact first 40 Rust Master rounds produced by Balanced40 and execute only rounds 40..59.
+Close the performance work with one bounded milestone: Fast / Balanced / Deep must reuse safe work from the previous effort level without changing the physical solution. For the Balanced -> Deep transition, Deep60 must reuse every executable round from the first-40 schedule produced by Balanced40 and execute only executable rounds from 40..59. Empty subset masks are historical no-ops and are not counted as executions.
 
 ## Candidate
 
@@ -36,7 +36,7 @@ Local deterministic cohort: 11 real canonical orders.
 - first 40 round parity: 11/11;
 - Deep60 pool parity: 11/11;
 - Master physical plan digest parity: 11/11;
-- warm continuation contract: 11/11 with exactly 40 hits + 20 new rounds;
+- warm continuation contract: 11/11 reusing every executable first-40 round and generating only executable rounds 40..59;
 - Deep incremental cost: 11,398.18 ms cold -> 4,500.61 ms warm;
 - aggregate reduction: 60.51%;
 - minimum per-case reduction in that cohort: 53.32%.
@@ -51,7 +51,7 @@ The earlier nondeterministic cases were traced to the native Beam candidate sele
 2. execute the committed 11-case cohort with the built native addon;
 3. obtain 11/11 identical Deep60 pattern pools;
 4. obtain 11/11 identical materialized Master plan digests;
-5. observe exactly `40 reused + 20 generated` rounds in every warm Deep60 case;
+5. reuse every executable first-40 round and generate only executable rounds 40..59 in every warm Deep60 case;
 6. keep aggregate Deep incremental generation reduction >= 40%;
 7. prove watchdog mode disables reuse and runs cold;
 8. pass the existing stable-candidate winner gate;

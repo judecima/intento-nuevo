@@ -144,6 +144,8 @@ for (const c of cohort) {
   const schedule60 = legacyRoundSubsets(lines.length, 60, 7);
   const prefixMatches = JSON.stringify(schedule40) === JSON.stringify(schedule60.slice(0, 40));
   if (!prefixMatches) throw new Error(`${c.case_id}: 40-round schedule is not the Deep60 prefix`);
+  const executablePrefixRounds = schedule40.filter((indices) => indices.length > 0).length;
+  const executableTailRounds = schedule60.slice(40).filter((indices) => indices.length > 0).length;
 
   process.env[REUSE_FLAG] = "0";
   const coldOptions = configFor(c, true);
@@ -154,15 +156,30 @@ for (const c of cohort) {
   const balancedOptions = configFor(c, false);
   const balanced = runGenerator(lines, balancedOptions, 40);
   const balancedTelemetry = balancedOptions._rustMasterRoundReuse;
-  if (!balancedTelemetry?.enabled || balancedTelemetry.reusedRounds !== 0 || balancedTelemetry.generatedRounds !== 40) {
-    throw new Error(`${c.case_id}: Balanced40 did not populate exactly 40 cold rounds`);
+  if (
+    !balancedTelemetry?.enabled ||
+    balancedTelemetry.reusedRounds !== 0 ||
+    balancedTelemetry.generatedRounds !== executablePrefixRounds
+  ) {
+    throw new Error(
+      `${c.case_id}: Balanced40 did not populate every executable prefix round ` +
+      `(${balancedTelemetry?.generatedRounds} != ${executablePrefixRounds})`,
+    );
   }
 
   const warmOptions = configFor(c, true);
   const warm = runGenerator(lines, warmOptions, 60);
   const warmTelemetry = warmOptions._rustMasterRoundReuse;
-  if (!warmTelemetry?.enabled || warmTelemetry.reusedRounds !== 40 || warmTelemetry.generatedRounds !== 20) {
-    throw new Error(`${c.case_id}: Deep60 did not execute exactly 40 hits + 20 new rounds`);
+  if (
+    !warmTelemetry?.enabled ||
+    warmTelemetry.reusedRounds !== executablePrefixRounds ||
+    warmTelemetry.generatedRounds !== executableTailRounds
+  ) {
+    throw new Error(
+      `${c.case_id}: Deep60 did not reuse the full executable prefix and generate only the tail ` +
+      `(reuse ${warmTelemetry?.reusedRounds}/${executablePrefixRounds}, ` +
+      `generated ${warmTelemetry?.generatedRounds}/${executableTailRounds})`,
+    );
   }
 
   const warmDigest = patternPoolDigest(warm.pool);
@@ -211,6 +228,8 @@ for (const c of cohort) {
     planDigestEqual: true,
     reusedRounds: warmTelemetry.reusedRounds,
     generatedRounds: warmTelemetry.generatedRounds,
+    executablePrefixRounds,
+    executableTailRounds,
   });
 }
 
@@ -221,9 +240,15 @@ for (const c of cohort) {
   const lines = linesFor(c);
   process.env[REUSE_FLAG] = "1";
   const options = { ...configFor(c, true), watchdogBeamMs: 5000 };
+  const executableRounds = legacyRoundSubsets(lines.length, 60, 7)
+    .filter((indices) => indices.length > 0).length;
   runGenerator(lines, options, 60);
   const telemetry = options._rustMasterRoundReuse;
-  if (telemetry?.enabled || telemetry?.reusedRounds !== 0 || telemetry?.generatedRounds !== 60) {
+  if (
+    telemetry?.enabled ||
+    telemetry?.reusedRounds !== 0 ||
+    telemetry?.generatedRounds !== executableRounds
+  ) {
     throw new Error("watchdog safety gate failed: reuse must be disabled");
   }
 }
@@ -237,7 +262,11 @@ const result = {
   cases: rows.length,
   poolParity: rows.filter((row) => row.poolDigestEqual).length,
   planParity: rows.filter((row) => row.planDigestEqual).length,
-  exact40Hits20Runs: rows.filter((row) => row.reusedRounds === 40 && row.generatedRounds === 20).length,
+  exactPrefixReuse: rows.filter(
+    (row) =>
+      row.reusedRounds === row.executablePrefixRounds &&
+      row.generatedRounds === row.executableTailRounds,
+  ).length,
   totalColdMs: +totalColdMs.toFixed(2),
   totalWarmMs: +totalWarmMs.toFixed(2),
   aggregateSavingsPct: +aggregateSavingsPct.toFixed(2),
