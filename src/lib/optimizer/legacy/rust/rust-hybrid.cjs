@@ -109,10 +109,15 @@ function armGreedy(pieces, opts, configs, pass, reuse = null) {
       best = dual.greedyBest;
       reuse.cache.set(
         greedyBeamStateKey(pool, boards.length),
-        dual.beamCandidates,
+        {
+          candidates: dual.beamCandidates,
+          requestCount: requests.length,
+        },
       );
       reuse.telemetry.storedStates++;
       reuse.telemetry.storedCandidates += dual.beamCandidates.length;
+      reuse.telemetry.computedRequestBatches++;
+      reuse.telemetry.computedPackRequests += requests.length;
     } else {
       best = packGreedyBest(pool, opts, configs, pass, boards.length);
     }
@@ -131,11 +136,16 @@ function generateBoardCandidates(pool, opts, configs, pass, boardIndex, reuse = 
     const key = greedyBeamStateKey(pool, boardIndex);
     const cached = reuse.cache.get(key);
     if (cached) {
-      selected = cached;
+      selected = cached.candidates;
       reuse.telemetry.hits++;
+      reuse.telemetry.savedRequestBatches++;
+      reuse.telemetry.savedPackRequests += cached.requestCount;
     } else {
-      selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+      const requests = buildRequests(opts, configs, pass, boardIndex);
+      selected = packBoardLegacyRustBeamCandidates(pool, requests, opts.beamWidth);
       reuse.telemetry.misses++;
+      reuse.telemetry.computedRequestBatches++;
+      reuse.telemetry.computedPackRequests += requests.length;
     }
   } else {
     selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
@@ -369,6 +379,10 @@ function optimizarLegacyHybrid(lineas, config = {}) {
       storedCandidates: 0,
       hits: 0,
       misses: 0,
+      computedRequestBatches: 0,
+      computedPackRequests: 0,
+      savedRequestBatches: 0,
+      savedPackRequests: 0,
     };
   }
 
