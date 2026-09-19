@@ -114,6 +114,8 @@ describe("Rust greedy -> beam batch reuse", () => {
       expect(reused.greedyBeamReuse).toBeDefined();
       expect(reused.greedyBeamReuse.storedStates).toBeGreaterThan(0);
       expect(reused.greedyBeamReuse.hits).toBeGreaterThan(0);
+      expect(reused.greedyBeamReuse.savedRequestBatches).toBe(reused.greedyBeamReuse.hits);
+      expect(reused.greedyBeamReuse.savedPackRequests).toBeGreaterThan(0);
       expect(reused.greedyBeamReuse.misses).toBeGreaterThanOrEqual(0);
     });
   }
@@ -132,6 +134,10 @@ describe("Rust greedy -> beam batch reuse", () => {
       storedCandidates: 0,
       hits: 0,
       misses: 0,
+      computedRequestBatches: 0,
+      computedPackRequests: 0,
+      savedRequestBatches: 0,
+      savedPackRequests: 0,
     });
   });
 });
