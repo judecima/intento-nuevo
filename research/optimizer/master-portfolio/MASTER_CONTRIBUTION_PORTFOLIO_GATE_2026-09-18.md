@@ -207,3 +207,26 @@ full40 exact fallback
 
 For p95/p99, prioritize the **319 non-winning / non-certifying Master cases**, especially the top historical generation tail. A useful next experiment is to profile contribution by tranche on the heavy-tail cases and determine whether a cheap negative signal can skip or postpone expensive round families without changing the exact fallback contract.
 
+
+## Follow-up: P18 as an early incumbent for 4059200
+
+A second staged experiment tested whether P18 could still help the hard winner without unsafe early termination:
+
+```text
+P18 -> find 17 boards early
+    -> generate remaining rounds
+    -> full40 search with incumbent=17
+```
+
+This hypothesis is **rejected for 4059200**.
+
+Observed locally:
+
+| search | result after 20 s | nodes | exhausted |
+|---|---:|---:|---|
+| full40, incumbent 18 | finds 17 | ~3.585 M | yes |
+| full40, incumbent 17 | no <=16 solution found | ~3.563 M | yes |
+
+P18 itself first recovered the 17-board solution at roughly a 2 s solve budget (about 558k nodes in that run). Starting the final full40 search with the stronger incumbent therefore does not materially reduce the proof search; it merely adds the preliminary P18 solve cost.
+
+Decision: **do not add a P18 pre-solve in front of full40 for the hard-gap path**. Keep P18 as research/provenance evidence, not as a staged runtime optimization.
