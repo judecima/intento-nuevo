@@ -38,7 +38,7 @@ jobs:
       - name: Experimental isolation guard
         run: |
           ! grep -q "usarMasterPrefijo7" src/lib/optimizer/legacy/v10.cjs
-          ! grep -q "usarReusoGreedyBeamRust" src/lib/optimizer/legacy/rust/rust-hybrid.cjs || true
+          ! grep -q "usarReusoGreedyBeamRust" src/lib/optimizer/legacy/rust/rust-hybrid.cjs
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
