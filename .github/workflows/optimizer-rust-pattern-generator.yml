@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - prototipo-inicial
+      - experiment/optimizer-dff-fs0-lb
     paths:
       - "native/optimizer-pattern-generator/**"
       - "research/optimizer/pattern-generators/rust/**"
