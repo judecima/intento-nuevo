@@ -1,0 +1,52 @@
+name: Optimizer Rust Tail 4048571 A/B
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-rust-choice-state-tail4048571
+
+permissions:
+  contents: read
+
+jobs:
+  tail-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build candidate
+        run: npm run optimizer:rust:build
+      - name: Benchmark candidate 4048571
+        run: P99_BENCH_LABEL=candidate P99_BENCH_CASE=4048571 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs | tee /tmp/tail-candidate.json
+      - name: Build Rust base
+        run: |
+          git fetch --no-tags --depth=1 origin 6af43e2766b6b0a9d5946bec64b59c20e988757c
+          git show 6af43e2766b6b0a9d5946bec64b59c20e988757c:native/optimizer-pattern-generator/src/legacy_packer.rs > native/optimizer-pattern-generator/src/legacy_packer.rs
+          npm run optimizer:rust:build
+      - name: Benchmark base 4048571
+        run: P99_BENCH_LABEL=base P99_BENCH_CASE=4048571 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs | tee /tmp/tail-base.json
+      - name: Compare exact pool
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const candidate = JSON.parse(fs.readFileSync('/tmp/tail-candidate.json','utf8').trim().split('\n').at(-1));
+          const base = JSON.parse(fs.readFileSync('/tmp/tail-base.json','utf8').trim().split('\n').at(-1));
+          if (candidate.digest !== base.digest || candidate.patterns !== base.patterns) throw new Error('4048571 pool parity regression');
+          console.log(JSON.stringify({
+            ok:true,
+            benchmark:'tail4048571-stable-pool-ab-v1',
+            order:candidate.order,
+            patterns:candidate.patterns,
+            baseMs:base.ms,
+            candidateMs:candidate.ms,
+            speedup:+(base.ms/candidate.ms).toFixed(3),
+            savingPct:+((1-candidate.ms/base.ms)*100).toFixed(2),
+            digest:candidate.digest
+          }));
+          NODE
