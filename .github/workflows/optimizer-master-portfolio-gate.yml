@@ -1,0 +1,31 @@
+name: Optimizer Master Portfolio Gate
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-master-portfolio-gate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Inspect frozen corpus shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "FILES"
+          ls -lh experiencia/v7/all20.jsonl research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json
+          echo "LINES"
+          wc -l experiencia/v7/all20.jsonl
+          echo "HEAD"
+          head -n 2 experiencia/v7/all20.jsonl | cut -c1-5000
