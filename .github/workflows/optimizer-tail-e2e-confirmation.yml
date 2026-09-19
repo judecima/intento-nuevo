@@ -1,0 +1,44 @@
+name: Optimizer Tail p95 p99 End-to-End Confirmation
+
+on:
+  push:
+    branches:
+      - research/tail-e2e-confirmation-20260919
+    paths:
+      - "research/optimizer/tail-family-memory/**"
+      - ".github/workflows/optimizer-tail-e2e-confirmation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tail-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Tail family end-to-end confirmation
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/tail-family-memory/tail-e2e-confirmation.cjs all
+      - name: Upload tail confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-tail-e2e-confirmation
+          path: |
+            research/optimizer/tail-family-memory/tail-e2e-cohort.json
+            research/optimizer/tail-family-memory/tail-e2e-control.json
+            research/optimizer/tail-family-memory/tail-e2e-candidate.json
+            research/optimizer/tail-family-memory/tail-e2e-results.json
+          if-no-files-found: warn
+          retention-days: 30
