@@ -12,7 +12,11 @@ function native() {
     typeof addon.packBoardLegacyCore !== "function" ||
     typeof addon.packBoardLegacyBatch !== "function" ||
     typeof addon.packBoardLegacyGreedyBest !== "function" ||
-    typeof addon.packBoardLegacyBeamCandidates !== "function"
+    typeof addon.packBoardLegacyBeamCandidates !== "function" ||
+    typeof addon.packBoardLegacyDualSelection !== "function" ||
+    typeof addon.packBoardLegacyGreedyBestCached !== "function" ||
+    typeof addon.packBoardLegacyBeamCandidatesCached !== "function" ||
+    typeof addon.clearLegacySelectionCache !== "function"
   ) {
     throw new Error("native addon does not expose legacy packer core/batch/selectors");
   }
@@ -129,6 +133,52 @@ function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   return raw.map((result) => hydrateResult(result, pool));
 }
 
+function packBoardLegacyRustDualSelection(pool, requests, tolerance, beamWidth) {
+  const raw = JSON.parse(
+    native().packBoardLegacyDualSelection(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      tolerance,
+      beamWidth >>> 0,
+    ),
+  );
+  return {
+    greedyBest: raw.greedyBest == null ? null : hydrateResult(raw.greedyBest, pool),
+    beamCandidates: (raw.beamCandidates ?? []).map((result) => hydrateResult(result, pool)),
+  };
+}
+
+function packBoardLegacyRustGreedyBestCached(pool, requests, tolerance, cacheKey) {
+  const raw = native().packBoardLegacyGreedyBestCached(
+    JSON.stringify(pieces(pool)),
+    serializeRequests(requests),
+    tolerance,
+    cacheKey,
+  );
+  if (raw === "null") return null;
+  return hydrateResult(JSON.parse(raw), pool);
+}
+
+function packBoardLegacyRustBeamCandidatesCached(pool, requests, beamWidth, cacheKey) {
+  const raw = JSON.parse(
+    native().packBoardLegacyBeamCandidatesCached(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      beamWidth >>> 0,
+      cacheKey,
+    ),
+  );
+  return {
+    hit: Boolean(raw.hit),
+    candidates: (raw.candidates ?? []).map((result) => hydrateResult(result, pool)),
+  };
+}
+
+function clearLegacySelectionCache(prefix) {
+  return Number(native().clearLegacySelectionCache(prefix) || 0);
+}
+
+
 function packBoardLegacyRustCore(pool, opts, randomSeed = null) {
   const raw = JSON.parse(
     native().packBoardLegacyCore(
@@ -153,6 +203,10 @@ module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  packBoardLegacyRustDualSelection,
+  packBoardLegacyRustGreedyBestCached,
+  packBoardLegacyRustBeamCandidatesCached,
+  clearLegacySelectionCache,
   packBoardLegacyRustCore,
   legacyJsRng,
 };

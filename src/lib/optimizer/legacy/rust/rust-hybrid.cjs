@@ -3,6 +3,9 @@ const {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  packBoardLegacyRustGreedyBestCached,
+  packBoardLegacyRustBeamCandidatesCached,
+  clearLegacySelectionCache,
 } = require("./rust-packer.cjs");
 
 const {
@@ -18,6 +21,7 @@ const {
 
 const DIR_X = "x";
 const DIR_Y = "y";
+let greedyBeamReuseRunSeq = 0;
 
 function mezclar(...nums) {
   let h = 2166136261 >>> 0;
@@ -79,13 +83,40 @@ function packBeamCandidates(pool, opts, configs, pass, board) {
   );
 }
 
-function armGreedy(pieces, opts, configs, pass) {
+function usarReusoGreedyBeam(opts) {
+  return (
+    opts?.usarReusoGreedyBeamRust === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_GREEDY_BEAM_REUSE_EXPERIMENTAL || ""))
+  );
+}
+
+function greedyBeamStateKey(reuse, pool, boardIndex) {
+  return reuse.prefix + boardIndex + "|" + pool.map((piece) => piece.id).join(",");
+}
+
+function armGreedy(pieces, opts, configs, pass, reuse = null) {
   let pool = pieces.slice();
   const boards = [];
   let guard = 0;
 
   while (pool.length && guard++ < 300) {
-    const best = packGreedyBest(pool, opts, configs, pass, boards.length);
+    let best;
+    if (reuse) {
+      const requests = buildRequests(opts, configs, pass, boards.length);
+      const key = greedyBeamStateKey(reuse, pool, boards.length);
+      best = packBoardLegacyRustGreedyBestCached(
+        pool,
+        requests,
+        opts.tolerancia,
+        key,
+      );
+      reuse.states.set(key, requests.length);
+      reuse.telemetry.storedStates++;
+      reuse.telemetry.computedRequestBatches++;
+      reuse.telemetry.computedPackRequests += requests.length;
+    } else {
+      best = packGreedyBest(pool, opts, configs, pass, boards.length);
+    }
     if (!best || !best.colocadas.length) throw new Error("No se pudo empacar la placa.");
 
     const used = new Set(best.colocadas.map((placement) => placement.pieza.id));
@@ -95,8 +126,42 @@ function armGreedy(pieces, opts, configs, pass) {
   return boards;
 }
 
-function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
-  const selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+function generateBoardCandidates(pool, opts, configs, pass, boardIndex, reuse = null) {
+  let selected;
+  if (reuse) {
+    const key = greedyBeamStateKey(reuse, pool, boardIndex);
+    const requestCount = reuse.states.get(key);
+    if (requestCount !== undefined) {
+      const requests = buildRequests(opts, configs, pass, boardIndex);
+      const cached = packBoardLegacyRustBeamCandidatesCached(
+        pool,
+        requests,
+        opts.beamWidth,
+        key,
+      );
+      if (cached.hit) {
+        selected = cached.candidates;
+        reuse.states.delete(key);
+        reuse.telemetry.hits++;
+        reuse.telemetry.savedRequestBatches++;
+        reuse.telemetry.savedPackRequests += requestCount;
+        reuse.telemetry.storedCandidates += cached.candidates.length;
+      } else {
+        selected = packBoardLegacyRustBeamCandidates(pool, requests, opts.beamWidth);
+        reuse.telemetry.misses++;
+        reuse.telemetry.computedRequestBatches++;
+        reuse.telemetry.computedPackRequests += requests.length;
+      }
+    } else {
+      const requests = buildRequests(opts, configs, pass, boardIndex);
+      selected = packBoardLegacyRustBeamCandidates(pool, requests, opts.beamWidth);
+      reuse.telemetry.misses++;
+      reuse.telemetry.computedRequestBatches++;
+      reuse.telemetry.computedPackRequests += requests.length;
+    }
+  } else {
+    selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+  }
   const boardArea = opts.anchoUtil * opts.altoUtil;
   const candidates = [];
   for (const result of selected) {
@@ -122,7 +187,7 @@ function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
   return candidates.slice(0, Math.max(opts.beamWidth * 3, opts.beamWidth));
 }
 
-function armBeam(pieces, opts, configs, pass) {
+function armBeam(pieces, opts, configs, pass, reuse = null) {
   const boardArea = opts.anchoUtil * opts.altoUtil;
   const started = Date.now();
   const rawMax = Number(opts.maxExpansionesBeam);
@@ -146,7 +211,7 @@ function armBeam(pieces, opts, configs, pass) {
         completed.push(state);
         continue;
       }
-      const candidates = generateBoardCandidates(state.pool, opts, configs, pass, state.placas.length);
+      const candidates = generateBoardCandidates(state.pool, opts, configs, pass, state.placas.length, reuse);
       if (!candidates.length) continue;
 
       for (const candidate of candidates) {
@@ -204,22 +269,34 @@ function armBeam(pieces, opts, configs, pass) {
 }
 
 function armBoards(pieces, opts, configs, pass) {
-  const greedy = armGreedy(pieces, opts, configs, pass);
-  const totalArea = pieces.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
-  const lowerBound = Math.ceil(totalArea / (opts.anchoUtil * opts.altoUtil));
-  if (greedy.length <= lowerBound || pieces.length > opts.maxPiezasBeam) return greedy;
+  const reuse = usarReusoGreedyBeam(opts) && pieces.length <= opts.maxPiezasBeam
+    ? {
+        prefix: "gb" + (++greedyBeamReuseRunSeq) + ":",
+        states: new Map(),
+        telemetry: opts._greedyBeamReuseTelemetry,
+      }
+    : null;
 
-  let beam = null;
   try {
-    beam = armBeam(pieces, opts, configs, pass);
-  } catch {
-    beam = null;
+    const greedy = armGreedy(pieces, opts, configs, pass, reuse);
+    const totalArea = pieces.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
+    const lowerBound = Math.ceil(totalArea / (opts.anchoUtil * opts.altoUtil));
+    if (greedy.length <= lowerBound || pieces.length > opts.maxPiezasBeam) return greedy;
+
+    let beam = null;
+    try {
+      beam = armBeam(pieces, opts, configs, pass, reuse);
+    } catch {
+      beam = null;
+    }
+    const beamWins = beam && (
+      beam.length < greedy.length ||
+      (beam.length === greedy.length && mejorPlanIgualPlacas(beam, greedy, opts))
+    );
+    return beamWins ? beam : greedy;
+  } finally {
+    if (reuse) clearLegacySelectionCache(reuse.prefix);
   }
-  const beamWins = beam && (
-    beam.length < greedy.length ||
-    (beam.length === greedy.length && mejorPlanIgualPlacas(beam, greedy, opts))
-  );
-  return beamWins ? beam : greedy;
 }
 
 function makeConfigs(opts) {
@@ -313,6 +390,19 @@ function optimizarLegacyHybrid(lineas, config = {}) {
     multiVariantes: false,
     ...config,
   };
+
+  if (usarReusoGreedyBeam(opts)) {
+    opts._greedyBeamReuseTelemetry = config._greedyBeamReuseTelemetry || {
+      storedStates: 0,
+      storedCandidates: 0,
+      hits: 0,
+      misses: 0,
+      computedRequestBatches: 0,
+      computedPackRequests: 0,
+      savedRequestBatches: 0,
+      savedPackRequests: 0,
+    };
+  }
 
   const pieces = [];
   let id = 0;
@@ -415,6 +505,9 @@ function optimizarLegacyHybrid(lineas, config = {}) {
       piezas: pieces.length,
       etapasUsadas: best.etapasUsadas || opts.etapas,
     },
+    ...(opts._greedyBeamReuseTelemetry
+      ? { greedyBeamReuse: { ...opts._greedyBeamReuseTelemetry } }
+      : {}),
   };
 }
 

@@ -118,6 +118,21 @@ function generarPatronesLegacyRustOuter(lineas, O, rondas = 60, semilla = 7) {
 
 
 function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
+  const reuseEnabled =
+    O?.usarReusoGreedyBeamRust === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_GREEDY_BEAM_REUSE_EXPERIMENTAL || ""));
+  if (reuseEnabled && O && typeof O === "object" && !O._greedyBeamReuseTelemetry) {
+    O._greedyBeamReuseTelemetry = {
+      storedStates: 0,
+      storedCandidates: 0,
+      hits: 0,
+      misses: 0,
+      computedRequestBatches: 0,
+      computedPackRequests: 0,
+      savedRequestBatches: 0,
+      savedPackRequests: 0,
+    };
+  }
   const schedule = legacyRoundSubsets(lineas.length, rondas, semilla);
   const conRef = lineas.map((linea, index) => ({ ...linea, ref: index, _refOriginal: linea.ref }));
   const boards = [];
