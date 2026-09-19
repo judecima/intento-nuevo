@@ -248,8 +248,28 @@ impl Scratch {
         }
     }
 
-    fn refresh_reps(&mut self) {
+    fn refresh_reps(&mut self, pool: &[Piece]) {
         self.reps.clear();
+        let live_signatures = self
+            .rep_by_sig
+            .iter()
+            .filter(|index| **index != usize::MAX)
+            .count();
+
+        // When most remaining pieces are distinct signatures, the legacy
+        // linear scan is cheaper than sorting representative indices. For
+        // repeated-piece tails, keep the incremental index and sort only the
+        // much smaller signature frontier. Both paths preserve the exact
+        // first-representative order of the current pool.
+        if pool.len() <= live_signatures.saturating_mul(4) {
+            for (index, piece) in pool.iter().enumerate() {
+                if self.rep_by_sig[piece.sig] == index {
+                    self.reps.push(index);
+                }
+            }
+            return;
+        }
+
         self.reps.extend(
             self.rep_by_sig
                 .iter()
@@ -333,7 +353,7 @@ fn choose(
         &opts.criterio
     };
     let en_x = region.dir == Axis::X;
-    scratch.refresh_reps();
+    scratch.refresh_reps(pool);
     let Scratch { counts, reps, measures, top, .. } = scratch;
 
     measures.clear();
@@ -1023,7 +1043,7 @@ mod tests {
                 expected_counts[piece.sig] += 1;
             }
 
-            scratch.refresh_reps();
+            scratch.refresh_reps(pool);
             assert_eq!(scratch.counts, expected_counts);
             assert_eq!(scratch.reps, expected_reps);
         }
