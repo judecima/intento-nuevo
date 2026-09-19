@@ -106,6 +106,11 @@ function usarCotaBarataPostCompactacion(config) {
   return envFlag('OPTIMIZER_POST_COMPACT_CHEAP_LB_EXPERIMENTAL');
 }
 
+function usarDffFs0PostCompactacion(config) {
+  if (config.usarDffFs0PostCompactacion === true) return true;
+  return envFlag('OPTIMIZER_DFF_FS0_LB_EXPERIMENTAL');
+}
+
 function usarMasterPrefijo7(config) {
   const enabled =
     config.usarMasterPrefijo7Experimental === true ||
@@ -144,7 +149,10 @@ function calcularCotaBarataPostCompactacion(lineas, config, incumbente, metricas
       incumbente?.resumen?.placas,
       {
         useRaster: false,
-        claude: { usarRaster: false },
+        claude: {
+          usarRaster: false,
+          usarDffFs0: usarDffFs0PostCompactacion(config),
+        },
       },
     );
     const value = Math.max(0, Math.floor(Number(r?.cheapLowerBound ?? r?.lowerBound ?? 0)));
