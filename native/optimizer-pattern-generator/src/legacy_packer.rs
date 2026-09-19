@@ -999,4 +999,55 @@ mod tests {
         assert!(values.iter().all(|value| *value >= 0.0 && *value < 1.0));
         assert!((values[0] - 0.23878083983436227).abs() < 1e-12);
     }
+
+    #[test]
+    fn incremental_signature_index_matches_full_rescan_after_removals() {
+        fn piece(id: u32, sig: usize) -> Piece {
+            let orientation = Orientation { base: 100.0, altura: 50.0, rotada: false };
+            Piece {
+                id,
+                sig,
+                orientations: [orientation, orientation],
+                orientation_count: 1,
+            }
+        }
+
+        fn assert_matches_rescan(pool: &[Piece], scratch: &mut Scratch) {
+            let sig_count = scratch.counts.len();
+            let mut expected_counts = vec![0usize; sig_count];
+            let mut expected_reps = Vec::new();
+            for (index, piece) in pool.iter().enumerate() {
+                if expected_counts[piece.sig] == 0 {
+                    expected_reps.push(index);
+                }
+                expected_counts[piece.sig] += 1;
+            }
+
+            scratch.refresh_reps();
+            assert_eq!(scratch.counts, expected_counts);
+            assert_eq!(scratch.reps, expected_reps);
+        }
+
+        let mut pool = vec![
+            piece(0, 0),
+            piece(1, 1),
+            piece(2, 0),
+            piece(3, 2),
+            piece(4, 1),
+        ];
+        let mut scratch = Scratch::new(&pool);
+        assert_matches_rescan(&pool, &mut scratch);
+
+        let removed = scratch.remove_selected(&mut pool, 0);
+        assert_eq!(removed.id, 0);
+        assert_matches_rescan(&pool, &mut scratch);
+
+        let removed = scratch.remove_selected(&mut pool, 0);
+        assert_eq!(removed.id, 1);
+        assert_matches_rescan(&pool, &mut scratch);
+
+        let removed = scratch.remove_selected(&mut pool, 1);
+        assert_eq!(removed.id, 3);
+        assert_matches_rescan(&pool, &mut scratch);
+    }
 }
