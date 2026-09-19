@@ -12,7 +12,8 @@ function native() {
     typeof addon.packBoardLegacyCore !== "function" ||
     typeof addon.packBoardLegacyBatch !== "function" ||
     typeof addon.packBoardLegacyGreedyBest !== "function" ||
-    typeof addon.packBoardLegacyBeamCandidates !== "function"
+    typeof addon.packBoardLegacyBeamCandidates !== "function" ||
+    typeof addon.packBoardLegacyDualSelection !== "function"
   ) {
     throw new Error("native addon does not expose legacy packer core/batch/selectors");
   }
@@ -129,6 +130,21 @@ function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   return raw.map((result) => hydrateResult(result, pool));
 }
 
+function packBoardLegacyRustDualSelection(pool, requests, tolerance, beamWidth) {
+  const raw = JSON.parse(
+    native().packBoardLegacyDualSelection(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      tolerance,
+      beamWidth >>> 0,
+    ),
+  );
+  return {
+    greedyBest: raw.greedyBest == null ? null : hydrateResult(raw.greedyBest, pool),
+    beamCandidates: (raw.beamCandidates ?? []).map((result) => hydrateResult(result, pool)),
+  };
+}
+
 function packBoardLegacyRustCore(pool, opts, randomSeed = null) {
   const raw = JSON.parse(
     native().packBoardLegacyCore(
@@ -153,6 +169,7 @@ module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  packBoardLegacyRustDualSelection,
   packBoardLegacyRustCore,
   legacyJsRng,
 };
