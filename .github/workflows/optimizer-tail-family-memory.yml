@@ -1,0 +1,33 @@
+name: Optimizer Tail Family Memory Research
+
+on:
+  push:
+    branches:
+      - research/p95-p99-family-memory-20260919
+    paths:
+      - "research/optimizer/tail-family-memory/**"
+      - ".github/workflows/optimizer-tail-family-memory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tail-family-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Evaluate chronological p95/p99 tail routing
+        run: node research/optimizer/tail-family-memory/tail-family-eval.mjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-tail-family-memory-results
+          path: research/optimizer/tail-family-memory/tail-family-results.json
+          if-no-files-found: error
+          retention-days: 30
