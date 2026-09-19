@@ -64,6 +64,7 @@ jobs:
         run: P99_BENCH_LABEL=candidate P99_BENCH_CASE=4059795 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs | tee /tmp/p99-candidate.json
       - name: Benchmark p99 Rust base
         run: |
+          git fetch --no-tags --depth=1 origin 6af43e2766b6b0a9d5946bec64b59c20e988757c
           git show 6af43e2766b6b0a9d5946bec64b59c20e988757c:native/optimizer-pattern-generator/src/legacy_packer.rs > native/optimizer-pattern-generator/src/legacy_packer.rs
           npm run optimizer:rust:build
           P99_BENCH_LABEL=base P99_BENCH_CASE=4059795 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs | tee /tmp/p99-base.json
