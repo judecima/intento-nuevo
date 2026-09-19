@@ -1,0 +1,25 @@
+name: Optimizer Rust P99 Baseline Benchmark
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-rust-p99-baseline-bench
+
+permissions:
+  contents: read
+
+jobs:
+  p99-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Benchmark 4059795 full40 Rust base
+        run: P99_BENCH_LABEL=base P99_BENCH_CASE=4059795 node research/optimizer/pattern-generators/rust/benchmark-p99-stable-pool.mjs
