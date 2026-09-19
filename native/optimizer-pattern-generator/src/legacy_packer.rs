@@ -222,6 +222,7 @@ fn prepare_pieces(inputs: &[PieceInput], material_with_grain: bool) -> Vec<Piece
 
 struct Scratch {
     counts: Vec<usize>,
+    rep_by_sig: Vec<usize>,
     reps: Vec<usize>,
     measures: Vec<f64>,
     top: Vec<Candidate>,
@@ -230,12 +231,56 @@ struct Scratch {
 impl Scratch {
     fn new(pool: &[Piece]) -> Self {
         let sig_count = pool.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+        let mut counts = vec![0; sig_count];
+        let mut rep_by_sig = vec![usize::MAX; sig_count];
+        for (index, piece) in pool.iter().enumerate() {
+            if counts[piece.sig] == 0 {
+                rep_by_sig[piece.sig] = index;
+            }
+            counts[piece.sig] += 1;
+        }
         Self {
-            counts: vec![0; sig_count],
+            counts,
+            rep_by_sig,
             reps: Vec::with_capacity(sig_count),
             measures: Vec::with_capacity(sig_count.saturating_mul(2)),
             top: Vec::with_capacity(4),
         }
+    }
+
+    fn refresh_reps(&mut self) {
+        self.reps.clear();
+        self.reps.extend(
+            self.rep_by_sig
+                .iter()
+                .copied()
+                .filter(|index| *index != usize::MAX),
+        );
+        self.reps.sort_unstable();
+    }
+
+    fn remove_selected(&mut self, pool: &mut Vec<Piece>, index: usize) -> Piece {
+        let sig = pool[index].sig;
+        let piece = pool.remove(index);
+        self.counts[sig] -= 1;
+
+        for rep in &mut self.rep_by_sig {
+            if *rep != usize::MAX && *rep > index {
+                *rep -= 1;
+            }
+        }
+
+        if self.counts[sig] == 0 {
+            self.rep_by_sig[sig] = usize::MAX;
+        } else {
+            self.rep_by_sig[sig] = pool[index..]
+                .iter()
+                .position(|candidate| candidate.sig == sig)
+                .map(|offset| index + offset)
+                .expect("remaining signature must keep a representative");
+        }
+
+        piece
     }
 }
 
@@ -288,16 +333,8 @@ fn choose(
         &opts.criterio
     };
     let en_x = region.dir == Axis::X;
-    let Scratch { counts, reps, measures, top } = scratch;
-
-    counts.fill(0);
-    reps.clear();
-    for (index, piece) in pool.iter().enumerate() {
-        if counts[piece.sig] == 0 {
-            reps.push(index);
-        }
-        counts[piece.sig] += 1;
-    }
+    scratch.refresh_reps();
+    let Scratch { counts, reps, measures, top, .. } = scratch;
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
@@ -527,7 +564,7 @@ fn fill(
         };
 
         if selected.mult == 1 && (selected.sobra < EPS || level >= opts.etapas) {
-            let piece = pool.remove(selected.index);
+            let piece = scratch.remove_selected(pool, selected.index);
             let piece_id = piece.id;
             placed.push(Placed {
                 id: piece.id,
