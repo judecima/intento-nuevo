@@ -220,18 +220,54 @@ fn prepare_pieces(inputs: &[PieceInput], material_with_grain: bool) -> Vec<Piece
     inputs.iter().map(|piece| make_piece(piece, material_with_grain)).collect()
 }
 
-struct Scratch {
+struct PoolState {
+    pieces: Vec<Piece>,
     counts: Vec<usize>,
+    reps: Vec<Option<usize>>,
+    next_same: Vec<Option<usize>>,
+}
+
+impl PoolState {
+    fn new(template: &[Piece]) -> Self {
+        let pieces = template.to_vec();
+        let sig_count = pieces.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+        let mut counts = vec![0usize; sig_count];
+        let mut reps = vec![None; sig_count];
+        let mut next_same = vec![None; pieces.len()];
+        let mut next_by_sig = vec![None; sig_count];
+
+        for index in (0..pieces.len()).rev() {
+            let sig = pieces[index].sig;
+            counts[sig] += 1;
+            next_same[index] = next_by_sig[sig];
+            next_by_sig[sig] = Some(index);
+            reps[sig] = Some(index);
+        }
+
+        Self { pieces, counts, reps, next_same }
+    }
+
+    fn take(&mut self, index: usize) -> Piece {
+        let piece = self.pieces[index];
+        let sig = piece.sig;
+        debug_assert_eq!(self.reps[sig], Some(index));
+        debug_assert!(self.counts[sig] > 0);
+        self.counts[sig] -= 1;
+        self.reps[sig] = self.next_same[index];
+        piece
+    }
+}
+
+struct Scratch {
     reps: Vec<usize>,
     measures: Vec<f64>,
     top: Vec<Candidate>,
 }
 
 impl Scratch {
-    fn new(pool: &[Piece]) -> Self {
-        let sig_count = pool.iter().map(|piece| piece.sig).max().map(|x| x + 1).unwrap_or(0);
+    fn new(pool: &PoolState) -> Self {
+        let sig_count = pool.counts.len();
         Self {
-            counts: vec![0; sig_count],
             reps: Vec::with_capacity(sig_count),
             measures: Vec::with_capacity(sig_count.saturating_mul(2)),
             top: Vec::with_capacity(4),
@@ -273,7 +309,7 @@ fn candidate_better(u: &Candidate, v: &Candidate, opts: &PackOptions, level: u32
 }
 
 fn choose(
-    pool: &[Piece],
+    pool: &PoolState,
     region: Region,
     remaining: f64,
     perp: f64,
@@ -288,21 +324,17 @@ fn choose(
         &opts.criterio
     };
     let en_x = region.dir == Axis::X;
-    let Scratch { counts, reps, measures, top } = scratch;
+    let Scratch { reps, measures, top } = scratch;
 
-    counts.fill(0);
     reps.clear();
-    for (index, piece) in pool.iter().enumerate() {
-        if counts[piece.sig] == 0 {
-            reps.push(index);
-        }
-        counts[piece.sig] += 1;
+    for index in pool.reps.iter().flatten() {
+        reps.push(*index);
     }
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
         for &index in reps.iter() {
-            let piece = &pool[index];
+            let piece = &pool.pieces[index];
             for orientation in piece.orientations() {
                 measures.push(if en_x { orientation.base } else { orientation.altura });
             }
@@ -311,8 +343,8 @@ fn choose(
 
     top.clear();
     for &rep_index in reps.iter() {
-        let piece = &pool[rep_index];
-        let available = counts[piece.sig];
+        let piece = &pool.pieces[rep_index];
+        let available = pool.counts[piece.sig];
         for orientation in piece.orientations() {
             let a = if en_x { orientation.base } else { orientation.altura };
             let b = if en_x { orientation.altura } else { orientation.base };
@@ -323,8 +355,8 @@ fn choose(
             if opts.penalizar_franja_muerta && level <= 2 {
                 let area_candidate = a * b;
                 for &other_index in reps.iter() {
-                    let other = &pool[other_index];
-                    let q_count = counts[other.sig] as f64;
+                    let other = &pool.pieces[other_index];
+                    let q_count = pool.counts[other.sig] as f64;
                     for qo in other.orientations() {
                         let d = if en_x { qo.base } else { qo.altura };
                         let qb = if en_x { qo.altura } else { qo.base };
@@ -499,7 +531,7 @@ fn crop_tree(node: &mut TreeNode, axis: Axis, limit: f64) {
 
 fn fill(
     region: Region,
-    pool: &mut Vec<Piece>,
+    pool: &mut PoolState,
     placed: &mut Vec<Placed>,
     level: u32,
     opts: &PackOptions,
@@ -527,7 +559,7 @@ fn fill(
         };
 
         if selected.mult == 1 && (selected.sobra < EPS || level >= opts.etapas) {
-            let piece = pool.remove(selected.index);
+            let piece = pool.take(selected.index);
             let piece_id = piece.id;
             placed.push(Placed {
                 id: piece.id,
@@ -678,7 +710,7 @@ fn pack_template(
         return Err("invalid pack geometry".to_string());
     }
     let dir = Axis::parse(&opts.dir_inicial)?;
-    let mut pool = template.to_vec();
+    let mut pool = PoolState::new(template);
     let mut scratch = Scratch::new(&pool);
     let mut rng = random_seed.map(Rng::new);
     let mut placed = Vec::new();
