@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - candidate/optimizer-safe-stack-20260919
+      - candidate/optimizer-performance-stack-20260919
   pull_request:
     branches:
       - experiment/optimizer-master-unique-masks
