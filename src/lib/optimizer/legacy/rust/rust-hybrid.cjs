@@ -3,6 +3,7 @@ const {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  packBoardLegacyRustDualSelection,
 } = require("./rust-packer.cjs");
 
 const {
@@ -79,13 +80,42 @@ function packBeamCandidates(pool, opts, configs, pass, board) {
   );
 }
 
-function armGreedy(pieces, opts, configs, pass) {
+function usarReusoGreedyBeam(opts) {
+  return (
+    opts?.usarReusoGreedyBeamRust === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_GREEDY_BEAM_REUSE_EXPERIMENTAL || ""))
+  );
+}
+
+function greedyBeamStateKey(pool, boardIndex) {
+  return boardIndex + "|" + pool.map((piece) => piece.id).join(",");
+}
+
+function armGreedy(pieces, opts, configs, pass, reuse = null) {
   let pool = pieces.slice();
   const boards = [];
   let guard = 0;
 
   while (pool.length && guard++ < 300) {
-    const best = packGreedyBest(pool, opts, configs, pass, boards.length);
+    let best;
+    if (reuse) {
+      const requests = buildRequests(opts, configs, pass, boards.length);
+      const dual = packBoardLegacyRustDualSelection(
+        pool,
+        requests,
+        opts.tolerancia,
+        opts.beamWidth,
+      );
+      best = dual.greedyBest;
+      reuse.cache.set(
+        greedyBeamStateKey(pool, boards.length),
+        dual.beamCandidates,
+      );
+      reuse.telemetry.storedStates++;
+      reuse.telemetry.storedCandidates += dual.beamCandidates.length;
+    } else {
+      best = packGreedyBest(pool, opts, configs, pass, boards.length);
+    }
     if (!best || !best.colocadas.length) throw new Error("No se pudo empacar la placa.");
 
     const used = new Set(best.colocadas.map((placement) => placement.pieza.id));
@@ -95,8 +125,21 @@ function armGreedy(pieces, opts, configs, pass) {
   return boards;
 }
 
-function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
-  const selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+function generateBoardCandidates(pool, opts, configs, pass, boardIndex, reuse = null) {
+  let selected;
+  if (reuse) {
+    const key = greedyBeamStateKey(pool, boardIndex);
+    const cached = reuse.cache.get(key);
+    if (cached) {
+      selected = cached;
+      reuse.telemetry.hits++;
+    } else {
+      selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+      reuse.telemetry.misses++;
+    }
+  } else {
+    selected = packBeamCandidates(pool, opts, configs, pass, boardIndex);
+  }
   const boardArea = opts.anchoUtil * opts.altoUtil;
   const candidates = [];
   for (const result of selected) {
@@ -122,7 +165,7 @@ function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
   return candidates.slice(0, Math.max(opts.beamWidth * 3, opts.beamWidth));
 }
 
-function armBeam(pieces, opts, configs, pass) {
+function armBeam(pieces, opts, configs, pass, reuse = null) {
   const boardArea = opts.anchoUtil * opts.altoUtil;
   const started = Date.now();
   const rawMax = Number(opts.maxExpansionesBeam);
@@ -146,7 +189,7 @@ function armBeam(pieces, opts, configs, pass) {
         completed.push(state);
         continue;
       }
-      const candidates = generateBoardCandidates(state.pool, opts, configs, pass, state.placas.length);
+      const candidates = generateBoardCandidates(state.pool, opts, configs, pass, state.placas.length, reuse);
       if (!candidates.length) continue;
 
       for (const candidate of candidates) {
@@ -204,14 +247,20 @@ function armBeam(pieces, opts, configs, pass) {
 }
 
 function armBoards(pieces, opts, configs, pass) {
-  const greedy = armGreedy(pieces, opts, configs, pass);
+  const reuse = usarReusoGreedyBeam(opts)
+    ? {
+        cache: new Map(),
+        telemetry: opts._greedyBeamReuseTelemetry,
+      }
+    : null;
+  const greedy = armGreedy(pieces, opts, configs, pass, reuse);
   const totalArea = pieces.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
   const lowerBound = Math.ceil(totalArea / (opts.anchoUtil * opts.altoUtil));
   if (greedy.length <= lowerBound || pieces.length > opts.maxPiezasBeam) return greedy;
 
   let beam = null;
   try {
-    beam = armBeam(pieces, opts, configs, pass);
+    beam = armBeam(pieces, opts, configs, pass, reuse);
   } catch {
     beam = null;
   }
@@ -314,6 +363,15 @@ function optimizarLegacyHybrid(lineas, config = {}) {
     ...config,
   };
 
+  if (usarReusoGreedyBeam(opts)) {
+    opts._greedyBeamReuseTelemetry = config._greedyBeamReuseTelemetry || {
+      storedStates: 0,
+      storedCandidates: 0,
+      hits: 0,
+      misses: 0,
+    };
+  }
+
   const pieces = [];
   let id = 0;
   lineas.forEach((line) => {
@@ -415,6 +473,9 @@ function optimizarLegacyHybrid(lineas, config = {}) {
       piezas: pieces.length,
       etapasUsadas: best.etapasUsadas || opts.etapas,
     },
+    ...(opts._greedyBeamReuseTelemetry
+      ? { greedyBeamReuse: { ...opts._greedyBeamReuseTelemetry } }
+      : {}),
   };
 }
 
