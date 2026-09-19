@@ -1,0 +1,58 @@
+name: Optimizer Performance V1 Final Gate
+
+on:
+  push:
+    branches:
+      - candidate/performance-v1-final-20260919
+    paths:
+      - "native/optimizer-pattern-generator/**"
+      - "src/lib/optimizer/legacy/rust/**"
+      - "src/lib/optimizer/legacy/patrones.cjs"
+      - "research/optimizer/performance-v1/**"
+      - "research/optimizer/stable-candidate/**"
+      - ".github/workflows/optimizer-performance-v1-final.yml"
+      - ".env.example"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  performance-v1-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Rust unit tests
+        run: cargo test --manifest-path native/optimizer-pattern-generator/Cargo.toml
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Performance V1 incremental gate
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/performance-v1/performance-v1-gate.cjs
+      - name: Stable candidate winner gate
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/stable-candidate/winner-gate.cjs
+      - name: Rust optimizer tests
+        env:
+          REQUIRE_RUST_PATTERN_GENERATOR: "1"
+        run: npx vitest run tests/optimizer/rust-pattern-generator.test.ts tests/optimizer/rust-legacy-packer.test.ts tests/optimizer/rust-legacy-hybrid.test.ts tests/optimizer/rust-worker-routing.test.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Upload Performance V1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-performance-v1-final-gate
+          path: research/optimizer/performance-v1/performance-v1-gate-results.json
+          if-no-files-found: warn
+          retention-days: 30

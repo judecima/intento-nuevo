@@ -955,8 +955,11 @@ pub fn pack_board_legacy_beam_candidates(
     }
 
     let board_area = quality_opts.ancho_util * quality_opts.alto_util;
-    let mut outputs: Vec<PackOutput> = dedup.into_values().collect();
-    outputs.sort_by(|a, b| {
+    // Keep the canonical usage signature alongside each candidate. HashMap
+    // iteration order is intentionally unstable, so the signature becomes the
+    // final total-order tie break before truncate().
+    let mut outputs: Vec<(String, PackOutput)> = dedup.into_iter().collect();
+    outputs.sort_by(|(signature_a, a), (signature_b, b)| {
         let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
         let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
         lb_a.cmp(&lb_b)
@@ -967,9 +970,11 @@ pub fn pack_board_legacy_beam_candidates(
                 else if q < 0 { std::cmp::Ordering::Greater }
                 else { std::cmp::Ordering::Equal }
             })
+            .then_with(|| signature_a.cmp(signature_b))
     });
     let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
     outputs.truncate(limit);
+    let outputs: Vec<PackOutput> = outputs.into_iter().map(|(_, output)| output).collect();
 
     serde_json::to_string(&outputs)
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize beam candidates: {e}")))

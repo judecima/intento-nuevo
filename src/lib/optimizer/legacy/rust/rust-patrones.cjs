@@ -117,38 +117,130 @@ function generarPatronesLegacyRustOuter(lineas, O, rondas = 60, semilla = 7) {
 }
 
 
+const MASTER_ROUND_CACHE_MAX_CONTEXTS = 4;
+const MASTER_ROUND_CACHE_TTL_MS = 10 * 60 * 1000;
+const masterRoundCache = new Map();
+
+function stableStringify(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .filter((key) => value[key] !== undefined)
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+    .join(",")}}`;
+}
+
+function masterRoundReuseEnabled(lineas, O, rondas, semilla) {
+  if (!O || !Array.isArray(lineas)) return false;
+  const enabled =
+    O.usarReuseRondasMasterRust === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_MASTER_ROUND_REUSE_EXPERIMENTAL || ""));
+  if (!enabled) return false;
+  if (rondas !== 40 && rondas !== 60) return false;
+  if (semilla !== 7) return false;
+  const maxExpansions = Number(O.maxExpansionesBeam);
+  if (!Number.isFinite(maxExpansions) || maxExpansions <= 0) return false;
+  const watchdog = Number(O.watchdogBeamMs);
+  if (Number.isFinite(watchdog) && watchdog > 0) return false;
+  if (usarMascarasUnicasLe4(lineas, O, 40, semilla)) return false;
+  return true;
+}
+
+function masterRoundCacheKey(lineas, O, semilla) {
+  const ignored = new Set(["presupuestoBeamMs", "rondasPatrones", "msMaster"]);
+  const options = {};
+  for (const [key, value] of Object.entries(O || {})) {
+    if (key.startsWith("_") || ignored.has(key) || value === undefined) continue;
+    options[key] = value;
+  }
+  return stableStringify({
+    contract: "rust-master-rounds-v1",
+    semilla,
+    lineas,
+    options,
+  });
+}
+
+function getMasterRoundGroup(key) {
+  const now = Date.now();
+  let group = masterRoundCache.get(key);
+  if (group && now - group.touchedAt > MASTER_ROUND_CACHE_TTL_MS) {
+    masterRoundCache.delete(key);
+    group = null;
+  }
+  if (!group) {
+    group = { touchedAt: now, rounds: new Map() };
+  } else {
+    masterRoundCache.delete(key);
+    group.touchedAt = now;
+  }
+  masterRoundCache.set(key, group);
+  while (masterRoundCache.size > MASTER_ROUND_CACHE_MAX_CONTEXTS) {
+    const oldest = masterRoundCache.keys().next().value;
+    if (oldest === undefined) break;
+    masterRoundCache.delete(oldest);
+  }
+  return group;
+}
+
 function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
   const schedule = legacyRoundSubsets(lineas.length, rondas, semilla);
   const conRef = lineas.map((linea, index) => ({ ...linea, ref: index, _refOriginal: linea.ref }));
   const boards = [];
   const candidates = [];
   const maskFilter = crearFiltroMascaras(lineas, O, rondas, semilla);
+  const reuseEnabled = masterRoundReuseEnabled(lineas, O, rondas, semilla);
+  const group = reuseEnabled ? getMasterRoundGroup(masterRoundCacheKey(lineas, O, semilla)) : null;
+  let reusedRounds = 0;
+  let generatedRounds = 0;
 
   for (let round = 0; round < schedule.length; round++) {
     const indices = schedule[round];
     if (!indices.length) continue;
     if (maskFilter.skip(indices)) continue;
-    try {
-      const result = optimizarLegacyHybrid(
-        indices.map((index) => ({ ...conRef[index] })),
-        { ...O, semilla: 1000 + round, pases: 2 },
-      );
-      for (const board of result.placas) {
-        const payloadIndex = boards.length;
-        boards.push(board);
-        candidates.push({
-          payloadIndex,
-          placements: board.colocadas.map((placement) => ({
-            typeIndex: typeof placement?.pieza?.ref === "number" ? placement.pieza.ref : null,
-            base: placement.base,
-            altura: placement.altura,
-          })),
-        });
+
+    let roundBoards = null;
+    const cached = group?.rounds.get(round);
+    if (cached) {
+      reusedRounds++;
+      roundBoards = cached.boards;
+    } else {
+      generatedRounds++;
+      try {
+        const result = optimizarLegacyHybrid(
+          indices.map((index) => ({ ...conRef[index] })),
+          { ...O, semilla: 1000 + round, pases: 2 },
+        );
+        roundBoards = result.placas || [];
+        if (group) group.rounds.set(round, { boards: roundBoards });
+      } catch (error) {
+        if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
+        roundBoards = [];
       }
-    } catch (error) {
-      if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
-      // Same policy as legacy generarPatrones: invalid subsets are skipped.
     }
+
+    for (const board of roundBoards) {
+      const payloadIndex = boards.length;
+      boards.push(board);
+      candidates.push({
+        payloadIndex,
+        placements: board.colocadas.map((placement) => ({
+          typeIndex: typeof placement?.pieza?.ref === "number" ? placement.pieza.ref : null,
+          base: placement.base,
+          altura: placement.altura,
+        })),
+      });
+    }
+  }
+
+  if (O && typeof O === "object") {
+    O._rustMasterRoundReuse = {
+      enabled: reuseEnabled,
+      totalRounds: schedule.length,
+      reusedRounds,
+      generatedRounds,
+    };
   }
 
   maskFilter.finish(schedule.length);
@@ -159,7 +251,6 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
     placa: boards[entry.payloadIndex],
   }));
 }
-
 
 module.exports = {
   legacyRoundSubsets,
