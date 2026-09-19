@@ -4,13 +4,12 @@ on:
   push:
     branches:
       - experiment/optimizer-master-portfolio-gate
-  pull_request:
-    branches:
-      - experiment/optimizer-incremental-master-portfolio
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   inspect:
@@ -18,17 +17,25 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - name: Inspect frozen corpus shape
         shell: bash
         run: |
           set -euo pipefail
-          echo "FILES"
-          ls -lh experiencia/v7/all20.jsonl research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json
-          echo "LINES"
-          wc -l experiencia/v7/all20.jsonl
-          echo "HEAD"
-          head -n 2 experiencia/v7/all20.jsonl | cut -c1-5000
+          {
+            echo '## Master portfolio corpus inspection'
+            echo
+            echo "commit: $GITHUB_SHA"
+            echo
+            echo '~~~text'
+            ls -lh experiencia/v7/all20.jsonl research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json
+            wc -l experiencia/v7/all20.jsonl
+            echo '--- first record ---'
+            head -n 1 experiencia/v7/all20.jsonl | cut -c1-12000
+            echo '--- second record ---'
+            sed -n '2p' experiencia/v7/all20.jsonl | cut -c1-12000
+            echo '~~~'
+          } > /tmp/master-portfolio-inspection.md
+      - name: Publish inspection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment 21 --repo ${{ github.repository }} --body-file /tmp/master-portfolio-inspection.md
