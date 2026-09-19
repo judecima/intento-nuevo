@@ -6,6 +6,7 @@ on:
       - feature/optimizer-rust-pattern-generator
       - feature/optimizer-rust-legacy-pattern-generator
       - feature/optimizer-rust-worker-candidate
+      - experiment/optimizer-rust-choice-state-memo
   pull_request:
     branches:
       - prototipo-inicial
