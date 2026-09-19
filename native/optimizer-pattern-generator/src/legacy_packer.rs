@@ -1046,7 +1046,7 @@ mod tests {
                 expected_counts[piece.sig] += 1;
             }
 
-            scratch.refresh_reps(pool);
+            scratch.prepare_reps(pool);
             assert_eq!(scratch.counts, expected_counts);
             assert_eq!(scratch.reps, expected_reps);
         }
