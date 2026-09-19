@@ -58,6 +58,7 @@ jobs:
       - run: REQUIRE_RUST_PATTERN_GENERATOR=1 npx vitest run tests/optimizer/rust-worker-routing.test.ts
       - run: RUST_LEGACY_DEBUG_ERRORS=1 node research/optimizer/pattern-generators/rust/benchmark-4057401.mjs
       - run: RUST_LEGACY_DEBUG_ERRORS=1 node research/optimizer/pattern-generators/rust/benchmark-greedy-beam-reuse.mjs
+      - run: RUST_LEGACY_DEBUG_ERRORS=1 node research/optimizer/pattern-generators/rust/benchmark-master40-greedy-beam-reuse.mjs
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
