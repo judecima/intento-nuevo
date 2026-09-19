@@ -17,34 +17,52 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Locate frozen inputs
+      - name: Match Master-active inputs inside repository archives
         shell: bash
         run: |
           set -euo pipefail
-          {
-            echo '## Master portfolio input discovery'
-            echo
-            echo "commit: $GITHUB_SHA"
-            echo
-            echo '~~~text'
-            echo 'XML total:'
-            find . -type f -iname '*.xml' | wc -l
-            echo 'Winner paths:'
-            for f in \
-              '4050594__Mega_Maderas4050594.xml' \
-              '4056900__Alfredo_Arrua4056900.xml' \
-              '4057401__GABRIEL_TUMBACO CRUZ4057401.xml' \
-              '4059200__ALEJANDRA_RUIZ4059200.xml'; do
-              echo "-- $f"
-              find . -type f -name "$f" -print | head -20
-            done
-            echo 'Likely corpus directories:'
-            find . -type f -iname '*.xml' -printf '%h\n' | sort | uniq -c | sort -nr | head -40
-            echo 'Archives:'
-            find . -maxdepth 4 -type f \( -iname '*.zip' -o -iname '*.tar' -o -iname '*.tgz' \) -print | head -80
-            echo '~~~'
-          } > /tmp/master-portfolio-inputs.md
-      - name: Publish discovery
+          python3 - <<'PY' > /tmp/master-portfolio-archives.md
+          import json, pathlib, zipfile, collections, os
+          root = pathlib.Path('.')
+          manifest = json.loads(pathlib.Path('research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json').read_text())
+          wanted = {c['file']: c['order'] for c in manifest['cases']}
+          archives = sorted(root.rglob('*.zip'))
+          hits = collections.defaultdict(list)
+          errors=[]
+          for zpath in archives:
+              try:
+                  with zipfile.ZipFile(zpath) as z:
+                      for name in z.namelist():
+                          base = pathlib.PurePosixPath(name).name
+                          if base in wanted:
+                              hits[base].append(f'{zpath}::{name}')
+              except Exception as e:
+                  errors.append((str(zpath), str(e)))
+          winners=set(manifest['winners'])
+          print('## Master portfolio archive discovery')
+          print()
+          print(f'archives scanned: {len(archives)}')
+          print(f'manifest cases: {len(wanted)}')
+          print(f'cases found in archives: {len(hits)}')
+          print(f'cases missing: {len(wanted)-len(hits)}')
+          print(f'cases with duplicate archive locations: {sum(1 for v in hits.values() if len(v)>1)}')
+          print()
+          print('### Winners')
+          for c in manifest['cases']:
+              if c['order'] in winners:
+                  locs=hits.get(c['file'], [])
+                  print(f"- {c['order']} {c['file']}: {len(locs)} hit(s)")
+                  for loc in locs[:10]: print(f'  - {loc}')
+          missing=[(o,f) for f,o in wanted.items() if f not in hits]
+          print()
+          print('### First missing cases')
+          for o,f in missing[:40]: print(f'- {o} {f}')
+          if errors:
+              print()
+              print('### Archive read errors')
+              for z,e in errors: print(f'- {z}: {e}')
+          PY
+      - name: Publish archive discovery
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr comment 21 --repo ${{ github.repository }} --body-file /tmp/master-portfolio-inputs.md
+        run: gh pr comment 21 --repo ${{ github.repository }} --body-file /tmp/master-portfolio-archives.md
