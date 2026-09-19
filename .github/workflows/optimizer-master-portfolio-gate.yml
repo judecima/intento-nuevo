@@ -1,0 +1,68 @@
+name: Optimizer Master Portfolio Gate
+
+on:
+  push:
+    branches:
+      - experiment/optimizer-master-portfolio-gate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Match Master-active inputs inside repository archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > /tmp/master-portfolio-archives.md
+          import json, pathlib, zipfile, collections, os
+          root = pathlib.Path('.')
+          manifest = json.loads(pathlib.Path('research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json').read_text())
+          wanted = {c['file']: c['order'] for c in manifest['cases']}
+          archives = sorted(root.rglob('*.zip'))
+          hits = collections.defaultdict(list)
+          errors=[]
+          for zpath in archives:
+              try:
+                  with zipfile.ZipFile(zpath) as z:
+                      for name in z.namelist():
+                          base = pathlib.PurePosixPath(name).name
+                          if base in wanted:
+                              hits[base].append(f'{zpath}::{name}')
+              except Exception as e:
+                  errors.append((str(zpath), str(e)))
+          winners=set(manifest['winners'])
+          print('## Master portfolio archive discovery')
+          print()
+          print(f'archives scanned: {len(archives)}')
+          print(f'manifest cases: {len(wanted)}')
+          print(f'cases found in archives: {len(hits)}')
+          print(f'cases missing: {len(wanted)-len(hits)}')
+          print(f'cases with duplicate archive locations: {sum(1 for v in hits.values() if len(v)>1)}')
+          print()
+          print('### Winners')
+          for c in manifest['cases']:
+              if c['order'] in winners:
+                  locs=hits.get(c['file'], [])
+                  print(f"- {c['order']} {c['file']}: {len(locs)} hit(s)")
+                  for loc in locs[:10]: print(f'  - {loc}')
+          missing=[(o,f) for f,o in wanted.items() if f not in hits]
+          print()
+          print('### First missing cases')
+          for o,f in missing[:40]: print(f'- {o} {f}')
+          if errors:
+              print()
+              print('### Archive read errors')
+              for z,e in errors: print(f'- {z}: {e}')
+          PY
+      - name: Publish archive discovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment 21 --repo ${{ github.repository }} --body-file /tmp/master-portfolio-archives.md
