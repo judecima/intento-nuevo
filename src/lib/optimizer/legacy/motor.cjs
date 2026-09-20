@@ -600,18 +600,43 @@ function clavePool(pool, opts){
 /* Reasigna un corte cacheado a las piezas del pool actual. Las piezas de igual
    medida son intercambiables, asi que basta tomar una libre de cada firma. */
 function reasignar(res, pool){
+  const ordered=/^(1|true|yes|on)$/i.test(
+    String(process.env.OPTIMIZER_PACKING_CACHE_REASSIGN_ORDERED_EXPERIMENTAL||'')
+  );
+
+  if(ordered){
+    // The no-cache path consumes the representative at its original/first pool
+    // position. Reusing with pop() reversed equivalent identities and could
+    // perturb Beam state IDs even when geometry was identical. Preserve the
+    // current pool order with an O(1) cursor per geometry signature.
+    const porSig=new Map();
+    for(const p of pool){
+      let bucket=porSig.get(p._sig);
+      if(!bucket){ bucket={items:[],next:0}; porSig.set(p._sig,bucket); }
+      bucket.items.push(p);
+    }
+    const colocadas=[];
+    for(const col of res.colocadas){
+      const bucket=porSig.get(col.pieza._sig);
+      if(!bucket || bucket.next>=bucket.items.length) return null;
+      colocadas.push({...col,pieza:bucket.items[bucket.next++]});
+    }
+    return {...res,colocadas};
+  }
+
+  // Legacy behavior kept behind the experiment gate for A/B comparison.
   const porSig=new Map();
   for(const p of pool){
     if(!porSig.has(p._sig)) porSig.set(p._sig, []);
     porSig.get(p._sig).push(p);
   }
   const colocadas=[];
-  for(const c of res.colocadas){
-    const libres=porSig.get(c.pieza._sig);
-    if(!libres || !libres.length) return null;   // el pool no coincide: no usar caché
-    colocadas.push({...c, pieza:libres.pop()});
+  for(const col of res.colocadas){
+    const libres=porSig.get(col.pieza._sig);
+    if(!libres || !libres.length) return null;
+    colocadas.push({...col,pieza:libres.pop()});
   }
-  return {...res, colocadas};
+  return {...res,colocadas};
 }
 
 function empacarPlaca(pool, opts, rnd){
