@@ -208,8 +208,14 @@ function calcularCotaBarataPostBaseline(lineas, config, baseline, metricas) {
 
 /* Multi-rebanada como PLAN ALTERNATIVO completo, nunca mezclada dentro del
    selector: medimos que mezclar candidatos empeora 6 de 14 casos. */
-function planMultiSlice(lineas, O) {
-  try { return optimizar(lineas, { ...O, multiVariantes: true }); }
+function planMultiSlice(lineas, O, sharedPackingCache = null) {
+  try {
+    return optimizar(lineas, {
+      ...O,
+      multiVariantes: true,
+      ...(sharedPackingCache instanceof Map ? { _packingSharedRead: sharedPackingCache } : {}),
+    });
+  }
   catch (e) { return null; }
 }
 
@@ -335,7 +341,18 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   let cota = cotaArea;
 
   // ---- baseline V8, congelado
-  const baseline = optimizar(lineas, { ...config, multiVariantes: false });
+  // Experimental exact reuse: baseline writes deterministic plate-pack results
+  // into a request-local memo. MultiSlice may read only exact V2-key matches.
+  // No search family is removed and compactation/Master do not share this memo.
+  const reuseBaselineMultiSlice =
+    config.reusarPackingBaselineMultiSlice === true ||
+    envFlag('OPTIMIZER_BASELINE_MULTISLICE_PACKING_REUSE_EXPERIMENTAL');
+  const sharedPackingCache = reuseBaselineMultiSlice ? new Map() : null;
+  const baseline = optimizar(lineas, {
+    ...config,
+    multiVariantes: false,
+    ...(sharedPackingCache ? { _packingSharedWrite: sharedPackingCache } : {}),
+  });
   let mejor = baseline;
   metricas.total.casos++;
 
@@ -499,7 +516,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   // ---- multi-rebanada: plan alternativo completo
   if (config.usarMultiSlice !== false) {
     const t = Date.now();
-    const alt = planMultiSlice(lineas, config);
+    const alt = planMultiSlice(lineas, config, sharedPackingCache);
     if (alt) probar('multislice', alt, Date.now() - t);
   }
 
