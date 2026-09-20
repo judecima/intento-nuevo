@@ -497,13 +497,20 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   }
 
   // ---- multi-rebanada: plan alternativo completo
-  // Experimental conservative gate: skip MultiSlice only below a caller-supplied
-  // piece-count threshold. Default remains 0, preserving historical behavior.
-  const minPiezasMultiSliceRaw = Number(config.minPiezasMultiSliceExperimental);
+  // Performance V1 candidate: a frozen support envelope can be enabled by env
+  // without changing callers. Explicit config values still override the flag.
+  // Default behavior remains historical when the flag is OFF.
+  const usarEnvelopeMultiSlice =
+    envFlag('OPTIMIZER_MULTISLICE_ENVELOPE_200_500_EXPERIMENTAL');
+  const minPiezasMultiSliceRaw = Number(
+    config.minPiezasMultiSliceExperimental ?? (usarEnvelopeMultiSlice ? 200 : 0)
+  );
   const minPiezasMultiSlice = Number.isFinite(minPiezasMultiSliceRaw) && minPiezasMultiSliceRaw > 0
     ? Math.floor(minPiezasMultiSliceRaw)
     : 0;
-  const maxPiezasMultiSliceRaw = Number(config.maxPiezasMultiSliceExperimental);
+  const maxPiezasMultiSliceRaw = Number(
+    config.maxPiezasMultiSliceExperimental ?? (usarEnvelopeMultiSlice ? 500 : NaN)
+  );
   const maxPiezasMultiSlice = Number.isFinite(maxPiezasMultiSliceRaw) && maxPiezasMultiSliceRaw > 0
     ? Math.floor(maxPiezasMultiSliceRaw)
     : Number.POSITIVE_INFINITY;
