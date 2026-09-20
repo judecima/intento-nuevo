@@ -124,6 +124,9 @@ function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
 
 function armBeam(pieces, opts, configs, pass) {
   const boardArea = opts.anchoUtil * opts.altoUtil;
+  const reuseDerivedMetrics =
+    opts.reusarMetricasBeam === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_BEAM_DERIVED_METRICS_EXPERIMENTAL || ""));
   const started = Date.now();
   const rawMax = Number(opts.maxExpansionesBeam);
   const maxExpansions = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : null;
@@ -153,10 +156,15 @@ function armBeam(pieces, opts, configs, pass) {
         if (deterministic && watchdogMs !== null && Date.now() - started > watchdogMs) break beamLoop;
         if (deterministic && expansions >= maxExpansions) break beamLoop;
         expansions++;
+        const nextBoards = state.placas.concat(toBoard(candidate, opts));
         next.push({
           pool: candidate.restante,
-          placas: state.placas.concat(toBoard(candidate, opts)),
+          placas: nextBoards,
           util: state.util + candidate.areaResto,
+          ...(reuseDerivedMetrics ? {
+            _lowerBound: nextBoards.length + candidate.lbAdicional,
+            _quality: null,
+          } : {}),
         });
       }
     }
@@ -165,20 +173,35 @@ function armBeam(pieces, opts, configs, pass) {
       const bestComplete = Math.min(...completed.map((state) => state.placas.length));
       for (let index = next.length - 1; index >= 0; index--) {
         const state = next[index];
-        const pendingArea = state.pool.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
-        const lowerBound = state.placas.length + Math.ceil(Math.max(0, pendingArea) / boardArea);
+        const lowerBound = reuseDerivedMetrics
+          ? state._lowerBound
+          : state.placas.length + Math.ceil(
+              Math.max(0, state.pool.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0)) /
+              boardArea,
+            );
         if (lowerBound > bestComplete) next.splice(index, 1);
       }
     }
 
     next.sort((a, b) => {
-      const areaA = a.pool.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
-      const areaB = b.pool.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
-      const lbA = a.placas.length + Math.ceil(Math.max(0, areaA) / boardArea);
-      const lbB = b.placas.length + Math.ceil(Math.max(0, areaB) / boardArea);
+      let lbA, lbB;
+      if (reuseDerivedMetrics) {
+        lbA = a._lowerBound;
+        lbB = b._lowerBound;
+      } else {
+        const areaA = a.pool.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
+        const areaB = b.pool.reduce((sum, piece) => sum + piece._corte.base * piece._corte.altura, 0);
+        lbA = a.placas.length + Math.ceil(Math.max(0, areaA) / boardArea);
+        lbB = b.placas.length + Math.ceil(Math.max(0, areaB) / boardArea);
+      }
       const primary = lbA - lbB || a.pool.length - b.pool.length;
       if (primary) return primary;
-      return -compararCalidad(calidadPlanPlacas(a.placas, opts), calidadPlanPlacas(b.placas, opts));
+      if (!reuseDerivedMetrics) {
+        return -compararCalidad(calidadPlanPlacas(a.placas, opts), calidadPlanPlacas(b.placas, opts));
+      }
+      a._quality ??= calidadPlanPlacas(a.placas, opts);
+      b._quality ??= calidadPlanPlacas(b.placas, opts);
+      return -compararCalidad(a._quality, b._quality);
     });
 
     const unique = [];
