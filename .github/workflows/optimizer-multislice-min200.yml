@@ -1,0 +1,67 @@
+name: Optimizer MultiSlice Min200 Gate
+
+on:
+  push:
+    branches:
+      - research/multislice-min200-gate-20260920
+    paths:
+      - "src/lib/optimizer/legacy/v10.cjs"
+      - "research/optimizer/multislice-trigger/**"
+      - ".github/workflows/optimizer-multislice-min200.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 4
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/multislice-trigger/min200-gate.cjs shard
+      - name: Upload shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: multislice-min200-shard-${{ matrix.shard }}
+          path: research/optimizer/multislice-trigger/min200-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: multislice-min200-shard-*
+          path: research/optimizer/multislice-trigger
+          merge-multiple: true
+      - name: Build report
+        run: node research/optimizer/multislice-trigger/min200-gate.cjs report
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-multislice-min200
+          path: research/optimizer/multislice-trigger/min200-results.json
+          if-no-files-found: error
+          retention-days: 30
