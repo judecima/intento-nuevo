@@ -1,0 +1,66 @@
+name: Optimizer Cache Key V2 Broad Gate
+
+on:
+  push:
+    branches:
+      - research/multislice-cache-reuse-20260920
+    paths:
+      - "research/optimizer/cache-key-v2-broad/**"
+      - ".github/workflows/optimizer-cache-key-v2-broad.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run cache-key shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 8
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/cache-key-v2-broad/cache-key-v2-broad.cjs shard
+      - name: Upload shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-v2-broad-shard-${{ matrix.shard }}
+          path: research/optimizer/cache-key-v2-broad/cache-v2-broad-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cache-v2-broad-shard-*
+          path: research/optimizer/cache-key-v2-broad
+          merge-multiple: true
+      - name: Build broad report
+        run: node research/optimizer/cache-key-v2-broad/cache-key-v2-broad.cjs report
+      - name: Upload broad report
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-cache-key-v2-broad
+          path: research/optimizer/cache-key-v2-broad/cache-v2-broad-results.json
+          if-no-files-found: error
+          retention-days: 30
