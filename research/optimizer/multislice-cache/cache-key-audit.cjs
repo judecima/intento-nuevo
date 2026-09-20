@@ -33,8 +33,10 @@ const TARGETS = [
   // Historical MultiSlice wins: mandatory sentinels for any later reuse work.
   ["4055118__federico_mercado4055118.xml", 238],
   ["4052458__Hernan_Giufrida4052458.xml", 293],
-  ["4057583__Damian Ponce_ponce4057583.xml", 448],
-  ["4060345__Alvaro_Pintos Romero4060345.xml", 241],
+  // 4057583 and 4060345 are known historical MultiSlice wins, but their
+  // historical file-level piece counts do not map uniquely to the canonical
+  // per-material corpus. They remain external sentinels and are intentionally
+  // excluded here rather than guessed.
 ];
 
 const MODES = new Set(["legacy", "v2", "nocache"]);
