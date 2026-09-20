@@ -517,6 +517,10 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   if (config.usarMultiSlice !== false) {
     const t = Date.now();
     const alt = planMultiSlice(lineas, config, sharedPackingCache);
+    metricas.multislice.sharedPackingEntries =
+      sharedPackingCache instanceof Map ? sharedPackingCache.size : 0;
+    metricas.multislice.sharedPackingHits =
+      alt?.resumen?.cacheSharedHits || 0;
     if (alt) probar('multislice', alt, Date.now() - t);
   }
 
