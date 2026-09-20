@@ -567,7 +567,15 @@ function clavePool(pool, opts){
   for(let i=0;i<pool.length;i++) cuenta[pool[i]._sig]++;
   let k='';
   for(let i=0;i<n;i++) if(cuenta[i]) k+=i+':'+cuenta[i]+',';
-  return k+'#'+(opts.criterios?opts.criterios.join(''):opts.criterio)+'#'+opts.dirInicial;
+  const base=k+'#'+(opts.criterios?opts.criterios.join(''):opts.criterio)+'#'+opts.dirInicial;
+  // Experimental cache-key hardening. Within one optimizar() call both
+  // `etapas` and `multiRebanada` can vary while the pool/config family is
+  // otherwise identical. The legacy key collapsed those semantically different
+  // searches, so a deterministic hit from depth 2/base could mask depth 3/4 or
+  // a multi-rebanada evaluation. Keep legacy behavior unless explicitly gated.
+  if(!/^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL||'')))
+    return base;
+  return base+'#e'+(+opts.etapas||0)+'#m'+(opts.multiRebanada?1:0);
 }
 
 /* Reasigna un corte cacheado a las piezas del pool actual. Las piezas de igual
