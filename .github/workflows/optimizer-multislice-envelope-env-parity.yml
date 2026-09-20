@@ -1,0 +1,41 @@
+name: Optimizer MultiSlice Envelope Env Parity
+
+on:
+  push:
+    branches:
+      - candidate/optimizer-performance-v1-envelope-20260920
+    paths:
+      - "src/lib/optimizer/legacy/v10.cjs"
+      - "research/optimizer/multislice-trigger/envelope-env-parity.cjs"
+      - ".github/workflows/optimizer-multislice-envelope-env-parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run envelope env parity
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/multislice-trigger/envelope-env-parity.cjs all
+      - name: Upload parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-multislice-envelope-env-parity
+          path: research/optimizer/multislice-trigger/envelope-integration-*.json
+          if-no-files-found: warn
+          retention-days: 30
