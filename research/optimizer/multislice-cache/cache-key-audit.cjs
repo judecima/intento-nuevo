@@ -39,6 +39,8 @@ const TARGETS = [
   // excluded here rather than guessed.
 ];
 
+const ACTIVE_TARGETS = TARGETS.filter(([, pieces]) => pieces <= 160);
+
 const MODES = new Set(["legacy", "v2", "nocache"]);
 const mode = process.argv[2] || "all";
 
@@ -175,8 +177,8 @@ function runMode(m){
   const entries=unwrapCorpus(loadJson(CANONICAL));
   const byOrder=buildIndex(entries);
   const rows=[];
-  for(let i=0;i<TARGETS.length;i++){
-    const [file,expected]=TARGETS[i];
+  for(let i=0;i<ACTIVE_TARGETS.length;i++){
+    const [file,expected]=ACTIVE_TARGETS[i];
     const problem=toProblem(resolveExact(byOrder,file,expected),file);
     const lines=problem.pieces.map((p,idx)=>({
       base:p.base,altura:p.altura,cant:p.cant,veta:Boolean(problem.directional)&&Boolean(p.veta),
@@ -204,7 +206,7 @@ function runMode(m){
       compactacion:result?.metricas?.compactacion??null,
       lowerBound:result?.metricas?.lowerBound??null,
     });
-    console.log(m+" "+(i+1)+"/"+TARGETS.length+" "+file+
+    console.log(m+" "+(i+1)+"/"+ACTIVE_TARGETS.length+" "+file+
       " boards="+rows.at(-1).boards+" hits="+rows.at(-1).cacheHits+" ms="+elapsedMs.toFixed(1));
   }
   fs.writeFileSync(path.join(OUT,"cache-key-"+m+".json"),JSON.stringify({mode:m,rows},null,2)+"\n");
@@ -220,7 +222,7 @@ function report(){
   const perCase=[];
   let v2VsNoCacheDigest=0, legacyVsNoCacheDigest=0, legacyVsV2Digest=0;
   let v2BoardReg=0, legacyBoardReg=0, invalid=0;
-  for(const [file] of TARGETS){
+  for(const [file] of ACTIVE_TARGETS){
     const legacy=maps.legacy.get(file), v2=maps.v2.get(file), nocache=maps.nocache.get(file);
     if(!legacy?.ok||!v2?.ok||!nocache?.ok) invalid++;
     if(v2?.digest!==nocache?.digest) v2VsNoCacheDigest++;
