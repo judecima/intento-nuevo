@@ -503,7 +503,15 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   const minPiezasMultiSlice = Number.isFinite(minPiezasMultiSliceRaw) && minPiezasMultiSliceRaw > 0
     ? Math.floor(minPiezasMultiSliceRaw)
     : 0;
-  if (config.usarMultiSlice !== false && piezasEsperadas >= minPiezasMultiSlice) {
+  const maxPiezasMultiSliceRaw = Number(config.maxPiezasMultiSliceExperimental);
+  const maxPiezasMultiSlice = Number.isFinite(maxPiezasMultiSliceRaw) && maxPiezasMultiSliceRaw > 0
+    ? Math.floor(maxPiezasMultiSliceRaw)
+    : Number.POSITIVE_INFINITY;
+  if (
+    config.usarMultiSlice !== false &&
+    piezasEsperadas >= minPiezasMultiSlice &&
+    piezasEsperadas <= maxPiezasMultiSlice
+  ) {
     const t = Date.now();
     const alt = planMultiSlice(lineas, config);
     if (alt) probar('multislice', alt, Date.now() - t);
