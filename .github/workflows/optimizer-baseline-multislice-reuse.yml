@@ -1,0 +1,45 @@
+name: Optimizer Baseline MultiSlice Packing Reuse
+
+on:
+  push:
+    branches:
+      - research/multislice-cache-reuse-20260920
+    paths:
+      - "src/lib/optimizer/legacy/motor.cjs"
+      - "src/lib/optimizer/legacy/v10.cjs"
+      - "research/optimizer/multislice-cache/**"
+      - ".github/workflows/optimizer-baseline-multislice-reuse.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reuse-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run paired baseline to MultiSlice reuse gate
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/multislice-cache/baseline-multislice-reuse-gate.cjs all
+      - name: Upload reuse evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-baseline-multislice-reuse
+          path: |
+            research/optimizer/multislice-cache/multislice-reuse-control.json
+            research/optimizer/multislice-cache/multislice-reuse-reuse.json
+            research/optimizer/multislice-cache/multislice-reuse-results.json
+          if-no-files-found: warn
+          retention-days: 30
