@@ -1,0 +1,68 @@
+name: Optimizer Bounded Baseline MultiSlice Reuse
+
+on:
+  push:
+    branches:
+      - research/multislice-cache-reuse-20260920
+    paths:
+      - "src/lib/optimizer/legacy/motor.cjs"
+      - "src/lib/optimizer/legacy/v10.cjs"
+      - "research/optimizer/multislice-cache/bounded-reuse-gate.cjs"
+      - ".github/workflows/optimizer-bounded-multislice-reuse.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 4
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/multislice-cache/bounded-reuse-gate.cjs shard
+      - name: Upload shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: bounded-reuse-shard-${{ matrix.shard }}
+          path: research/optimizer/multislice-cache/bounded-reuse-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bounded-reuse-shard-*
+          path: research/optimizer/multislice-cache
+          merge-multiple: true
+      - name: Build report
+        run: node research/optimizer/multislice-cache/bounded-reuse-gate.cjs report
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-bounded-multislice-reuse
+          path: research/optimizer/multislice-cache/bounded-reuse-results.json
+          if-no-files-found: error
+          retention-days: 30
