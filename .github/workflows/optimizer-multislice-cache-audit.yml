@@ -1,0 +1,65 @@
+name: Optimizer Packing Cache Key Audit
+
+on:
+  push:
+    branches:
+      - research/multislice-cache-reuse-20260920
+    paths:
+      - "src/lib/optimizer/legacy/motor.cjs"
+      - "research/optimizer/multislice-cache/**"
+      - ".github/workflows/optimizer-multislice-cache-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  variant:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [legacy, v2, nocache]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run ${{ matrix.mode }}
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/multislice-cache/cache-key-audit.cjs ${{ matrix.mode }}
+      - name: Upload mode evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-key-${{ matrix.mode }}
+          path: research/optimizer/multislice-cache/cache-key-${{ matrix.mode }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: variant
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cache-key-*
+          path: research/optimizer/multislice-cache
+          merge-multiple: true
+      - name: Build audit report
+        run: node research/optimizer/multislice-cache/cache-key-audit.cjs report
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-cache-key-audit
+          path: research/optimizer/multislice-cache/cache-key-audit-results.json
+          if-no-files-found: error
+          retention-days: 30
