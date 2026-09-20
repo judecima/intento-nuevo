@@ -573,7 +573,13 @@ function clavePool(pool, opts){
   // otherwise identical. The legacy key collapsed those semantically different
   // searches, so a deterministic hit from depth 2/base could mask depth 3/4 or
   // a multi-rebanada evaluation. Keep legacy behavior unless explicitly gated.
-  if(!/^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL||'')))
+  const sharedPacking =
+    opts._packingSharedRead instanceof Map ||
+    opts._packingSharedWrite instanceof Map;
+  if(
+    !sharedPacking &&
+    !/^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL||''))
+  )
     return base;
   return base+'#e'+(+opts.etapas||0)+'#m'+(opts.multiRebanada?1:0);
 }
@@ -596,14 +602,31 @@ function reasignar(res, pool){
 }
 
 function empacarPlaca(pool, opts, rnd){
-  // Solo se cachean los cortes deterministas; los que usan ruido no se repiten.
+  // Solo se cachean/reusan los cortes deterministas; los que usan ruido no se
+  // comparten porque su resultado depende del stream pseudoaleatorio.
   let clave=null;
-  if(!rnd && opts._cache){
+  const sharedRead=!rnd && opts._packingSharedRead instanceof Map ? opts._packingSharedRead : null;
+  const sharedWrite=!rnd && opts._packingSharedWrite instanceof Map ? opts._packingSharedWrite : null;
+  if(!rnd && (opts._cache || sharedRead || sharedWrite)){
     clave=clavePool(pool, opts);
-    const hit=opts._cache.get(clave);
-    if(hit){
-      const r=reasignar(hit, pool);
-      if(r){ opts._stats.hits++; return r; }
+
+    // Reuse cross-call seguro: el baseline escribe y MultiSlice lee. La clave
+    // V2 incluye profundidad y multiRebanada, por lo que solo una evaluación
+    // determinista semánticamente idéntica puede hacer hit.
+    if(sharedRead){
+      const hit=sharedRead.get(clave);
+      if(hit){
+        const r=reasignar(hit, pool);
+        if(r){ opts._stats.sharedHits++; return r; }
+      }
+    }
+
+    if(opts._cache){
+      const hit=opts._cache.get(clave);
+      if(hit){
+        const r=reasignar(hit, pool);
+        if(r){ opts._stats.hits++; return r; }
+      }
     }
   }
   const copia=pool.slice();
@@ -616,6 +639,7 @@ function empacarPlaca(pool, opts, rnd){
              area:colocadas.reduce((s,c)=>s+c.base*c.altura,0),
              areaResto:areaUtil(restos,opts)};
   if(clave && opts._cache){ opts._cache.set(clave, res); opts._stats.fallos++; }
+  if(clave && sharedWrite){ sharedWrite.set(clave, res); opts._stats.sharedWrites++; }
   return res;
 }
 
@@ -976,7 +1000,7 @@ function optimizar(lineas, config){
   // grandes armar la clave y reasignar piezas cuesta mas que recalcular.
   const cacheConviene = opts.usarCache!==undefined ? opts.usarCache : piezas.length<=opts.maxPiezasCache;  // ver nota: medido sin ganancia
   opts._cache = cacheConviene ? new Map() : null;
-  opts._stats={hits:0, fallos:0};   // objeto compartido: las copias de opts lo mutan igual
+  opts._stats={hits:0, fallos:0, sharedHits:0, sharedWrites:0};   // objeto compartido: las copias de opts lo mutan igual
 
   const anchoUtil=opts.placaBase-opts.refiladoX, altoUtil=opts.placaAltura-opts.refiladoY;
   if(!(anchoUtil>0 && altoUtil>0)) throw new Error('El refilado no puede superar la medida de la placa.');
@@ -1130,6 +1154,9 @@ function optimizar(lineas, config){
     cortes:mejor.placas.reduce((s,p)=>s+p.cortes.length,0),
     metrosSierra:mejor.placas.reduce((s,p)=>s+p.cortes.reduce((a,c)=>a+c.largo,0),0)/1000,
     cacheHits:opts._stats.hits, cacheFallos:opts._stats.fallos,
+    cacheSharedHits:opts._stats.sharedHits, cacheSharedWrites:opts._stats.sharedWrites,
+    cacheSharedEntries:(opts._packingSharedRead instanceof Map ? opts._packingSharedRead.size :
+                        opts._packingSharedWrite instanceof Map ? opts._packingSharedWrite.size : 0),
     sobrantes:sobrantes.length, m2Sobrantes:sobrantes.reduce((s,r)=>s+r.w*r.h,0)/1e6,
     mayorSobranteM2:calidadRemanente.mayor/1e6,
     segundoSobranteM2:calidadRemanente.segundo/1e6,
