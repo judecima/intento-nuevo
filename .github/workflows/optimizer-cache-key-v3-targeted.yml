@@ -1,0 +1,41 @@
+name: Optimizer Cache Key V3 Targeted Gate
+
+on:
+  push:
+    branches:
+      - research/multislice-cache-reuse-20260920
+    paths:
+      - "src/lib/optimizer/legacy/motor.cjs"
+      - "research/optimizer/cache-key-v3/**"
+      - ".github/workflows/optimizer-cache-key-v3-targeted.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run targeted V3 gate
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/cache-key-v3/cache-key-v3-targeted.cjs
+      - name: Upload targeted evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-cache-key-v3-targeted
+          path: research/optimizer/cache-key-v3/cache-key-v3-targeted-results.json
+          if-no-files-found: warn
+          retention-days: 30
