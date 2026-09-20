@@ -174,10 +174,10 @@ function report(){
   if(b.boards===a.boards&&compararCalidad(b.quality,a.quality)<0) remnantReg.push(p.file);
  }
  const A=latency(rows,"control"),B=latency(rows,"candidate");
- const skipped=rows.filter(r=>r.pieces<MIN_PIECES);
- const kept=rows.filter(r=>r.pieces>=MIN_PIECES);
+ const skipped=rows.filter(r=>r.pieces<MIN_PIECES || r.pieces>MAX_PIECES);
+ const kept=rows.filter(r=>r.pieces>=MIN_PIECES && r.pieces<=MAX_PIECES);
  const result={
-  schema:"optimizer-multislice-envelope200500-gate-v1",threshold:MIN_PIECES,
+  schema:"optimizer-multislice-envelope-200-500-v1",minPieces:MIN_PIECES,maxPieces:MAX_PIECES,
   historicalWins:{count:hist.length,allPreservedByEnvelope:hist.every(x=>x.pieces>=MIN_PIECES && x.pieces<=MAX_PIECES),wins:hist},
   cohort:{cases:rows.length,skippedCases:skipped.length,keptCases:kept.length},
   latency:{control:A,candidate:B,improvementPct:{total:red(A.totalMs,B.totalMs),avg:red(A.avgMs,B.avgMs),p50:red(A.p50Ms,B.p50Ms),p90:red(A.p90Ms,B.p90Ms),p95:red(A.p95Ms,B.p95Ms),p99:red(A.p99Ms,B.p99Ms),max:red(A.maxMs,B.maxMs)}},
