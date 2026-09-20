@@ -3,7 +3,7 @@ const crypto=require("node:crypto"),fs=require("node:fs"),path=require("node:pat
 const REPO=path.resolve(__dirname,"../../..");
 const CANONICAL=path.join(REPO,"experiencia/canonical_cases.json");
 const TARGETS=[["4059488__Cristian_Bernaldez4059488.xml",10],["4060962__Cristian Reynoso_Reynoso4060962.xml",74]];
-const MODES=["legacy","v2","v3","nocache"];
+const MODES=["legacy","v2","v3","v4","nocache"];
 
 process.env.OPTIMIZER_RUST_MASTER_ROUND_REUSE_EXPERIMENTAL="0";
 process.env.OPTIMIZER_POST_BASELINE_CHEAP_LB_EXPERIMENTAL="0";
@@ -25,7 +25,8 @@ function digest(plan,includeRef=true){const b=(plan?.placas??[]).map(x=>({p:(x.c
 function run(p,expected,mode){
  const {optimizarV10,nuevasMetricas,validarPlanIndustrial}=require(path.join(REPO,"src/lib/optimizer/legacy/v10.cjs"));
  process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL=mode==="v2"?"1":"0";
- process.env.OPTIMIZER_PACKING_CACHE_KEY_V3_EXPERIMENTAL=mode==="v3"?"1":"0";
+ process.env.OPTIMIZER_PACKING_CACHE_KEY_V3_EXPERIMENTAL=(mode==="v3"||mode==="v4")?"1":"0";
+ process.env.OPTIMIZER_PACKING_CACHE_REASSIGN_ORDERED_EXPERIMENTAL=mode==="v4"?"1":"0";
  const lines=p.pieces.map((x,i)=>({base:x.base,altura:x.altura,cant:x.cant,veta:Boolean(p.directional)&&Boolean(x.veta),ref:x.ref??i,detalle:x.detalle}));
  const cfg={placaBase:p.width,placaAltura:p.height,refiladoX:p.trimX,refiladoY:p.trimY,sierra:p.saw,etapas:4,materialConVeta:Boolean(p.directional),descontarCanto:false,cantoEspesor:0,restoMin:250,restoMax:400,usarOneBoard:true,usarMaster:true,usarMultiSlice:true,usarCompactacion:true,usarRustPatternGenerator:true,usarCache:mode!=="nocache",maxPiezasCache:mode!=="nocache"?160:0,rondasPatrones:40,msMaster:8000,usarCotaBarataPostCompactacion:true,usarDffFs0PostCompactacion:true,usarMascarasUnicasMasterLe4:true};
  const t0=process.hrtime.bigint();let res=null,err=null;try{res=optimizarV10(lines,cfg,nuevasMetricas());}catch(e){err=String(e?.stack||e?.message||e);}
@@ -37,11 +38,11 @@ for(let i=0;i<TARGETS.length;i++){
  const [file,pieces]=TARGETS[i],matches=(idx.get(ord(file))||[]).filter(e=>count(e)===pieces);
  if(matches.length!==1)throw new Error(file+" exact="+matches.length);
  const p=prob(matches[0],file),row={file,pieces};
- const perms=[["legacy","v2","v3","nocache"],["nocache","v3","v2","legacy"]];
+ const perms=[["legacy","v2","v3","v4","nocache"],["nocache","v4","v3","v2","legacy"]];
  for(const m of perms[i])row[m]=run(p,pieces,m);
  rows.push(row);
 }
-const out={rows,summary:rows.map(r=>({file:r.file,legacyEq:r.legacy.digest===r.nocache.digest,v2Eq:r.v2.digest===r.nocache.digest,v3Eq:r.v3.digest===r.nocache.digest,v3GeometryEq:r.v3.geometryDigest===r.nocache.geometryDigest,boards:[r.legacy.boards,r.v2.boards,r.v3.boards,r.nocache.boards],ms:[r.legacy.ms,r.v2.ms,r.v3.ms,r.nocache.ms],hits:[r.legacy.cacheHits,r.v2.cacheHits,r.v3.cacheHits]}))};
+const out={rows,summary:rows.map(r=>({file:r.file,legacyEq:r.legacy.digest===r.nocache.digest,v2Eq:r.v2.digest===r.nocache.digest,v3Eq:r.v3.digest===r.nocache.digest,v4Eq:r.v4.digest===r.nocache.digest,v3GeometryEq:r.v3.geometryDigest===r.nocache.geometryDigest,v4GeometryEq:r.v4.geometryDigest===r.nocache.geometryDigest,boards:[r.legacy.boards,r.v2.boards,r.v3.boards,r.v4.boards,r.nocache.boards],ms:[r.legacy.ms,r.v2.ms,r.v3.ms,r.v4.ms,r.nocache.ms],hits:[r.legacy.cacheHits,r.v2.cacheHits,r.v3.cacheHits,r.v4.cacheHits]}))};
 fs.writeFileSync(path.join(__dirname,"cache-key-v3-targeted-results.json"),JSON.stringify(out,null,2)+"\n");
 console.log("CACHE_KEY_V3_TARGETED "+JSON.stringify(out));
-if(rows.some(r=>!r.v3.ok||r.v3.digest!==r.nocache.digest||r.v3.boards!==r.nocache.boards))throw new Error("V3 targeted correctness failed");
+if(rows.some(r=>!r.v4.ok||r.v4.digest!==r.nocache.digest||r.v4.boards!==r.nocache.boards))throw new Error("V4 targeted correctness failed");
