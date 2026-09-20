@@ -639,7 +639,18 @@ function empacarPlaca(pool, opts, rnd){
              area:colocadas.reduce((s,c)=>s+c.base*c.altura,0),
              areaResto:areaUtil(restos,opts)};
   if(clave && opts._cache){ opts._cache.set(clave, res); opts._stats.fallos++; }
-  if(clave && sharedWrite){ sharedWrite.set(clave, res); opts._stats.sharedWrites++; }
+  if(clave && sharedWrite){
+    const minPool=Math.max(0,Math.floor(+opts._packingSharedMinPool||0));
+    const maxEntries=Math.max(0,Math.floor(+opts._packingSharedMaxEntries||0));
+    if(pool.length<minPool){
+      opts._stats.sharedSkippedSmall++;
+    }else if(maxEntries>0 && sharedWrite.size>=maxEntries && !sharedWrite.has(clave)){
+      opts._stats.sharedSkippedCapacity++;
+    }else{
+      sharedWrite.set(clave, res);
+      opts._stats.sharedWrites++;
+    }
+  }
   return res;
 }
 
@@ -1000,7 +1011,7 @@ function optimizar(lineas, config){
   // grandes armar la clave y reasignar piezas cuesta mas que recalcular.
   const cacheConviene = opts.usarCache!==undefined ? opts.usarCache : piezas.length<=opts.maxPiezasCache;  // ver nota: medido sin ganancia
   opts._cache = cacheConviene ? new Map() : null;
-  opts._stats={hits:0, fallos:0, sharedHits:0, sharedWrites:0};   // objeto compartido: las copias de opts lo mutan igual
+  opts._stats={hits:0, fallos:0, sharedHits:0, sharedWrites:0, sharedSkippedSmall:0, sharedSkippedCapacity:0};   // objeto compartido: las copias de opts lo mutan igual
 
   const anchoUtil=opts.placaBase-opts.refiladoX, altoUtil=opts.placaAltura-opts.refiladoY;
   if(!(anchoUtil>0 && altoUtil>0)) throw new Error('El refilado no puede superar la medida de la placa.');
@@ -1155,6 +1166,8 @@ function optimizar(lineas, config){
     metrosSierra:mejor.placas.reduce((s,p)=>s+p.cortes.reduce((a,c)=>a+c.largo,0),0)/1000,
     cacheHits:opts._stats.hits, cacheFallos:opts._stats.fallos,
     cacheSharedHits:opts._stats.sharedHits, cacheSharedWrites:opts._stats.sharedWrites,
+    cacheSharedSkippedSmall:opts._stats.sharedSkippedSmall,
+    cacheSharedSkippedCapacity:opts._stats.sharedSkippedCapacity,
     cacheSharedEntries:(opts._packingSharedRead instanceof Map ? opts._packingSharedRead.size :
                         opts._packingSharedWrite instanceof Map ? opts._packingSharedWrite.size : 0),
     sobrantes:sobrantes.length, m2Sobrantes:sobrantes.reduce((s,r)=>s+r.w*r.h,0)/1e6,
