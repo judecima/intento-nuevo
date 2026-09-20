@@ -497,7 +497,13 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   }
 
   // ---- multi-rebanada: plan alternativo completo
-  if (config.usarMultiSlice !== false) {
+  // Experimental conservative gate: skip MultiSlice only below a caller-supplied
+  // piece-count threshold. Default remains 0, preserving historical behavior.
+  const minPiezasMultiSliceRaw = Number(config.minPiezasMultiSliceExperimental);
+  const minPiezasMultiSlice = Number.isFinite(minPiezasMultiSliceRaw) && minPiezasMultiSliceRaw > 0
+    ? Math.floor(minPiezasMultiSliceRaw)
+    : 0;
+  if (config.usarMultiSlice !== false && piezasEsperadas >= minPiezasMultiSlice) {
     const t = Date.now();
     const alt = planMultiSlice(lineas, config);
     if (alt) probar('multislice', alt, Date.now() - t);
