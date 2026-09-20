@@ -576,12 +576,25 @@ function clavePool(pool, opts){
   const sharedPacking =
     opts._packingSharedRead instanceof Map ||
     opts._packingSharedWrite instanceof Map;
-  if(
-    !sharedPacking &&
-    !/^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL||''))
-  )
-    return base;
-  return base+'#e'+(+opts.etapas||0)+'#m'+(opts.multiRebanada?1:0);
+  const keyV3 =
+    sharedPacking ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_PACKING_CACHE_KEY_V3_EXPERIMENTAL||''));
+  const keyV2 =
+    keyV3 ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL||''));
+  if(!keyV2) return base;
+
+  let full=base+'#e'+(+opts.etapas||0)+'#m'+(opts.multiRebanada?1:0);
+
+  // V3: deterministic packing is not fully order-invariant. `llenar()` builds
+  // representatives in pool order and strict tie handling keeps the first
+  // equivalent candidate. Different passes can therefore have the same
+  // multiplicities but a different representative order. Include only the
+  // signature sequence (not object ids): equal-signature pieces remain
+  // interchangeable, while semantically different pass orders cannot collide.
+  if(keyV3) full+='#o'+pool.map(p=>p._sig).join('.');
+
+  return full;
 }
 
 /* Reasigna un corte cacheado a las piezas del pool actual. Las piezas de igual
