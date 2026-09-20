@@ -46,6 +46,7 @@ if (mode === "all") {
   for (const m of MODES) runChild(m);
   report();
 } else if (MODES.has(mode)) {
+  process.env.OPTIMIZER_PACKING_CACHE_KEY_V2_EXPERIMENTAL = mode === "v2" ? "1" : "0";
   runMode(mode);
 } else if (mode === "report") {
   report();
