@@ -1,0 +1,40 @@
+name: Optimizer p99 Tail Stage Ablation
+
+on:
+  push:
+    branches:
+      - research/p99-tail-ablation-20260920
+    paths:
+      - "research/optimizer/p99-tail/**"
+      - ".github/workflows/optimizer-p99-tail-ablation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p99-tail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run p99 exact-tail stage ablation
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/p99-tail/p99-tail-ablation.cjs all
+      - name: Upload p99 tail evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-p99-tail-ablation
+          path: research/optimizer/p99-tail/*.json
+          if-no-files-found: warn
+          retention-days: 30
