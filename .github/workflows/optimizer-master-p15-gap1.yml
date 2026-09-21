@@ -3,7 +3,7 @@ name: Optimizer Master P16 Gap1
 on:
   push:
     branches:
-      - research/master-p16-gap1-20260921
+      - research/master-p16-provenance-20260921
   workflow_dispatch:
 
 permissions:
