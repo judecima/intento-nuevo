@@ -1,10 +1,65 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering};
+use std::time::Instant;
 
 use napi::{Error, Result, Status};
 use napi_derive::napi;
 use serde::{Deserialize, Serialize};
 
 const EPS: f64 = 1e-9;
+
+static PROFILE_ENABLED: AtomicBool = AtomicBool::new(false);
+static PROFILE_PACK_CALLS: AtomicU64 = AtomicU64::new(0);
+static PROFILE_PACK_NANOS: AtomicU64 = AtomicU64::new(0);
+static PROFILE_CHOOSE_CALLS: AtomicU64 = AtomicU64::new(0);
+static PROFILE_CHOOSE_NANOS: AtomicU64 = AtomicU64::new(0);
+static PROFILE_CANDIDATE_EVALS: AtomicU64 = AtomicU64::new(0);
+static PROFILE_REPS_VISITED: AtomicU64 = AtomicU64::new(0);
+static PROFILE_FILL_CALLS: AtomicU64 = AtomicU64::new(0);
+
+fn profile_reset_counters() {
+    PROFILE_PACK_CALLS.store(0, AtomicOrdering::Relaxed);
+    PROFILE_PACK_NANOS.store(0, AtomicOrdering::Relaxed);
+    PROFILE_CHOOSE_CALLS.store(0, AtomicOrdering::Relaxed);
+    PROFILE_CHOOSE_NANOS.store(0, AtomicOrdering::Relaxed);
+    PROFILE_CANDIDATE_EVALS.store(0, AtomicOrdering::Relaxed);
+    PROFILE_REPS_VISITED.store(0, AtomicOrdering::Relaxed);
+    PROFILE_FILL_CALLS.store(0, AtomicOrdering::Relaxed);
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyPackerProfile {
+    pack_calls: u64,
+    pack_nanos: u64,
+    choose_calls: u64,
+    choose_nanos: u64,
+    candidate_evals: u64,
+    reps_visited: u64,
+    fill_calls: u64,
+}
+
+#[napi(js_name = "legacyPackerProfileReset")]
+pub fn legacy_packer_profile_reset(enabled: bool) {
+    PROFILE_ENABLED.store(false, AtomicOrdering::Relaxed);
+    profile_reset_counters();
+    PROFILE_ENABLED.store(enabled, AtomicOrdering::Relaxed);
+}
+
+#[napi(js_name = "legacyPackerProfileSnapshot")]
+pub fn legacy_packer_profile_snapshot() -> Result<String> {
+    let profile = LegacyPackerProfile {
+        pack_calls: PROFILE_PACK_CALLS.load(AtomicOrdering::Relaxed),
+        pack_nanos: PROFILE_PACK_NANOS.load(AtomicOrdering::Relaxed),
+        choose_calls: PROFILE_CHOOSE_CALLS.load(AtomicOrdering::Relaxed),
+        choose_nanos: PROFILE_CHOOSE_NANOS.load(AtomicOrdering::Relaxed),
+        candidate_evals: PROFILE_CANDIDATE_EVALS.load(AtomicOrdering::Relaxed),
+        reps_visited: PROFILE_REPS_VISITED.load(AtomicOrdering::Relaxed),
+        fill_calls: PROFILE_FILL_CALLS.load(AtomicOrdering::Relaxed),
+    };
+    serde_json::to_string(&profile)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize packer profile: {e}")))
+}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -318,6 +373,10 @@ fn choose(
     level: u32,
     scratch: &mut Scratch,
 ) -> Option<Candidate> {
+    let profiling = PROFILE_ENABLED.load(AtomicOrdering::Relaxed);
+    let profile_started = if profiling { Some(Instant::now()) } else { None };
+    let mut profile_candidate_evals = 0u64;
+
     let criterion = if !opts.criterios.is_empty() {
         &opts.criterios[usize::min(level.saturating_sub(1) as usize, opts.criterios.len() - 1)]
     } else {
@@ -335,6 +394,9 @@ fn choose(
     // representative can move behind another family. Sorting by the stable
     // original index exactly reproduces that legacy representative order.
     reps.sort_unstable();
+    if profiling {
+        PROFILE_REPS_VISITED.fetch_add(reps.len() as u64, AtomicOrdering::Relaxed);
+    }
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
@@ -351,6 +413,7 @@ fn choose(
         let piece = &pool.pieces[rep_index];
         let available = pool.counts[piece.sig];
         for orientation in piece.orientations() {
+            if profiling { profile_candidate_evals += 1; }
             let a = if en_x { orientation.base } else { orientation.altura };
             let b = if en_x { orientation.altura } else { orientation.base };
             if a > remaining + EPS || b > perp + EPS { continue; }
@@ -429,14 +492,33 @@ fn choose(
         }
     }
 
-    if top.is_empty() { return None; }
-    if let Some(rng) = rng.as_deref_mut() {
+    let result = if top.is_empty() {
+        None
+    } else if let Some(rng) = rng.as_deref_mut() {
         if top.len() >= 2 && rng.next() < opts.ruido {
-            if top.len() >= 3 && rng.next() < 0.5 { return Some(top[2].clone()); }
-            return Some(top[1].clone());
+            if top.len() >= 3 && rng.next() < 0.5 {
+                Some(top[2].clone())
+            } else {
+                Some(top[1].clone())
+            }
+        } else {
+            Some(top[0].clone())
+        }
+    } else {
+        Some(top[0].clone())
+    };
+
+    if profiling {
+        PROFILE_CHOOSE_CALLS.fetch_add(1, AtomicOrdering::Relaxed);
+        PROFILE_CANDIDATE_EVALS.fetch_add(profile_candidate_evals, AtomicOrdering::Relaxed);
+        if let Some(started) = profile_started {
+            PROFILE_CHOOSE_NANOS.fetch_add(
+                started.elapsed().as_nanos().min(u64::MAX as u128) as u64,
+                AtomicOrdering::Relaxed,
+            );
         }
     }
-    Some(top[0].clone())
+    result
 }
 
 fn used_thickness(block: Region, parent_axis: Axis, placed: &[Placed], from: usize) -> f64 {
@@ -546,6 +628,9 @@ fn fill(
     tree: &mut TreeNode,
     scratch: &mut Scratch,
 ) {
+    if PROFILE_ENABLED.load(AtomicOrdering::Relaxed) {
+        PROFILE_FILL_CALLS.fetch_add(1, AtomicOrdering::Relaxed);
+    }
     let perp = region.perp();
     let total = region.length();
     let mut pos = 0.0;
@@ -711,6 +796,8 @@ fn pack_template(
     opts: &PackOptions,
     random_seed: Option<u32>,
 ) -> std::result::Result<PackOutput, String> {
+    let profiling = PROFILE_ENABLED.load(AtomicOrdering::Relaxed);
+    let profile_started = if profiling { Some(Instant::now()) } else { None };
     if opts.ancho_util <= 0.0 || opts.alto_util <= 0.0 || opts.sierra < 0.0 || opts.etapas == 0 {
         return Err("invalid pack geometry".to_string());
     }
@@ -731,6 +818,15 @@ fn pack_template(
 
     let area = placed.iter().map(|item| item.base * item.altura).sum();
     let area_resto = rests.iter().filter(|rest| useful(rest, opts)).map(|rest| rest.w * rest.h).sum();
+    if profiling {
+        PROFILE_PACK_CALLS.fetch_add(1, AtomicOrdering::Relaxed);
+        if let Some(started) = profile_started {
+            PROFILE_PACK_NANOS.fetch_add(
+                started.elapsed().as_nanos().min(u64::MAX as u128) as u64,
+                AtomicOrdering::Relaxed,
+            );
+        }
+    }
     Ok(PackOutput { colocadas: placed, cortes: cuts, restos: rests, arbol: tree, area, area_resto })
 }
 
