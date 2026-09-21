@@ -25,22 +25,33 @@ process.env.OPTIMIZER_RUST_MASTER_ROUND_REUSE_EXPERIMENTAL = "0";
 process.env.OPTIMIZER_MASTER_UNIQUE_MASKS_LE4_EXPERIMENTAL = "1";
 delete process.env.OPTIMIZER_RUST_BEAM_DERIVED_METRICS_EXPERIMENTAL;
 
-const { generarPatronesLegacyRustHybrid } =
-  require(path.join(REPO, "src/lib/optimizer/legacy/rust/rust-patrones.cjs"));
-const { patronesMonotipo } =
-  require(path.join(REPO, "src/lib/optimizer/legacy/patrones.cjs"));
-const { resolverCobertura } =
-  require(path.join(REPO, "src/lib/optimizer/legacy/cobertura.cjs"));
-const { materializar } =
-  require(path.join(REPO, "src/lib/optimizer/legacy/materializar.cjs"));
-const { validarPlanIndustrial } =
-  require(path.join(REPO, "src/lib/optimizer/legacy/v10.cjs"));
-const { calidadPlanPlacas, compararCalidad } =
-  require(path.join(REPO, "src/lib/optimizer/legacy/motor.cjs"));
+let generarPatronesLegacyRustHybrid;
+let patronesMonotipo;
+let resolverCobertura;
+let materializar;
+let validarPlanIndustrial;
+let calidadPlanPlacas;
+let compararCalidad;
 
-if (MODE === "shard") shard();
-else if (MODE === "report") report();
-else throw new Error("mode must be shard|report");
+if (MODE === "shard") {
+  ({ generarPatronesLegacyRustHybrid } =
+    require(path.join(REPO, "src/lib/optimizer/legacy/rust/rust-patrones.cjs")));
+  ({ patronesMonotipo } =
+    require(path.join(REPO, "src/lib/optimizer/legacy/patrones.cjs")));
+  ({ resolverCobertura } =
+    require(path.join(REPO, "src/lib/optimizer/legacy/cobertura.cjs")));
+  ({ materializar } =
+    require(path.join(REPO, "src/lib/optimizer/legacy/materializar.cjs")));
+  ({ validarPlanIndustrial } =
+    require(path.join(REPO, "src/lib/optimizer/legacy/v10.cjs")));
+  ({ calidadPlanPlacas, compararCalidad } =
+    require(path.join(REPO, "src/lib/optimizer/legacy/motor.cjs")));
+  shard();
+} else if (MODE === "report") {
+  report();
+} else {
+  throw new Error("mode must be shard|report");
+}
 
 function loadCorpus() {
   const raw = JSON.parse(fs.readFileSync(CORPUS, "utf8"));
