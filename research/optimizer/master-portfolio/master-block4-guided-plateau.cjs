@@ -8,7 +8,7 @@ const ROOT=path.resolve(__dirname,"../../..");
 const CANONICAL=path.join(ROOT,"experiencia/canonical_cases.json");
 const MANIFEST=path.join(ROOT,"research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json");
 const OUT_DIR=path.join(ROOT,"research/optimizer/master-portfolio/out");
-const OUT=path.join(OUT_DIR,"MASTER_BLOCK4_GUIDED_PLATEAU_2026-09-21.json");
+const OUT=path.join(OUT_DIR,"MASTER_BLOCK4_CARRY_BEST_2026-09-21.json");
 
 const LEGACY=path.join(ROOT,"src/lib/optimizer/legacy");
 const {optimizarV10,nuevasMetricas,validarPlanIndustrial}=require(path.join(LEGACY,"v10.cjs"));
@@ -61,11 +61,12 @@ function toConfig(row){
     usarCompactacion:true,usarMultiSlice:true,usarOneBoard:true,usarMaster:false,rondasPatrones:40,msMaster:8000
   };
 }
-function solve(pool,lines,area,incumbent,isFinal){
+function solve(pool,lines,area,incumbent,isFinal,stopAtBoards=null){
   const t=performance.now();
   const h=resolverCobertura(pool,lines.map(l=>l.cant),area,incumbent,8000,{
     maxNodos:isFinal?FULL_NODES:PROBE_NODES,
     watchdogMs:isFinal?FULL_WATCHDOG_MS:PROBE_WATCHDOG_MS,
+    stopAtBoards,
   });
   const sol=h?h.resolver(lines.map(l=>l.base*l.altura)):null;
   return {sol,ms:performance.now()-t};
@@ -107,42 +108,62 @@ function run(row,h){
   const mono=patronesMonotipo(lines,config);
   const gen=createIncrementalRustMasterGenerator(lines,config,40,7);
   const checkpoints=[];
+  const preQuality=calidadPlanPlacas(prePlan.placas||[],prePlan.opts||config);
+  let best={boards:prePlan.resumen.placas,quality:preQuality,source:"pre"};
   let prev=0;
+  let firstLBSize=null;
+
   for(const size of CHECKPOINTS){
     const added=ORDER.slice(prev,size);
     const tg=performance.now();
     gen.execute(added);
     const patterns=gen.patterns(ORDER.slice(0,size));
     const generationDeltaMs=performance.now()-tg;
-    const isFinal=size===40;
-    const s=solve(patterns.concat(mono),lines,area,prePlan.resumen.placas,isFinal);
-    const mat=materializeSafe(s.sol,lines,prePlan,expected);
-    const boards=mat&&Number.isFinite(mat.boards)&&mat.boards<prePlan.resumen.placas?mat.boards:prePlan.resumen.placas;
-    const quality=mat&&boards===mat.boards?mat.quality:calidadPlanPlacas(prePlan.placas||[],prePlan.opts||config);
+    let s={sol:null,ms:0};
+    let improved=false;
+
+    if(best.boards>pre.cota){
+      s=solve(patterns.concat(mono),lines,area,best.boards,false,pre.cota);
+      const mat=materializeSafe(s.sol,lines,prePlan,expected);
+      if(mat&&Number.isFinite(mat.boards)&&mat.boards<best.boards){
+        best={boards:mat.boards,quality:mat.quality,source:size};
+        improved=true;
+      }
+    }
+    if(best.boards===pre.cota&&firstLBSize===null) firstLBSize=size;
+
     checkpoints.push({
-      size,added,boards,quality,reachesLB:boards===pre.cota&&boards<prePlan.resumen.placas,
+      size,added,boards:best.boards,quality:best.quality,improved,reachesLB:best.boards===pre.cota&&best.boards<prePlan.resumen.placas,
       generationDeltaMs,generationCpuMs:gen.generationCpuMs,patterns:patterns.length,
-      solveMs:s.ms,nodes:s.sol?.nodos??null,exhausted:s.sol?.agotado??null
+      solveMs:s.ms,nodes:s.sol?.nodos??null,exhausted:s.sol?.agotado??null,targetHit:s.sol?.objetivoAlcanzado??false
     });
     prev=size;
   }
-  const full=checkpoints[checkpoints.length-1];
+
+  const allPatterns=gen.patterns();
+  const fullSolve=solve(allPatterns.concat(mono),lines,area,prePlan.resumen.placas,true,null);
+  const fullMat=materializeSafe(fullSolve.sol,lines,prePlan,expected);
+  const fullRef=fullMat&&Number.isFinite(fullMat.boards)&&fullMat.boards<prePlan.resumen.placas
+    ? {boards:fullMat.boards,quality:fullMat.quality,generationCpuMs:gen.generationCpuMs,solveMs:fullSolve.ms,nodes:fullSolve.sol?.nodos??null}
+    : {boards:prePlan.resumen.placas,quality:preQuality,generationCpuMs:gen.generationCpuMs,solveMs:fullSolve.ms,nodes:fullSolve.sol?.nodos??null};
+
   const p1=firstPlateau(checkpoints,prePlan.resumen.placas,1);
   const p2=firstPlateau(checkpoints,prePlan.resumen.placas,2);
-  const lb=checkpoints.find(c=>c.reachesLB)||null;
+  const lb=firstLBSize!==null?checkpoints.find(c=>c.size===firstLBSize):null;
   const assess=c=>c?{
-    size:c.size,boards:c.boards,cmpVsFull:objectiveCmp(c,full),boardParity:c.boards===full.boards,
-    qualityCmpVsFull:c.boards===full.boards?compararCalidad(c.quality,full.quality):null,
+    size:c.size,boards:c.boards,cmpVsFull:objectiveCmp(c,fullRef),boardParity:c.boards===fullRef.boards,
+    qualityCmpVsFull:c.boards===fullRef.boards?compararCalidad(c.quality,fullRef.quality):null,
     generationCpuMs:c.generationCpuMs,
-    savedGenerationCpuPct:full.generationCpuMs?1-c.generationCpuMs/full.generationCpuMs:null
+    savedGenerationCpuPct:fullRef.generationCpuMs?1-c.generationCpuMs/fullRef.generationCpuMs:null
   }:null;
+
   return {
     order:h.order,pieces:features(row).pieceCount,typeCount:features(row).typeCount,
     gap:num(h.preMasterBoards)-num(h.lowerBound),historicalWin:Boolean(h.masterWin),
     historical:{preBoards:num(h.preMasterBoards),lowerBound:num(h.lowerBound),finalBoards:num(h.finalBoards)},
     preParity,preBoards:prePlan.resumen.placas,cota:pre.cota,
-    full40:{boards:full.boards,quality:full.quality,generationCpuMs:full.generationCpuMs,solveMs:full.solveMs},
-    firstImprovement:checkpoints.find(c=>c.boards<prePlan.resumen.placas)?.size??null,
+    full40:fullRef,
+    firstImprovement:checkpoints.find(c=>c.improved)?.size??null,
     firstLB:assess(lb),plateau1:assess(p1),plateau2:assess(p2),
     checkpoints
   };
@@ -173,7 +194,7 @@ function main(){
   const records=[];
   for(const {m,row} of chosen){
     const rec=run(row,m);records.push(rec);
-    console.log("GUIDED_CASE",JSON.stringify({
+    console.log("CARRY_CASE",JSON.stringify({
       order:rec.order,gap:rec.gap,preParity:rec.preParity,full40:rec.full40.boards,
       firstImprovement:rec.firstImprovement,firstLB:rec.firstLB?.size??null,
       plateau1:rec.plateau1&&{size:rec.plateau1.size,cmp:rec.plateau1.cmpVsFull,saved:rec.plateau1.savedGenerationCpuPct},
@@ -186,7 +207,7 @@ function main(){
   const p1=scored.filter(r=>r.plateau1);
   const p2=scored.filter(r=>r.plateau2);
   const summary={
-    schema:"master-block4-guided-plateau-v1",generatedAt:new Date().toISOString(),
+    schema:"master-block4-carry-best-v1",generatedAt:new Date().toISOString(),
     order:ORDER,checkpoints:CHECKPOINTS,
     counts:{
       eligible:eligible.length,chosen:records.length,scored:scored.length,unavailable:unavailable.length,
@@ -205,6 +226,6 @@ function main(){
   };
   fs.mkdirSync(OUT_DIR,{recursive:true});
   fs.writeFileSync(OUT,JSON.stringify(summary,null,2)+"\n");
-  console.log("GUIDED_SUMMARY",JSON.stringify({counts:summary.counts,averages:summary.averages}));
+  console.log("CARRY_SUMMARY",JSON.stringify({counts:summary.counts,averages:summary.averages}));
 }
 main();
