@@ -1,9 +1,9 @@
-name: Optimizer Master Core3 Gap1
+name: Optimizer Master Core3 Direct Full40
 
 on:
   push:
     branches:
-      - research/master-core3-gap1-20260921
+      - research/master-core3-direct-full40-20260921
   workflow_dispatch:
 
 permissions:
@@ -32,11 +32,11 @@ jobs:
       - run: npm run optimizer:rust:build
       - name: Syntax check
         run: node --check research/optimizer/master-portfolio/master-core3-gap1.cjs
-      - name: Run Core3 staged benchmark
+      - name: Run Core3 direct-full40 benchmark
         run: node research/optimizer/master-portfolio/master-core3-gap1.cjs
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: master-core3-gap1
-          path: research/optimizer/master-portfolio/out/MASTER_CORE3_GAP1_2026-09-21.json
+          path: research/optimizer/master-portfolio/out/MASTER_CORE3_DIRECT_FULL40_2026-09-21.json
