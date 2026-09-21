@@ -1,0 +1,119 @@
+name: Optimizer PerfV1 Master Win Freeze
+
+on:
+  push:
+    branches:
+      - research/perfv1-master-win-mining-20260921
+    paths:
+      - "research/optimizer/master-generation/master-win-freeze.cjs"
+      - ".github/workflows/optimizer-perfv1-master-win-freeze.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MINING_RUN_ID: "35662373127"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for mining report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for i in $(seq 1 100); do
+            status=$(gh api "repos/$GH_REPO/actions/runs/$MINING_RUN_ID" --jq '.status')
+            conclusion=$(gh api "repos/$GH_REPO/actions/runs/$MINING_RUN_ID" --jq '.conclusion // ""')
+            echo "mining status=$status conclusion=$conclusion"
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" != "success" ]; then
+                echo "Mining run did not succeed: $conclusion" >&2
+                exit 1
+              fi
+              break
+            fi
+            sleep 20
+          done
+          status=$(gh api "repos/$GH_REPO/actions/runs/$MINING_RUN_ID" --jq '.status')
+          [ "$status" = "completed" ] || { echo "Mining run did not complete in polling window" >&2; exit 1; }
+      - name: Download mining report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p research/optimizer/master-generation
+          gh run download "$MINING_RUN_ID"             --repo "$GH_REPO"             --name perfv1-master-win-mining-results             --dir research/optimizer/master-generation
+          test -f research/optimizer/master-generation/master-win-mining-results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perfv1-master-win-freeze-input
+          path: research/optimizer/master-generation/master-win-mining-results.json
+          if-no-files-found: error
+          retention-days: 30
+
+  freeze:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Check freeze syntax
+        run: node --check research/optimizer/master-generation/master-win-freeze.cjs
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - uses: actions/download-artifact@v4
+        with:
+          name: perfv1-master-win-freeze-input
+          path: research/optimizer/master-generation
+      - name: Reproduce Full40 references twice
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 8
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/master-win-freeze.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perfv1-master-win-freeze-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/master-win-freeze-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: perfv1-master-win-freeze-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build frozen manifest
+        env:
+          SHARD_TOTAL: 8
+        run: node research/optimizer/master-generation/master-win-freeze.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perfv1-master-win-frozen-manifest
+          path: research/optimizer/master-generation/master-win-frozen-manifest.json
+          if-no-files-found: error
+          retention-days: 30
