@@ -12,6 +12,10 @@ const MANIFEST_PATH = path.join(
 const OUT_DIR = path.join(ROOT, "research/optimizer/master-portfolio/out");
 const SUMMARY_PATH = path.join(OUT_DIR, "MASTER_GATE_CRIBA_V1_2026-09-21.json");
 const CSV_PATH = path.join(OUT_DIR, "MASTER_GATE_CRIBA_V1_FEATURES_2026-09-21.csv");
+const WINNER_4056900_FIXTURE = path.join(
+  ROOT,
+  "research/optimizer/pattern-generators/guide-slice/INDUSTRIAL_PORTFOLIO_4056900_CHECKPOINT_2026-09-14.json",
+);
 
 function basename(value) {
   return typeof value === "string" ? value.replaceAll("\\", "/").split("/").pop() : null;
@@ -118,7 +122,7 @@ function unwrap(entry) {
 }
 
 function qty(piece) {
-  for (const key of ["quantity", "qty", "count", "num", "q", "qMin"]) {
+  for (const key of ["quantity", "qty", "count", "cant", "num", "q", "qMin"]) {
     const n = asNumber(piece?.[key]);
     if (n != null && n > 0) return n;
   }
@@ -134,18 +138,27 @@ function height(piece) {
 }
 
 function grainBlock(row, canonical, pieces) {
-  const directional =
-    row?.directional_input ??
-    row?.directional ??
-    row?.has_grain ??
-    row?.hasGrain ??
-    canonical?.directional_input;
-  if (directional != null) return boolTrue(directional);
+  const format = String(row?.source_format ?? row?.sourceFormat ?? "").toLowerCase();
 
-  const materialHasGrain = boolTrue(canonical?.material?.hasGrain);
+  // Project XML does not declare per-piece grain. "directional" on canonical_cases
+  // is material inference and must not be treated as a hard rotation constraint.
+  if (format === "project") return false;
+
+  const xmlPieceGrain = pieces.some((p) =>
+    boolTrue(p?.xmlPartGrain) ||
+    boolTrue(p?.rawGrain) ||
+    boolTrue(p?.grain)
+  );
   const explicitNoRotate = pieces.some((p) => p?.rotationAllowed === false || p?.canRotate === false);
-  const explicitGrain = pieces.some((p) => boolTrue(p?.grain));
-  return explicitNoRotate || (materialHasGrain && explicitGrain);
+  if (xmlPieceGrain || explicitNoRotate) return true;
+
+  if (format === "order") {
+    // For Order, directional=true is meaningful only as a fallback when piece-level
+    // evidence was not preserved in the snapshot.
+    const directional = row?.directional_input ?? row?.directional;
+    return directional != null ? boolTrue(directional) : false;
+  }
+  return false;
 }
 
 function geometryFeatures(entry) {
@@ -211,17 +224,24 @@ function geometryFeatures(entry) {
 
   const rotatableCount = pieces.reduce((s, p, i) => {
     const allowed = p?.rotationAllowed ?? p?.canRotate;
-    return s + (allowed === false ? 0 : quantities[i]);
+    const pieceGrain = boolTrue(p?.xmlPartGrain) || boolTrue(p?.rawGrain) || boolTrue(p?.grain);
+    return s + (allowed === false || pieceGrain ? 0 : quantities[i]);
   }, 0);
 
-  const panelW = asNumber(canonical?.panel?.width ?? canonical?.board?.width, 0);
-  const panelH = asNumber(canonical?.panel?.height ?? canonical?.board?.height, 0);
+  const panelW = asNumber(
+    row?.stock_width ?? row?.stockWidth ?? canonical?.panel?.width ?? canonical?.board?.width,
+    0,
+  );
+  const panelH = asNumber(
+    row?.stock_height ?? row?.stockHeight ?? canonical?.panel?.height ?? canonical?.board?.height,
+    0,
+  );
   const panelArea = panelW * panelH;
 
   return {
     file,
     order: orderNumber(file),
-    source: canonical?.source ?? null,
+    source: row?.source_format ?? row?.sourceFormat ?? canonical?.source ?? null,
     panelW,
     panelH,
     panelArea,
@@ -246,6 +266,51 @@ function geometryFeatures(entry) {
       canonical?.material?.hasGrain === true,
     totalArea,
     areaPerPieceMean: pieceCount ? totalArea / pieceCount : 0,
+  };
+}
+
+function frozen4056900Feature(manifestCases) {
+  if (!fs.existsSync(WINNER_4056900_FIXTURE)) return null;
+  const manifest = manifestCases.find((m) => m.order === 4056900 && m.masterWin);
+  if (!manifest) return null;
+
+  const checkpoint = JSON.parse(fs.readFileSync(WINNER_4056900_FIXTURE, "utf8"));
+  const source = checkpoint?.source;
+  if (!source?.lines?.length) return null;
+
+  const pseudo = {
+    key: "frozen-4056900",
+    value: {
+      case_id: source.file?.replace(/\.xml$/i, "") ?? "4056900",
+      source_path: source.file,
+      source_format: source.format ?? "project",
+      stock_width: source.board?.width,
+      stock_height: source.board?.height,
+      saw: source.board?.kerf,
+      directional: false,
+      pieces: source.lines.map((line) => ({
+        base: line.width,
+        altura: line.height,
+        cant: line.quantity,
+      })),
+      piece_count: source.pieceQuantity,
+      piece_types: source.pieceTypes,
+    },
+  };
+
+  return {
+    ...geometryFeatures(pseudo),
+    finalBoards: manifest.finalBoards,
+    lowerBound: manifest.lowerBound,
+    preMasterBoards: manifest.preMasterBoards,
+    gapPreMaster: manifest.preMasterBoards - manifest.lowerBound,
+    masterWin: true,
+    boardsSaved: manifest.boardsSaved ?? 0,
+    generationMs: manifest.generationMs ?? 0,
+    monotypeMs: manifest.monotypeMs ?? 0,
+    solveMs: manifest.solveMs ?? 0,
+    frozenSupplemental: true,
+    frozenSource: path.relative(ROOT, WINNER_4056900_FIXTURE),
   };
 }
 
@@ -559,9 +624,16 @@ function main() {
   console.log("KNOWN_FEATURES " + JSON.stringify(knownFeatures));
   console.log("KNOWN_MANIFEST " + JSON.stringify(knownManifest));
   const matched = matchCanonical(allCanonical, manifest.cases ?? []);
-  console.log("MATCH_COUNTS " + JSON.stringify({ exact: matched.exact.length, mismatch: matched.mismatch.length }));
+  const frozen4056900 = frozen4056900Feature(manifest.cases ?? []);
+  const labeled = frozen4056900 ? [...matched.exact, frozen4056900] : matched.exact.slice();
+  console.log("MATCH_COUNTS " + JSON.stringify({
+    exact: matched.exact.length,
+    mismatch: matched.mismatch.length,
+    frozenSupplemental: frozen4056900 ? 1 : 0,
+  }));
+  console.log("FROZEN_4056900 " + JSON.stringify(frozen4056900));
   console.log("MISMATCH_HEAD " + JSON.stringify(matched.mismatch.slice(0, 8)));
-  const gap1 = matched.exact.filter((r) => r.gapPreMaster === 1);
+  const gap1 = labeled.filter((r) => r.gapPreMaster === 1);
 
   const seed = (r) => r.multiplicityMean >= 4.75 && !r.grainBlocking;
   const seedMetrics = metrics(gap1, seed);
@@ -586,8 +658,9 @@ function main() {
       discoveredRecords: discovered.length,
       usableCanonicalCases: allCanonical.length,
       exactManifestMatches: matched.exact.length,
+      frozenSupplemental: frozen4056900 ? 1 : 0,
       mismatches: matched.mismatch.length,
-      gap1Exact: gap1.length,
+      gap1Labeled: gap1.length,
       gap1Winners: winners.length,
       gap1NonWinners: negatives.length,
     },
