@@ -1,0 +1,67 @@
+name: Optimizer Master40 Simple Choose E2E
+
+on:
+  push:
+    branches:
+      - research/master40-simple-choose-20260921
+    paths:
+      - "native/optimizer-pattern-generator/src/legacy_packer.rs"
+      - "research/optimizer/master-generation/simple-choose-e2e.cjs"
+      - ".github/workflows/optimizer-master40-simple-choose-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11]
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run simple-choose E2E shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 12
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/simple-choose-e2e.cjs shard
+      - name: Upload shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: master40-simple-choose-e2e-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/simple-choose-e2e-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: master40-simple-choose-e2e-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build report
+        run: node research/optimizer/master-generation/simple-choose-e2e.cjs report
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-master40-simple-choose-e2e
+          path: research/optimizer/master-generation/simple-choose-e2e-results.json
+          if-no-files-found: error
+          retention-days: 30
