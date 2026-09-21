@@ -1,6 +1,6 @@
 "use strict";
 const path = require("node:path");
-const { optimizarLegacyHybrid } = require("./rust-hybrid.cjs");
+const { optimizarLegacyHybrid, generarMaster40LargeContext } = require("./rust-hybrid.cjs");
 const addonPath = path.join(
   __dirname,
   "../../../../../native/optimizer-pattern-generator/optimizer_pattern_generator.node",
@@ -185,6 +185,40 @@ function getMasterRoundGroup(key) {
 }
 
 function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
+  const contextRequested =
+    rondas === 40 &&
+    semilla === 7 &&
+    (
+      O?.usarMaster40ContextRust === true ||
+      /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_MASTER40_CONTEXT_EXPERIMENTAL || ""))
+    );
+  const reuseWouldApply = masterRoundReuseEnabled(lineas, O, rondas, semilla);
+
+  if (contextRequested && !reuseWouldApply) {
+    const uniqueMasks = usarMascarasUnicasLe4(lineas, O, rondas, semilla);
+    const context = generarMaster40LargeContext(lineas, O, rondas, semilla, uniqueMasks);
+    if (O && typeof O === "object") {
+      O._rustMaster40Context = {
+        enabled: true,
+        eligible: Boolean(context?.eligible),
+        totalRounds: context?.totalRounds ?? rondas,
+        executedRounds: context?.executedRounds ?? 0,
+        skippedDuplicateRounds: context?.skippedDuplicateRounds ?? 0,
+        failedRounds: context?.failedRounds ?? 0,
+      };
+      if (uniqueMasks && context?.eligible) {
+        O._patternMaskPolicy = {
+          policy: "first-unique-mask-le4",
+          typeCount: lineas.length,
+          totalRounds: context.totalRounds,
+          executedRounds: context.executedRounds,
+          skippedDuplicateRounds: context.skippedDuplicateRounds,
+        };
+      }
+    }
+    if (context?.eligible) return context.patterns;
+  }
+
   const schedule = legacyRoundSubsets(lineas.length, rondas, semilla);
   const conRef = lineas.map((linea, index) => ({ ...linea, ref: index, _refOriginal: linea.ref }));
   const boards = [];
