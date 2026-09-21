@@ -1,0 +1,31 @@
+name: Optimizer GapGT1 Hybrid Lower Bound
+
+on:
+  push:
+    branches:
+      - research/master-block4-checkpoints-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-gapgt1-hybrid-lb.cjs
+      - name: Evaluate stronger lower bounds
+        run: node research/optimizer/master-portfolio/master-gapgt1-hybrid-lb.cjs
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-gapgt1-hybrid-lb
+          path: research/optimizer/master-portfolio/out/MASTER_GAPGT1_HYBRID_LB_2026-09-21.json
