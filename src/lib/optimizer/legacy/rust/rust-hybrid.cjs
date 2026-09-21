@@ -3,6 +3,8 @@ const {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  packBoardLegacyRustBeamCandidatesLite,
+  packBoardLegacyRustCore,
 } = require("./rust-packer.cjs");
 
 const {
@@ -79,6 +81,78 @@ function packBeamCandidates(pool, opts, configs, pass, board) {
   );
 }
 
+function packBeamCandidatesLite(pool, opts, configs, pass, board) {
+  return packBoardLegacyRustBeamCandidatesLite(
+    pool,
+    buildRequests(opts, configs, pass, board),
+    opts.beamWidth,
+  );
+}
+
+function calidadLite(raw) {
+  return {
+    mayor: +raw?.largest || 0,
+    segundo: +raw?.second || 0,
+    fragmentos: +raw?.fragments || 0,
+    total: +raw?.total || 0,
+  };
+}
+
+function combinarCalidadLite(a, b) {
+  const top = [a.mayor, a.segundo, b.mayor, b.segundo].sort((x, y) => y - x);
+  return {
+    mayor: top[0] || 0,
+    segundo: top[1] || 0,
+    fragmentos: a.fragmentos + b.fragmentos,
+    total: a.total + b.total,
+  };
+}
+
+const CALIDAD_VACIA = Object.freeze({ mayor: 0, segundo: 0, fragmentos: 0, total: 0 });
+
+function generateBoardCandidatesLite(pool, opts, configs, pass, boardIndex) {
+  const selected = packBeamCandidatesLite(pool, opts, configs, pass, boardIndex);
+  const boardArea = opts.anchoUtil * opts.altoUtil;
+  const candidates = selected.map((result) => {
+    const used = new Set(result.usedIds);
+    return {
+      requestIndex: result.requestIndex,
+      usedIds: result.usedIds,
+      area: result.area,
+      areaResto: result.areaResto,
+      quality: calidadLite(result.quality),
+      restante: pool.filter((piece) => !used.has(piece.id)),
+      lbAdicional: Math.ceil(Math.max(0, result.pendingArea) / boardArea),
+    };
+  });
+
+  // Same JS oracle as the full path. Native lite output already carries the
+  // canonical usage-signature tie-break, and Array#sort is stable for ties.
+  candidates.sort((a, b) => {
+    const primary = a.lbAdicional - b.lbAdicional || b.area - a.area;
+    if (primary) return primary;
+    return -compararCalidad(a.quality, b.quality);
+  });
+  return candidates.slice(0, Math.max(opts.beamWidth * 3, opts.beamWidth));
+}
+
+function materializeBeamRecipes(recipes, opts, configs, pass) {
+  return recipes.map((recipe) => {
+    const requests = buildRequests(opts, configs, pass, recipe.boardIndex);
+    const request = requests[recipe.requestIndex];
+    if (!request) throw new Error("Lean Beam recipe request is out of range.");
+    const full = packBoardLegacyRustCore(recipe.pool, request.opts, request.randomSeed);
+    const actual = full.colocadas.map((placement) => placement.pieza.id).sort((a, b) => a - b);
+    if (
+      actual.length !== recipe.usedIds.length ||
+      actual.some((id, index) => id !== recipe.usedIds[index])
+    ) {
+      throw new Error("Lean Beam materialization diverged from the selected candidate.");
+    }
+    return toBoard(full, opts);
+  });
+}
+
 function armGreedy(pieces, opts, configs, pass) {
   let pool = pieces.slice();
   const boards = [];
@@ -120,6 +194,102 @@ function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
     );
   });
   return candidates.slice(0, Math.max(opts.beamWidth * 3, opts.beamWidth));
+}
+
+function armBeamLean(pieces, opts, configs, pass) {
+  const started = Date.now();
+  const rawMax = Number(opts.maxExpansionesBeam);
+  const maxExpansions = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : null;
+  const deterministic = maxExpansions !== null;
+  const rawWatchdog = Number(opts.watchdogBeamMs);
+  const watchdogMs = Number.isFinite(rawWatchdog) && rawWatchdog > 0 ? rawWatchdog : null;
+  let expansions = 0;
+  let beam = [{
+    pool: pieces.slice(),
+    recipes: [],
+    quality: CALIDAD_VACIA,
+    count: 0,
+    lowerBound: 0,
+  }];
+  let completed = [];
+  let guard = 0;
+
+  beamLoop:
+  while (beam.length && guard++ < 300) {
+    if (!deterministic && Date.now() - started > opts.presupuestoBeamMs) break;
+    if (deterministic && watchdogMs !== null && Date.now() - started > watchdogMs) break;
+    const next = [];
+
+    for (const state of beam) {
+      if (!state.pool.length) {
+        completed.push(state);
+        continue;
+      }
+      const candidates = generateBoardCandidatesLite(
+        state.pool,
+        opts,
+        configs,
+        pass,
+        state.count,
+      );
+      if (!candidates.length) continue;
+
+      for (const candidate of candidates) {
+        if (deterministic && watchdogMs !== null && Date.now() - started > watchdogMs) break beamLoop;
+        if (deterministic && expansions >= maxExpansions) break beamLoop;
+        expansions++;
+
+        const nextCount = state.count + 1;
+        next.push({
+          pool: candidate.restante,
+          recipes: state.recipes.concat({
+            pool: state.pool,
+            boardIndex: state.count,
+            requestIndex: candidate.requestIndex,
+            usedIds: candidate.usedIds,
+          }),
+          quality: combinarCalidadLite(state.quality, candidate.quality),
+          count: nextCount,
+          lowerBound: nextCount + candidate.lbAdicional,
+        });
+      }
+    }
+
+    if (completed.length) {
+      const bestComplete = Math.min(...completed.map((state) => state.count));
+      for (let index = next.length - 1; index >= 0; index--) {
+        if (next[index].lowerBound > bestComplete) next.splice(index, 1);
+      }
+    }
+
+    next.sort((a, b) => {
+      const primary = a.lowerBound - b.lowerBound || a.pool.length - b.pool.length;
+      if (primary) return primary;
+      return -compararCalidad(a.quality, b.quality);
+    });
+
+    const unique = [];
+    const signatures = new Set();
+    for (const state of next) {
+      const signature = state.pool.map((piece) => piece.id).sort((a, b) => a - b).join(",");
+      if (signatures.has(signature)) continue;
+      signatures.add(signature);
+      unique.push(state);
+      if (unique.length >= opts.beamWidth) break;
+    }
+    beam = unique;
+  }
+
+  completed = completed.concat(beam.filter((state) => !state.pool.length));
+  if (!completed.length) throw new Error("No se pudo completar el plan con Lean Beam Search.");
+
+  completed.sort((a, b) => {
+    const boardDelta = a.count - b.count;
+    if (boardDelta) return boardDelta;
+    return -compararCalidad(a.quality, b.quality);
+  });
+
+  return materializeBeamRecipes(completed[0].recipes, opts, configs, pass);
 }
 
 function armBeam(pieces, opts, configs, pass) {
@@ -234,7 +404,12 @@ function armBoards(pieces, opts, configs, pass) {
 
   let beam = null;
   try {
-    beam = armBeam(pieces, opts, configs, pass);
+    const leanBeam =
+      opts.usarLeanBeam === true ||
+      /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_LEAN_BEAM_EXPERIMENTAL || ""));
+    beam = leanBeam
+      ? armBeamLean(pieces, opts, configs, pass)
+      : armBeam(pieces, opts, configs, pass);
   } catch {
     beam = null;
   }
