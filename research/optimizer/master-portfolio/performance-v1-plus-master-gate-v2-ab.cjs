@@ -248,8 +248,10 @@ function main() {
   const sum = (xs, fn) => xs.reduce((s, x) => s + (fn(x) || 0), 0);
   const baselineRejectMs = sum(rejects, r => r.baseline.wallMs);
   const candidateRejectMs = sum(rejects, r => r.candidate.wallMs);
-  const rejectMasterSkipped = rejects.filter(r =>
-    (r.baseline.master?.activaciones || 0) > 0 &&
+  const baselineMasterActiveRejects = rejects.filter(r =>
+    (r.baseline.master?.activaciones || 0) > 0
+  );
+  const rejectMasterSkipped = baselineMasterActiveRejects.filter(r =>
     (r.candidate.master?.activaciones || 0) === 0 &&
     (r.candidate.masterGateV2?.skipped || 0) > 0
   );
@@ -285,6 +287,7 @@ function main() {
       controlObjectiveParity: controls.filter(r => r.objectiveParity).length,
       rejectDigestParity: rejects.filter(r => r.digestParity).length,
       controlDigestParity: controls.filter(r => r.digestParity).length,
+      baselineMasterActiveRejects: baselineMasterActiveRejects.length,
       rejectMasterSkipped: rejectMasterSkipped.length,
       controlsAllowed: controlsAllowed.length,
     },
@@ -299,7 +302,8 @@ function main() {
       rejects.every(r => r.objectiveParity) &&
       controls.length === 3 &&
       controls.every(r => r.objectiveParity) &&
-      rejectMasterSkipped.length === rejects.length &&
+      baselineMasterActiveRejects.length >= 6 &&
+      rejectMasterSkipped.length === baselineMasterActiveRejects.length &&
       controlsAllowed.length === controls.length,
     records,
   };
