@@ -85,6 +85,7 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
   const candidates = [];
   const executed = new Set();
   const perRound = new Map();
+  const perRoundCpuMs = new Map();
   let generationCpuMs = 0;
 
   function execute(rounds) {
@@ -108,7 +109,9 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
           { ...O, semilla: 1000 + round, pases: 2 },
         );
         const cpu = process.cpuUsage(started);
-        generationCpuMs += (cpu.user + cpu.system) / 1000;
+        const roundCpuMs = (cpu.user + cpu.system) / 1000;
+        generationCpuMs += roundCpuMs;
+        perRoundCpuMs.set(round, (perRoundCpuMs.get(round) || 0) + roundCpuMs);
 
         let boardOrdinal = 0;
         for (const board of result.placas ?? []) {
@@ -122,7 +125,9 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
         }
       } catch (error) {
         const cpu = process.cpuUsage(started);
-        generationCpuMs += (cpu.user + cpu.system) / 1000;
+        const roundCpuMs = (cpu.user + cpu.system) / 1000;
+        generationCpuMs += roundCpuMs;
+        perRoundCpuMs.set(round, (perRoundCpuMs.get(round) || 0) + roundCpuMs);
         if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
       }
     }
@@ -186,6 +191,7 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
         maskSize: schedule[round]?.length ?? 0,
         rawBoards: perRound.get(round)?.length ?? 0,
         dedupPatterns: dedupByRound.get(round) || 0,
+        cpuMs: perRoundCpuMs.get(round) || 0,
       });
     }
     return out;
