@@ -999,6 +999,19 @@ fn run_greedy_plan_internal(
         return Err("greedy plan requires configs".to_string());
     }
 
+    let reuse_prepared_pool = std::env::var("OPTIMIZER_RUST_PREPARED_POOL_EXPERIMENTAL")
+        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+        && configs
+            .iter()
+            .all(|config| config.options.material_con_veta == configs[0].options.material_con_veta);
+
+    let mut prepared_pool = if reuse_prepared_pool {
+        Some(prepare_pieces(&inputs, configs[0].options.material_con_veta))
+    } else {
+        None
+    };
+
     let mut boards: Vec<PackOutput> = Vec::new();
     let mut guard = 0u32;
 
@@ -1012,11 +1025,18 @@ fn run_greedy_plan_internal(
             restarts_per_board,
         );
         let quality_opts = &requests[0].options;
-        let template = common_template(&inputs, &requests);
+        let template = if reuse_prepared_pool {
+            None
+        } else {
+            common_template(&inputs, &requests)
+        };
         let mut outputs: Vec<PackOutput> = Vec::with_capacity(requests.len());
 
         for request in &requests {
-            let output = pack_request(&inputs, template.as_deref(), request)?;
+            let output = match prepared_pool.as_deref() {
+                Some(prepared) => pack_template(prepared, &request.options, request.random_seed)?,
+                None => pack_request(&inputs, template.as_deref(), request)?,
+            };
             if !output.colocadas.is_empty() {
                 outputs.push(output);
             }
@@ -1075,8 +1095,16 @@ fn run_greedy_plan_internal(
         let used: HashSet<u32> = selected.colocadas.iter().map(|p| p.id).collect();
         let before = inputs.len();
         inputs.retain(|piece| !used.contains(&piece.id));
+        if let Some(prepared) = prepared_pool.as_mut() {
+            prepared.retain(|piece| !used.contains(&piece.id));
+        }
         if inputs.len() >= before {
             return Err("Greedy plan no consumio piezas.".to_string());
+        }
+        if let Some(prepared) = prepared_pool.as_ref() {
+            if prepared.len() != inputs.len() {
+                return Err("Prepared pool diverged from greedy input pool.".to_string());
+            }
         }
 
         boards.push(selected);
