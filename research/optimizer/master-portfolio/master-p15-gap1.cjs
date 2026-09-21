@@ -9,7 +9,7 @@ const CANONICAL_PATH = path.join(ROOT, "experiencia/canonical_cases.json");
 const MANIFEST_PATH = path.join(ROOT, "research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json");
 const FIXTURE_4056900 = path.join(ROOT, "research/optimizer/pattern-generators/guide-slice/INDUSTRIAL_PORTFOLIO_4056900_CHECKPOINT_2026-09-14.json");
 const OUT_DIR = path.join(ROOT, "research/optimizer/master-portfolio/out");
-const OUT_PATH = path.join(OUT_DIR, "MASTER_P15_GAP1_2026-09-21.json");
+const OUT_PATH = path.join(OUT_DIR, "MASTER_P16_GAP1_2026-09-21.json");
 
 const LEGACY = path.join(ROOT, "src/lib/optimizer/legacy");
 const { optimizarV10, nuevasMetricas, validarPlanIndustrial } = require(path.join(LEGACY, "v10.cjs"));
@@ -20,15 +20,15 @@ const { calidadPlanPlacas, compararCalidad } = require(path.join(LEGACY, "motor.
 const { defragmentarPlanPorPlaca } = require(path.join(ROOT, "src/lib/optimizer/experimental/per-board-remnant-defrag.cjs"));
 const { createIncrementalRustMasterGenerator } = require("./incremental-rust-master.cjs");
 
-const P15 = Object.freeze([0,2,6,10,12,13,16,17,18,19,21,22,25,34,36]);
+const P16 = Object.freeze([0,2,6,10,12,13,16,17,18,19,20,21,22,25,34,36]);
 const THRESHOLD = Number(process.env.MASTER_GATE_MULT || 4.75);
-const MAX_CASES = Number(process.env.P15_MAX_CASES || 24);
-const MAX_PIECES = Number(process.env.P15_MAX_PIECES || 180);
-const FULL_MS = Number(process.env.P15_FULL_MS || 8000);
-const EARLY_NODES = Number(process.env.P15_EARLY_NODES || 200000);
-const EARLY_WATCHDOG_MS = Number(process.env.P15_EARLY_WATCHDOG_MS || 1500);
-const FULL_NODES = Number(process.env.P15_FULL_NODES || 1600000);
-const FULL_WATCHDOG_MS = Number(process.env.P15_FULL_WATCHDOG_MS || 12000);
+const MAX_CASES = Number(process.env.P16_MAX_CASES || 24);
+const MAX_PIECES = Number(process.env.P16_MAX_PIECES || 180);
+const FULL_MS = Number(process.env.P16_FULL_MS || 8000);
+const EARLY_NODES = Number(process.env.P16_EARLY_NODES || 200000);
+const EARLY_WATCHDOG_MS = Number(process.env.P16_EARLY_WATCHDOG_MS || 1500);
+const FULL_NODES = Number(process.env.P16_FULL_NODES || 1600000);
+const FULL_WATCHDOG_MS = Number(process.env.P16_FULL_WATCHDOG_MS || 12000);
 
 function num(v, fallback = 0) {
   const n = Number(v);
@@ -192,11 +192,11 @@ function runStaged(row) {
   const monoMs=performance.now()-monoStart;
 
   const gen=createIncrementalRustMasterGenerator(lines,config,40,7);
-  const p15Start=performance.now();
-  gen.execute(P15);
-  const p15Patterns=gen.patterns(P15);
-  const p15GenerationWallMs=performance.now()-p15Start;
-  const early=solve(p15Patterns.concat(mono),lines,area,prePlan.resumen.placas,EARLY_NODES,EARLY_WATCHDOG_MS);
+  const p16Start=performance.now();
+  gen.execute(P16);
+  const p16Patterns=gen.patterns(P16);
+  const p16GenerationWallMs=performance.now()-p16Start;
+  const early=solve(p16Patterns.concat(mono),lines,area,prePlan.resumen.placas,EARLY_NODES,EARLY_WATCHDOG_MS);
   const earlyMaster=materialize(early.sol,lines,prePlan,expected);
   const certifiedEarly=Boolean(
     earlyMaster.valid &&
@@ -216,9 +216,9 @@ function runStaged(row) {
     const finalPlan=polishedValid?.ok ? polishedPlan : earlyMaster.plan;
     return {
       preMs, preBoards:prePlan.resumen.placas, cota:pre.cota,
-      stoppedEarly:true, executedRounds:P15.length,
-      p15Patterns:p15Patterns.length, monotypes:mono.length, monoMs,
-      p15GenerationWallMs, generationCpuMs:gen.generationCpuMs,
+      stoppedEarly:true, executedRounds:P16.length,
+      p16Patterns:p16Patterns.length, monotypes:mono.length, monoMs,
+      p16GenerationWallMs, generationCpuMs:gen.generationCpuMs,
       earlySolveMs:early.solveMs, earlyNodes:early.sol?.nodos ?? null, earlyExhausted:early.sol?.agotado ?? null,
       remnantPolishMs:polishMs,
       remnantPolishChanged:Boolean(polished?.changed),
@@ -239,8 +239,8 @@ function runStaged(row) {
   return {
     preMs, preBoards:prePlan.resumen.placas, cota:pre.cota,
     stoppedEarly:false, executedRounds:40,
-    p15Patterns:p15Patterns.length, allPatterns:allPatterns.length, monotypes:mono.length, monoMs,
-    p15GenerationWallMs, fallbackGenerationWallMs, generationCpuMs:gen.generationCpuMs,
+    p16Patterns:p16Patterns.length, allPatterns:allPatterns.length, monotypes:mono.length, monoMs,
+    p16GenerationWallMs, fallbackGenerationWallMs, generationCpuMs:gen.generationCpuMs,
     earlySolveMs:early.solveMs, earlyNodes:early.sol?.nodos ?? null, earlyExhausted:early.sol?.agotado ?? null,
     fallbackSolveMs:full.solveMs, fallbackNodes:full.sol?.nodos ?? null, fallbackExhausted:full.sol?.agotado ?? null,
     finalBoards:final.boards, finalQuality:final.quality,
@@ -262,7 +262,7 @@ function runPair(row, historical, index) {
   const historicalParity=baseline.finalBoards===num(historical.finalBoards);
   const baselineMasterWorkMs=num(baseline.generationWallMs)+num(baseline.solveMs);
   const candidateMasterWorkMs=
-    num(candidate.monoMs)+num(candidate.p15GenerationWallMs)+num(candidate.earlySolveMs)+
+    num(candidate.monoMs)+num(candidate.p16GenerationWallMs)+num(candidate.earlySolveMs)+
     num(candidate.remnantPolishMs)+num(candidate.fallbackGenerationWallMs)+num(candidate.fallbackSolveMs);
   return {
     order:historical.order,file:features(row).file,features:features(row),historical:{
@@ -316,7 +316,7 @@ function main(){
     const {m,row}=chosen[i];
     const rec=runPair(row,m,i);
     records.push(rec);
-    console.log("P15_PAIR",JSON.stringify({
+    console.log("P16_PAIR",JSON.stringify({
       order:rec.order,win:rec.historical.masterWin,historicalParity:rec.historicalParity,
       boardParity:rec.boardParity,qualityNotWorse:rec.qualityNotWorse,
       stoppedEarly:rec.candidate.stoppedEarly,baselineBoards:rec.baseline.finalBoards,
@@ -324,7 +324,7 @@ function main(){
       candidateMasterWorkMs:rec.candidateMasterWorkMs,savedMs:rec.savedMs,
       earlySolveMs:rec.candidate.earlySolveMs,earlyNodes:rec.candidate.earlyNodes,
       polishMs:rec.candidate.remnantPolishMs ?? 0,polishChanged:rec.candidate.remnantPolishChanged ?? false,
-      p15Patterns:rec.candidate.p15Patterns,allPatterns:rec.candidate.allPatterns ?? null,
+      p16Patterns:rec.candidate.p16Patterns,allPatterns:rec.candidate.allPatterns ?? null,
     }));
   }
 
@@ -334,11 +334,11 @@ function main(){
   const cand=sum(scored,r=>r.candidateMasterWorkMs);
   const winners=scored.filter(r=>r.historical.masterWin);
   const summary={
-    schema:"master-p15-gap1-v1",
+    schema:"master-p16-gap1-v1",
     generatedAt:new Date().toISOString(),
     policy:{
       gate:"Gate V2 survivor && gap == 1",
-      firstRounds:P15,
+      firstRounds:P16,
       stopCondition:"valid board-reducing plan reaches optimizer lower bound",
       fallback:"execute only missing rounds, reusing incremental Rust state, then full solve",
       earlyNodeBudget:EARLY_NODES,
@@ -367,7 +367,7 @@ function main(){
   };
   fs.mkdirSync(OUT_DIR,{recursive:true});
   fs.writeFileSync(OUT_PATH,JSON.stringify(summary,null,2)+"\n","utf8");
-  console.log("P15_SUMMARY",JSON.stringify({pass:summary.pass,counts:summary.counts,timing:summary.timing}));
+  console.log("P16_SUMMARY",JSON.stringify({pass:summary.pass,counts:summary.counts,timing:summary.timing}));
   if(!summary.pass) process.exitCode=2;
 }
 
