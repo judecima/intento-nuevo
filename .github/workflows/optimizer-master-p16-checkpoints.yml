@@ -1,0 +1,41 @@
+name: Optimizer Master P16 Internal Checkpoints
+
+on:
+  push:
+    branches:
+      - research/master-p16-internal-earlystop-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkpoints:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CHECK_MAX_CASES: "4"
+      CHECK_MAX_PIECES: "180"
+      CHECK_EARLY_NODES: "200000"
+      CHECK_EARLY_WATCHDOG_MS: "1500"
+      CHECK_FULL_NODES: "1600000"
+      CHECK_FULL_WATCHDOG_MS: "12000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-p16-checkpoints.cjs
+      - name: Run checkpoint matrix
+        run: node research/optimizer/master-portfolio/master-p16-checkpoints.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-p16-checkpoints
+          path: research/optimizer/master-portfolio/out/MASTER_P16_CHECKPOINTS_2026-09-21.json
