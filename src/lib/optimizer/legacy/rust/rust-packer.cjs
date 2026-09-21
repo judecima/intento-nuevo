@@ -129,6 +129,20 @@ function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   return raw.map((result) => hydrateResult(result, pool));
 }
 
+function packBoardLegacyRustBeamCandidatesLite(pool, requests, beamWidth) {
+  const addon = native();
+  if (typeof addon.packBoardLegacyBeamCandidatesLite !== "function") {
+    throw new Error("native addon does not expose lean beam candidates");
+  }
+  return JSON.parse(
+    addon.packBoardLegacyBeamCandidatesLite(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      beamWidth >>> 0,
+    ),
+  );
+}
+
 function packBoardLegacyRustCore(pool, opts, randomSeed = null) {
   const raw = JSON.parse(
     native().packBoardLegacyCore(
@@ -153,6 +167,7 @@ module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustBeamCandidates,
+  packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
   legacyJsRng,
 };
