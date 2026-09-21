@@ -143,6 +143,29 @@ function packBoardLegacyRustGreedyPlan(pool, opts, configs, pass) {
   return raw.map((result) => hydrateResult(result, pool));
 }
 
+function packBoardLegacyRustGreedyRound(pool, opts, configs, orderedIds) {
+  const addon = native();
+  if (typeof addon.packBoardLegacyGreedyRound !== "function") {
+    throw new Error("native addon does not expose whole greedy round");
+  }
+  const raw = JSON.parse(
+    addon.packBoardLegacyGreedyRound(
+      JSON.stringify(pieces(pool)),
+      serializeGreedyConfigs(opts, configs),
+      JSON.stringify(orderedIds),
+      opts.semilla >>> 0,
+      Math.max(1, Math.floor(+opts.restartsPorPlaca || 1)) >>> 0,
+      +opts.tolerancia || 0,
+      Math.max(2, Math.floor(+opts.etapas || 4)) >>> 0,
+      opts.preferirMenorProfundidad !== false,
+    ),
+  );
+  return {
+    placas: raw.boards.map((result) => hydrateResult(result, pool)),
+    etapasUsadas: raw.stagesUsed,
+  };
+}
+
 function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   const raw = JSON.parse(
     native().packBoardLegacyBeamCandidates(
@@ -192,6 +215,7 @@ module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustGreedyPlan,
+  packBoardLegacyRustGreedyRound,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
