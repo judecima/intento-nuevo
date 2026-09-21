@@ -1,0 +1,43 @@
+name: Optimizer Master 40 Lean Beam
+
+on:
+  push:
+    branches:
+      - research/master40-lean-beam-20260921
+    paths:
+      - "native/optimizer-pattern-generator/src/legacy_packer.rs"
+      - "src/lib/optimizer/legacy/rust/rust-packer.cjs"
+      - "src/lib/optimizer/legacy/rust/rust-hybrid.cjs"
+      - "research/optimizer/master-generation/lean-beam-gate.cjs"
+      - ".github/workflows/optimizer-master-40-lean-beam.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run 40-round lean-beam parity gate
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/lean-beam-gate.cjs all
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-master-40-lean-beam
+          path: research/optimizer/master-generation/lean-beam-results.json
+          if-no-files-found: warn
+          retention-days: 30
