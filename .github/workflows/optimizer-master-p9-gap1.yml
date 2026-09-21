@@ -1,0 +1,43 @@
+name: Optimizer Master P9 Gap1
+
+on:
+  push:
+    branches:
+      - research/master-p9-staged-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      MASTER_GATE_MULT: "4.75"
+      P9_MAX_CASES: "16"
+      P9_MAX_PIECES: "180"
+      P9_FULL_MS: "8000"
+      P9_EARLY_NODES: "200000"
+      P9_EARLY_WATCHDOG_MS: "1500"
+      P9_FULL_NODES: "1600000"
+      P9_FULL_WATCHDOG_MS: "12000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-p9-gap1.cjs
+      - name: Run provenance-derived P9 benchmark
+        run: node research/optimizer/master-portfolio/master-p9-gap1.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-p9-gap1
+          path: research/optimizer/master-portfolio/out/MASTER_P9_GAP1_2026-09-21.json
