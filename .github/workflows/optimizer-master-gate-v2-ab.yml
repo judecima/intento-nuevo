@@ -1,0 +1,32 @@
+name: Optimizer Master Gate V2 AB
+
+on:
+  push:
+    branches:
+      - research/master-gate-criba-v1-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check gate integration
+        run: |
+          node --check src/lib/optimizer/legacy/v10.cjs
+          node --check research/optimizer/master-portfolio/master-gate-v2-ab.cjs
+      - name: Run Master Gate V2 A/B
+        run: node research/optimizer/master-portfolio/master-gate-v2-ab.cjs
+      - name: Upload A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-gate-v2-ab
+          path: research/optimizer/master-portfolio/out/MASTER_GATE_V2_AB_2026-09-21.json
