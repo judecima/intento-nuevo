@@ -9,7 +9,7 @@ const CANONICAL_PATH = path.join(ROOT, "experiencia/canonical_cases.json");
 const MANIFEST_PATH = path.join(ROOT, "research/optimizer/master-portfolio/MASTER_ACTIVE_323_MANIFEST_2026-09-18.json");
 const FIXTURE_4056900 = path.join(ROOT, "research/optimizer/pattern-generators/guide-slice/INDUSTRIAL_PORTFOLIO_4056900_CHECKPOINT_2026-09-14.json");
 const OUT_DIR = path.join(ROOT, "research/optimizer/master-portfolio/out");
-const OUT_PATH = path.join(OUT_DIR, "MASTER_CORE3_GAP1_2026-09-21.json");
+const OUT_PATH = path.join(OUT_DIR, "MASTER_CORE3_DIRECT_FULL40_2026-09-21.json");
 
 const LEGACY = path.join(ROOT, "src/lib/optimizer/legacy");
 const { optimizarV10, nuevasMetricas, validarPlanIndustrial } = require(path.join(LEGACY, "v10.cjs"));
@@ -204,28 +204,9 @@ function runStaged(row) {
     return {
       preMs,preBoards:prePlan.resumen.placas,cota:pre.cota,stoppedAt:"core3",executedRounds:CORE3.length,
       monotypes:mono.length,monoMs,corePatterns:corePatterns.length,coreGenerationWallMs,
-      coreSolveMs:core.solveMs,coreNodes:core.sol?.nodos??null,p16GenerationWallMs:0,p16SolveMs:0,
+      coreSolveMs:core.solveMs,coreNodes:core.sol?.nodos??null,
       fallbackGenerationWallMs:0,fallbackSolveMs:0,generationCpuMs:gen.generationCpuMs,
       finalBoards:coreMaster.boards,finalQuality:coreMaster.quality
-    };
-  }
-
-  const p16Rest=P16.filter(r=>!CORE3.includes(r));
-  const p16Start=performance.now();
-  gen.execute(p16Rest);
-  const p16Patterns=gen.patterns(P16);
-  const p16GenerationWallMs=performance.now()-p16Start;
-  const p16=solve(p16Patterns.concat(mono),lines,area,prePlan.resumen.placas,EARLY_NODES,EARLY_WATCHDOG_MS);
-  const p16Master=materialize(p16.sol,lines,prePlan,expected);
-  const p16Certified=Boolean(p16Master.valid && Number.isFinite(p16Master.boards) && p16Master.boards===pre.cota && p16Master.boards<prePlan.resumen.placas);
-  if(p16Certified){
-    return {
-      preMs,preBoards:prePlan.resumen.placas,cota:pre.cota,stoppedAt:"p16",executedRounds:P16.length,
-      monotypes:mono.length,monoMs,corePatterns:corePatterns.length,coreGenerationWallMs,
-      coreSolveMs:core.solveMs,coreNodes:core.sol?.nodos??null,p16Patterns:p16Patterns.length,
-      p16GenerationWallMs,p16SolveMs:p16.solveMs,p16Nodes:p16.sol?.nodos??null,
-      fallbackGenerationWallMs:0,fallbackSolveMs:0,generationCpuMs:gen.generationCpuMs,
-      finalBoards:p16Master.boards,finalQuality:p16Master.quality
     };
   }
 
@@ -239,8 +220,7 @@ function runStaged(row) {
   return {
     preMs,preBoards:prePlan.resumen.placas,cota:pre.cota,stoppedAt:"full40",executedRounds:40,
     monotypes:mono.length,monoMs,corePatterns:corePatterns.length,coreGenerationWallMs,
-    coreSolveMs:core.solveMs,coreNodes:core.sol?.nodos??null,p16Patterns:p16Patterns.length,
-    p16GenerationWallMs,p16SolveMs:p16.solveMs,p16Nodes:p16.sol?.nodos??null,
+    coreSolveMs:core.solveMs,coreNodes:core.sol?.nodos??null,
     allPatterns:allPatterns.length,fallbackGenerationWallMs,fallbackSolveMs:full.solveMs,
     fallbackNodes:full.sol?.nodos??null,generationCpuMs:gen.generationCpuMs,
     finalBoards:final.boards,finalQuality:final.quality
@@ -263,7 +243,6 @@ function runPair(row, historical, index) {
   const baselineMasterWorkMs=num(baseline.generationWallMs)+num(baseline.solveMs);
   const candidateMasterWorkMs=
     num(candidate.monoMs)+num(candidate.coreGenerationWallMs)+num(candidate.coreSolveMs)+
-    num(candidate.p16GenerationWallMs)+num(candidate.p16SolveMs)+
     num(candidate.fallbackGenerationWallMs)+num(candidate.fallbackSolveMs);
   return {
     order:historical.order,file:features(row).file,features:features(row),historical:{
@@ -315,15 +294,14 @@ function main(){
     const {m,row}=chosen[i];
     const rec=runPair(row,m,i);
     records.push(rec);
-    console.log("CORE3_PAIR",JSON.stringify({
+    console.log("CORE3_DIRECT_PAIR",JSON.stringify({
       order:rec.order,win:rec.historical.masterWin,historicalParity:rec.historicalParity,
       boardParity:rec.boardParity,qualityNotWorse:rec.qualityNotWorse,
       stoppedAt:rec.candidate.stoppedAt,baselineBoards:rec.baseline.finalBoards,
       candidateBoards:rec.candidate.finalBoards,baselineMasterWorkMs:rec.baselineMasterWorkMs,
       candidateMasterWorkMs:rec.candidateMasterWorkMs,savedMs:rec.savedMs,
       coreSolveMs:rec.candidate.coreSolveMs,coreNodes:rec.candidate.coreNodes,
-      p16SolveMs:rec.candidate.p16SolveMs ?? 0,p16Nodes:rec.candidate.p16Nodes ?? null,
-      corePatterns:rec.candidate.corePatterns,p16Patterns:rec.candidate.p16Patterns ?? null,allPatterns:rec.candidate.allPatterns ?? null,
+      corePatterns:rec.candidate.corePatterns,allPatterns:rec.candidate.allPatterns ?? null,
     }));
   }
 
@@ -333,13 +311,13 @@ function main(){
   const cand=sum(scored,r=>r.candidateMasterWorkMs);
   const winners=scored.filter(r=>r.historical.masterWin);
   const summary={
-    schema:"master-core3-gap1-v1",
+    schema:"master-core3-direct-full40-v1",
     generatedAt:new Date().toISOString(),
     policy:{
       gate:"Gate V2 survivor && gap == 1",
       coreRounds:CORE3,
-      secondStageRounds:P16,
-      stopCondition:"after core3 or P16, stop only when a valid board-reducing plan reaches optimizer lower bound",
+      fallback:"if core3 does not certify lower bound, execute only the 37 missing rounds and solve full40",
+      stopCondition:"after core3, stop only when a valid board-reducing plan reaches optimizer lower bound",
       fallback:"execute only missing rounds, reusing incremental Rust state, then full solve",
       earlyNodeBudget:EARLY_NODES,
       earlyWatchdogMs:EARLY_WATCHDOG_MS,
@@ -350,7 +328,6 @@ function main(){
       boardParity:scored.filter(r=>r.boardParity).length,
       qualityNotWorse:scored.filter(r=>r.qualityNotWorse).length,
       stoppedCore3:scored.filter(r=>r.candidate.stoppedAt==="core3").length,
-      stoppedP16:scored.filter(r=>r.candidate.stoppedAt==="p16").length,
       full40Fallback:scored.filter(r=>r.candidate.stoppedAt==="full40").length,
       winners:winners.map(r=>r.order),
       winnersCore3:winners.filter(r=>r.candidate.stoppedAt==="core3").map(r=>r.order),
@@ -369,7 +346,7 @@ function main(){
   };
   fs.mkdirSync(OUT_DIR,{recursive:true});
   fs.writeFileSync(OUT_PATH,JSON.stringify(summary,null,2)+"\n","utf8");
-  console.log("CORE3_SUMMARY",JSON.stringify({pass:summary.pass,counts:summary.counts,timing:summary.timing}));
+  console.log("CORE3_DIRECT_SUMMARY",JSON.stringify({pass:summary.pass,counts:summary.counts,timing:summary.timing}));
   if(!summary.pass) process.exitCode=2;
 }
 
