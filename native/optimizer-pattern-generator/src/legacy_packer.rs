@@ -844,6 +844,8 @@ fn pending_area(inputs: &[PieceInput], output: &PackOutput) -> f64 {
 struct PackBatchRequest {
     options: PackOptions,
     random_seed: Option<u32>,
+    #[serde(default)]
+    config_id: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -883,6 +885,7 @@ fn greedy_plan_requests(
                 } else {
                     None
                 },
+                config_id: config.config_id,
             });
         }
     }
@@ -996,6 +999,7 @@ fn run_greedy_plan_internal(
     restarts_per_board: u32,
     tolerance: f64,
     mut profile: Option<&mut Master40Profile>,
+    mut deterministic_seen: Option<&mut HashSet<(u32, u32, u64, u32)>>,
 ) -> std::result::Result<Vec<PackOutput>, String> {
     if configs.is_empty() {
         return Err("greedy plan requires configs".to_string());
@@ -1022,6 +1026,36 @@ fn run_greedy_plan_internal(
         let quality_opts = &requests[0].options;
         let template = common_template(&inputs, &requests);
         let mut outputs: Vec<PackOutput> = Vec::with_capacity(requests.len());
+
+        if profile.is_some() && deterministic_seen.is_some() {
+            let mut ids: Vec<u32> = inputs.iter().map(|piece| piece.id).collect();
+            ids.sort_unstable();
+            let mut pool_hash = 14_695_981_039_346_656_037u64;
+            for id in &ids {
+                pool_hash ^= *id as u64;
+                pool_hash = pool_hash.wrapping_mul(1_099_511_628_211u64);
+            }
+            let pool_len = ids.len() as u32;
+            for request in &requests {
+                if request.random_seed.is_some() { continue; }
+                if let Some(p) = profile.as_deref_mut() {
+                    p.deterministic_requests += 1;
+                }
+                let key = (
+                    request.config_id,
+                    request.options.etapas,
+                    pool_hash,
+                    pool_len,
+                );
+                if let Some(seen) = deterministic_seen.as_deref_mut() {
+                    if !seen.insert(key) {
+                        if let Some(p) = profile.as_deref_mut() {
+                            p.deterministic_repeat_opportunities += 1;
+                        }
+                    }
+                }
+            }
+        }
 
         let pack_started = Instant::now();
         for request in &requests {
@@ -1165,6 +1199,7 @@ pub fn pack_board_legacy_greedy_round(
                 restarts_per_board,
                 tolerance,
                 None,
+                None,
             ).map_err(|e| Error::new(Status::GenericFailure, e))?;
 
             let replace = match &best {
@@ -1258,6 +1293,8 @@ struct Master40Profile {
     plan_trials: u64,
     board_iterations: u64,
     pack_requests: u64,
+    deterministic_requests: u64,
+    deterministic_repeat_opportunities: u64,
     round_piece_instances: u64,
 }
 
@@ -1371,6 +1408,7 @@ fn run_master_large_round(
         vec![opts.max_stages.max(2)]
     };
     let restarts = dynamic_restarts(opts, inputs.len());
+    let mut deterministic_seen: HashSet<(u32, u32, u64, u32)> = HashSet::new();
 
     let mut best: Option<Vec<PackOutput>> = None;
     for (pass_index, order) in orders.iter().enumerate() {
@@ -1396,6 +1434,7 @@ fn run_master_large_round(
                 restarts,
                 opts.tolerance,
                 Some(profile),
+                Some(&mut deterministic_seen),
             )?;
             profile.greedy_plan_ms += plan_started.elapsed().as_secs_f64() * 1000.0;
 
