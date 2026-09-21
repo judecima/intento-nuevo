@@ -69,8 +69,9 @@ function config(p){
 }
 function child(file,candidate){
  const target=TARGETS.find(x=>x[0]===file);if(!target)throw new Error("unknown target "+file);
- if(candidate)process.env.OPTIMIZER_RUST_BEAM_DERIVED_METRICS_EXPERIMENTAL="1";
- else delete process.env.OPTIMIZER_RUST_BEAM_DERIVED_METRICS_EXPERIMENTAL;
+ delete process.env.OPTIMIZER_RUST_BEAM_DERIVED_METRICS_EXPERIMENTAL;
+ if(candidate) process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL="1";
+ else delete process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL;
  const {generarPatrones}=require(path.join(REPO,"src/lib/optimizer/legacy/patrones.cjs"));
  const p=problem(resolve(file,target[1]),file),cfg=config(p);
  const t0=process.hrtime.bigint();
@@ -99,7 +100,7 @@ function parent(){
   console.log(file+" control="+pair.control.ms.toFixed(1)+" candidate="+pair.candidate.ms.toFixed(1)+" speedup="+pair.speedupPct+"% parity="+pair.poolParity);
  }
  const control=rows.reduce((s,r)=>s+r.control.ms,0),candidate=rows.reduce((s,r)=>s+r.candidate.ms,0);
- const result={schema:"master-40-round-derived-metrics-v1",rounds:40,rows,summary:{controlMs:+control.toFixed(2),candidateMs:+candidate.toFixed(2),speedupPct:pct(control,candidate),poolParity:rows.every(r=>r.poolParity)}};
+ const result={schema:"master-40-round-native-rank-cache-v1",rounds:40,rows,summary:{controlMs:+control.toFixed(2),candidateMs:+candidate.toFixed(2),speedupPct:pct(control,candidate),poolParity:rows.every(r=>r.poolParity)}};
  fs.mkdirSync(OUT,{recursive:true});fs.writeFileSync(path.join(OUT,"derived-metrics-results.json"),JSON.stringify(result,null,2)+"\n");
  console.log("MASTER40_DERIVED "+JSON.stringify(result));
  if(!result.summary.poolParity)throw new Error("pool parity failed");
