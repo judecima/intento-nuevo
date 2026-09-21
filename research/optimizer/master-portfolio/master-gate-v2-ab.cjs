@@ -214,7 +214,8 @@ function main() {
     console.log("AB_REJECT", JSON.stringify({
       file: rec.file,
       mult: rec.features.multiplicityMean,
-      objectiveParity: rec.objectiveParity,\n      digestParity: rec.digestParity,
+      objectiveParity: rec.objectiveParity,
+      digestParity: rec.digestParity,
       baseMs: rec.baseline.wallMs,
       candMs: rec.candidate.wallMs,
       baseMaster: rec.baseline.master,
@@ -228,7 +229,8 @@ function main() {
     console.log("AB_CONTROL", JSON.stringify({
       file: rec.file,
       mult: rec.features.multiplicityMean,
-      objectiveParity: rec.objectiveParity,\n      digestParity: rec.digestParity,
+      objectiveParity: rec.objectiveParity,
+      digestParity: rec.digestParity,
       baseMs: rec.baseline.wallMs,
       candMs: rec.candidate.wallMs,
       gate: rec.candidate.masterGateV2,
