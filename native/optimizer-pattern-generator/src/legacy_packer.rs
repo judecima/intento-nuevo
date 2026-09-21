@@ -772,6 +772,15 @@ struct RemnantQuality {
     total: f64,
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DepthMetrics {
+    max_xml_layer: u32,
+    max_type2_layer: u32,
+    max_type1_layer: u32,
+    type2_nodes: u32,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BeamCandidateLite {
@@ -781,6 +790,41 @@ struct BeamCandidateLite {
     area_resto: f64,
     pending_area: f64,
     quality: RemnantQuality,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GreedyCandidateLite {
+    request_index: usize,
+    used_ids: Vec<u32>,
+    area: f64,
+    area_resto: f64,
+    quality: RemnantQuality,
+    depth: DepthMetrics,
+}
+
+fn depth_metrics_node(node: &TreeNode, out: &mut DepthMetrics) {
+    out.max_xml_layer = out.max_xml_layer.max(node.nivel);
+    for part in &node.partes {
+        if part.kind == 2 {
+            out.max_type2_layer = out.max_type2_layer.max(node.nivel);
+            out.type2_nodes += 1;
+        } else if part.kind == 1 {
+            out.max_type1_layer = out.max_type1_layer.max(node.nivel);
+        }
+        depth_metrics_node(&part.hijo, out);
+    }
+}
+
+fn depth_metrics(output: &PackOutput) -> DepthMetrics {
+    let mut out = DepthMetrics {
+        max_xml_layer: 0,
+        max_type2_layer: 0,
+        max_type1_layer: 0,
+        type2_nodes: 0,
+    };
+    depth_metrics_node(&output.arbol, &mut out);
+    out
 }
 
 fn remnant_quality(output: &PackOutput, opts: &PackOptions) -> RemnantQuality {
@@ -931,6 +975,98 @@ pub fn pack_board_legacy_greedy_best(
     match best {
         Some(index) => serde_json::to_string(&outputs[index])
             .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy best: {e}"))),
+        None => Ok("null".to_string()),
+    }
+}
+
+
+#[napi(js_name = "packBoardLegacyGreedyBestLite")]
+pub fn pack_board_legacy_greedy_best_lite(
+    pieces_json: String,
+    requests_json: String,
+    tolerance: f64,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+    if requests.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    let quality_opts = &requests[0].options;
+    let template = common_template(&inputs, &requests);
+    let mut outputs: Vec<(usize, PackOutput)> = Vec::with_capacity(requests.len());
+    for (request_index, request) in requests.iter().enumerate() {
+        let output = pack_request(&inputs, template.as_deref(), request)
+            .map_err(|e| Error::new(Status::InvalidArg, e))?;
+        if !output.colocadas.is_empty() {
+            outputs.push((request_index, output));
+        }
+    }
+    if outputs.is_empty() {
+        return Ok("null".to_string());
+    }
+
+    let mut best_close: Option<usize> = None;
+    for (index, (_, output)) in outputs.iter().enumerate() {
+        if output.colocadas.len() != inputs.len() { continue; }
+        match best_close {
+            None => best_close = Some(index),
+            Some(prev) => {
+                let previous = &outputs[prev].1;
+                let q = compare_quality(
+                    remnant_quality(output, quality_opts),
+                    remnant_quality(previous, quality_opts),
+                );
+                if q > 0 || (q == 0 && output.area > previous.area) {
+                    best_close = Some(index);
+                }
+            }
+        }
+    }
+
+    let selected_index = if let Some(index) = best_close {
+        Some(index)
+    } else {
+        let max_area = outputs.iter().fold(0.0_f64, |acc, (_, output)| acc.max(output.area));
+        let threshold = max_area * (1.0 - tolerance);
+        let mut best: Option<usize> = None;
+        for (index, (_, output)) in outputs.iter().enumerate() {
+            if output.area < threshold { continue; }
+            match best {
+                None => best = Some(index),
+                Some(prev) => {
+                    let previous = &outputs[prev].1;
+                    let q = compare_quality(
+                        remnant_quality(output, quality_opts),
+                        remnant_quality(previous, quality_opts),
+                    );
+                    if q > 0 || (q == 0 && output.area > previous.area + 1e-6) {
+                        best = Some(index);
+                    }
+                }
+            }
+        }
+        best
+    };
+
+    match selected_index {
+        Some(index) => {
+            let (request_index, output) = &outputs[index];
+            let mut used_ids: Vec<u32> = output.colocadas.iter().map(|p| p.id).collect();
+            used_ids.sort_unstable();
+            let lite = GreedyCandidateLite {
+                request_index: *request_index,
+                used_ids,
+                area: output.area,
+                area_resto: output.area_resto,
+                quality: remnant_quality(output, quality_opts),
+                depth: depth_metrics(output),
+            };
+            serde_json::to_string(&lite)
+                .map_err(|e| Error::new(Status::GenericFailure, format!("serialize lean greedy best: {e}")))
+        }
         None => Ok("null".to_string()),
     }
 }
