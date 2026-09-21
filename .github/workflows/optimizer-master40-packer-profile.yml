@@ -1,0 +1,41 @@
+name: Optimizer Master40 Packer Profile
+
+on:
+  push:
+    branches:
+      - research/master40-packer-profile-20260921
+    paths:
+      - "native/optimizer-pattern-generator/src/legacy_packer.rs"
+      - "src/lib/optimizer/legacy/rust/rust-packer.cjs"
+      - "research/optimizer/master-generation/packer-profile.cjs"
+      - ".github/workflows/optimizer-master40-packer-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Profile native packer
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/packer-profile.cjs all
+      - name: Upload profile
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-master40-packer-profile
+          path: research/optimizer/master-generation/packer-profile-results.json
+          if-no-files-found: error
+          retention-days: 30
