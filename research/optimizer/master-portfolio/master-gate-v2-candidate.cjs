@@ -167,6 +167,35 @@ function synthetic4056900() {
     _syntheticFrozen: true,
   };
 }
+function runPreOnly(row, label) {
+  const f = features(row);
+  const lines = toLines(row);
+  const config = toConfig(row);
+  const expected = lines.reduce((s, l) => s + l.cant, 0);
+  const tPre = performance.now();
+  try {
+    const pre = optimizarV10(lines, { ...config, usarMaster: false }, nuevasMetricas());
+    const prePlan = pre?.plan;
+    const preBoards = prePlan?.resumen?.placas ?? null;
+    const cota = pre?.cota ?? null;
+    const gap = Number.isFinite(preBoards) && Number.isFinite(cota) ? preBoards - cota : null;
+    const preValid = prePlan ? validarPlanIndustrial(prePlan, expected) : null;
+    return {
+      label,
+      file: f.file,
+      features: f,
+      preMs: performance.now() - tPre,
+      preBoards,
+      cota,
+      gap,
+      preValid: preValid?.ok ?? false,
+      candidateWouldRun: Number.isFinite(gap) && (gap > 1 || f.multiplicityMean >= THRESHOLD),
+    };
+  } catch (e) {
+    return { label, file: f.file, features: f, error: "pre:" + String(e?.message || e) };
+  }
+}
+
 function runFullMaster(row, label) {
   const f = features(row);
   const lines = toLines(row);
@@ -288,8 +317,9 @@ function main() {
   for (const x of candidates) {
     if (scanned >= MAX_SCANNED || rejected.length >= TARGET_REJECTED) break;
     scanned++;
+    const preOnly = runPreOnly(x.row, "rejected-precheck");
+    if (preOnly.gap !== 1 || !preOnly.preValid) continue;
     const r = runFullMaster(x.row, "rejected-probe");
-    if (r.gap !== 1) continue;
     rejected.push(r);
     console.log("REJECTED", JSON.stringify({
       file: r.file,
