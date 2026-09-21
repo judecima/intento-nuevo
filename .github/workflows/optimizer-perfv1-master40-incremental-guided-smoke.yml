@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      INC_MAX_CASES: "16"
+      INC_MAX_CASES: "40"
       INC_MAX_PIECES: "300"
       INC_PROBE_NODES: "100000"
       INC_PROBE_WATCHDOG_MS: "300"
