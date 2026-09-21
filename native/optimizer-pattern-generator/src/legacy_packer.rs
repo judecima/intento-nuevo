@@ -958,23 +958,57 @@ pub fn pack_board_legacy_beam_candidates(
     // Keep the canonical usage signature alongside each candidate. HashMap
     // iteration order is intentionally unstable, so the signature becomes the
     // final total-order tie break before truncate().
-    let mut outputs: Vec<(String, PackOutput)> = dedup.into_iter().collect();
-    outputs.sort_by(|(signature_a, a), (signature_b, b)| {
-        let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
-        let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
-        lb_a.cmp(&lb_b)
-            .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
-            .then_with(|| {
-                let q = compare_quality(remnant_quality(a, quality_opts), remnant_quality(b, quality_opts));
-                if q > 0 { std::cmp::Ordering::Less }
-                else if q < 0 { std::cmp::Ordering::Greater }
-                else { std::cmp::Ordering::Equal }
+    //
+    // Experimental fast path: the legacy comparator recomputes pending_area()
+    // (HashSet + full input scan) and remnant_quality() on every sort
+    // comparison. Both values are immutable for a candidate, so cache them
+    // once without changing the comparator or candidate set.
+    let cache_rank_metrics = std::env::var("OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL")
+        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false);
+
+    let outputs: Vec<PackOutput> = if cache_rank_metrics {
+        let mut ranked: Vec<(String, i64, RemnantQuality, PackOutput)> = dedup
+            .into_iter()
+            .map(|(signature, output)| {
+                let lb = (pending_area(&inputs, &output).max(0.0) / board_area).ceil() as i64;
+                let quality = remnant_quality(&output, quality_opts);
+                (signature, lb, quality, output)
             })
-            .then_with(|| signature_a.cmp(signature_b))
-    });
-    let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
-    outputs.truncate(limit);
-    let outputs: Vec<PackOutput> = outputs.into_iter().map(|(_, output)| output).collect();
+            .collect();
+        ranked.sort_by(|(signature_a, lb_a, quality_a, a), (signature_b, lb_b, quality_b, b)| {
+            lb_a.cmp(lb_b)
+                .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| {
+                    let q = compare_quality(*quality_a, *quality_b);
+                    if q > 0 { std::cmp::Ordering::Less }
+                    else if q < 0 { std::cmp::Ordering::Greater }
+                    else { std::cmp::Ordering::Equal }
+                })
+                .then_with(|| signature_a.cmp(signature_b))
+        });
+        let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
+        ranked.truncate(limit);
+        ranked.into_iter().map(|(_, _, _, output)| output).collect()
+    } else {
+        let mut outputs: Vec<(String, PackOutput)> = dedup.into_iter().collect();
+        outputs.sort_by(|(signature_a, a), (signature_b, b)| {
+            let lb_a = (pending_area(&inputs, a).max(0.0) / board_area).ceil() as i64;
+            let lb_b = (pending_area(&inputs, b).max(0.0) / board_area).ceil() as i64;
+            lb_a.cmp(&lb_b)
+                .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| {
+                    let q = compare_quality(remnant_quality(a, quality_opts), remnant_quality(b, quality_opts));
+                    if q > 0 { std::cmp::Ordering::Less }
+                    else if q < 0 { std::cmp::Ordering::Greater }
+                    else { std::cmp::Ordering::Equal }
+                })
+                .then_with(|| signature_a.cmp(signature_b))
+        });
+        let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
+        outputs.truncate(limit);
+        outputs.into_iter().map(|(_, output)| output).collect()
+    };
 
     serde_json::to_string(&outputs)
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize beam candidates: {e}")))
