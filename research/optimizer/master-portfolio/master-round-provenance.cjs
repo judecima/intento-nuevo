@@ -23,6 +23,7 @@ const THRESHOLD=Number(process.env.MASTER_GATE_MULT||4.75);
 const MAX_CASES=Number(process.env.PROV_MAX_CASES||12);
 const MAX_PIECES=Number(process.env.PROV_MAX_PIECES||180);
 const MASTER_MS=Number(process.env.PROV_MASTER_MS||8000);
+const WINNERS_ONLY=process.env.PROV_WINNERS_ONLY==="1";
 
 function num(v,f=0){const n=Number(v);return Number.isFinite(n)?n:f;}
 function boolTrue(v){return v===true||v===1||v==="1"||v==="true"||v==="TRUE";}
@@ -187,6 +188,7 @@ function main(){
   const byFile=new Map(all.map(r=>[features(r).file,r]));
   const mandatory=new Set([4050594,4056900,4057401]);
   const candidates=(manifest.cases||[]).filter(gate)
+    .filter(m=>!WINNERS_ONLY || Boolean(m.masterWin))
     .filter(m=>num(m.pieces)<=MAX_PIECES)
     .sort((a,b)=>num(b.generationMs)-num(a.generationMs));
 
