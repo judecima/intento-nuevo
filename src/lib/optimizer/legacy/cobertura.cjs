@@ -23,7 +23,11 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   const pats = patrones.map(p => {
     const v = new Array(T).fill(0);
     for (const [i, q] of p.uso) if (i >= 0 && i < T) v[i] = q;
-    return { v, area: p.area, uso: p.uso, placa: p.placa };
+    return {
+      v, area: p.area, uso: p.uso, placa: p.placa,
+      researchRound: Number.isInteger(p?.placa?._researchRound) ? p.placa._researchRound : null,
+      researchOrigin: p?.placa?._researchOrigin || (Number.isInteger(p?.placa?._researchRound) ? 'round' : 'other'),
+    };
   }).filter(p => p.v.some(x => x > 0));
 
   // cobertura maxima de cada tipo en un solo patron: da una segunda cota
@@ -42,6 +46,14 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   const watchdogMs=Number.isFinite(watchdogRaw)&&watchdogRaw>0?watchdogRaw:null;
   let mejor = incumbente, mejorPlan = null;
   const memo = new Map();
+  const provenanceEnabled = !!(control && control.provenance);
+  const expandedByRound = new Map();
+  const candidateVisitsByRound = new Map();
+  const bump = (map, key, inc = 1) => {
+    if (!provenanceEnabled) return;
+    const k = key === null ? 'other' : String(key);
+    map.set(k, (map.get(k) || 0) + inc);
+  };
   let nodos = 0, agotado = false, timeoutRegistrado=false, budgetRegistrado=false, watchdogRegistrado=false;
   const marcarTimeout=()=>{
     agotado=true;
@@ -98,11 +110,15 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       if (p.v[tipo] <= 0) continue;
       let ok = true;
       for (let i = 0; i < T; i++) if (p.v[i] > rest[i]) { ok = false; break; }
-      if (ok) cands.push(p);
+      if (ok) {
+        cands.push(p);
+        bump(candidateVisitsByRound, p.researchRound);
+      }
     }
     cands.sort((a, b) => b.area - a.area);
 
     for (const p of cands) {
+      bump(expandedByRound, p.researchRound);
       const nr = rest.slice();
       let da = 0;
       for (let i = 0; i < T; i++) { nr[i] -= p.v[i]; da += p.v[i] * areaPorTipo[i]; }
@@ -127,7 +143,13 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
         step0.wallMsTotal+=ms;
         step0.wallMsMax=Math.max(step0.wallMsMax,ms);
       }
-      return { placas: mejor, plan: mejorPlan, nodos, agotado };
+      const provenance = provenanceEnabled ? {
+        candidateVisitsByRound: Object.fromEntries(candidateVisitsByRound),
+        expandedByRound: Object.fromEntries(expandedByRound),
+        winningPlanRounds: (mejorPlan || []).map(p => p.researchRound),
+        winningPlanOrigins: (mejorPlan || []).map(p => p.researchOrigin),
+      } : null;
+      return { placas: mejor, plan: mejorPlan, nodos, agotado, provenance };
     }
   };
 }
