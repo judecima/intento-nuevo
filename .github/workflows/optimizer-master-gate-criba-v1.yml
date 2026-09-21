@@ -1,0 +1,29 @@
+name: Optimizer Master Gate Criba V1
+
+on:
+  push:
+    branches:
+      - research/master-gate-criba-v1-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run Master gate criba V1
+        run: node research/optimizer/master-portfolio/master-gate-criba-v1.cjs
+      - name: Upload criba evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-gate-criba-v1
+          path: |
+            research/optimizer/master-portfolio/out/MASTER_GATE_CRIBA_V1_2026-09-21.json
+            research/optimizer/master-portfolio/out/MASTER_GATE_CRIBA_V1_FEATURES_2026-09-21.csv
