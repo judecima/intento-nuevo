@@ -65,6 +65,14 @@ function nuevasMetricas() {
       skipped: 0,
       ms: 0,
     },
+    masterGateV2: {
+      evaluated: 0,
+      allowedGap: 0,
+      allowedMultiplicity: 0,
+      skipped: 0,
+      lastGap: null,
+      lastMultiplicityMean: null,
+    },
     total: { casos: 0, ms: 0 }
   };
 }
@@ -77,6 +85,36 @@ function registrar(m, ms, gano, ahorro, invalido) {
 
 function envFlag(name) {
   return /^(1|true|yes|on)$/i.test(String(process.env[name] || ''));
+}
+
+function usarMasterGateV2(config) {
+  if (config.usarMasterGateV2 === true) return true;
+  return envFlag('OPTIMIZER_MASTER_GATE_V2_EXPERIMENTAL');
+}
+
+function permitirMasterGateV2(lineas, mejor, cota, metricas) {
+  const m = metricas.masterGateV2;
+  m.evaluated++;
+  const gap = Math.max(0, (+mejor?.resumen?.placas || 0) - (+cota || 0));
+  const piezas = lineas.reduce((s, l) => s + (+l.cant || 0), 0);
+  const tipos = lineas.length;
+  const multiplicidadMedia = tipos > 0 ? piezas / tipos : 0;
+  m.lastGap = gap;
+  m.lastMultiplicityMean = multiplicidadMedia;
+
+  // Conservador: todos los gaps > 1 siguen pagando Master. La criba solo
+  // evita Master en gap=1 con baja repeticion. En el corpus Master-active 323
+  // esto conserva 4/4 wins y evita trabajo en 233/323 casos historicos.
+  if (gap > 1) {
+    m.allowedGap++;
+    return true;
+  }
+  if (multiplicidadMedia >= 4.75) {
+    m.allowedMultiplicity++;
+    return true;
+  }
+  m.skipped++;
+  return false;
 }
 
 function usarCotaBarataPostBaseline(config) {
@@ -508,7 +546,13 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   }
 
   // ---- pattern master: generar pool, resolver cobertura, materializar
-  if (config.usarMaster !== false && mejor.resumen.placas > cota) {
+  // Gate V2 es experimental y OFF por defecto. Master solo acepta reducciones
+  // de placas (permitirMismas=false), por lo que omitirlo no puede degradar
+  // remanente manteniendo la misma cantidad de placas.
+  const masterGateV2Ok =
+    !usarMasterGateV2(config) ||
+    permitirMasterGateV2(lineas, mejor, cota, metricas);
+  if (config.usarMaster !== false && mejor.resumen.placas > cota && masterGateV2Ok) {
     const t = Date.now();
     try {
       const pool = generarPatrones(lineas, config, config.rondasPatrones || 40)
