@@ -1167,6 +1167,337 @@ pub fn pack_board_legacy_greedy_round(
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy round: {e}")))
 }
 
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MasterTypeInput {
+    quantity: u32,
+    base: f64,
+    altura: f64,
+    cut_base: f64,
+    cut_altura: f64,
+    veta: bool,
+    #[serde(default)]
+    detalle: String,
+    type_index: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Master40RunOptions {
+    passes: u32,
+    explicit_restarts_per_board: Option<u32>,
+    default_restarts_per_board: u32,
+    tolerance: f64,
+    max_stages: u32,
+    prefer_lower_depth: bool,
+    max_pieces_beam: u32,
+    unique_masks_le4: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MasterIdType {
+    id: u32,
+    type_index: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MasterPatternOutput {
+    usage_vector: Vec<u32>,
+    area: f64,
+    board: PackOutput,
+    id_type_pairs: Vec<MasterIdType>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Master40LargeOutput {
+    eligible: bool,
+    total_rounds: u32,
+    executed_rounds: u32,
+    skipped_duplicate_rounds: u32,
+    failed_rounds: u32,
+    patterns: Vec<MasterPatternOutput>,
+}
+
+fn legacy_master_schedule(line_count: u32, rounds: u32, seed: u32) -> Vec<Vec<u32>> {
+    let mut state = seed;
+    let mut out = Vec::with_capacity(rounds as usize);
+    for round in 0..rounds {
+        if round == 0 {
+            out.push((0..line_count).collect());
+            continue;
+        }
+        let mut subset = Vec::new();
+        for index in 0..line_count {
+            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            let random = (state & 0x7fff_ffff) as f64 / 2_147_483_647_f64;
+            if random > 0.45 {
+                subset.push(index);
+            }
+        }
+        out.push(subset);
+    }
+    out
+}
+
+fn expand_master_subset(
+    catalog: &[MasterTypeInput],
+    indices: &[u32],
+) -> (Vec<PieceInput>, Vec<u32>) {
+    let mut inputs = Vec::new();
+    let mut type_by_id = Vec::new();
+    let mut sig_by_shape: HashMap<(u64, u64, bool), u32> = HashMap::new();
+
+    for raw_index in indices {
+        let index = *raw_index as usize;
+        if index >= catalog.len() { continue; }
+        let item = &catalog[index];
+        let key = (item.cut_base.to_bits(), item.cut_altura.to_bits(), item.veta);
+        let next_sig = sig_by_shape.len() as u32;
+        let sig = *sig_by_shape.entry(key).or_insert(next_sig);
+
+        for _ in 0..item.quantity {
+            let id = inputs.len() as u32;
+            inputs.push(PieceInput {
+                id,
+                base: item.base,
+                altura: item.altura,
+                cut_base: item.cut_base,
+                cut_altura: item.cut_altura,
+                veta: item.veta,
+                sig,
+                detalle: item.detalle.clone(),
+                ref_value: serde_json::Value::from(item.type_index),
+            });
+            type_by_id.push(item.type_index);
+        }
+    }
+    (inputs, type_by_id)
+}
+
+fn master_piece_orders(inputs: &[PieceInput], passes: u32) -> Vec<Vec<u32>> {
+    let mut orders = Vec::with_capacity(passes as usize);
+    for pass in 0..passes {
+        let mut ordered = inputs.to_vec();
+        match pass % 4 {
+            0 => ordered.sort_by(|a, b| {
+                (b.base * b.altura)
+                    .total_cmp(&(a.base * a.altura))
+            }),
+            1 => ordered.sort_by(|a, b| {
+                b.base.max(b.altura)
+                    .total_cmp(&a.base.max(a.altura))
+            }),
+            2 => ordered.sort_by(|a, b| {
+                b.altura.total_cmp(&a.altura)
+                    .then_with(|| b.base.total_cmp(&a.base))
+            }),
+            _ => ordered.sort_by(|a, b| {
+                b.base.total_cmp(&a.base)
+                    .then_with(|| b.altura.total_cmp(&a.altura))
+            }),
+        }
+        orders.push(ordered.into_iter().map(|piece| piece.id).collect());
+    }
+    orders
+}
+
+fn dynamic_restarts(opts: &Master40RunOptions, piece_count: usize) -> u32 {
+    if let Some(value) = opts.explicit_restarts_per_board {
+        return value.max(1);
+    }
+    let denom = usize::max(60, piece_count) as f64;
+    let value = (opts.default_restarts_per_board as f64 * 60.0 / denom).round() as u32;
+    value.max(3)
+}
+
+fn run_master_large_round(
+    inputs: Vec<PieceInput>,
+    base_configs: &[GreedyPlanConfig],
+    round_seed: u32,
+    opts: &Master40RunOptions,
+) -> std::result::Result<Vec<PackOutput>, String> {
+    let orders = master_piece_orders(&inputs, opts.passes);
+    let by_id: HashMap<u32, PieceInput> =
+        inputs.iter().cloned().map(|piece| (piece.id, piece)).collect();
+    let stages: Vec<u32> = if opts.prefer_lower_depth {
+        (2..=opts.max_stages.max(2)).collect()
+    } else {
+        vec![opts.max_stages.max(2)]
+    };
+    let restarts = dynamic_restarts(opts, inputs.len());
+
+    let mut best: Option<Vec<PackOutput>> = None;
+    for (pass_index, order) in orders.iter().enumerate() {
+        let ordered: Vec<PieceInput> = order.iter()
+            .filter_map(|id| by_id.get(id).cloned())
+            .collect();
+        if ordered.len() != inputs.len() {
+            return Err("master round order lost pieces".to_string());
+        }
+
+        for stage in &stages {
+            let mut configs = base_configs.to_vec();
+            for config in &mut configs {
+                config.options.etapas = *stage;
+            }
+            let boards = run_greedy_plan_internal(
+                ordered.clone(),
+                &configs,
+                round_seed,
+                pass_index as u32,
+                restarts,
+                opts.tolerance,
+            )?;
+
+            let replace = match &best {
+                None => true,
+                Some(current) => {
+                    boards.len() < current.len() ||
+                    (
+                        boards.len() == current.len() &&
+                        better_plan_same_boards(
+                            &boards,
+                            current,
+                            &configs[0].options,
+                            opts.prefer_lower_depth,
+                        )
+                    )
+                }
+            };
+            if replace {
+                best = Some(boards);
+            }
+        }
+    }
+    best.ok_or_else(|| "master round produced no complete plan".to_string())
+}
+
+#[napi(js_name = "packBoardLegacyMaster40Large")]
+pub fn pack_board_legacy_master40_large(
+    catalog_json: String,
+    configs_json: String,
+    run_options_json: String,
+    rounds: u32,
+    seed: u32,
+) -> Result<String> {
+    let catalog: Vec<MasterTypeInput> = serde_json::from_str(&catalog_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid master catalog JSON: {e}")))?;
+    let configs: Vec<GreedyPlanConfig> = serde_json::from_str(&configs_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid master configs JSON: {e}")))?;
+    let run_opts: Master40RunOptions = serde_json::from_str(&run_options_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid master run options JSON: {e}")))?;
+
+    if catalog.is_empty() || configs.is_empty() {
+        return Err(Error::new(Status::InvalidArg, "master40 large context requires catalog/configs"));
+    }
+
+    let schedule = legacy_master_schedule(catalog.len() as u32, rounds, seed);
+    let mut seen_masks: HashSet<Vec<u32>> = HashSet::new();
+    let use_unique_masks =
+        run_opts.unique_masks_le4 &&
+        catalog.len() <= 4 &&
+        rounds == 40 &&
+        seed == 7;
+
+    let mut executable: Vec<(usize, Vec<u32>)> = Vec::new();
+    let mut skipped_duplicate_rounds = 0u32;
+    for (round, indices) in schedule.into_iter().enumerate() {
+        if indices.is_empty() { continue; }
+        if use_unique_masks && !seen_masks.insert(indices.clone()) {
+            skipped_duplicate_rounds += 1;
+            continue;
+        }
+        let piece_count: u32 = indices.iter()
+            .filter_map(|index| catalog.get(*index as usize))
+            .map(|item| item.quantity)
+            .sum();
+        if piece_count <= run_opts.max_pieces_beam {
+            return serde_json::to_string(&Master40LargeOutput {
+                eligible: false,
+                total_rounds: rounds,
+                executed_rounds: executable.len() as u32,
+                skipped_duplicate_rounds,
+                failed_rounds: 0,
+                patterns: Vec::new(),
+            }).map_err(|e| Error::new(Status::GenericFailure, format!("serialize master40 eligibility: {e}")));
+        }
+        executable.push((round, indices));
+    }
+
+    let mut selected: Vec<MasterPatternOutput> = Vec::new();
+    let mut position_by_usage: HashMap<Vec<u32>, usize> = HashMap::new();
+    let mut failed_rounds = 0u32;
+
+    for (round, indices) in &executable {
+        let (inputs, type_by_id) = expand_master_subset(&catalog, indices);
+        let boards = match run_master_large_round(
+            inputs,
+            &configs,
+            1000u32.wrapping_add(*round as u32),
+            &run_opts,
+        ) {
+            Ok(value) => value,
+            Err(_) => {
+                failed_rounds += 1;
+                continue;
+            }
+        };
+
+        for board in boards {
+            let mut usage = vec![0u32; catalog.len()];
+            let mut id_type_pairs = Vec::with_capacity(board.colocadas.len());
+            let mut valid = true;
+            for placed in &board.colocadas {
+                let Some(type_index) = type_by_id.get(placed.id as usize).copied() else {
+                    valid = false;
+                    break;
+                };
+                if type_index as usize >= usage.len() {
+                    valid = false;
+                    break;
+                }
+                usage[type_index as usize] = usage[type_index as usize].saturating_add(1);
+                id_type_pairs.push(MasterIdType { id: placed.id, type_index });
+            }
+            if !valid || usage.iter().all(|value| *value == 0) { continue; }
+
+            let area = board.area;
+            if let Some(slot) = position_by_usage.get(&usage).copied() {
+                if area > selected[slot].area {
+                    selected[slot] = MasterPatternOutput {
+                        usage_vector: usage,
+                        area,
+                        board,
+                        id_type_pairs,
+                    };
+                }
+            } else {
+                position_by_usage.insert(usage.clone(), selected.len());
+                selected.push(MasterPatternOutput {
+                    usage_vector: usage,
+                    area,
+                    board,
+                    id_type_pairs,
+                });
+            }
+        }
+    }
+
+    serde_json::to_string(&Master40LargeOutput {
+        eligible: true,
+        total_rounds: rounds,
+        executed_rounds: executable.len() as u32,
+        skipped_duplicate_rounds,
+        failed_rounds,
+        patterns: selected,
+    })
+    .map_err(|e| Error::new(Status::GenericFailure, format!("serialize master40 large context: {e}")))
+}
+
 #[napi(js_name = "packBoardLegacyGreedyPlan")]
 pub fn pack_board_legacy_greedy_plan(
     pieces_json: String,
