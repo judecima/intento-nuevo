@@ -995,6 +995,7 @@ fn run_greedy_plan_internal(
     pass: u32,
     restarts_per_board: u32,
     tolerance: f64,
+    mut profile: Option<&mut Master40Profile>,
 ) -> std::result::Result<Vec<PackOutput>, String> {
     if configs.is_empty() {
         return Err("greedy plan requires configs".to_string());
@@ -1004,6 +1005,9 @@ fn run_greedy_plan_internal(
     let mut guard = 0u32;
 
     while !inputs.is_empty() && guard < 300 {
+        if let Some(p) = profile.as_deref_mut() {
+            p.board_iterations += 1;
+        }
         let board_index = boards.len() as u32;
         let requests = greedy_plan_requests(
             configs,
@@ -1012,21 +1016,29 @@ fn run_greedy_plan_internal(
             board_index,
             restarts_per_board,
         );
+        if let Some(p) = profile.as_deref_mut() {
+            p.pack_requests += requests.len() as u64;
+        }
         let quality_opts = &requests[0].options;
         let template = common_template(&inputs, &requests);
         let mut outputs: Vec<PackOutput> = Vec::with_capacity(requests.len());
 
+        let pack_started = Instant::now();
         for request in &requests {
             let output = pack_request(&inputs, template.as_deref(), request)?;
             if !output.colocadas.is_empty() {
                 outputs.push(output);
             }
         }
+        if let Some(p) = profile.as_deref_mut() {
+            p.pack_request_ms += pack_started.elapsed().as_secs_f64() * 1000.0;
+        }
 
         if outputs.is_empty() {
             return Err("No se pudo empacar la placa.".to_string());
         }
 
+        let selection_started = Instant::now();
         let mut best_close: Option<usize> = None;
         for (index, output) in outputs.iter().enumerate() {
             if output.colocadas.len() != inputs.len() { continue; }
@@ -1072,12 +1084,19 @@ fn run_greedy_plan_internal(
             Some(index) => outputs.swap_remove(index),
             None => return Err("No se pudo seleccionar la placa greedy.".to_string()),
         };
+        if let Some(p) = profile.as_deref_mut() {
+            p.selection_ms += selection_started.elapsed().as_secs_f64() * 1000.0;
+        }
 
+        let retain_started = Instant::now();
         let used: HashSet<u32> = selected.colocadas.iter().map(|p| p.id).collect();
         let before = inputs.len();
         inputs.retain(|piece| !used.contains(&piece.id));
         if inputs.len() >= before {
             return Err("Greedy plan no consumio piezas.".to_string());
+        }
+        if let Some(p) = profile.as_deref_mut() {
+            p.retain_ms += retain_started.elapsed().as_secs_f64() * 1000.0;
         }
 
         boards.push(selected);
@@ -1145,6 +1164,7 @@ pub fn pack_board_legacy_greedy_round(
                 pass_index as u32,
                 restarts_per_board,
                 tolerance,
+                None,
             ).map_err(|e| Error::new(Status::GenericFailure, e))?;
 
             let replace = match &best {
@@ -1231,8 +1251,13 @@ struct Master40Profile {
     expand_ms: f64,
     order_ms: f64,
     greedy_plan_ms: f64,
+    pack_request_ms: f64,
+    selection_ms: f64,
+    retain_ms: f64,
     dedup_ms: f64,
     plan_trials: u64,
+    board_iterations: u64,
+    pack_requests: u64,
     round_piece_instances: u64,
 }
 
@@ -1370,6 +1395,7 @@ fn run_master_large_round(
                 pass_index as u32,
                 restarts,
                 opts.tolerance,
+                Some(profile),
             )?;
             profile.greedy_plan_ms += plan_started.elapsed().as_secs_f64() * 1000.0;
 
