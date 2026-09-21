@@ -3,6 +3,7 @@ const {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustGreedyPlan,
+  packBoardLegacyRustGreedyRound,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
@@ -571,17 +572,36 @@ function optimizarLegacyHybrid(lineas, config = {}) {
     ? [maxStages]
     : Array.from({ length: maxStages - 1 }, (_, index) => index + 2);
 
+  const nativeLargeRound =
+    pieces.length > opts.maxPiezasBeam &&
+    (
+      opts.usarRondaGrandeNativa === true ||
+      /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_LARGE_ROUND_EXPERIMENTAL || ""))
+    );
+
   let best = null;
-  for (let pass = 0; pass < opts.pases; pass++) {
-    for (const stages of stageTrials) {
-      const stageOpts = { ...opts, etapas: stages };
-      const boards = armBoards(pieces.slice().sort(orders[pass % orders.length]), stageOpts, configs, pass);
-      if (boards.reduce((sum, board) => sum + board.colocadas.length, 0) < pieces.length) continue;
-      if (
-        !best ||
-        boards.length < best.placas.length ||
-        (boards.length === best.placas.length && mejorPlanIgualPlacas(boards, best.placas, stageOpts))
-      ) best = { placas: boards, etapasUsadas: stages };
+  if (nativeLargeRound) {
+    const orderedIds = Array.from({ length: opts.pases }, (_, pass) =>
+      pieces.slice().sort(orders[pass % orders.length]).map((piece) => piece.id),
+    );
+    const nativeRound = packBoardLegacyRustGreedyRound(pieces, opts, configs, orderedIds);
+    const boards = nativeRound.placas.map((board) => toBoard(board, opts));
+    if (boards.reduce((sum, board) => sum + board.colocadas.length, 0) < pieces.length) {
+      throw new Error("La ronda greedy nativa no cubre todas las piezas.");
+    }
+    best = { placas: boards, etapasUsadas: nativeRound.etapasUsadas };
+  } else {
+    for (let pass = 0; pass < opts.pases; pass++) {
+      for (const stages of stageTrials) {
+        const stageOpts = { ...opts, etapas: stages };
+        const boards = armBoards(pieces.slice().sort(orders[pass % orders.length]), stageOpts, configs, pass);
+        if (boards.reduce((sum, board) => sum + board.colocadas.length, 0) < pieces.length) continue;
+        if (
+          !best ||
+          boards.length < best.placas.length ||
+          (boards.length === best.placas.length && mejorPlanIgualPlacas(boards, best.placas, stageOpts))
+        ) best = { placas: boards, etapasUsadas: stages };
+      }
     }
   }
   if (!best) throw new Error("No se pudo armar un plan completo.");
