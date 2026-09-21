@@ -1,0 +1,42 @@
+name: Optimizer Master Round Provenance
+
+on:
+  push:
+    branches:
+      - research/master-round-provenance-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      MASTER_GATE_MULT: "4.75"
+      PROV_MAX_CASES: "12"
+      PROV_MAX_PIECES: "180"
+      PROV_MASTER_MS: "8000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Syntax checks
+        run: |
+          node --check research/optimizer/master-portfolio/incremental-rust-master.cjs
+          node --check research/optimizer/master-portfolio/master-round-provenance.cjs
+          node --check src/lib/optimizer/legacy/cobertura.cjs
+      - name: Run full40 provenance
+        run: node research/optimizer/master-portfolio/master-round-provenance.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-round-provenance
+          path: research/optimizer/master-portfolio/out/MASTER_ROUND_PROVENANCE_2026-09-21.json
