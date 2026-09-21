@@ -763,12 +763,24 @@ fn pack_request(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RemnantQuality {
     largest: f64,
     second: f64,
     fragments: usize,
     total: f64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BeamCandidateLite {
+    request_index: usize,
+    used_ids: Vec<u32>,
+    area: f64,
+    area_resto: f64,
+    pending_area: f64,
+    quality: RemnantQuality,
 }
 
 fn remnant_quality(output: &PackOutput, opts: &PackOptions) -> RemnantQuality {
@@ -1012,6 +1024,84 @@ pub fn pack_board_legacy_beam_candidates(
 
     serde_json::to_string(&outputs)
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize beam candidates: {e}")))
+}
+
+
+#[napi(js_name = "packBoardLegacyBeamCandidatesLite")]
+pub fn pack_board_legacy_beam_candidates_lite(
+    pieces_json: String,
+    requests_json: String,
+    beam_width: u32,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let requests: Vec<PackBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid batch requests JSON: {e}")))?;
+    if requests.is_empty() {
+        return Ok("[]".to_string());
+    }
+
+    let quality_opts = &requests[0].options;
+    let template = common_template(&inputs, &requests);
+    let mut dedup: HashMap<String, (usize, PackOutput)> = HashMap::new();
+
+    for (request_index, request) in requests.iter().enumerate() {
+        let output = pack_request(&inputs, template.as_deref(), request)
+            .map_err(|e| Error::new(Status::InvalidArg, e))?;
+        if output.colocadas.is_empty() { continue; }
+
+        let signature = usage_signature(&output);
+        if let Some((_, previous)) = dedup.get(&signature) {
+            let q = compare_quality(
+                remnant_quality(&output, quality_opts),
+                remnant_quality(previous, quality_opts),
+            );
+            if q < 0 || (q == 0 && output.area <= previous.area + 1e-6) {
+                continue;
+            }
+        }
+        dedup.insert(signature, (request_index, output));
+    }
+
+    let board_area = quality_opts.ancho_util * quality_opts.alto_util;
+    let mut ranked: Vec<(String, i64, BeamCandidateLite)> = dedup
+        .into_iter()
+        .map(|(signature, (request_index, output))| {
+            let pending = pending_area(&inputs, &output).max(0.0);
+            let lb = (pending / board_area).ceil() as i64;
+            let quality = remnant_quality(&output, quality_opts);
+            let mut used_ids: Vec<u32> = output.colocadas.iter().map(|p| p.id).collect();
+            used_ids.sort_unstable();
+            let lite = BeamCandidateLite {
+                request_index,
+                used_ids,
+                area: output.area,
+                area_resto: output.area_resto,
+                pending_area: pending,
+                quality,
+            };
+            (signature, lb, lite)
+        })
+        .collect();
+
+    ranked.sort_by(|(signature_a, lb_a, a), (signature_b, lb_b, b)| {
+        lb_a.cmp(lb_b)
+            .then_with(|| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| {
+                let q = compare_quality(a.quality, b.quality);
+                if q > 0 { std::cmp::Ordering::Less }
+                else if q < 0 { std::cmp::Ordering::Greater }
+                else { std::cmp::Ordering::Equal }
+            })
+            .then_with(|| signature_a.cmp(signature_b))
+    });
+
+    let limit = usize::max((beam_width as usize).saturating_mul(3), beam_width as usize);
+    ranked.truncate(limit);
+    let output: Vec<BeamCandidateLite> = ranked.into_iter().map(|(_, _, lite)| lite).collect();
+
+    serde_json::to_string(&output)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize lean beam candidates: {e}")))
 }
 
 #[napi(js_name = "packBoardLegacyCore")]
