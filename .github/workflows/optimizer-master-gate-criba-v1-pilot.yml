@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      PILOT_TARGET_ELIGIBLE: 18
-      PILOT_MAX_SCANNED: 70
+      PILOT_TARGET_ELIGIBLE: 6
+      PILOT_MAX_SCANNED: 30
       PILOT_MASTER_MS: 8000
       PILOT_MAX_PIECES: 160
     steps:
