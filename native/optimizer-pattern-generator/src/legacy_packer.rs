@@ -1096,6 +1096,121 @@ struct GreedyRoundResult {
     stages_used: u32,
 }
 
+fn run_greedy_round_internal(
+    inputs: Vec<PieceInput>,
+    base_configs: &[GreedyPlanConfig],
+    orders: &[Vec<u32>],
+    semilla: u32,
+    restarts_per_board: u32,
+    tolerance: f64,
+    max_stages: u32,
+    prefer_lower_depth: bool,
+) -> std::result::Result<GreedyRoundResult, String> {
+    if base_configs.is_empty() || orders.is_empty() {
+        return Err("greedy round requires configs and orders".to_string());
+    }
+
+    let by_id: HashMap<u32, PieceInput> = inputs.into_iter().map(|piece| (piece.id, piece)).collect();
+    let stages: Vec<u32> = if prefer_lower_depth {
+        (2..=max_stages.max(2)).collect()
+    } else {
+        vec![max_stages.max(2)]
+    };
+    let mut best: Option<(Vec<PackOutput>, u32)> = None;
+
+    for (pass_index, order) in orders.iter().enumerate() {
+        let mut ordered = Vec::with_capacity(order.len());
+        for id in order {
+            ordered.push(
+                by_id.get(id).cloned().ok_or_else(|| format!("unknown piece id in order: {id}"))?
+            );
+        }
+
+        for stage in &stages {
+            let mut configs = base_configs.to_vec();
+            for config in &mut configs {
+                config.options.etapas = *stage;
+            }
+            let boards = run_greedy_plan_internal(
+                ordered.clone(),
+                &configs,
+                semilla,
+                pass_index as u32,
+                restarts_per_board,
+                tolerance,
+            )?;
+
+            let replace = match &best {
+                None => true,
+                Some((current, _)) => {
+                    boards.len() < current.len() ||
+                    (
+                        boards.len() == current.len() &&
+                        better_plan_same_boards(&boards, current, &configs[0].options, prefer_lower_depth)
+                    )
+                }
+            };
+            if replace {
+                best = Some((boards, *stage));
+            }
+        }
+    }
+
+    let (boards, stages_used) = best.ok_or_else(|| "No se pudo armar un plan completo.".to_string())?;
+    Ok(GreedyRoundResult { boards, stages_used })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GreedyRoundBatchRequest {
+    round: usize,
+    pieces: Vec<PieceInput>,
+    configs: Vec<GreedyPlanConfig>,
+    orders: Vec<Vec<u32>>,
+    semilla: u32,
+    restarts_per_board: u32,
+    tolerance: f64,
+    max_stages: u32,
+    prefer_lower_depth: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GreedyRoundBatchResult {
+    round: usize,
+    boards: Vec<PackOutput>,
+    stages_used: u32,
+}
+
+#[napi(js_name = "packBoardLegacyGreedyRoundBatch")]
+pub fn pack_board_legacy_greedy_round_batch(requests_json: String) -> Result<String> {
+    let requests: Vec<GreedyRoundBatchRequest> = serde_json::from_str(&requests_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid greedy round batch JSON: {e}")))?;
+
+    let mut results = Vec::with_capacity(requests.len());
+    for request in requests {
+        let result = run_greedy_round_internal(
+            request.pieces,
+            &request.configs,
+            &request.orders,
+            request.semilla,
+            request.restarts_per_board,
+            request.tolerance,
+            request.max_stages,
+            request.prefer_lower_depth,
+        ).map_err(|e| Error::new(Status::GenericFailure, format!("round {}: {e}", request.round)))?;
+
+        results.push(GreedyRoundBatchResult {
+            round: request.round,
+            boards: result.boards,
+            stages_used: result.stages_used,
+        });
+    }
+
+    serde_json::to_string(&results)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy round batch: {e}")))
+}
+
 #[napi(js_name = "packBoardLegacyGreedyRound")]
 pub fn pack_board_legacy_greedy_round(
     pieces_json: String,
