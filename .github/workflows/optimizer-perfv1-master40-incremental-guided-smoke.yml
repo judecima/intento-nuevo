@@ -1,0 +1,47 @@
+name: Optimizer PerfV1 Master40 Incremental Guided Smoke
+
+on:
+  push:
+    branches:
+      - research/perfv1-master40-incremental-guided-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      INC_MAX_CASES: "16"
+      INC_MAX_PIECES: "300"
+      INC_PROBE_NODES: "100000"
+      INC_PROBE_WATCHDOG_MS: "300"
+      INC_FULL_NODES: "1600000"
+      INC_FULL_WATCHDOG_MS: "12000"
+      RUST_LEGACY_DEBUG_ERRORS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Syntax checks
+        run: |
+          node --check research/optimizer/master-portfolio/incremental-rust-master-perfv1.cjs
+          node --check research/optimizer/master-portfolio/master40-incremental-guided-smoke.cjs
+      - name: Run incremental guided smoke
+        run: node research/optimizer/master-portfolio/master40-incremental-guided-smoke.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perfv1-master40-incremental-guided-smoke
+          path: research/optimizer/master-portfolio/out/PERFV1_MASTER40_INCREMENTAL_GUIDED_SMOKE_2026-09-21.json
+          if-no-files-found: warn
+          retention-days: 30
