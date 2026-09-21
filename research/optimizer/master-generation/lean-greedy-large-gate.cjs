@@ -70,8 +70,10 @@ function config(p){
 function child(file,candidate){
  const target=TARGETS.find(x=>x[0]===file);if(!target)throw new Error("unknown target "+file);
  delete process.env.OPTIMIZER_RUST_BEAM_DERIVED_METRICS_EXPERIMENTAL;
- if(candidate) process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL="1";
- else delete process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL;
+ process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL="1";
+ process.env.OPTIMIZER_RUST_LEAN_BEAM_EXPERIMENTAL="1";
+ if(candidate) process.env.OPTIMIZER_RUST_LEAN_GREEDY_LARGE_EXPERIMENTAL="1";
+ else delete process.env.OPTIMIZER_RUST_LEAN_GREEDY_LARGE_EXPERIMENTAL;
  const {generarPatrones}=require(path.join(REPO,"src/lib/optimizer/legacy/patrones.cjs"));
  const p=problem(resolve(file,target[1]),file),cfg=config(p);
  const t0=process.hrtime.bigint();
