@@ -205,6 +205,7 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
         executedRounds: context?.executedRounds ?? 0,
         skippedDuplicateRounds: context?.skippedDuplicateRounds ?? 0,
         failedRounds: context?.failedRounds ?? 0,
+        profile: context?.profile ?? null,
       };
       if (uniqueMasks && context?.eligible) {
         O._patternMaskPolicy = {
