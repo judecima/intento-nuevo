@@ -1,9 +1,9 @@
-name: Optimizer Master P15 Gap1
+name: Optimizer Master P16 Gap1
 
 on:
   push:
     branches:
-      - research/master-p15-gap1-20260921
+      - research/master-p16-gap1-20260921
   workflow_dispatch:
 
 permissions:
@@ -15,13 +15,13 @@ jobs:
     timeout-minutes: 45
     env:
       MASTER_GATE_MULT: "4.75"
-      P15_MAX_CASES: "4"
-      P15_MAX_PIECES: "180"
-      P15_FULL_MS: "8000"
-      P15_EARLY_NODES: "200000"
-      P15_EARLY_WATCHDOG_MS: "1500"
-      P15_FULL_NODES: "1600000"
-      P15_FULL_WATCHDOG_MS: "12000"
+      P16_MAX_CASES: "4"
+      P16_MAX_PIECES: "180"
+      P16_FULL_MS: "8000"
+      P16_EARLY_NODES: "200000"
+      P16_EARLY_WATCHDOG_MS: "1500"
+      P16_FULL_NODES: "1600000"
+      P16_FULL_WATCHDOG_MS: "12000"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,12 +32,12 @@ jobs:
       - run: npm ci
       - run: npm run optimizer:rust:build
       - name: Syntax check
-        run: node --check research/optimizer/master-portfolio/master-p15-gap1.cjs
-      - name: Run P15 staged benchmark
-        run: node research/optimizer/master-portfolio/master-p15-gap1.cjs
+        run: node --check research/optimizer/master-portfolio/master-p16-gap1.cjs
+      - name: Run P16 staged benchmark
+        run: node research/optimizer/master-portfolio/master-p16-gap1.cjs
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: master-p15-gap1
-          path: research/optimizer/master-portfolio/out/MASTER_P15_GAP1_2026-09-21.json
+          name: master-p16-gap1
+          path: research/optimizer/master-portfolio/out/MASTER_P16_GAP1_2026-09-21.json
