@@ -359,7 +359,7 @@ function main() {
     pass:
       historical.missedWinners.length === 0 &&
       controls.length === 3 &&
-      controlWins.length === 3 &&
+      controls.every(r => r.candidateWouldRun === true) &&
       rejectWins.length === 0,
   };
 
