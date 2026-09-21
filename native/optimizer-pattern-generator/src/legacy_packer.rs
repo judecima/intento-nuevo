@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use napi::{Error, Result, Status};
 use napi_derive::napi;
@@ -225,6 +225,7 @@ struct PoolState {
     counts: Vec<usize>,
     reps: Vec<Option<usize>>,
     next_same: Vec<Option<usize>>,
+    ordered_reps: Option<BTreeSet<usize>>,
 }
 
 impl PoolState {
@@ -244,7 +245,16 @@ impl PoolState {
             reps[sig] = Some(index);
         }
 
-        Self { pieces, counts, reps, next_same }
+        let ordered_enabled = std::env::var("OPTIMIZER_RUST_ORDERED_REPS_EXPERIMENTAL")
+            .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(false);
+        let ordered_reps = if ordered_enabled {
+            Some(reps.iter().flatten().copied().collect())
+        } else {
+            None
+        };
+
+        Self { pieces, counts, reps, next_same, ordered_reps }
     }
 
     fn take(&mut self, index: usize) -> Piece {
@@ -253,7 +263,14 @@ impl PoolState {
         debug_assert_eq!(self.reps[sig], Some(index));
         debug_assert!(self.counts[sig] > 0);
         self.counts[sig] -= 1;
-        self.reps[sig] = self.next_same[index];
+        let next = self.next_same[index];
+        self.reps[sig] = next;
+        if let Some(ordered) = self.ordered_reps.as_mut() {
+            ordered.remove(&index);
+            if let Some(next_index) = next {
+                ordered.insert(next_index);
+            }
+        }
         piece
     }
 }
@@ -327,14 +344,18 @@ fn choose(
     let Scratch { reps, measures, top } = scratch;
 
     reps.clear();
-    for index in pool.reps.iter().flatten() {
-        reps.push(*index);
+    if let Some(ordered) = pool.ordered_reps.as_ref() {
+        reps.extend(ordered.iter().copied());
+    } else {
+        for index in pool.reps.iter().flatten() {
+            reps.push(*index);
+        }
+        // Legacy Vec::remove preserves the relative order of every remaining
+        // piece. Once the first member of a family is consumed, its next
+        // representative can move behind another family. Sorting by the stable
+        // original index exactly reproduces that legacy representative order.
+        reps.sort_unstable();
     }
-    // Legacy Vec::remove preserves the relative order of every remaining
-    // piece. Once the first member of a family is consumed, its next
-    // representative can move behind another family. Sorting by the stable
-    // original index exactly reproduces that legacy representative order.
-    reps.sort_unstable();
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
