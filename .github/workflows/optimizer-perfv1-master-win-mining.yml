@@ -1,0 +1,75 @@
+name: Optimizer PerfV1 Master Win Mining
+
+on:
+  push:
+    branches:
+      - research/perfv1-master-win-mining-20260921
+    paths:
+      - "research/optimizer/master-generation/master-win-mining.cjs"
+      - ".github/workflows/optimizer-perfv1-master-win-mining.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Check miner syntax
+        run: node --check research/optimizer/master-generation/master-win-mining.cjs
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Production unique-mask contract
+        run: npx vitest run tests/optimizer/master-unique-masks.test.ts
+      - name: Mine Master wins shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 32
+          MAX_PIECES: 500
+        run: node research/optimizer/master-generation/master-win-mining.cjs shard
+      - name: Upload shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: perfv1-master-win-mining-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/master-win-mining-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: perfv1-master-win-mining-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build mining report
+        env:
+          SHARD_TOTAL: 32
+        run: node research/optimizer/master-generation/master-win-mining.cjs report
+      - name: Upload mining report
+        uses: actions/upload-artifact@v4
+        with:
+          name: perfv1-master-win-mining-results
+          path: research/optimizer/master-generation/master-win-mining-results.json
+          if-no-files-found: error
+          retention-days: 30
