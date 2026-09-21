@@ -68,13 +68,21 @@ function main(){
     const target=num(m.finalBoards);
     const cheap=computeHybridLowerBound(lines,opts,target,{useRaster:false,claude:{usarRaster:false}});
     const full=computeHybridLowerBound(lines,opts,target,{useRaster:true});
+    const forced=computeHybridLowerBound(lines,opts,target,{
+      useRaster:true,
+      rasterMaxPieces:600,
+      rasterMaxTypes:64,
+      claude:{usarRaster:true,rasterMaxPiezas:600,rasterMaxTipos:64}
+    });
     records.push({
       order:m.order,pieces:f.pieceCount,typeCount:f.typeCount,
       historical:{preMasterBoards:num(m.preMasterBoards),oldLowerBound:num(m.lowerBound),finalBoards:target,masterWin:Boolean(m.masterWin)},
       cheap:{lb:num(cheap.cheapLowerBound||cheap.lowerBound),reason:cheap.reason,ms:num(cheap.timingsMs?.total),certifies:(num(cheap.cheapLowerBound||cheap.lowerBound)>=target)},
       full:{lb:num(full.lowerBound),reason:full.reason,ms:num(full.timingsMs?.total),certifies:(num(full.lowerBound)>=target),rasterRan:!!full.rasterRan},
+      forced:{lb:num(forced.lowerBound),reason:forced.reason,ms:num(forced.timingsMs?.total),certifies:(num(forced.lowerBound)>=target),rasterRan:!!forced.rasterRan},
       strengthensCheap:num(cheap.cheapLowerBound||cheap.lowerBound)>num(m.lowerBound),
-      strengthensFull:num(full.lowerBound)>num(m.lowerBound)
+      strengthensFull:num(full.lowerBound)>num(m.lowerBound),
+      strengthensForced:num(forced.lowerBound)>num(m.lowerBound)
     });
     console.log("LB_CASE",JSON.stringify(records[records.length-1]));
   }
@@ -85,8 +93,10 @@ function main(){
       eligible:eligible.length,exact:records.length,unavailable:unavailable.length,
       cheapStrengthened:records.filter(r=>r.strengthensCheap).length,
       fullStrengthened:records.filter(r=>r.strengthensFull).length,
+      forcedStrengthened:records.filter(r=>r.strengthensForced).length,
       cheapCertifiesHistoricalFinal:records.filter(r=>r.cheap.certifies).map(r=>r.order),
-      fullCertifiesHistoricalFinal:records.filter(r=>r.full.certifies).map(r=>r.order)
+      fullCertifiesHistoricalFinal:records.filter(r=>r.full.certifies).map(r=>r.order),
+      forcedCertifiesHistoricalFinal:records.filter(r=>r.forced.certifies).map(r=>r.order)
     },
     records,unavailable
   };
