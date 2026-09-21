@@ -17,6 +17,7 @@ const { patronesMonotipo } = require(path.join(LEGACY, "patrones.cjs"));
 const { resolverCobertura } = require(path.join(LEGACY, "cobertura.cjs"));
 const { materializar } = require(path.join(LEGACY, "materializar.cjs"));
 const { calidadPlanPlacas, compararCalidad } = require(path.join(LEGACY, "motor.cjs"));
+const { defragmentarPlanPorPlaca } = require(path.join(ROOT, "src/lib/optimizer/experimental/per-board-remnant-defrag.cjs"));
 const { createIncrementalRustMasterGenerator } = require("./incremental-rust-master.cjs");
 
 const P15 = Object.freeze([0,2,6,10,12,13,16,17,18,19,21,22,25,34,36]);
@@ -205,14 +206,26 @@ function runStaged(row) {
   );
 
   if (certifiedEarly) {
+    // Objective #1 is now mathematically closed. Spend only on objective #2:
+    // a fixed-board polish that cannot move pieces between boards or add boards.
+    const polishStart=performance.now();
+    const polished=defragmentarPlanPorPlaca(earlyMaster.plan,{piezasEsperadas:expected});
+    const polishMs=performance.now()-polishStart;
+    const polishedPlan=polished && !polished.invalidFinal && polished.plan ? polished.plan : earlyMaster.plan;
+    const polishedValid=polishedPlan ? validarPlanIndustrial(polishedPlan,expected) : null;
+    const finalPlan=polishedValid?.ok ? polishedPlan : earlyMaster.plan;
     return {
       preMs, preBoards:prePlan.resumen.placas, cota:pre.cota,
       stoppedEarly:true, executedRounds:P15.length,
       p15Patterns:p15Patterns.length, monotypes:mono.length, monoMs,
       p15GenerationWallMs, generationCpuMs:gen.generationCpuMs,
       earlySolveMs:early.solveMs, earlyNodes:early.sol?.nodos ?? null, earlyExhausted:early.sol?.agotado ?? null,
+      remnantPolishMs:polishMs,
+      remnantPolishChanged:Boolean(polished?.changed),
+      remnantPolishImprovedBoards:num(polished?.improvedBoards),
       fallbackGenerationWallMs:0, fallbackSolveMs:0,
-      finalBoards:earlyMaster.boards, finalQuality:earlyMaster.quality,
+      finalBoards:finalPlan?.resumen?.placas ?? earlyMaster.boards,
+      finalQuality:calidadPlanPlacas(finalPlan?.placas||[],finalPlan?.opts||prePlan.opts),
     };
   }
 
@@ -250,7 +263,7 @@ function runPair(row, historical, index) {
   const baselineMasterWorkMs=num(baseline.generationWallMs)+num(baseline.solveMs);
   const candidateMasterWorkMs=
     num(candidate.monoMs)+num(candidate.p15GenerationWallMs)+num(candidate.earlySolveMs)+
-    num(candidate.fallbackGenerationWallMs)+num(candidate.fallbackSolveMs);
+    num(candidate.remnantPolishMs)+num(candidate.fallbackGenerationWallMs)+num(candidate.fallbackSolveMs);
   return {
     order:historical.order,file:features(row).file,features:features(row),historical:{
       finalBoards:num(historical.finalBoards),preMasterBoards:num(historical.preMasterBoards),
@@ -310,6 +323,7 @@ function main(){
       candidateBoards:rec.candidate.finalBoards,baselineMasterWorkMs:rec.baselineMasterWorkMs,
       candidateMasterWorkMs:rec.candidateMasterWorkMs,savedMs:rec.savedMs,
       earlySolveMs:rec.candidate.earlySolveMs,earlyNodes:rec.candidate.earlyNodes,
+      polishMs:rec.candidate.remnantPolishMs ?? 0,polishChanged:rec.candidate.remnantPolishChanged ?? false,
       p15Patterns:rec.candidate.p15Patterns,allPatterns:rec.candidate.allPatterns ?? null,
     }));
   }
