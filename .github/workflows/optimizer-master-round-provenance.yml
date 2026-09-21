@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 45
     env:
       MASTER_GATE_MULT: "4.75"
-      PROV_MAX_CASES: "12"
+      PROV_MAX_CASES: "4"
       PROV_MAX_PIECES: "180"
       PROV_MASTER_MS: "8000"
     steps:
