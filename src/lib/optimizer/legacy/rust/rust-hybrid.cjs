@@ -2,6 +2,7 @@
 const {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
+  packBoardLegacyRustGreedyPlan,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
@@ -154,6 +155,18 @@ function materializeBeamRecipes(recipes, opts, configs, pass) {
 }
 
 function armGreedy(pieces, opts, configs, pass) {
+  const nativeWholePlan =
+    pieces.length > opts.maxPiezasBeam &&
+    (
+      opts.usarGreedyPlanNativo === true ||
+      /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_GREEDY_PLAN_EXPERIMENTAL || ""))
+    );
+
+  if (nativeWholePlan) {
+    return packBoardLegacyRustGreedyPlan(pieces, opts, configs, pass)
+      .map((board) => toBoard(board, opts));
+  }
+
   let pool = pieces.slice();
   const boards = [];
   let guard = 0;
