@@ -166,6 +166,38 @@ function packBoardLegacyRustGreedyRound(pool, opts, configs, orderedIds) {
   };
 }
 
+function packBoardLegacyRustGreedyRoundBatch(payloads) {
+  const addon = native();
+  if (typeof addon.packBoardLegacyGreedyRoundBatch !== "function") {
+    throw new Error("native addon does not expose greedy round batch");
+  }
+  const byRound = new Map(payloads.map((payload) => [payload.round, payload]));
+  const requests = payloads.map((payload) => ({
+    round: payload.round,
+    pieces: pieces(payload.pieces),
+    configs: payload.configs.map((config) => ({
+      options: packOptions({ ...payload.opts, ...config }),
+      configId: config._id >>> 0,
+    })),
+    orders: payload.orderedIds,
+    semilla: payload.opts.semilla >>> 0,
+    restartsPerBoard: Math.max(1, Math.floor(+payload.opts.restartsPorPlaca || 1)) >>> 0,
+    tolerance: +payload.opts.tolerancia || 0,
+    maxStages: Math.max(2, Math.floor(+payload.opts.etapas || 4)) >>> 0,
+    preferLowerDepth: payload.opts.preferirMenorProfundidad !== false,
+  }));
+  const raw = JSON.parse(addon.packBoardLegacyGreedyRoundBatch(JSON.stringify(requests)));
+  return raw.map((result) => {
+    const payload = byRound.get(result.round);
+    if (!payload) throw new Error("native greedy batch returned unknown round");
+    return {
+      round: result.round,
+      placas: result.boards.map((board) => hydrateResult(board, payload.pieces)),
+      etapasUsadas: result.stagesUsed,
+    };
+  });
+}
+
 function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   const raw = JSON.parse(
     native().packBoardLegacyBeamCandidates(
@@ -216,6 +248,7 @@ module.exports = {
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustGreedyPlan,
   packBoardLegacyRustGreedyRound,
+  packBoardLegacyRustGreedyRoundBatch,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
