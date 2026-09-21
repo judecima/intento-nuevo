@@ -118,6 +118,20 @@ function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
   return raw == null ? null : hydrateResult(raw, pool);
 }
 
+function packBoardLegacyRustGreedyBestLite(pool, requests, tolerance) {
+  const addon = native();
+  if (typeof addon.packBoardLegacyGreedyBestLite !== "function") {
+    throw new Error("native addon does not expose lean greedy selector");
+  }
+  return JSON.parse(
+    addon.packBoardLegacyGreedyBestLite(
+      JSON.stringify(pieces(pool)),
+      serializeRequests(requests),
+      tolerance,
+    ),
+  );
+}
+
 function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   const raw = JSON.parse(
     native().packBoardLegacyBeamCandidates(
@@ -166,6 +180,7 @@ function legacyJsRng(seed) {
 module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
+  packBoardLegacyRustGreedyBestLite,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
