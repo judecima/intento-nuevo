@@ -68,6 +68,19 @@ function serializeGreedyConfigs(opts, configs) {
   })));
 }
 
+function serializeMasterCatalog(catalog) {
+  return JSON.stringify(catalog.map((item) => ({
+    quantity: item.quantity >>> 0,
+    base: item.base,
+    altura: item.altura,
+    cutBase: item.cutBase,
+    cutAltura: item.cutAltura,
+    veta: Boolean(item.veta),
+    detalle: item.detalle ?? "",
+    typeIndex: item.typeIndex >>> 0,
+  })));
+}
+
 function hydrateTree(node, byId) {
   if (!node) return null;
   return {
@@ -166,6 +179,49 @@ function packBoardLegacyRustGreedyRound(pool, opts, configs, orderedIds) {
   };
 }
 
+function packBoardLegacyRustMaster40Large(catalog, opts, configs, rounds, seed, runOptions) {
+  const addon = native();
+  if (typeof addon.packBoardLegacyMaster40Large !== "function") {
+    throw new Error("native addon does not expose Master40 large context");
+  }
+  const raw = JSON.parse(
+    addon.packBoardLegacyMaster40Large(
+      serializeMasterCatalog(catalog),
+      serializeGreedyConfigs(opts, configs),
+      JSON.stringify(runOptions),
+      rounds >>> 0,
+      seed >>> 0,
+    ),
+  );
+  if (!raw.eligible) return raw;
+
+  return {
+    ...raw,
+    patterns: raw.patterns.map((pattern) => {
+      const pool = pattern.idTypePairs.map(({ id, typeIndex }) => {
+        const type = catalog[typeIndex];
+        if (!type) throw new Error("Master40 returned an unknown type index.");
+        return {
+          id,
+          base: type.base,
+          altura: type.altura,
+          detalle: type.detalle ?? "",
+          veta: Boolean(type.veta),
+          cantos: type.cantos ?? null,
+          ref: typeIndex,
+          _corte: { base: type.cutBase, altura: type.cutAltura },
+          _sig: 0,
+        };
+      });
+      return {
+        usageVector: pattern.usageVector,
+        area: pattern.area,
+        board: hydrateResult(pattern.board, pool),
+      };
+    }),
+  };
+}
+
 function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   const raw = JSON.parse(
     native().packBoardLegacyBeamCandidates(
@@ -216,6 +272,7 @@ module.exports = {
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustGreedyPlan,
   packBoardLegacyRustGreedyRound,
+  packBoardLegacyRustMaster40Large,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
