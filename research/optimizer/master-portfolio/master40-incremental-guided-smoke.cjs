@@ -34,6 +34,7 @@ const CHECKPOINTS=Object.freeze([3,16,20,24,28,32,36,40]);
 
 const MAX_CASES=Number(process.env.INC_MAX_CASES||40);
 const ONLY_MASTER_WINS=process.env.INC_ONLY_MASTER_WINS!=="0";
+const TARGET_ORDERS=new Set(String(process.env.INC_TARGET_ORDERS||"").split(",").map(x=>Number(x.trim())).filter(Number.isFinite));
 const MAX_PIECES=Number(process.env.INC_MAX_PIECES||300);
 const PROBE_NODES=Number(process.env.INC_PROBE_NODES||100000);
 const PROBE_WATCHDOG_MS=Number(process.env.INC_PROBE_WATCHDOG_MS||300);
@@ -169,7 +170,9 @@ function main(){
   const raw=JSON.parse(fs.readFileSync(CANONICAL,"utf8"));
   const all=Array.isArray(raw)?raw:raw.cases||[];
   const byFile=new Map(all.map(r=>[features(r).file,r]));
-  const eligible=(manifest.cases||[]).filter(m=>!ONLY_MASTER_WINS||m.masterWin===true).filter(m=>num(m.pieces)<=MAX_PIECES)
+  const eligible=(manifest.cases||[])
+    .filter(m=>TARGET_ORDERS.size?TARGET_ORDERS.has(num(m.order)):(!ONLY_MASTER_WINS||m.masterWin===true))
+    .filter(m=>num(m.pieces)<=MAX_PIECES)
     .sort((a,b)=>(num(b.generationMs)+num(b.solveMs)+num(b.monotypeMs))-(num(a.generationMs)+num(a.solveMs)+num(a.monotypeMs)));
   const must=new Set([4050594,4058501,4057401,4059200]);
   const chosen=[],unavailable=[];
