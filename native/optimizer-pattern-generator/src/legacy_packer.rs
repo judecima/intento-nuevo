@@ -910,6 +910,263 @@ pub fn pack_board_legacy_batch(pieces_json: String, requests_json: String) -> Re
 }
 
 
+#[derive(Debug, Clone, Copy)]
+struct PlanDepth {
+    max_xml_layer: u32,
+    max_type2_layer: u32,
+    max_type1_layer: u32,
+    type2_nodes: u32,
+}
+
+fn accumulate_depth(node: &TreeNode, depth: &mut PlanDepth) {
+    depth.max_xml_layer = depth.max_xml_layer.max(node.nivel);
+    for part in &node.partes {
+        if part.kind == 2 {
+            depth.max_type2_layer = depth.max_type2_layer.max(node.nivel);
+            depth.type2_nodes += 1;
+        } else if part.kind == 1 {
+            depth.max_type1_layer = depth.max_type1_layer.max(node.nivel);
+        }
+        accumulate_depth(&part.hijo, depth);
+    }
+}
+
+fn plan_depth(boards: &[PackOutput]) -> PlanDepth {
+    let mut depth = PlanDepth {
+        max_xml_layer: 0,
+        max_type2_layer: 0,
+        max_type1_layer: 0,
+        type2_nodes: 0,
+    };
+    for board in boards {
+        accumulate_depth(&board.arbol, &mut depth);
+    }
+    depth
+}
+
+fn compare_plan_depth(a: PlanDepth, b: PlanDepth) -> i8 {
+    if a.max_xml_layer != b.max_xml_layer { return if a.max_xml_layer < b.max_xml_layer { 1 } else { -1 }; }
+    if a.max_type2_layer != b.max_type2_layer { return if a.max_type2_layer < b.max_type2_layer { 1 } else { -1 }; }
+    if a.max_type1_layer != b.max_type1_layer { return if a.max_type1_layer < b.max_type1_layer { 1 } else { -1 }; }
+    if a.type2_nodes != b.type2_nodes { return if a.type2_nodes < b.type2_nodes { 1 } else { -1 }; }
+    0
+}
+
+fn plan_quality(boards: &[PackOutput], opts: &PackOptions) -> RemnantQuality {
+    let mut largest = 0.0;
+    let mut second = 0.0;
+    let mut fragments = 0usize;
+    let mut total = 0.0;
+    for board in boards {
+        for rest in &board.restos {
+            if !useful(rest, opts) { continue; }
+            let area = rest.w * rest.h;
+            fragments += 1;
+            total += area;
+            if area > largest {
+                second = largest;
+                largest = area;
+            } else if area > second {
+                second = area;
+            }
+        }
+    }
+    RemnantQuality { largest, second, fragments, total }
+}
+
+fn better_plan_same_boards(
+    candidate: &[PackOutput],
+    current: &[PackOutput],
+    opts: &PackOptions,
+    prefer_lower_depth: bool,
+) -> bool {
+    if prefer_lower_depth {
+        let d = compare_plan_depth(plan_depth(candidate), plan_depth(current));
+        if d != 0 { return d > 0; }
+    }
+    compare_quality(plan_quality(candidate, opts), plan_quality(current, opts)) > 0
+}
+
+fn run_greedy_plan_internal(
+    mut inputs: Vec<PieceInput>,
+    configs: &[GreedyPlanConfig],
+    semilla: u32,
+    pass: u32,
+    restarts_per_board: u32,
+    tolerance: f64,
+) -> std::result::Result<Vec<PackOutput>, String> {
+    if configs.is_empty() {
+        return Err("greedy plan requires configs".to_string());
+    }
+
+    let mut boards: Vec<PackOutput> = Vec::new();
+    let mut guard = 0u32;
+
+    while !inputs.is_empty() && guard < 300 {
+        let board_index = boards.len() as u32;
+        let requests = greedy_plan_requests(
+            configs,
+            semilla,
+            pass,
+            board_index,
+            restarts_per_board,
+        );
+        let quality_opts = &requests[0].options;
+        let template = common_template(&inputs, &requests);
+        let mut outputs: Vec<PackOutput> = Vec::with_capacity(requests.len());
+
+        for request in &requests {
+            let output = pack_request(&inputs, template.as_deref(), request)?;
+            if !output.colocadas.is_empty() {
+                outputs.push(output);
+            }
+        }
+
+        if outputs.is_empty() {
+            return Err("No se pudo empacar la placa.".to_string());
+        }
+
+        let mut best_close: Option<usize> = None;
+        for (index, output) in outputs.iter().enumerate() {
+            if output.colocadas.len() != inputs.len() { continue; }
+            match best_close {
+                None => best_close = Some(index),
+                Some(prev) => {
+                    let q = compare_quality(
+                        remnant_quality(output, quality_opts),
+                        remnant_quality(&outputs[prev], quality_opts),
+                    );
+                    if q > 0 || (q == 0 && output.area > outputs[prev].area) {
+                        best_close = Some(index);
+                    }
+                }
+            }
+        }
+
+        let selected_index = if let Some(index) = best_close {
+            Some(index)
+        } else {
+            let max_area = outputs.iter().fold(0.0_f64, |acc, output| acc.max(output.area));
+            let threshold = max_area * (1.0 - tolerance);
+            let mut best: Option<usize> = None;
+            for (index, output) in outputs.iter().enumerate() {
+                if output.area < threshold { continue; }
+                match best {
+                    None => best = Some(index),
+                    Some(prev) => {
+                        let q = compare_quality(
+                            remnant_quality(output, quality_opts),
+                            remnant_quality(&outputs[prev], quality_opts),
+                        );
+                        if q > 0 || (q == 0 && output.area > outputs[prev].area + 1e-6) {
+                            best = Some(index);
+                        }
+                    }
+                }
+            }
+            best
+        };
+
+        let selected = match selected_index {
+            Some(index) => outputs.swap_remove(index),
+            None => return Err("No se pudo seleccionar la placa greedy.".to_string()),
+        };
+
+        let used: HashSet<u32> = selected.colocadas.iter().map(|p| p.id).collect();
+        let before = inputs.len();
+        inputs.retain(|piece| !used.contains(&piece.id));
+        if inputs.len() >= before {
+            return Err("Greedy plan no consumio piezas.".to_string());
+        }
+
+        boards.push(selected);
+        guard += 1;
+    }
+
+    if !inputs.is_empty() {
+        return Err("Greedy plan excedio el limite de placas.".to_string());
+    }
+    Ok(boards)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GreedyRoundResult {
+    boards: Vec<PackOutput>,
+    stages_used: u32,
+}
+
+#[napi(js_name = "packBoardLegacyGreedyRound")]
+pub fn pack_board_legacy_greedy_round(
+    pieces_json: String,
+    configs_json: String,
+    orders_json: String,
+    semilla: u32,
+    restarts_per_board: u32,
+    tolerance: f64,
+    max_stages: u32,
+    prefer_lower_depth: bool,
+) -> Result<String> {
+    let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let base_configs: Vec<GreedyPlanConfig> = serde_json::from_str(&configs_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid greedy config JSON: {e}")))?;
+    let orders: Vec<Vec<u32>> = serde_json::from_str(&orders_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece orders JSON: {e}")))?;
+
+    if base_configs.is_empty() || orders.is_empty() {
+        return Err(Error::new(Status::InvalidArg, "greedy round requires configs and orders"));
+    }
+
+    let by_id: HashMap<u32, PieceInput> = inputs.into_iter().map(|piece| (piece.id, piece)).collect();
+    let stages: Vec<u32> = if prefer_lower_depth {
+        (2..=max_stages.max(2)).collect()
+    } else {
+        vec![max_stages.max(2)]
+    };
+
+    let mut best: Option<(Vec<PackOutput>, u32)> = None;
+
+    for (pass_index, order) in orders.iter().enumerate() {
+        let ordered: Vec<PieceInput> = order.iter()
+            .map(|id| by_id.get(id).cloned().ok_or_else(|| Error::new(Status::InvalidArg, format!("unknown piece id in order: {id}"))))
+            .collect::<Result<Vec<_>>>()?;
+
+        for stage in &stages {
+            let mut configs = base_configs.clone();
+            for config in &mut configs {
+                config.options.etapas = *stage;
+            }
+            let boards = run_greedy_plan_internal(
+                ordered.clone(),
+                &configs,
+                semilla,
+                pass_index as u32,
+                restarts_per_board,
+                tolerance,
+            ).map_err(|e| Error::new(Status::GenericFailure, e))?;
+
+            let replace = match &best {
+                None => true,
+                Some((current, _)) => {
+                    boards.len() < current.len() ||
+                    (
+                        boards.len() == current.len() &&
+                        better_plan_same_boards(&boards, current, &configs[0].options, prefer_lower_depth)
+                    )
+                }
+            };
+            if replace {
+                best = Some((boards, *stage));
+            }
+        }
+    }
+
+    let (boards, stages_used) = best.ok_or_else(|| Error::new(Status::GenericFailure, "No se pudo armar un plan completo."))?;
+    serde_json::to_string(&GreedyRoundResult { boards, stages_used })
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy round: {e}")))
+}
+
 #[napi(js_name = "packBoardLegacyGreedyPlan")]
 pub fn pack_board_legacy_greedy_plan(
     pieces_json: String,
