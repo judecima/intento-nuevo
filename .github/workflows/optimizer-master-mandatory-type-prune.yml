@@ -1,0 +1,31 @@
+name: Optimizer Master Mandatory Type Prune
+
+on:
+  push:
+    branches:
+      - research/master-mandatory-type-prune-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MASTER_GATE_MULT: "4.75"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-mandatory-type-prune.cjs
+      - name: Analyze safe mandatory-type round pruning
+        run: node research/optimizer/master-portfolio/master-mandatory-type-prune.cjs
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-mandatory-type-prune
+          path: research/optimizer/master-portfolio/out/MASTER_MANDATORY_TYPE_PRUNE_2026-09-21.json
