@@ -113,6 +113,8 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
         let boardOrdinal = 0;
         for (const board of result.placas ?? []) {
           const payloadIndex = boards.length;
+          Object.defineProperty(board, "_researchRound", { value: round, enumerable: false, configurable: true });
+          Object.defineProperty(board, "_researchBoardOrdinal", { value: boardOrdinal, enumerable: false, configurable: true });
           boards.push(board);
           const candidateIndex = candidates.length;
           candidates.push(toPatternCandidates(board, payloadIndex, round, boardOrdinal++));
@@ -170,9 +172,29 @@ function createIncrementalRustMasterGenerator(lineas, O, rondas = 40, semilla = 
     return out;
   }
 
+  function roundStats() {
+    const out = [];
+    const deduped = patterns();
+    const dedupByRound = new Map();
+    for (const p of deduped) {
+      const round = p?.placa?._researchRound;
+      if (Number.isInteger(round)) dedupByRound.set(round, (dedupByRound.get(round) || 0) + 1);
+    }
+    for (const round of executedRounds()) {
+      out.push({
+        round,
+        maskSize: schedule[round]?.length ?? 0,
+        rawBoards: perRound.get(round)?.length ?? 0,
+        dedupPatterns: dedupByRound.get(round) || 0,
+      });
+    }
+    return out;
+  }
+
   return {
     execute,
     patterns,
+    roundStats,
     executedRounds,
     missingRounds,
     schedule,
