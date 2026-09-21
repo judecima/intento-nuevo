@@ -4,6 +4,7 @@ const {
   packBoardLegacyRustGreedyBest,
   packBoardLegacyRustGreedyPlan,
   packBoardLegacyRustGreedyRound,
+  packBoardLegacyRustMaster40Large,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
@@ -477,6 +478,110 @@ function makeConfigs(opts) {
   });
 }
 
+function generarMaster40LargeContext(lineas, config = {}, rondas = 40, semilla = 7, uniqueMasksLe4 = false) {
+  const opts = {
+    placaBase: 2750,
+    placaAltura: 1830,
+    refiladoX: 10,
+    refiladoY: 10,
+    sierra: 4.5,
+    etapas: 4,
+    materialConVeta: false,
+    descontarCanto: false,
+    cantoEspesor: 0,
+    ruido: 0.3,
+    pases: 2,
+    restartsPorPlaca: 14,
+    restoMin: 250,
+    restoMax: 400,
+    tolerancia: 0.02,
+    beamWidth: 5,
+    maxPiezasBeam: 120,
+    presupuestoBeamMs: 1500,
+    maxPiezasCache: 0,
+    semilla: 20260812,
+    preferirMenorProfundidad: true,
+    usarRescue: true,
+    maxPiezasRescue: 30,
+    presupuestoRescueMs: 300,
+    multiRebanada: false,
+    multiVariantes: false,
+    ...config,
+    pases: 2,
+  };
+
+  opts.anchoUtil = opts.placaBase - opts.refiladoX;
+  opts.altoUtil = opts.placaAltura - opts.refiladoY;
+  if (!(opts.anchoUtil > 0 && opts.altoUtil > 0)) {
+    throw new Error("Medida util invalida.");
+  }
+
+  const catalog = lineas.map((line, typeIndex) => {
+    const piece = {
+      base: +line.base,
+      altura: +line.altura,
+      detalle: line.detalle || "",
+      veta: Boolean(line.veta),
+      cantos: line.cantos || null,
+      ref: typeIndex,
+    };
+    const cut = medidaCorte(piece, opts);
+    return {
+      quantity: Math.max(0, Math.floor(+line.cant || 0)),
+      base: piece.base,
+      altura: piece.altura,
+      cutBase: cut.base,
+      cutAltura: cut.altura,
+      veta: piece.veta,
+      detalle: piece.detalle,
+      cantos: piece.cantos,
+      typeIndex,
+    };
+  });
+
+  if (!catalog.length || catalog.some((item) => item.quantity <= 0)) {
+    return { eligible: false, patterns: [] };
+  }
+
+  const configs = makeConfigs(opts);
+  const explicitRestarts = config.restartsPorPlaca === undefined
+    ? null
+    : Math.max(1, Math.floor(+opts.restartsPorPlaca || 1));
+
+  const result = packBoardLegacyRustMaster40Large(
+    catalog,
+    opts,
+    configs,
+    rondas,
+    semilla,
+    {
+      passes: 2,
+      explicitRestartsPerBoard: explicitRestarts,
+      defaultRestartsPerBoard: 14,
+      tolerance: +opts.tolerancia || 0,
+      maxStages: Math.max(2, Math.floor(+opts.etapas || 4)),
+      preferLowerDepth: opts.preferirMenorProfundidad !== false,
+      maxPiecesBeam: Math.max(0, Math.floor(+opts.maxPiezasBeam || 0)),
+      uniqueMasksLe4: Boolean(uniqueMasksLe4),
+    },
+  );
+
+  if (!result.eligible) return result;
+
+  return {
+    ...result,
+    patterns: result.patterns.map((pattern) => ({
+      uso: new Map(
+        pattern.usageVector
+          .map((count, index) => [index, count])
+          .filter(([, count]) => count > 0),
+      ),
+      area: pattern.area,
+      placa: toBoard(pattern.board, opts),
+    })),
+  };
+}
+
 function makeRescueConfigs(opts) {
   const configs = [
     { criterios: ["largo", "largo", "perp"], criterio: "largo", dirInicial: DIR_X, ruido: opts.ruido },
@@ -650,4 +755,4 @@ function optimizarLegacyHybrid(lineas, config = {}) {
 }
 
 
-module.exports = { optimizarLegacyHybrid };
+module.exports = { optimizarLegacyHybrid, generarMaster40LargeContext };
