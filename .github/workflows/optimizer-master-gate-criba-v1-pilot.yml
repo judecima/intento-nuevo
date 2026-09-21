@@ -14,10 +14,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      PILOT_TARGET_ELIGIBLE: 3
-      PILOT_MAX_SCANNED: 15
-      PILOT_MASTER_MS: 8000
-      PILOT_MAX_PIECES: 160\n      PILOT_SKIP_KNOWN: 1
+      PILOT_TARGET_ELIGIBLE: "3"
+      PILOT_MAX_SCANNED: "15"
+      PILOT_MASTER_MS: "8000"
+      PILOT_MAX_PIECES: "160"
+      PILOT_SKIP_KNOWN: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
