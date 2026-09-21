@@ -1,0 +1,42 @@
+name: Optimizer Master Core3 Gap1
+
+on:
+  push:
+    branches:
+      - research/master-core3-gap1-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CORE3_MAX_CASES: "16"
+      CORE3_MAX_PIECES: "180"
+      P16_FULL_MS: "8000"
+      P16_EARLY_NODES: "200000"
+      P16_EARLY_WATCHDOG_MS: "1500"
+      P16_FULL_NODES: "1600000"
+      P16_FULL_WATCHDOG_MS: "12000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-core3-gap1.cjs
+      - name: Run Core3 staged benchmark
+        run: node research/optimizer/master-portfolio/master-core3-gap1.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-core3-gap1
+          path: research/optimizer/master-portfolio/out/MASTER_CORE3_GAP1_2026-09-21.json
