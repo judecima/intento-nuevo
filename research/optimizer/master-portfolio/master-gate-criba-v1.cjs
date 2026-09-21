@@ -85,23 +85,32 @@ function unwrap(entry) {
     row.data?.canonicalCase ??
     row;
 
-  const file = basename(
+  const rawFile =
     row.file ??
-      row.fileName ??
-      row.filename ??
-      row.sourceFile ??
-      row.name ??
-      canonical.file ??
-      canonical.fileName ??
-      canonical.filename ??
-      (entry.key?.toLowerCase().endsWith(".xml") ? entry.key : null),
-  );
+    row.fileName ??
+    row.filename ??
+    row.sourceFile ??
+    row.name ??
+    canonical.file ??
+    canonical.fileName ??
+    canonical.filename ??
+    row.case_id ??
+    row.caseId ??
+    row.id ??
+    (entry.key?.toLowerCase().endsWith(".xml") ? entry.key : null);
+
+  let file = basename(rawFile);
+  if (file && !file.toLowerCase().endsWith(".xml") && /\\d/.test(file)) file += ".xml";
 
   const pieces = Array.isArray(canonical.pieces)
     ? canonical.pieces
     : Array.isArray(row.pieces)
       ? row.pieces
-      : [];
+      : Array.isArray(row.piece_types_data)
+        ? row.piece_types_data
+        : Array.isArray(row.types)
+          ? row.types
+          : [];
 
   return { row, canonical, file, pieces };
 }
@@ -122,7 +131,15 @@ function height(piece) {
   return asNumber(piece?.height ?? piece?.altura ?? piece?.w ?? piece?.W, 0);
 }
 
-function grainBlock(canonical, pieces) {
+function grainBlock(row, canonical, pieces) {
+  const directional =
+    row?.directional_input ??
+    row?.directional ??
+    row?.has_grain ??
+    row?.hasGrain ??
+    canonical?.directional_input;
+  if (directional != null) return boolTrue(directional);
+
   const materialHasGrain = boolTrue(canonical?.material?.hasGrain);
   const explicitNoRotate = pieces.some((p) => p?.rotationAllowed === false || p?.canRotate === false);
   const explicitGrain = pieces.some((p) => boolTrue(p?.grain));
@@ -130,14 +147,34 @@ function grainBlock(canonical, pieces) {
 }
 
 function geometryFeatures(entry) {
-  const { canonical, pieces, file } = unwrap(entry);
+  const { row, canonical, pieces, file } = unwrap(entry);
   const quantities = pieces.map(qty);
-  const pieceCount = quantities.reduce((a, b) => a + b, 0);
-  const typeCount = pieces.length;
+  const inferredPieceCount = quantities.reduce((a, b) => a + b, 0);
+  const pieceCount =
+    asNumber(row?.piece_count) ??
+    asNumber(row?.pieceCount) ??
+    asNumber(row?.pieces_count) ??
+    asNumber(row?.pieces) ??
+    asNumber(canonical?.piece_count) ??
+    inferredPieceCount;
+  const typeCount =
+    asNumber(row?.type_count) ??
+    asNumber(row?.typeCount) ??
+    asNumber(row?.piece_types) ??
+    asNumber(row?.pieceTypes) ??
+    asNumber(canonical?.type_count) ??
+    (pieces.length || 0);
   const multiplicityMean = typeCount ? pieceCount / typeCount : 0;
-  const multiplicityMax = quantities.length ? Math.max(...quantities) : 0;
-  const multiplicityMedian = median(quantities) ?? 0;
-  const multiplicityCv = mean(quantities) ? std(quantities) / mean(quantities) : 0;
+  const multiplicityMax =
+    asNumber(row?.multiplicity_max) ??
+    asNumber(row?.max_multiplicity) ??
+    (quantities.length ? Math.max(...quantities) : multiplicityMean);
+  const multiplicityMedian =
+    asNumber(row?.multiplicity_median) ??
+    (quantities.length ? (median(quantities) ?? 0) : multiplicityMean);
+  const multiplicityCv =
+    asNumber(row?.multiplicity_cv) ??
+    (mean(quantities) ? std(quantities) / mean(quantities) : 0);
 
   const rows = pieces.map((p, i) => {
     const q = quantities[i];
@@ -200,8 +237,11 @@ function geometryFeatures(entry) {
     uniqueDimensionRatio,
     longThinPieceShare,
     rotatablePieceShare: pieceCount ? rotatableCount / pieceCount : 0,
-    grainBlocking: grainBlock(canonical, pieces),
-    materialHasGrain: canonical?.material?.hasGrain === true,
+    grainBlocking: grainBlock(row, canonical, pieces),
+    materialHasGrain:
+      row?.directional_input === true ||
+      row?.directional === true ||
+      canonical?.material?.hasGrain === true,
     totalArea,
     areaPerPieceMean: pieceCount ? totalArea / pieceCount : 0,
   };
@@ -472,6 +512,43 @@ function main() {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
 
   const discovered = discoverCaseArray(rawCanonical);
+  const diagnostics = discovered.slice(0, 3).map((entry) => {
+    const row = entry.value ?? {};
+    return {
+      key: entry.key,
+      keys: Object.keys(row).slice(0, 80),
+      case_id: row.case_id ?? row.caseId ?? null,
+      file: row.file ?? row.fileName ?? row.filename ?? null,
+      piece_count: row.piece_count ?? row.pieceCount ?? null,
+      type_count: row.type_count ?? row.typeCount ?? row.piece_types ?? null,
+      directional_input: row.directional_input ?? row.directional ?? null,
+      placementsShape: Array.isArray(row.placements)
+        ? [row.placements.length, Array.isArray(row.placements[0]) ? row.placements[0].length : null]
+        : null,
+    };
+  });
+  const knownDiagnostics = discovered
+    .filter((entry) => {
+      const row = entry.value ?? {};
+      const token = String(row.case_id ?? row.caseId ?? row.file ?? row.fileName ?? row.filename ?? "");
+      return /4050594|4056900|4057401|4059200/.test(token);
+    })
+    .slice(0, 12)
+    .map((entry) => {
+      const row = entry.value ?? {};
+      return {
+        keys: Object.keys(row).slice(0, 80),
+        case_id: row.case_id ?? row.caseId ?? null,
+        file: row.file ?? row.fileName ?? row.filename ?? null,
+        piece_count: row.piece_count ?? row.pieceCount ?? null,
+        type_count: row.type_count ?? row.typeCount ?? row.piece_types ?? null,
+        directional_input: row.directional_input ?? row.directional ?? null,
+        pieceArrayLength: Array.isArray(row.pieces) ? row.pieces.length : null,
+      };
+    });
+  console.log("CANONICAL_DIAGNOSTICS " + JSON.stringify(diagnostics));
+  console.log("KNOWN_DIAGNOSTICS " + JSON.stringify(knownDiagnostics));
+
   const allCanonical = discovered.map(geometryFeatures).filter((r) => r.file && r.typeCount > 0);
   const matched = matchCanonical(allCanonical, manifest.cases ?? []);
   const gap1 = matched.exact.filter((r) => r.gapPreMaster === 1);
