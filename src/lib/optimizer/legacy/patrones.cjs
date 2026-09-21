@@ -71,13 +71,24 @@ function generarPatronesJs(lineas, O, rondas = 60, semilla = 7) {
 
   const uniqueMasks = usarMascarasUnicasLe4(lineas, O, rondas, semilla);
   const seenMasks = uniqueMasks ? new Set() : null;
+  const requiredTypes = Array.isArray(O?._masterRequiredTypeIndices)
+    ? O._masterRequiredTypeIndices.filter(i => Number.isInteger(i) && i >= 0 && i < lineas.length)
+    : [];
   let executedRounds = 0;
   let skippedDuplicateRounds = 0;
+  let skippedRequiredTypeRounds = 0;
 
   const warn = console.warn; console.warn = () => {};
   for (let r = 0; r < rondas; r++) {
     const sub = r === 0 ? conRef : conRef.filter(() => R() > 0.45);
     if (!sub.length) continue;
+    if (requiredTypes.length) {
+      const present = new Set(sub.map(linea => linea.ref));
+      if (requiredTypes.some(i => !present.has(i))) {
+        skippedRequiredTypeRounds++;
+        continue;
+      }
+    }
     if (seenMasks) {
       const maskKey = sub.map((linea) => linea.ref).join(',');
       if (seenMasks.has(maskKey)) {
@@ -101,6 +112,15 @@ function generarPatronesJs(lineas, O, rondas = 60, semilla = 7) {
       rondas,
       lineas.length,
     );
+  }
+  if (requiredTypes.length && O && typeof O === 'object') {
+    O._patternRequiredTypePolicy = {
+      policy: 'mandatory-type-round-prune-v1',
+      requiredTypes: requiredTypes.slice(),
+      totalRounds: rondas,
+      executedRounds,
+      skippedRequiredTypeRounds,
+    };
   }
   return [...porVector.values()];
 }
