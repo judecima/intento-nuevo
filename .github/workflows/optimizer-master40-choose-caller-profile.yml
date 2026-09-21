@@ -1,0 +1,61 @@
+name: Optimizer Master40 Choose Caller Profile
+
+on:
+  push:
+    branches:
+      - research/master40-choose-caller-profile-20260921
+    paths:
+      - "research/optimizer/master-generation/choose-caller-profile.cjs"
+      - ".github/workflows/optimizer-master40-choose-caller-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run reference packer profile
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/packer-profile.cjs all
+      - name: Attribute choose cost by caller
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/choose-caller-profile.cjs all
+      - name: Verify semantic parity with reference profile
+        run: |
+          node - <<'NODE'
+          const fs=require("node:fs");
+          const a=JSON.parse(fs.readFileSync("research/optimizer/master-generation/packer-profile-results.json","utf8"));
+          const b=JSON.parse(fs.readFileSync("research/optimizer/master-generation/choose-caller-profile-results.json","utf8"));
+          for (const ref of a.rows) {
+            const got=b.rows.find(x=>x.file===ref.file);
+            if (!got) throw new Error("missing caller-profile row "+ref.file);
+            if (got.poolSize!==ref.poolSize) throw new Error(ref.file+": pool size changed "+ref.poolSize+" -> "+got.poolSize);
+            if (got.digest!==ref.digest) throw new Error(ref.file+": digest changed");
+            if (got.greedyRoundCount!==40) throw new Error(ref.file+": expected 40 native greedy rounds, got "+got.greedyRoundCount);
+          }
+          const s=b.summary;
+          console.log("PARITY 3/3; greedyRoundChoosePct="+s.greedyRoundChoosePct.toFixed(2)+"%; greedyRoundCallPct="+s.greedyRoundCallPct.toFixed(2)+"%");
+          NODE
+      - name: Upload caller profile
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-master40-choose-caller-profile
+          path: |
+            research/optimizer/master-generation/packer-profile-results.json
+            research/optimizer/master-generation/choose-caller-profile-results.json
+          if-no-files-found: error
+          retention-days: 30
