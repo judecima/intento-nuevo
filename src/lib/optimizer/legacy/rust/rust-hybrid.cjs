@@ -495,6 +495,84 @@ function makeRescueConfigs(opts) {
   return configs;
 }
 
+function prepararGreedyRoundPayload(lineas, config = {}) {
+  const opts = {
+    placaBase: 2750,
+    placaAltura: 1830,
+    refiladoX: 10,
+    refiladoY: 10,
+    sierra: 4.5,
+    etapas: 4,
+    materialConVeta: false,
+    descontarCanto: false,
+    cantoEspesor: 0,
+    ruido: 0.3,
+    pases: 4,
+    restartsPorPlaca: 14,
+    restoMin: 250,
+    restoMax: 400,
+    tolerancia: 0.02,
+    beamWidth: 5,
+    maxPiezasBeam: 120,
+    presupuestoBeamMs: 1500,
+    maxPiezasCache: 0,
+    semilla: 20260812,
+    preferirMenorProfundidad: true,
+    usarRescue: true,
+    maxPiezasRescue: 30,
+    presupuestoRescueMs: 300,
+    multiRebanada: false,
+    multiVariantes: false,
+    ...config,
+  };
+
+  const pieces = [];
+  let id = 0;
+  lineas.forEach((line) => {
+    for (let count = 0; count < line.cant; count++) {
+      pieces.push({
+        id: id++,
+        base: +line.base,
+        altura: +line.altura,
+        detalle: line.detalle || "",
+        veta: Boolean(line.veta),
+        cantos: line.cantos || null,
+        ref: line.ref,
+      });
+    }
+  });
+  if (!pieces.length) throw new Error("No hay piezas cargadas.");
+
+  const signatures = new Map();
+  for (const piece of pieces) {
+    piece._corte = medidaCorte(piece, opts);
+    piece._ors = orientaciones(piece, opts.materialConVeta);
+    const key = piece._corte.base + "|" + piece._corte.altura + "|" + (piece.veta ? 1 : 0);
+    if (!signatures.has(key)) signatures.set(key, signatures.size);
+    piece._sig = signatures.get(key);
+  }
+
+  opts.anchoUtil = opts.placaBase - opts.refiladoX;
+  opts.altoUtil = opts.placaAltura - opts.refiladoY;
+  if (!(opts.anchoUtil > 0 && opts.altoUtil > 0)) throw new Error("Medida util invalida.");
+
+  if (config.restartsPorPlaca === undefined) {
+    opts.restartsPorPlaca = Math.max(3, Math.round(opts.restartsPorPlaca * 60 / Math.max(60, pieces.length)));
+  }
+
+  const configs = makeConfigs(opts);
+  const orders = [
+    (a, b) => b.base * b.altura - a.base * a.altura,
+    (a, b) => Math.max(b.base, b.altura) - Math.max(a.base, a.altura),
+    (a, b) => b.altura - a.altura || b.base - a.base,
+    (a, b) => b.base - a.base || b.altura - a.altura,
+  ];
+  const orderedIds = Array.from({ length: opts.pases }, (_, pass) =>
+    pieces.slice().sort(orders[pass % orders.length]).map((piece) => piece.id),
+  );
+  return { pieces, opts, configs, orderedIds };
+}
+
 function optimizarLegacyHybrid(lineas, config = {}) {
   const opts = {
     placaBase: 2750,
@@ -650,4 +728,4 @@ function optimizarLegacyHybrid(lineas, config = {}) {
 }
 
 
-module.exports = { optimizarLegacyHybrid };
+module.exports = { optimizarLegacyHybrid, prepararGreedyRoundPayload };
