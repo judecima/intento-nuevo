@@ -1,0 +1,34 @@
+name: Optimizer Master Gate V2 Candidate
+
+on:
+  push:
+    branches:
+      - research/master-gate-criba-v1-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MASTER_GATE_MULT: "4.75"
+      MASTER_GATE_REJECT_TARGET: "12"
+      MASTER_GATE_REJECT_SCAN: "120"
+      MASTER_GATE_MS: "8000"
+      MASTER_GATE_MAX_PIECES: "160"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run Master gate V2 candidate certification
+        run: node research/optimizer/master-portfolio/master-gate-v2-candidate.cjs
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-gate-v2-candidate
+          path: research/optimizer/master-portfolio/out/MASTER_GATE_V2_CANDIDATE_2026-09-21.json
