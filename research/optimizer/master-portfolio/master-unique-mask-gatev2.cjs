@@ -114,6 +114,28 @@ function synthetic4056900() {
     _syntheticFrozen: true,
   };
 }
+
+function synthetic4057401() {
+  // Frozen sentinel used by tests/optimizer/master-unique-masks.test.ts.
+  return {
+    case_id: "4057401__GABRIEL_TUMBACO CRUZ4057401",
+    source_path: "4057401__GABRIEL_TUMBACO CRUZ4057401.xml",
+    source_format: "project",
+    stock_width: 2742,
+    stock_height: 1822,
+    saw: 4.5,
+    directional: false,
+    piece_count: 19,
+    piece_types: 4,
+    pieces: [
+      { base: 1800, altura: 1050, cant: 2 },
+      { base: 2000, altura: 1100, cant: 2 },
+      { base: 1900, altura: 1500, cant: 1 },
+      { base: 744, altura: 450, cant: 14 },
+    ],
+    _syntheticFrozen: true,
+  };
+}
 function run(row, uniqueMasks) {
   const lines = toLines(row);
   const expected = lines.reduce((s, l) => s + num(l.cant), 0);
@@ -164,7 +186,10 @@ function main() {
 
   for (let i = 0; i < targets.length; i++) {
     const m = targets[i];
-    let row = num(m.order) === 4056900 ? synthetic4056900() : byFile.get(basename(m.file));
+    let row =
+      num(m.order) === 4056900 ? synthetic4056900() :
+      num(m.order) === 4057401 ? synthetic4057401() :
+      byFile.get(basename(m.file));
     if (!row) {
       row = all.find(r => String(r.case_id || r.source_path || "").includes(String(m.order)));
     }
