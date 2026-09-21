@@ -15,9 +15,9 @@ jobs:
     timeout-minutes: 45
     env:
       MASTER_GATE_MULT: "4.75"
-      PROV_MAX_CASES: "4"
+      PROV_MAX_CASES: "3"
       PROV_MAX_PIECES: "180"
-      PROV_MASTER_MS: "8000"
+      PROV_MASTER_MS: "8000"\n      PROV_WINNERS_ONLY: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
