@@ -1,0 +1,33 @@
+name: Optimizer Master Mandatory Type AB
+
+on:
+  push:
+    branches:
+      - research/master-mandatory-type-prune-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax checks
+        run: |
+          node --check src/lib/optimizer/legacy/patrones.cjs
+          node --check src/lib/optimizer/legacy/v10.cjs
+          node --check research/optimizer/master-portfolio/master-mandatory-type-ab.cjs
+      - name: Run mandatory-type A/B
+        run: node research/optimizer/master-portfolio/master-mandatory-type-ab.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-mandatory-type-ab
+          path: research/optimizer/master-portfolio/out/MASTER_MANDATORY_TYPE_AB_2026-09-21.json
