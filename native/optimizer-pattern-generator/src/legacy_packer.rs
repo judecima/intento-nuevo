@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 use napi::{Error, Result, Status};
 use napi_derive::napi;
@@ -1220,6 +1221,19 @@ struct Master40LargeOutput {
     skipped_duplicate_rounds: u32,
     failed_rounds: u32,
     patterns: Vec<MasterPatternOutput>,
+    profile: Master40Profile,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Master40Profile {
+    total_ms: f64,
+    expand_ms: f64,
+    order_ms: f64,
+    greedy_plan_ms: f64,
+    dedup_ms: f64,
+    plan_trials: u64,
+    round_piece_instances: u64,
 }
 
 fn legacy_master_schedule(line_count: u32, rounds: u32, seed: u32) -> Vec<Vec<u32>> {
@@ -1319,8 +1333,11 @@ fn run_master_large_round(
     base_configs: &[GreedyPlanConfig],
     round_seed: u32,
     opts: &Master40RunOptions,
+    profile: &mut Master40Profile,
 ) -> std::result::Result<Vec<PackOutput>, String> {
+    let order_started = Instant::now();
     let orders = master_piece_orders(&inputs, opts.passes);
+    profile.order_ms += order_started.elapsed().as_secs_f64() * 1000.0;
     let by_id: HashMap<u32, PieceInput> =
         inputs.iter().cloned().map(|piece| (piece.id, piece)).collect();
     let stages: Vec<u32> = if opts.prefer_lower_depth {
@@ -1344,6 +1361,8 @@ fn run_master_large_round(
             for config in &mut configs {
                 config.options.etapas = *stage;
             }
+            profile.plan_trials += 1;
+            let plan_started = Instant::now();
             let boards = run_greedy_plan_internal(
                 ordered.clone(),
                 &configs,
@@ -1352,6 +1371,7 @@ fn run_master_large_round(
                 restarts,
                 opts.tolerance,
             )?;
+            profile.greedy_plan_ms += plan_started.elapsed().as_secs_f64() * 1000.0;
 
             let replace = match &best {
                 None => true,
@@ -1384,6 +1404,9 @@ pub fn pack_board_legacy_master40_large(
     rounds: u32,
     seed: u32,
 ) -> Result<String> {
+    let total_started = Instant::now();
+    let mut profile = Master40Profile::default();
+
     let catalog: Vec<MasterTypeInput> = serde_json::from_str(&catalog_json)
         .map_err(|e| Error::new(Status::InvalidArg, format!("invalid master catalog JSON: {e}")))?;
     let configs: Vec<GreedyPlanConfig> = serde_json::from_str(&configs_json)
@@ -1423,6 +1446,10 @@ pub fn pack_board_legacy_master40_large(
                 skipped_duplicate_rounds,
                 failed_rounds: 0,
                 patterns: Vec::new(),
+                profile: {
+                    profile.total_ms = total_started.elapsed().as_secs_f64() * 1000.0;
+                    profile.clone()
+                },
             }).map_err(|e| Error::new(Status::GenericFailure, format!("serialize master40 eligibility: {e}")));
         }
         executable.push((round, indices));
@@ -1433,12 +1460,16 @@ pub fn pack_board_legacy_master40_large(
     let mut failed_rounds = 0u32;
 
     for (round, indices) in &executable {
+        let expand_started = Instant::now();
         let (inputs, type_by_id) = expand_master_subset(&catalog, indices);
+        profile.expand_ms += expand_started.elapsed().as_secs_f64() * 1000.0;
+        profile.round_piece_instances += inputs.len() as u64;
         let boards = match run_master_large_round(
             inputs,
             &configs,
             1000u32.wrapping_add(*round as u32),
             &run_opts,
+            &mut profile,
         ) {
             Ok(value) => value,
             Err(_) => {
@@ -1447,6 +1478,7 @@ pub fn pack_board_legacy_master40_large(
             }
         };
 
+        let dedup_started = Instant::now();
         for board in boards {
             let mut usage = vec![0u32; catalog.len()];
             let mut id_type_pairs = Vec::with_capacity(board.colocadas.len());
@@ -1485,8 +1517,10 @@ pub fn pack_board_legacy_master40_large(
                 });
             }
         }
+        profile.dedup_ms += dedup_started.elapsed().as_secs_f64() * 1000.0;
     }
 
+    profile.total_ms = total_started.elapsed().as_secs_f64() * 1000.0;
     serde_json::to_string(&Master40LargeOutput {
         eligible: true,
         total_rounds: rounds,
@@ -1494,6 +1528,7 @@ pub fn pack_board_legacy_master40_large(
         skipped_duplicate_rounds,
         failed_rounds,
         patterns: selected,
+        profile,
     })
     .map_err(|e| Error::new(Status::GenericFailure, format!("serialize master40 large context: {e}")))
 }
