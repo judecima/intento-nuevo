@@ -1,0 +1,32 @@
+name: Optimizer Master Gate Criba Pilot
+
+on:
+  push:
+    branches:
+      - research/master-gate-criba-v1-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PILOT_TARGET_ELIGIBLE: 18
+      PILOT_MAX_SCANNED: 70
+      PILOT_MASTER_MS: 8000
+      PILOT_MAX_PIECES: 160
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run nearest-neighbor Master gate pilot
+        run: node research/optimizer/master-portfolio/master-gate-criba-v1-pilot.cjs
+      - name: Upload pilot evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-gate-criba-v1-pilot
+          path: research/optimizer/master-portfolio/out/MASTER_GATE_CRIBA_V1_PILOT_2026-09-21.json
