@@ -41,6 +41,9 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   const watchdogRaw=Number(control&&control.watchdogMs);
   const watchdogMs=Number.isFinite(watchdogRaw)&&watchdogRaw>0?watchdogRaw:null;
   let mejor = incumbente, mejorPlan = null;
+  const stopAtRaw=Number(control&&control.stopAtBoards);
+  const stopAtBoards=Number.isFinite(stopAtRaw)&&stopAtRaw>=0?Math.floor(stopAtRaw):null;
+  let objetivoAlcanzado=false;
   const memo = new Map();
   let nodos = 0, agotado = false, timeoutRegistrado=false, budgetRegistrado=false, watchdogRegistrado=false;
   const marcarTimeout=()=>{
@@ -66,12 +69,17 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   }
 
   function dfs(rest, areaRest, usadas, plan) {
+    if (objetivoAlcanzado) return;
     if (!modoDeterminista && Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
     if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); return; }
     // En modo determinista el terminal se acepta antes de rechazar el siguiente
     // nodo. Esto preserva la correccion recuperada de 2f2c202.
     if (areaRest <= 1e-9) {
-      if (usadas < mejor) { mejor = usadas; mejorPlan = plan.slice(); }
+      if (usadas < mejor) {
+        mejor = usadas;
+        mejorPlan = plan.slice();
+        if (stopAtBoards!==null && mejor<=stopAtBoards) objetivoAlcanzado=true;
+      }
       return;
     }
     if (usadas + cota(rest, areaRest) >= mejor) return;
@@ -109,6 +117,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       plan.push(p);
       dfs(nr, areaRest - da, usadas + 1, plan);
       plan.pop();
+      if (objetivoAlcanzado) return;
       if (!modoDeterminista && Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
       if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); return; }
     }
@@ -127,7 +136,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
         step0.wallMsTotal+=ms;
         step0.wallMsMax=Math.max(step0.wallMsMax,ms);
       }
-      return { placas: mejor, plan: mejorPlan, nodos, agotado };
+      return { placas: mejor, plan: mejorPlan, nodos, agotado, objetivoAlcanzado };
     }
   };
 }
