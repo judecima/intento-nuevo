@@ -1,6 +1,7 @@
 "use strict";
 const path = require("node:path");
-const { optimizarLegacyHybrid } = require("./rust-hybrid.cjs");
+const { optimizarLegacyHybrid, prepararGreedyRoundPayload } = require("./rust-hybrid.cjs");
+const { packBoardLegacyRustGreedyRoundBatch } = require("./rust-packer.cjs");
 const addonPath = path.join(
   __dirname,
   "../../../../../native/optimizer-pattern-generator/optimizer_pattern_generator.node",
@@ -192,6 +193,10 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
   const maskFilter = crearFiltroMascaras(lineas, O, rondas, semilla);
   const reuseEnabled = masterRoundReuseEnabled(lineas, O, rondas, semilla);
   const group = reuseEnabled ? getMasterRoundGroup(masterRoundCacheKey(lineas, O, semilla)) : null;
+  const batchRequested =
+    O?.usarMasterContextoRustGrande === true ||
+    /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_MASTER_LARGE_BATCH_EXPERIMENTAL || ""));
+  const executableRounds = [];
   let reusedRounds = 0;
   let generatedRounds = 0;
 
@@ -199,24 +204,62 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
     const indices = schedule[round];
     if (!indices.length) continue;
     if (maskFilter.skip(indices)) continue;
+    executableRounds.push({ round, indices });
+  }
 
-    let roundBoards = null;
-    const cached = group?.rounds.get(round);
-    if (cached) {
-      reusedRounds++;
-      roundBoards = cached.boards;
-    } else {
-      generatedRounds++;
-      try {
-        const result = optimizarLegacyHybrid(
+  const maxPiezasBeamRaw = Number(O?.maxPiezasBeam);
+  const maxPiezasBeam = Number.isFinite(maxPiezasBeamRaw) && maxPiezasBeamRaw > 0
+    ? Math.floor(maxPiezasBeamRaw)
+    : 120;
+  const allGreedyOnly =
+    executableRounds.length > 0 &&
+    executableRounds.every(({ indices }) =>
+      indices.reduce((sum, index) => sum + Math.max(0, Number(conRef[index]?.cant) || 0), 0) > maxPiezasBeam
+    );
+  const batchEnabled = batchRequested && !reuseEnabled && allGreedyOnly;
+
+  let roundResults = null;
+  if (batchEnabled) {
+    try {
+      const payloads = executableRounds.map(({ round, indices }) => ({
+        round,
+        ...prepararGreedyRoundPayload(
           indices.map((index) => ({ ...conRef[index] })),
           { ...O, semilla: 1000 + round, pases: 2 },
-        );
-        roundBoards = result.placas || [];
-        if (group) group.rounds.set(round, { boards: roundBoards });
-      } catch (error) {
-        if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
-        roundBoards = [];
+        ),
+      }));
+      roundResults = new Map(
+        packBoardLegacyRustGreedyRoundBatch(payloads)
+          .map((result) => [result.round, result.placas || []]),
+      );
+      generatedRounds = executableRounds.length;
+    } catch (error) {
+      if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
+      roundResults = null;
+    }
+  }
+
+  for (const { round, indices } of executableRounds) {
+    let roundBoards = roundResults?.get(round) || null;
+
+    if (!roundBoards) {
+      const cached = group?.rounds.get(round);
+      if (cached) {
+        reusedRounds++;
+        roundBoards = cached.boards;
+      } else {
+        generatedRounds++;
+        try {
+          const result = optimizarLegacyHybrid(
+            indices.map((index) => ({ ...conRef[index] })),
+            { ...O, semilla: 1000 + round, pases: 2 },
+          );
+          roundBoards = result.placas || [];
+          if (group) group.rounds.set(round, { boards: roundBoards });
+        } catch (error) {
+          if (process.env.RUST_LEGACY_DEBUG_ERRORS === "1") throw error;
+          roundBoards = [];
+        }
       }
     }
 
@@ -240,6 +283,13 @@ function generarPatronesLegacyRustHybrid(lineas, O, rondas = 60, semilla = 7) {
       totalRounds: schedule.length,
       reusedRounds,
       generatedRounds,
+    };
+    O._rustMasterContext = {
+      requested: batchRequested,
+      enabled: batchEnabled,
+      executableRounds: executableRounds.length,
+      allGreedyOnly,
+      maxPiezasBeam,
     };
   }
 
