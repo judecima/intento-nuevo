@@ -1,0 +1,43 @@
+name: Optimizer Performance V1 + Master Gate V2
+
+on:
+  push:
+    branches:
+      - research/performance-v1-plus-master-gate-v2-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL: "1"
+      OPTIMIZER_RUST_LEAN_BEAM_EXPERIMENTAL: "1"
+      OPTIMIZER_RUST_GREEDY_PLAN_EXPERIMENTAL: "1"
+      OPTIMIZER_RUST_LARGE_ROUND_EXPERIMENTAL: "1"
+      OPTIMIZER_RUST_MASTER_ROUND_REUSE_EXPERIMENTAL: "0"
+      RUST_LEGACY_DEBUG_ERRORS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Syntax checks
+        run: |
+          node --check src/lib/optimizer/legacy/v10.cjs
+          node --check research/optimizer/master-portfolio/performance-v1-plus-master-gate-v2-ab.cjs
+      - name: Run A/B
+        run: node research/optimizer/master-portfolio/performance-v1-plus-master-gate-v2-ab.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-v1-plus-master-gate-v2-ab
+          path: research/optimizer/master-portfolio/out/PERFORMANCE_V1_PLUS_MASTER_GATE_V2_AB_2026-09-21.json
