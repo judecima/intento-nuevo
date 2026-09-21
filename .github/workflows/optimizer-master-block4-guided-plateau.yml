@@ -1,0 +1,42 @@
+name: Optimizer Master Block4 Guided Plateau
+
+on:
+  push:
+    branches:
+      - research/master-block4-guided-plateau-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GUIDED_MAX_CASES: "24"
+      GUIDED_MAX_PIECES: "300"
+      GUIDED_PROBE_NODES: "10000"
+      GUIDED_PROBE_WATCHDOG_MS: "30"
+      GUIDED_FULL_NODES: "1600000"
+      GUIDED_FULL_WATCHDOG_MS: "12000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm run optimizer:rust:build
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-block4-guided-plateau.cjs
+      - name: Run guided plateau benchmark
+        run: node research/optimizer/master-portfolio/master-block4-guided-plateau.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-block4-guided-plateau
+          path: research/optimizer/master-portfolio/out/MASTER_BLOCK4_GUIDED_PLATEAU_2026-09-21.json
