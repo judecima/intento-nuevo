@@ -21,6 +21,7 @@ const TARGET_ELIGIBLE = Number(process.env.PILOT_TARGET_ELIGIBLE || 18);
 const MAX_SCANNED = Number(process.env.PILOT_MAX_SCANNED || 70);
 const MASTER_MS = Number(process.env.PILOT_MASTER_MS || 8000);
 const MAX_PIECES = Number(process.env.PILOT_MAX_PIECES || 160);
+const SKIP_KNOWN = /^(1|true|yes)$/i.test(String(process.env.PILOT_SKIP_KNOWN || ""));
 const LONG_THIN_MAX = 0.1702127659574468;
 const MULTIPLICITY_MAX = 30;
 
@@ -289,12 +290,14 @@ function main() {
     byFile.get("4053911__Julian_Andrieu4053911.xml")?.row,
     byFile.get("4056355__Dinorah_Contreras4056355.xml")?.row,
   ].filter(Boolean);
-  for (const row of knownRows) {
-    const order=(row.case_id||"").match(/4050594|4057401|4056900|4053911|4056355/)?.[0] || "known";
-    console.log("KNOWN_START",order,features(row).file);
-    const r=runMasterOnly(row,"known-"+order);
-    records.push(r);
-    console.log("KNOWN_DONE",JSON.stringify(r));
+  if (!SKIP_KNOWN) {
+    for (const row of knownRows) {
+      const order=(row.case_id||"").match(/4050594|4057401|4056900|4053911|4056355/)?.[0] || "known";
+      console.log("KNOWN_START",order,features(row).file);
+      const r=runMasterOnly(row,"known-"+order);
+      records.push(r);
+      console.log("KNOWN_DONE",JSON.stringify(r));
+    }
   }
 
   let eligible=0, scanned=0;
@@ -321,7 +324,7 @@ function main() {
   const summary={
     schema:"master-gate-criba-v1-pilot",
     generatedAt:new Date().toISOString(),
-    config:{TARGET_ELIGIBLE,MAX_SCANNED,MASTER_MS,MAX_PIECES,LONG_THIN_MAX,MULTIPLICITY_MAX},
+    config:{TARGET_ELIGIBLE,MAX_SCANNED,MASTER_MS,MAX_PIECES,SKIP_KNOWN,LONG_THIN_MAX,MULTIPLICITY_MAX},
     corpus:{validRows:rows.length,gateRows:rows.filter(x=>gate(x.f)).length,unlabeledGateRows:candidateRows.length},
     known:known.map(r=>({file:r.file,eligible:r.eligible,preBoards:r.preBoards,cota:r.cota,win:r.win,masterBoards:r.masterBoards,generationMs:r.generationMs,solveMs:r.solveMs,error:r.error||r.masterError||null})),
     pilot:{
