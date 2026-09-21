@@ -2,6 +2,7 @@
 const {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
+  packBoardLegacyRustGreedyBestLite,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
@@ -73,6 +74,14 @@ function packGreedyBest(pool, opts, configs, pass, board) {
   );
 }
 
+function packGreedyBestLite(pool, opts, configs, pass, board) {
+  return packBoardLegacyRustGreedyBestLite(
+    pool,
+    buildRequests(opts, configs, pass, board),
+    opts.tolerancia,
+  );
+}
+
 function packBeamCandidates(pool, opts, configs, pass, board) {
   return packBoardLegacyRustBeamCandidates(
     pool,
@@ -110,6 +119,47 @@ function combinarCalidadLite(a, b) {
 
 const CALIDAD_VACIA = Object.freeze({ mayor: 0, segundo: 0, fragmentos: 0, total: 0 });
 
+function profundidadLite(raw) {
+  return {
+    maxXmlLayer: +raw?.maxXmlLayer || 0,
+    maxType2Layer: +raw?.maxType2Layer || 0,
+    maxType1Layer: +raw?.maxType1Layer || 0,
+    type2Nodes: +raw?.type2Nodes || 0,
+  };
+}
+
+function combinarProfundidadLite(a, b) {
+  return {
+    maxXmlLayer: Math.max(a.maxXmlLayer, b.maxXmlLayer),
+    maxType2Layer: Math.max(a.maxType2Layer, b.maxType2Layer),
+    maxType1Layer: Math.max(a.maxType1Layer, b.maxType1Layer),
+    type2Nodes: a.type2Nodes + b.type2Nodes,
+  };
+}
+
+function compararProfundidadLite(a, b) {
+  if (a.maxXmlLayer !== b.maxXmlLayer) return a.maxXmlLayer < b.maxXmlLayer ? 1 : -1;
+  if (a.maxType2Layer !== b.maxType2Layer) return a.maxType2Layer < b.maxType2Layer ? 1 : -1;
+  if (a.maxType1Layer !== b.maxType1Layer) return a.maxType1Layer < b.maxType1Layer ? 1 : -1;
+  if (a.type2Nodes !== b.type2Nodes) return a.type2Nodes < b.type2Nodes ? 1 : -1;
+  return 0;
+}
+
+const PROFUNDIDAD_VACIA = Object.freeze({
+  maxXmlLayer: 0,
+  maxType2Layer: 0,
+  maxType1Layer: 0,
+  type2Nodes: 0,
+});
+
+function mejorPlanLiteIgualPlacas(a, b, opts) {
+  if (opts.preferirMenorProfundidad !== false) {
+    const d = compararProfundidadLite(a.depth, b.depth);
+    if (d !== 0) return d > 0;
+  }
+  return compararCalidad(a.quality, b.quality) > 0;
+}
+
 function generateBoardCandidatesLite(pool, opts, configs, pass, boardIndex) {
   const selected = packBeamCandidatesLite(pool, opts, configs, pass, boardIndex);
   const boardArea = opts.anchoUtil * opts.altoUtil;
@@ -140,14 +190,14 @@ function materializeBeamRecipes(recipes, opts, configs, pass) {
   return recipes.map((recipe) => {
     const requests = buildRequests(opts, configs, pass, recipe.boardIndex);
     const request = requests[recipe.requestIndex];
-    if (!request) throw new Error("Lean Beam recipe request is out of range.");
+    if (!request) throw new Error("Lean recipe request is out of range.");
     const full = packBoardLegacyRustCore(recipe.pool, request.opts, request.randomSeed);
     const actual = full.colocadas.map((placement) => placement.pieza.id).sort((a, b) => a - b);
     if (
       actual.length !== recipe.usedIds.length ||
       actual.some((id, index) => id !== recipe.usedIds[index])
     ) {
-      throw new Error("Lean Beam materialization diverged from the selected candidate.");
+      throw new Error("Lean materialization diverged from the selected candidate.");
     }
     return toBoard(full, opts);
   });
@@ -167,6 +217,40 @@ function armGreedy(pieces, opts, configs, pass) {
     boards.push(toBoard(best, opts));
   }
   return boards;
+}
+
+function armGreedyLite(pieces, opts, configs, pass) {
+  let pool = pieces.slice();
+  const recipes = [];
+  let quality = CALIDAD_VACIA;
+  let depth = PROFUNDIDAD_VACIA;
+  let guard = 0;
+
+  while (pool.length && guard++ < 300) {
+    const best = packGreedyBestLite(pool, opts, configs, pass, recipes.length);
+    if (!best || !Array.isArray(best.usedIds) || !best.usedIds.length) {
+      throw new Error("No se pudo empacar la placa.");
+    }
+
+    const used = new Set(best.usedIds);
+    const remaining = pool.filter((piece) => !used.has(piece.id));
+    if (remaining.length >= pool.length) {
+      throw new Error("Lean Greedy no consumio piezas.");
+    }
+
+    recipes.push({
+      pool,
+      boardIndex: recipes.length,
+      requestIndex: best.requestIndex,
+      usedIds: best.usedIds,
+    });
+    quality = combinarCalidadLite(quality, calidadLite(best.quality));
+    depth = combinarProfundidadLite(depth, profundidadLite(best.depth));
+    pool = remaining;
+  }
+
+  if (pool.length) throw new Error("Lean Greedy no completo el plan.");
+  return { recipes, quality, depth, count: recipes.length };
 }
 
 function generateBoardCandidates(pool, opts, configs, pass, boardIndex) {
@@ -557,6 +641,56 @@ function optimizarLegacyHybrid(lineas, config = {}) {
   const stageTrials = opts.preferirMenorProfundidad === false
     ? [maxStages]
     : Array.from({ length: maxStages - 1 }, (_, index) => index + 2);
+
+  const leanGreedyLarge =
+    (
+      opts.usarLeanGreedyGrande === true ||
+      /^(1|true|yes|on)$/i.test(String(process.env.OPTIMIZER_RUST_LEAN_GREEDY_LARGE_EXPERIMENTAL || ""))
+    ) &&
+    pieces.length > opts.maxPiezasBeam &&
+    pieces.length > opts.maxPiezasRescue;
+
+  if (leanGreedyLarge) {
+    let bestLite = null;
+    for (let pass = 0; pass < opts.pases; pass++) {
+      for (const stages of stageTrials) {
+        const stageOpts = { ...opts, etapas: stages };
+        const plan = armGreedyLite(
+          pieces.slice().sort(orders[pass % orders.length]),
+          stageOpts,
+          configs,
+          pass,
+        );
+        const candidate = { ...plan, stageOpts, pass, etapasUsadas: stages };
+        if (
+          !bestLite ||
+          candidate.count < bestLite.count ||
+          (candidate.count === bestLite.count && mejorPlanLiteIgualPlacas(candidate, bestLite, stageOpts))
+        ) bestLite = candidate;
+      }
+    }
+    if (!bestLite) throw new Error("No se pudo armar un plan completo.");
+
+    const boards = materializeBeamRecipes(
+      bestLite.recipes,
+      bestLite.stageOpts,
+      configs,
+      bestLite.pass,
+    );
+    if (boards.reduce((sum, board) => sum + board.colocadas.length, 0) < pieces.length) {
+      throw new Error("Lean Greedy materializado no cubre todas las piezas.");
+    }
+
+    return {
+      placas: boards,
+      opts,
+      resumen: {
+        placas: boards.length,
+        piezas: pieces.length,
+        etapasUsadas: bestLite.etapasUsadas || opts.etapas,
+      },
+    };
+  }
 
   let best = null;
   for (let pass = 0; pass < opts.pases; pass++) {
