@@ -1,0 +1,41 @@
+name: Optimizer Master Block4 Checkpoints
+
+on:
+  push:
+    branches:
+      - research/master-block4-checkpoints-20260921
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BLOCK4_MAX_CASES: "12"
+      BLOCK4_MAX_PIECES: "250"
+      BLOCK4_PROBE_NODES: "100000"
+      BLOCK4_PROBE_WATCHDOG_MS: "300"
+      BLOCK4_FULL_NODES: "1600000"
+      BLOCK4_FULL_WATCHDOG_MS: "12000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Syntax check
+        run: node --check research/optimizer/master-portfolio/master-block4-checkpoints.cjs
+      - name: Run incremental block4 benchmark
+        run: node research/optimizer/master-portfolio/master-block4-checkpoints.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-block4-checkpoints
+          path: research/optimizer/master-portfolio/out/MASTER_BLOCK4_CHECKPOINTS_2026-09-21.json
