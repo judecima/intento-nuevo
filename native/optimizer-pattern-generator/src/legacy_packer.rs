@@ -275,6 +275,57 @@ impl Scratch {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum CriterionKind {
+    Perp,
+    Area,
+    Largo,
+    Exacta,
+}
+
+fn criterion_kind(value: &str) -> CriterionKind {
+    match value {
+        "perp" => CriterionKind::Perp,
+        "area" => CriterionKind::Area,
+        "largo" => CriterionKind::Largo,
+        _ => CriterionKind::Exacta,
+    }
+}
+
+fn better_fit_kind(u: &Candidate, v: &Candidate, criterion: CriterionKind) -> bool {
+    match criterion {
+        CriterionKind::Perp => {
+            if u.sobra != v.sobra { u.sobra < v.sobra }
+            else if u.a != v.a { u.a > v.a }
+            else { u.area > v.area }
+        }
+        CriterionKind::Area => {
+            if u.area != v.area { u.area > v.area }
+            else { u.sobra < v.sobra }
+        }
+        CriterionKind::Largo => {
+            if u.a != v.a { u.a > v.a }
+            else { u.sobra < v.sobra }
+        }
+        CriterionKind::Exacta => {
+            if u.exacta != v.exacta { u.exacta < v.exacta }
+            else if u.sobra != v.sobra { u.sobra < v.sobra }
+            else { u.area > v.area }
+        }
+    }
+}
+
+fn select_top(top: &[Candidate], mut rng: Option<&mut Rng>, ruido: f64) -> Option<Candidate> {
+    if top.is_empty() { return None; }
+    if let Some(rng) = rng.as_deref_mut() {
+        if top.len() >= 2 && rng.next() < ruido {
+            if top.len() >= 3 && rng.next() < 0.5 { return Some(top[2].clone()); }
+            return Some(top[1].clone());
+        }
+    }
+    Some(top[0].clone())
+}
+
 fn better_fit(u: &Candidate, v: &Candidate, criterion: &str) -> bool {
     match criterion {
         "perp" => {
@@ -317,6 +368,7 @@ fn choose(
     mut rng: Option<&mut Rng>,
     level: u32,
     scratch: &mut Scratch,
+    fast_simple: bool,
 ) -> Option<Candidate> {
     let criterion = if !opts.criterios.is_empty() {
         &opts.criterios[usize::min(level.saturating_sub(1) as usize, opts.criterios.len() - 1)]
@@ -335,6 +387,39 @@ fn choose(
     // representative can move behind another family. Sorting by the stable
     // original index exactly reproduces that legacy representative order.
     reps.sort_unstable();
+
+    if fast_simple && !opts.multi_rebanada && !(opts.penalizar_franja_muerta && level <= 2) {
+        let kind = criterion_kind(criterion);
+        top.clear();
+        for &rep_index in reps.iter() {
+            let piece = &pool.pieces[rep_index];
+            for orientation in piece.orientations() {
+                let a = if en_x { orientation.base } else { orientation.altura };
+                let b = if en_x { orientation.altura } else { orientation.base };
+                if a > remaining + EPS || b > perp + EPS { continue; }
+                let sobra = perp - b;
+                let candidate = Candidate {
+                    index: rep_index,
+                    orientation: *orientation,
+                    a,
+                    b,
+                    sobra,
+                    exacta: if sobra < EPS { 0 } else { 1 },
+                    area: a * b,
+                    mult: 1,
+                    riesgo_franja: 0.0,
+                };
+                let pos = top.iter()
+                    .position(|existing| better_fit_kind(&candidate, existing, kind));
+                match pos {
+                    Some(i) => top.insert(i, candidate),
+                    None => top.push(candidate),
+                }
+                if top.len() > 3 { top.truncate(3); }
+            }
+        }
+        return select_top(top, rng.as_deref_mut(), opts.ruido);
+    }
 
     measures.clear();
     if opts.multi_rebanada && level < opts.etapas {
@@ -429,14 +514,7 @@ fn choose(
         }
     }
 
-    if top.is_empty() { return None; }
-    if let Some(rng) = rng.as_deref_mut() {
-        if top.len() >= 2 && rng.next() < opts.ruido {
-            if top.len() >= 3 && rng.next() < 0.5 { return Some(top[2].clone()); }
-            return Some(top[1].clone());
-        }
-    }
-    Some(top[0].clone())
+    select_top(top, rng.as_deref_mut(), opts.ruido)
 }
 
 fn used_thickness(block: Region, parent_axis: Axis, placed: &[Placed], from: usize) -> f64 {
@@ -545,13 +623,14 @@ fn fill(
     rests: &mut Vec<Rest>,
     tree: &mut TreeNode,
     scratch: &mut Scratch,
+    fast_simple: bool,
 ) {
     let perp = region.perp();
     let total = region.length();
     let mut pos = 0.0;
 
     while pos < total - EPS {
-        let selected = match choose(pool, region, total - pos, perp, opts, rng.as_mut(), level, scratch) {
+        let selected = match choose(pool, region, total - pos, perp, opts, rng.as_mut(), level, scratch, fast_simple) {
             Some(value) => value,
             None => break,
         };
@@ -649,7 +728,7 @@ fn fill(
             let cut_mark = cuts.len();
             let mut child = new_tree(sub, level + 1);
 
-            fill(sub, pool, placed, level + 1, opts, rng, cuts, rests, &mut child, scratch);
+            fill(sub, pool, placed, level + 1, opts, rng, cuts, rests, &mut child, scratch, fast_simple);
 
             if placed.len() == before {
                 rests.truncate(rest_mark);
@@ -723,9 +802,13 @@ fn pack_template(
     let mut rests = Vec::new();
     let region = Region { x: 0.0, y: 0.0, w: opts.ancho_util, h: opts.alto_util, dir };
     let mut tree = new_tree(region, 1);
+    let fast_simple =
+        std::env::var("OPTIMIZER_RUST_SIMPLE_CHOOSE_EXPERIMENTAL")
+            .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(false);
     fill(
         region, &mut pool, &mut placed, 1, opts, &mut rng,
-        &mut cuts, &mut rests, &mut tree, &mut scratch,
+        &mut cuts, &mut rests, &mut tree, &mut scratch, fast_simple,
     );
     cuts.sort_by(|a, b| a.nivel.cmp(&b.nivel));
 
