@@ -845,6 +845,50 @@ struct PackBatchRequest {
     random_seed: Option<u32>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GreedyPlanConfig {
+    options: PackOptions,
+    config_id: u32,
+}
+
+fn mix_seed(nums: &[u32]) -> u32 {
+    let mut h = 2_166_136_261u32;
+    for n in nums {
+        h ^= *n;
+        h = h.wrapping_mul(16_777_619);
+        h ^= h >> 13;
+        h = h.wrapping_mul(2_654_435_761);
+    }
+    h
+}
+
+fn greedy_plan_requests(
+    configs: &[GreedyPlanConfig],
+    semilla: u32,
+    pass: u32,
+    board: u32,
+    restarts_per_board: u32,
+) -> Vec<PackBatchRequest> {
+    let mut requests = Vec::new();
+    for config in configs {
+        let randomized = config.options.ruido > 0.0;
+        let reps = if randomized { restarts_per_board.max(1) } else { 1 };
+        for restart in 0..reps {
+            requests.push(PackBatchRequest {
+                options: config.options.clone(),
+                random_seed: if randomized {
+                    Some(mix_seed(&[semilla, pass, config.config_id, restart, board]))
+                } else {
+                    None
+                },
+            });
+        }
+    }
+    requests
+}
+
+
 #[napi(js_name = "packBoardLegacyBatch")]
 pub fn pack_board_legacy_batch(pieces_json: String, requests_json: String) -> Result<String> {
     let inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
@@ -865,6 +909,117 @@ pub fn pack_board_legacy_batch(pieces_json: String, requests_json: String) -> Re
         .map_err(|e| Error::new(Status::GenericFailure, format!("serialize legacy pack batch: {e}")))
 }
 
+
+#[napi(js_name = "packBoardLegacyGreedyPlan")]
+pub fn pack_board_legacy_greedy_plan(
+    pieces_json: String,
+    configs_json: String,
+    semilla: u32,
+    pass: u32,
+    restarts_per_board: u32,
+    tolerance: f64,
+) -> Result<String> {
+    let mut inputs: Vec<PieceInput> = serde_json::from_str(&pieces_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid piece JSON: {e}")))?;
+    let configs: Vec<GreedyPlanConfig> = serde_json::from_str(&configs_json)
+        .map_err(|e| Error::new(Status::InvalidArg, format!("invalid greedy config JSON: {e}")))?;
+
+    if configs.is_empty() {
+        return Err(Error::new(Status::InvalidArg, "greedy plan requires configs"));
+    }
+
+    let mut boards: Vec<PackOutput> = Vec::new();
+    let mut guard = 0u32;
+
+    while !inputs.is_empty() && guard < 300 {
+        let board_index = boards.len() as u32;
+        let requests = greedy_plan_requests(
+            &configs,
+            semilla,
+            pass,
+            board_index,
+            restarts_per_board,
+        );
+        let quality_opts = &requests[0].options;
+        let template = common_template(&inputs, &requests);
+        let mut outputs: Vec<PackOutput> = Vec::with_capacity(requests.len());
+
+        for request in &requests {
+            let output = pack_request(&inputs, template.as_deref(), request)
+                .map_err(|e| Error::new(Status::InvalidArg, e))?;
+            if !output.colocadas.is_empty() {
+                outputs.push(output);
+            }
+        }
+
+        if outputs.is_empty() {
+            return Err(Error::new(Status::GenericFailure, "No se pudo empacar la placa."));
+        }
+
+        let mut best_close: Option<usize> = None;
+        for (index, output) in outputs.iter().enumerate() {
+            if output.colocadas.len() != inputs.len() { continue; }
+            match best_close {
+                None => best_close = Some(index),
+                Some(prev) => {
+                    let q = compare_quality(
+                        remnant_quality(output, quality_opts),
+                        remnant_quality(&outputs[prev], quality_opts),
+                    );
+                    if q > 0 || (q == 0 && output.area > outputs[prev].area) {
+                        best_close = Some(index);
+                    }
+                }
+            }
+        }
+
+        let selected_index = if let Some(index) = best_close {
+            Some(index)
+        } else {
+            let max_area = outputs.iter().fold(0.0_f64, |acc, output| acc.max(output.area));
+            let threshold = max_area * (1.0 - tolerance);
+            let mut best: Option<usize> = None;
+            for (index, output) in outputs.iter().enumerate() {
+                if output.area < threshold { continue; }
+                match best {
+                    None => best = Some(index),
+                    Some(prev) => {
+                        let q = compare_quality(
+                            remnant_quality(output, quality_opts),
+                            remnant_quality(&outputs[prev], quality_opts),
+                        );
+                        if q > 0 || (q == 0 && output.area > outputs[prev].area + 1e-6) {
+                            best = Some(index);
+                        }
+                    }
+                }
+            }
+            best
+        };
+
+        let selected = match selected_index {
+            Some(index) => outputs.swap_remove(index),
+            None => return Err(Error::new(Status::GenericFailure, "No se pudo seleccionar la placa greedy.")),
+        };
+
+        let used: HashSet<u32> = selected.colocadas.iter().map(|p| p.id).collect();
+        let before = inputs.len();
+        inputs.retain(|piece| !used.contains(&piece.id));
+        if inputs.len() >= before {
+            return Err(Error::new(Status::GenericFailure, "Greedy plan no consumio piezas."));
+        }
+
+        boards.push(selected);
+        guard += 1;
+    }
+
+    if !inputs.is_empty() {
+        return Err(Error::new(Status::GenericFailure, "Greedy plan excedio el limite de placas."));
+    }
+
+    serde_json::to_string(&boards)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("serialize greedy plan: {e}")))
+}
 
 #[napi(js_name = "packBoardLegacyGreedyBest")]
 pub fn pack_board_legacy_greedy_best(
