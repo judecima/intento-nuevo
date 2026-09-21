@@ -222,6 +222,33 @@ function geometryFeatures(entry) {
   );
   const uniqueDimensionRatio = typeCount ? dimKeys.size / typeCount : 0;
 
+  const dimensionType = new Map();
+  const dimensionPieces = new Map();
+  const shortType = new Map();
+  const shortPieces = new Map();
+  const longType = new Map();
+  const longPieces = new Map();
+  for (const r of rows) {
+    const dims = new Set([r.w.toFixed(3), r.h.toFixed(3)]);
+    for (const d of dims) {
+      dimensionType.set(d, (dimensionType.get(d) ?? 0) + 1);
+      dimensionPieces.set(d, (dimensionPieces.get(d) ?? 0) + r.q);
+    }
+    const short = Math.min(r.w, r.h).toFixed(3);
+    const long = Math.max(r.w, r.h).toFixed(3);
+    shortType.set(short, (shortType.get(short) ?? 0) + 1);
+    shortPieces.set(short, (shortPieces.get(short) ?? 0) + r.q);
+    longType.set(long, (longType.get(long) ?? 0) + 1);
+    longPieces.set(long, (longPieces.get(long) ?? 0) + r.q);
+  }
+  const mapMax = (m) => m.size ? Math.max(...m.values()) : 0;
+  const maxSharedDimensionTypeShare = typeCount ? mapMax(dimensionType) / typeCount : 0;
+  const maxSharedDimensionPieceShare = pieceCount ? mapMax(dimensionPieces) / pieceCount : 0;
+  const maxSharedShortTypeShare = typeCount ? mapMax(shortType) / typeCount : 0;
+  const maxSharedShortPieceShare = pieceCount ? mapMax(shortPieces) / pieceCount : 0;
+  const maxSharedLongTypeShare = typeCount ? mapMax(longType) / typeCount : 0;
+  const maxSharedLongPieceShare = pieceCount ? mapMax(longPieces) / pieceCount : 0;
+
   const rotatableCount = pieces.reduce((s, p, i) => {
     const allowed = p?.rotationAllowed ?? p?.canRotate;
     const pieceGrain = boolTrue(p?.xmlPartGrain) || boolTrue(p?.rawGrain) || boolTrue(p?.grain);
@@ -257,6 +284,12 @@ function geometryFeatures(entry) {
     top1AreaShare,
     top3AreaShare,
     uniqueDimensionRatio,
+    maxSharedDimensionTypeShare,
+    maxSharedDimensionPieceShare,
+    maxSharedShortTypeShare,
+    maxSharedShortPieceShare,
+    maxSharedLongTypeShare,
+    maxSharedLongPieceShare,
     longThinPieceShare,
     rotatablePieceShare: pieceCount ? rotatableCount / pieceCount : 0,
     grainBlocking: grainBlock(row, canonical, pieces),
@@ -371,6 +404,12 @@ const featureNames = [
   "top1AreaShare",
   "top3AreaShare",
   "uniqueDimensionRatio",
+  "maxSharedDimensionTypeShare",
+  "maxSharedDimensionPieceShare",
+  "maxSharedShortTypeShare",
+  "maxSharedShortPieceShare",
+  "maxSharedLongTypeShare",
+  "maxSharedLongPieceShare",
   "longThinPieceShare",
   "rotatablePieceShare",
   "totalArea",
@@ -643,8 +682,12 @@ function main() {
 
   const separators = candidateSeparators(gap1, seed);
   const ruleSearch = pairRules(gap1);
+  const winnerLongThinMax = Math.max(...winners.map((r) => r.longThinPieceShare));
+  const seedPlusLongThin = (r) => seed(r) && r.longThinPieceShare <= winnerLongThinMax;
+  const fourthVariable = candidateSeparators(gap1, seedPlusLongThin);
 
   const allSeedCount = allCanonical.filter(seed).length;
+  const allSeedLongThinCount = allCanonical.filter(seedPlusLongThin).length;
   const summary = {
     schema: "master-gate-criba-v1",
     generatedAt: new Date().toISOString(),
@@ -683,8 +726,10 @@ function main() {
       })),
       allCanonicalPrevalence: {
         selected: allSeedCount,
+        seedPlusLongThinSelected: allSeedLongThinCount,
         total: allCanonical.length,
         pct: allCanonical.length ? allSeedCount / allCanonical.length : null,
+        seedPlusLongThinPct: allCanonical.length ? allSeedLongThinCount / allCanonical.length : null,
       },
       winnerMargin: winners.map((r) => ({
         order: r.order,
@@ -695,6 +740,27 @@ function main() {
     },
     thresholdPerturbation: perturbation(gap1),
     seedThirdVariableCandidates: separators.slice(0, 25),
+    seedPlusLongThin: {
+      longThinMaxFromWinners: winnerLongThinMax,
+      metrics: metrics(gap1, seedPlusLongThin),
+      selectedRows: gap1.filter(seedPlusLongThin).map((r) => ({
+        order: r.order,
+        file: r.file,
+        masterWin: r.masterWin,
+        pieceCount: r.pieceCount,
+        typeCount: r.typeCount,
+        multiplicityMean: r.multiplicityMean,
+        multiplicityMax: r.multiplicityMax,
+        top1QtyShare: r.top1QtyShare,
+        top1AreaShare: r.top1AreaShare,
+        longThinPieceShare: r.longThinPieceShare,
+        maxSharedDimensionTypeShare: r.maxSharedDimensionTypeShare,
+        maxSharedDimensionPieceShare: r.maxSharedDimensionPieceShare,
+        maxSharedShortTypeShare: r.maxSharedShortTypeShare,
+        maxSharedShortPieceShare: r.maxSharedShortPieceShare,
+      })),
+      fourthVariableCandidates: fourthVariable.slice(0, 25),
+    },
     boundedRuleSearch: ruleSearch,
     featureDistributions: Object.fromEntries(
       featureNames.map((name) => [
@@ -709,8 +775,11 @@ function main() {
     winners: winners.map((r) => Object.fromEntries(
       ["order", "file", "pieceCount", "typeCount", "multiplicityMean", "multiplicityMax", "multiplicityMedian",
        "multiplicityCv", "grainBlocking", "materialHasGrain", "repeatedPieceShare", "repeatedTypeShare",
-       "top1QtyShare", "top1AreaShare", "top3AreaShare", "uniqueDimensionRatio", "longThinPieceShare",
-       "rotatablePieceShare", "totalArea", "areaPerPieceMean"].map((k) => [k, r[k]]),
+       "top1QtyShare", "top1AreaShare", "top3AreaShare", "uniqueDimensionRatio",
+       "maxSharedDimensionTypeShare", "maxSharedDimensionPieceShare",
+       "maxSharedShortTypeShare", "maxSharedShortPieceShare",
+       "maxSharedLongTypeShare", "maxSharedLongPieceShare",
+       "longThinPieceShare", "rotatablePieceShare", "totalArea", "areaPerPieceMean"].map((k) => [k, r[k]]),
     )),
     nearestNeighbors: nearestNeighbors(gap1, allCanonical),
     mismatchSample: matched.mismatch.slice(0, 30),
@@ -726,6 +795,7 @@ function main() {
   console.log("SEED_SELECTED " + JSON.stringify(roundDeep(summary.seedRule.selectedRows)));
   console.log("PERTURBATION " + JSON.stringify(roundDeep(summary.thresholdPerturbation)));
   console.log("THIRD_VARIABLE_TOP " + JSON.stringify(roundDeep(summary.seedThirdVariableCandidates.slice(0, 12))));
+  console.log("SEED_PLUS_LONGTHIN " + JSON.stringify(roundDeep(summary.seedPlusLongThin)));
   console.log("PAIR_RULES_TOP " + JSON.stringify(roundDeep(summary.boundedRuleSearch.pairs.slice(0, 12))));
   console.log("WINNERS " + JSON.stringify(roundDeep(summary.winners)));
   console.log("OUT " + path.relative(ROOT, SUMMARY_PATH));
