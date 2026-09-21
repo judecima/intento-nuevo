@@ -61,6 +61,13 @@ function serializeRequests(requests) {
   })));
 }
 
+function serializeGreedyConfigs(opts, configs) {
+  return JSON.stringify(configs.map((config) => ({
+    options: packOptions({ ...opts, ...config }),
+    configId: config._id >>> 0,
+  })));
+}
+
 function hydrateTree(node, byId) {
   if (!node) return null;
   return {
@@ -118,6 +125,24 @@ function packBoardLegacyRustGreedyBest(pool, requests, tolerance) {
   return raw == null ? null : hydrateResult(raw, pool);
 }
 
+function packBoardLegacyRustGreedyPlan(pool, opts, configs, pass) {
+  const addon = native();
+  if (typeof addon.packBoardLegacyGreedyPlan !== "function") {
+    throw new Error("native addon does not expose whole greedy plan");
+  }
+  const raw = JSON.parse(
+    addon.packBoardLegacyGreedyPlan(
+      JSON.stringify(pieces(pool)),
+      serializeGreedyConfigs(opts, configs),
+      opts.semilla >>> 0,
+      pass >>> 0,
+      Math.max(1, Math.floor(+opts.restartsPorPlaca || 1)) >>> 0,
+      +opts.tolerancia || 0,
+    ),
+  );
+  return raw.map((result) => hydrateResult(result, pool));
+}
+
 function packBoardLegacyRustBeamCandidates(pool, requests, beamWidth) {
   const raw = JSON.parse(
     native().packBoardLegacyBeamCandidates(
@@ -166,6 +191,7 @@ function legacyJsRng(seed) {
 module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
+  packBoardLegacyRustGreedyPlan,
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
