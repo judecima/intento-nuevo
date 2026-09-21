@@ -550,7 +550,13 @@ function main() {
   console.log("KNOWN_DIAGNOSTICS " + JSON.stringify(knownDiagnostics));
 
   const allCanonical = discovered.map(geometryFeatures).filter((r) => r.file && r.typeCount > 0);
+  const knownFeatures = allCanonical.filter((r) => [4050594, 4056900, 4057401, 4059200].includes(r.order));
+  const knownManifest = (manifest.cases ?? []).filter((r) => [4050594, 4056900, 4057401, 4059200].includes(r.order));
+  console.log("KNOWN_FEATURES " + JSON.stringify(knownFeatures));
+  console.log("KNOWN_MANIFEST " + JSON.stringify(knownManifest));
   const matched = matchCanonical(allCanonical, manifest.cases ?? []);
+  console.log("MATCH_COUNTS " + JSON.stringify({ exact: matched.exact.length, mismatch: matched.mismatch.length }));
+  console.log("MISMATCH_HEAD " + JSON.stringify(matched.mismatch.slice(0, 8)));
   const gap1 = matched.exact.filter((r) => r.gapPreMaster === 1);
 
   const seed = (r) => r.multiplicityMean >= 4.75 && !r.grainBlocking;
