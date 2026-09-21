@@ -1,0 +1,44 @@
+name: Optimizer Master40 Rust Context Large
+
+on:
+  push:
+    branches:
+      - research/master40-rust-context-v2-20260921
+    paths:
+      - "native/optimizer-pattern-generator/src/legacy_packer.rs"
+      - "src/lib/optimizer/legacy/rust/rust-packer.cjs"
+      - "src/lib/optimizer/legacy/rust/rust-hybrid.cjs"
+      - "src/lib/optimizer/legacy/rust/rust-patrones.cjs"
+      - "research/optimizer/master-generation/master40-context-large-gate.cjs"
+      - ".github/workflows/optimizer-master40-rust-context-large.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Run Master40 context parity gate
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/master40-context-large-gate.cjs all
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-master40-rust-context-large
+          path: research/optimizer/master-generation/master40-context-large-results.json
+          if-no-files-found: warn
+          retention-days: 30
