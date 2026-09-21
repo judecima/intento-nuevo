@@ -117,6 +117,35 @@ function permitirMasterGateV2(lineas, mejor, cota, metricas) {
   return false;
 }
 
+function usarPodaTiposObligatoriosMaster(config) {
+  if (config.usarPodaTiposObligatoriosMaster === true) return true;
+  return envFlag('OPTIMIZER_MASTER_REQUIRED_TYPES_EXPERIMENTAL');
+}
+
+function tiposObligatoriosParaMejora(lineas, config, incumbenteBoards) {
+  const targetBoards = Math.floor(Number(incumbenteBoards)) - 1;
+  if (!Array.isArray(lineas) || !lineas.length || targetBoards < 1) return [];
+
+  // Deliberately optimistic capacity: full stock area, no trim, no kerf,
+  // no stage/grain restrictions. This can only overestimate how many pieces
+  // of a type fit per board. Therefore any type proven mandatory with this
+  // upper bound is mandatory in every real solution that improves incumbente.
+  const boardArea = Number(config.placaBase) * Number(config.placaAltura);
+  if (!(boardArea > 0)) return [];
+
+  const required = [];
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i];
+    const pieceArea = Number(l.base) * Number(l.altura);
+    const demand = Number(l.cant);
+    if (!(pieceArea > 0) || !(demand > 0)) continue;
+    const upperPerBoard = Math.floor(boardArea / pieceArea);
+    if (upperPerBoard < 1) continue;
+    if ((targetBoards - 1) * upperPerBoard < demand) required.push(i);
+  }
+  return required;
+}
+
 function usarCotaBarataPostBaseline(config) {
   if (config.usarCotaBarataAntesCompactacion === true) return true;
   // El flag V20 es independiente del pipeline staged para poder hacer un A/B
@@ -555,6 +584,16 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   if (config.usarMaster !== false && mejor.resumen.placas > cota && masterGateV2Ok) {
     const t = Date.now();
     try {
+      if (usarPodaTiposObligatoriosMaster(config)) {
+        config._masterRequiredTypeIndices = tiposObligatoriosParaMejora(
+          lineas,
+          config,
+          mejor.resumen.placas,
+        );
+      } else {
+        delete config._masterRequiredTypeIndices;
+        delete config._patternRequiredTypePolicy;
+      }
       const pool = generarPatrones(lineas, config, config.rondasPatrones || 40)
         .concat(patronesMonotipo(lineas, config));
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
