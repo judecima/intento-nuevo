@@ -89,6 +89,8 @@ function unwrap(entry) {
     row.file ??
     row.fileName ??
     row.filename ??
+    row.source_path ??
+    row.sourcePath ??
     row.sourceFile ??
     row.name ??
     canonical.file ??
@@ -100,7 +102,7 @@ function unwrap(entry) {
     (entry.key?.toLowerCase().endsWith(".xml") ? entry.key : null);
 
   let file = basename(rawFile);
-  if (file && !file.toLowerCase().endsWith(".xml") && /\\d/.test(file)) file += ".xml";
+  if (file && !file.toLowerCase().endsWith(".xml") && /\d/.test(file)) file += ".xml";
 
   const pieces = Array.isArray(canonical.pieces)
     ? canonical.pieces
@@ -544,6 +546,8 @@ function main() {
         type_count: row.type_count ?? row.typeCount ?? row.piece_types ?? null,
         directional_input: row.directional_input ?? row.directional ?? null,
         pieceArrayLength: Array.isArray(row.pieces) ? row.pieces.length : null,
+        firstPiece: Array.isArray(row.pieces) && row.pieces[0] ? row.pieces[0] : null,
+        source_path: row.source_path ?? null,
       };
     });
   console.log("CANONICAL_DIAGNOSTICS " + JSON.stringify(diagnostics));
