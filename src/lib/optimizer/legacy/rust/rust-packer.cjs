@@ -211,6 +211,23 @@ function legacyJsRng(seed) {
 }
 
 
+function legacyPackerProfileReset(enabled = true) {
+  const addon = native();
+  if (typeof addon.legacyPackerProfileReset !== "function") {
+    throw new Error("native addon does not expose packer profiler");
+  }
+  addon.legacyPackerProfileReset(Boolean(enabled));
+}
+
+function legacyPackerProfileSnapshot() {
+  const addon = native();
+  if (typeof addon.legacyPackerProfileSnapshot !== "function") {
+    throw new Error("native addon does not expose packer profiler");
+  }
+  return JSON.parse(addon.legacyPackerProfileSnapshot());
+}
+
+
 module.exports = {
   packBoardLegacyRustBatch,
   packBoardLegacyRustGreedyBest,
@@ -219,5 +236,7 @@ module.exports = {
   packBoardLegacyRustBeamCandidates,
   packBoardLegacyRustBeamCandidatesLite,
   packBoardLegacyRustCore,
+  legacyPackerProfileReset,
+  legacyPackerProfileSnapshot,
   legacyJsRng,
 };
