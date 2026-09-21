@@ -32,7 +32,8 @@ const NORMAL=Object.freeze([...P16,...Array.from({length:40},(_,i)=>i).filter(r=
 const GUIDED=Object.freeze([...P16,...GUIDED_FIRST,...Array.from({length:40},(_,i)=>i).filter(r=>!P16.includes(r)&&!GUIDED_FIRST.includes(r))]);
 const CHECKPOINTS=Object.freeze([3,16,20,24,28,32,36,40]);
 
-const MAX_CASES=Number(process.env.INC_MAX_CASES||16);
+const MAX_CASES=Number(process.env.INC_MAX_CASES||40);
+const ONLY_MASTER_WINS=process.env.INC_ONLY_MASTER_WINS!=="0";
 const MAX_PIECES=Number(process.env.INC_MAX_PIECES||300);
 const PROBE_NODES=Number(process.env.INC_PROBE_NODES||100000);
 const PROBE_WATCHDOG_MS=Number(process.env.INC_PROBE_WATCHDOG_MS||300);
@@ -168,7 +169,7 @@ function main(){
   const raw=JSON.parse(fs.readFileSync(CANONICAL,"utf8"));
   const all=Array.isArray(raw)?raw:raw.cases||[];
   const byFile=new Map(all.map(r=>[features(r).file,r]));
-  const eligible=(manifest.cases||[]).filter(m=>num(m.pieces)<=MAX_PIECES)
+  const eligible=(manifest.cases||[]).filter(m=>!ONLY_MASTER_WINS||m.masterWin===true).filter(m=>num(m.pieces)<=MAX_PIECES)
     .sort((a,b)=>(num(b.generationMs)+num(b.solveMs)+num(b.monotypeMs))-(num(a.generationMs)+num(a.solveMs)+num(a.monotypeMs)));
   const must=new Set([4050594,4058501,4057401,4059200]);
   const chosen=[],unavailable=[];
@@ -206,13 +207,13 @@ function main(){
     }));
   }
 
-  const scored=records.filter(r=>!r.error&&r.preParity);
+  const scored=records.filter(r=>!r.error);
   const ncpu=scored.map(r=>r.normal.cpuToFinalIncumbentMs),gcpu=scored.map(r=>r.guided.cpuToFinalIncumbentMs);
   const pctSaved=scored.map(r=>r.normal.cpuToFinalIncumbentMs>0?1-r.guided.cpuToFinalIncumbentMs/r.normal.cpuToFinalIncumbentMs:0);
   const summary={
-    schema:"perfv1-master40-incremental-guided-smoke-v1",generatedAt:new Date().toISOString(),
+    schema:"perfv1-master40-incremental-guided-smoke-v2",generatedAt:new Date().toISOString(),
     branch:process.env.GITHUB_REF_NAME||null,checkpoints:CHECKPOINTS,normalOrder:NORMAL,guidedOrder:GUIDED,
-    counts:{eligible:eligible.length,chosen:records.length,scored:scored.length,unavailable:unavailable.length,
+    counts:{eligible:eligible.length,chosen:records.length,scored:scored.length,preParity:scored.filter(r=>r.preParity).length,unavailable:unavailable.length,
       poolMismatches:scored.filter(r=>!r.fullPoolParity).map(r=>r.order),
       boardRegressions:scored.filter(r=>r.guided.reference.boards>r.normal.reference.boards).map(r=>r.order),
       qualityRegressions:scored.filter(r=>r.boardParity&&!r.qualityParity).map(r=>r.order)},
