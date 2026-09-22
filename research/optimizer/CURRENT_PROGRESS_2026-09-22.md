@@ -456,3 +456,81 @@ Correctness fixes committed on V3 research branch:
 - CI workflow `35743091130`: Vitest + TypeScript PASS
 
 Do not use inferred material-name grain classifications to certify optimization results. The material catalog/business rule is authoritative.
+
+
+## H1 effective branching — CLOSED 2026-09-22
+Detailed report:
+- research/optimizer/effective-branching/H1_EFFECTIVE_BRANCHING_2026-09-22.md
+- commit: 42ea4b4d5d73b62787cd022fa5bb6ca76077de98
+
+Corpus reproduction matched the checkpoint exactly:
+- 20,842 historical valid
+- 16,986 new valid
+- 6 new exclusions, all mixed-board-formats
+- 37,828 combined valid
+
+H1 is geometry-only discovery telemetry; it does not infer grain from material names.
+On the 1,168 historical Master-C cases:
+- board-count wins: 43
+- Spearman(masterMs, pieceCount): 0.8203
+- Spearman(masterMs, typeCount): 0.7217
+- Spearman(masterMs, guideSuccessorMax): 0.6493
+- Spearman(masterMs, effectClassMax): 0.6336
+- 5-fold log-cost R2: piece-only 0.6528; raw descriptors 0.7557; raw + branching 0.7947
+
+New frozen Rule-C discovery candidate, NOT PROMOTED:
+- guideSuccessorMax >= 35
+- historical Master-C: 47 cases
+- wins: 0
+- Master CPU: 348,159 ms
+- CPU coverage: 8.84%
+
+Combined with the already documented zero-win historical union:
+- 294 cases
+- 0 wins
+- 801,907 ms
+- 20.36% of Master-C CPU
+- incremental coverage from the branching condition: 28 cases / 210,608 ms / +5.35 percentage points
+
+This threshold is data-derived. H3 must blind-check it on the current new corpus with Full40 board parity and equal-board remnant parity before promotion.
+
+4961912 correction for H2:
+- use the current versioned fixture / uploaded XML: 31 types, 61 pieces
+- the older historical canonical row keyed 4961912 has 34 types and is not the structural sentinel
+- current fixture H1: guide successor median 26, max 30; residual successor median 21, p95/max 30; residual closure 3.23%
+
+Status: H1 CLOSED AS DISCOVERY. Do not repeat it unless the metric definition changes.
+
+## H2a Guide-Row residual kernel — STARTED 2026-09-22
+Research-only files:
+- research/optimizer/pattern-generators/guide-row/residual-builder.mjs
+- research/optimizer/pattern-generators/guide-row/residual-builder.test.mjs
+
+Commits:
+- kernel: 2b0fa7fc53f69f7b9ffcc00a0140fc435119473c
+- tests: 50139bee52762f4fd3e7d835b8dafdf0f1e2cfa2
+
+The kernel is intentionally NOT wired into src/lib/optimizer/** or v10.cjs.
+
+Current behavior:
+- honors explicit canRotate=true over the grained-board default
+- enumerates guide repetition residual states
+- marks maximal-natural-repeat states for priority
+- rejects successors that cannot fit residual width / guide-row height before expensive construction
+- groups geometry-equivalent residual effects while preserving every logical demand member
+
+4961912 with the existing trim=10 fixture:
+- raw residual states: 120
+- maximal-natural states: 62
+- successor checks: 3,660
+- physically feasible successor families: 2,594
+- rejected before construction by geometry: 1,066 (29.13%)
+- residual-effect classes: 2,594
+
+Important interpretation:
+- 4961912 has no duplicate geometry-effect classes in this first row-level view, so its gain currently comes from physical rejection and prioritization, not equivalence merging
+- H2a does not yet build a complete plan and therefore is not accepted as an optimizer improvement
+- do not wire it to production until full-plan physical validation, board parity and remnant parity are measured
+
+Next exact step:
+H2b should turn the residual states into a complete research-only candidate builder, preserving the official lexicographic objective. Start on 4961912, then existing Master wins, then the seven Lepton-gap sentinels. Keep all production behavior unchanged.
