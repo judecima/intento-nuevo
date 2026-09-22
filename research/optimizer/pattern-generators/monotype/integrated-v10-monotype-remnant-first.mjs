@@ -5,8 +5,10 @@ const {optimizar,calidadPlanPlacas}=
   require("../../../../src/lib/optimizer/legacy/motor.cjs");
 const {optimizarV10,nuevasMetricas,validarPlanIndustrial}=
   require("../../../../src/lib/optimizer/legacy/v10.cjs");
+const {computeHybridLowerBound}=
+  require("../../../../src/lib/optimizer/experimental/hybrid-lower-bound.cjs");
 
-export const MONOTYPE_REMNANT_FIRST_VERSION="monotype-remnant-first-v1";
+export const MONOTYPE_REMNANT_FIRST_VERSION="monotype-remnant-first-v2";
 
 function pieceCount(lines){
   return lines.reduce((s,l)=>s+Number(l?.cant||0),0);
@@ -19,14 +21,49 @@ function exactDemandOk(plan,lines){
   return actual===expected;
 }
 
-function areaLowerBound(lines,config){
+function safeLowerBound(lines,config,candidate){
   const area=lines.reduce(
     (s,l)=>s+Number(l?.cant||0)*Number(l?.base||0)*Number(l?.altura||0),0
   );
   const width=Number(config?.placaBase)-Number(config?.refiladoX||0);
   const height=Number(config?.placaAltura)-Number(config?.refiladoY||0);
-  if(!(width>0&&height>0)) return 0;
-  return Math.ceil(area/(width*height)-1e-9);
+  const areaLB=(width>0&&height>0)
+    ? Math.ceil(area/(width*height)-1e-9)
+    : 0;
+
+  let hybrid=0,reason=null,violation=false;
+  try{
+    const r=computeHybridLowerBound(
+      lines,
+      candidate?.opts||config,
+      candidate?.resumen?.placas,
+      {
+        useRaster:false,
+        claude:{
+          usarRaster:false,
+          usarDffFs0:true,
+        },
+      },
+    );
+    const value=Math.floor(Number(r?.cheapLowerBound??r?.lowerBound??0));
+    reason=r?.reason||null;
+    if(value>0){
+      if(candidate?.resumen?.placas!=null && value>candidate.resumen.placas)
+        violation=true;
+      else
+        hybrid=value;
+    }
+  }catch(error){
+    reason="error:"+String(error?.message||error);
+  }
+
+  return {
+    value:Math.max(areaLB,hybrid),
+    areaLB,
+    hybrid,
+    reason,
+    violation,
+  };
 }
 
 function preGate(lines,config){
@@ -49,12 +86,15 @@ function preGate(lines,config){
 /**
  * Research-only monotype fast path.
  *
- * Discovery result on the current 16,986-case mining corpus:
+ * Current-corpus discovery:
  * - 1,724 geometry-only monotype cases
- * - 1,699/1,724 candidate plans reached the area lower bound
- * - among all equal-board comparisons: 0 remnant regressions
- * - the one raw candidate board loss did not reach the lower bound and is
- *   therefore rejected by this wrapper and delegated to V3.
+ * - raw remnant-first candidate: 0 equal-board remnant regressions,
+ *   22 remnant improvements, 1 raw board loss
+ * - area LB alone certifies 1,699/1,724
+ * - existing Hybrid LB (Raster OFF + DFF FS0 ON) certifies 24 more
+ * - final frozen research gate certifies 1,723/1,724 = 99.94%
+ * - the single raw board loss (5245005) remains candidate=3 vs safe LB=2
+ *   and therefore falls back to full V3
  *
  * Default is OFF. This is not production-promoted and must be externally
  * validated on a future sealed corpus before promotion.
@@ -84,8 +124,8 @@ export function optimizarV10ConMonotypeRemnantFirst(
   let candidate=null;
   let error=null;
   try{
-    // Critical difference from the general motor: for monotype research the
-    // equal-board choice is remnant-first, not shortest-tree-first.
+    // For monotype, compare equal-board plans by the official commercial
+    // remnant objective instead of privileging shallower machine trees.
     candidate=optimizar(lines,{
       ...config,
       preferirMenorProfundidad:false,
@@ -98,13 +138,17 @@ export function optimizarV10ConMonotypeRemnantFirst(
     ? validarPlanIndustrial(candidate,gate.pieces)
     : {ok:false};
   const demandOk=candidate?exactDemandOk(candidate,lines):false;
-  const lb=areaLowerBound(lines,config);
+  const lb=candidate&&physical?.ok&&demandOk
+    ? safeLowerBound(lines,config,candidate)
+    : {value:0,areaLB:0,hybrid:0,reason:null,violation:false};
+
   const certified=Boolean(
     candidate &&
     physical?.ok &&
     demandOk &&
-    lb>0 &&
-    candidate?.resumen?.placas===lb
+    !lb.violation &&
+    lb.value>0 &&
+    candidate?.resumen?.placas===lb.value
   );
 
   if(certified){
@@ -113,13 +157,13 @@ export function optimizarV10ConMonotypeRemnantFirst(
     return {
       plan:candidate,
       metricas,
-      cota:lb,
-      cotaArea:lb,
+      cota:lb.value,
+      cotaArea:lb.areaLB,
       monotypeRemnantFirst:{
         version:MONOTYPE_REMNANT_FIRST_VERSION,
         attempted:true,
         certified:true,
-        reason:"MONOTYPE_AREA_LB_CERTIFIED",
+        reason:"MONOTYPE_SAFE_LB_CERTIFIED",
         lowerBound:lb,
         quality:calidadPlanPlacas(candidate.placas,candidate.opts||config),
         wallMs:Number(process.hrtime.bigint()-started)/1e6,
@@ -137,7 +181,8 @@ export function optimizarV10ConMonotypeRemnantFirst(
       reason:!candidate?"CANDIDATE_ERROR":
              !physical?.ok?"INVALID_PHYSICAL":
              !demandOk?"DEMAND_MISMATCH":
-             "AREA_LB_NOT_REACHED",
+             lb.violation?"LB_VIOLATION":
+             "SAFE_LB_NOT_REACHED",
       error,
       candidateBoards:candidate?.resumen?.placas??null,
       lowerBound:lb,
