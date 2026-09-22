@@ -1,0 +1,30 @@
+name: Optimizer R3-M v4 Regression Gate
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/pattern-generators/guide-row/integrated-v10-r3m-v4.mjs
+      - research/optimizer/pattern-generators/guide-row/r3m-v4-regression-ab.mjs
+      - .github/workflows/optimizer-r3m-v4.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Run frozen R3-M-v4 A/B
+        run: node research/optimizer/pattern-generators/guide-row/r3m-v4-regression-ab.mjs
