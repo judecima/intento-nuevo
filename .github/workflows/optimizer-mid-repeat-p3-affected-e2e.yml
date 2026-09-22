@@ -1,0 +1,68 @@
+name: Optimizer Mid-Repeat P3 Affected E2E
+
+on:
+  push:
+    branches:
+      - research/perfv2-mid-repeat-p3-e2e-20260922
+    paths:
+      - "src/lib/optimizer/legacy/v10.cjs"
+      - "research/optimizer/master-generation/master-mid-repeat-p3-affected-e2e.cjs"
+      - ".github/workflows/optimizer-mid-repeat-p3-affected-e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Affected E2E shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 8
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/master-mid-repeat-p3-affected-e2e.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mid-repeat-p3-affected-e2e-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/master-mid-repeat-p3-affected-e2e-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mid-repeat-p3-affected-e2e-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build report
+        env:
+          SHARD_TOTAL: 8
+        run: node research/optimizer/master-generation/master-mid-repeat-p3-affected-e2e.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mid-repeat-p3-affected-e2e-results
+          path: research/optimizer/master-generation/master-mid-repeat-p3-affected-e2e-results.json
+          if-no-files-found: error
+          retention-days: 7
