@@ -14,7 +14,7 @@ const {
   validarPlanIndustrial,
 } = require("../../../../src/lib/optimizer/legacy/validador_industrial_v3.cjs");
 
-export const GUIDE_ROW_H2B_VERSION = "guide-row-complete-candidate-h2b-v2";
+export const GUIDE_ROW_H2B_VERSION = "guide-row-complete-candidate-h2b-v3";
 
 function countPieces(lines) {
   return lines.reduce((sum, line) => sum + Number(line?.cant || 0), 0);
@@ -204,6 +204,26 @@ export function buildGuideRowCandidate(
     );
     if (polish.plan) best = betterPlan(best, polish.plan, config);
     runs.push(polish.telemetry);
+  }
+
+  // H2c: extremely low-branching states sometimes need one extra deterministic
+  // stochastic arm to expose the same equal-board remnant as full V3. It still
+  // competes lexicographically against the incumbent and therefore cannot make
+  // the candidate worse; it is research-only and not wired into production.
+  if (residual.telemetry.naturalStates <= 3) {
+    const simpleStatePolish = runCompletePlan(
+      lines.map((line) => structuredClone(line)),
+      config,
+      expectedPieces,
+      { kind: "SIMPLE_STATE_POLISH" },
+      {
+        ruido: 0.4,
+        pases: 2,
+        restartsPorPlaca: 2,
+      },
+    );
+    if (simpleStatePolish.plan) best = betterPlan(best, simpleStatePolish.plan, config);
+    runs.push(simpleStatePolish.telemetry);
   }
 
   const wallMs = Number(process.hrtime.bigint() - started) / 1e6;
