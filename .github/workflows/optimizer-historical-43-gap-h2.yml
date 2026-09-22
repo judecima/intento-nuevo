@@ -1,0 +1,30 @@
+name: Optimizer Historical 43 Gap H2
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/pattern-generators/guide-row/historical-43-gap-h2.mjs
+      - research/optimizer/pattern-generators/guide-row/fixtures/HISTORICAL_43_LEPTON_GAPS.json.gz.b64
+      - .github/workflows/optimizer-historical-43-gap-h2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Run H2 over historical Lepton gaps
+        run: node research/optimizer/pattern-generators/guide-row/historical-43-gap-h2.mjs
