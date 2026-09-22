@@ -41,8 +41,8 @@ const CASES=[
   {id:5327787,board:[2440,1220],saw:4.5,qty:2,piece:[199.2,769.2]},
   {id:5327892,board:[2800,2070],saw:4.5,qty:2,piece:[400,1750]},
   {id:5327902,board:[2800,2070],saw:4.5,qty:2,piece:[400,1750]},
-  // This remnant win is intentionally outside the area-LB gate and must fallback.
-  {id:5329174,board:[2750,1830],saw:4.5,qty:7,piece:[460,1500],expectFallback:true},
+  // Area LB is weak here, but the existing Hybrid LB certifies the 2-board candidate.
+  {id:5329174,board:[2750,1830],saw:4.5,qty:7,piece:[460,1500]},
   {id:5330941,board:[2590,1820],saw:4.5,qty:6,piece:[500,673]},
 ];
 
