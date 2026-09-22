@@ -1,0 +1,26 @@
+name: Optimizer Guide-Row H2
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/pattern-generators/guide-row/**
+      - .github/workflows/optimizer-guide-row-h2.yml
+  workflow_dispatch:
+
+jobs:
+  h2b-4961912:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: H2a residual kernel tests
+        run: node --test research/optimizer/pattern-generators/guide-row/residual-builder.test.mjs
+      - name: H2b complete-plan sentinel 4961912
+        run: node research/optimizer/pattern-generators/guide-row/4961912-h2b-probe.mjs
