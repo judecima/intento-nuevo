@@ -102,13 +102,6 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   );
   const optimizerMode = OPTIMIZER_MODES.find((mode) => mode.id === optimizerModeId) ?? OPTIMIZER_MODES[0];
   const selectedMaterialHasGrain = Boolean(selectedMaterial?.hasGrain);
-  const selectedMaterialId = selectedMaterial?.id ?? "";
-
-  useEffect(() => {
-    if (!selectedMaterialId) return;
-    setRows((current) => normalizeProjectItemOrientation(current, selectedMaterialHasGrain));
-  }, [selectedMaterialId, selectedMaterialHasGrain]);
-
   const draft = () => ({
     projectId: props.projectId,
     expectedVersion: version,
