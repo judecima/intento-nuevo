@@ -326,3 +326,38 @@ Important:
 4. Directional/grained validation:
    - still requires authoritative per-piece `canRotate` inputs;
    - project XML alone cannot certify that envelope.
+
+
+## R3-M v4 focused Rust regression CI
+
+Workflow:
+- `.github/workflows/optimizer-r3m-v4-regression.yml`
+
+GitHub Actions:
+- run `35767929546`
+- conclusion: SUCCESS
+- native Rust generator rebuilt in CI
+
+Focused regression set:
+- 10 cases total
+- 4 original external R3-M remnant regressions
+- 6 same-holdout cases where the v4 risk polish improves remnant over V3
+
+Result:
+- invalid: 0
+- board losses: 0
+- remnant regressions: 0
+- remnant equal: 4
+- remnant better: 6
+- candidate total: 250.266 ms
+- V3 reference total: 433.117 ms
+- saving: 42.22%
+- speedup: 1.73x
+
+The four original external failures now reproduce exact V3 remnant quality:
+- 5344286
+- 5362238
+- 5407018
+- 5344296
+
+This CI protects the known failures from reappearing, but does NOT convert v4 into an external PASS. The rule/polish was designed after observing this holdout and still requires a later sealed corpus.
