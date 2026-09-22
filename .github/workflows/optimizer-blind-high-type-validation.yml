@@ -1,0 +1,90 @@
+name: Optimizer Blind High-Type Validation
+
+on:
+  push:
+    branches:
+      - research/perfv1-master-win-mining-20260921
+    paths:
+      - "research/optimizer/master-generation/high-type-blind-validation.cjs"
+      - ".github/workflows/optimizer-blind-high-type-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  blind:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Blind >500 pieces validation shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 8
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/high-type-blind-validation.cjs blind
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blind-high-type-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/high-type-blind-over500-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  audit4039132:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Repeat 4039132 five times
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/high-type-blind-validation.cjs audit4039132
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audit-4039132-p3-vs-full40
+          path: research/optimizer/master-generation/audit-4039132-p3-vs-full40.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: blind
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: blind-high-type-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build blind validation report
+        env:
+          SHARD_TOTAL: 8
+        run: node research/optimizer/master-generation/high-type-blind-validation.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blind-high-type-results
+          path: research/optimizer/master-generation/high-type-blind-over500-results.json
+          if-no-files-found: error
+          retention-days: 7
