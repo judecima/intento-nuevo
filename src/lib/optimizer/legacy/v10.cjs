@@ -33,6 +33,20 @@ function nuevasMetricas() {
                      invalidos: 0, ms: 0, peorMs: 0 });
   return {
     oneboard: m(), master: m(), multislice: m(), compactacion: m(),
+    masterShadow: {
+      eligible: 0,
+      sampled: 0,
+      runs: 0,
+      valid: 0,
+      errors: 0,
+      equalBoards: 0,
+      full40Better: 0,
+      primaryBetter: 0,
+      full40Boards: null,
+      primaryBoards: null,
+      preMasterBoards: null,
+      ms: 0,
+    },
     lowerBound: {
       externalUsed: 0,
       externalViolation: 0,
@@ -77,6 +91,39 @@ function registrar(m, ms, gano, ahorro, invalido) {
 
 function envFlag(name) {
   return /^(1|true|yes|on)$/i.test(String(process.env[name] || ''));
+}
+
+function masterHighTypesP3ShadowRate(config) {
+  const raw = config.masterHighTypesP3ShadowRate ??
+    process.env.OPTIMIZER_MASTER_HIGH_TYPES_P3_SHADOW_RATE;
+  if (raw == null || raw === '') return 0;
+  const rate = Number(raw);
+  if (!Number.isFinite(rate)) return 0;
+  return Math.max(0, Math.min(1, rate));
+}
+
+function masterHighTypesP3ShadowHash(lineas) {
+  const tokens = lineas.map((l) => [
+    Number(l.base) || 0,
+    Number(l.altura) || 0,
+    Number(l.cant) || 0,
+    l.veta ? 1 : 0,
+  ].join(':')).sort();
+  const input = tokens.join('|');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function shouldShadowHighTypesP3(lineas, config) {
+  if (config.masterHighTypesP3ShadowSample === true) return true;
+  const rate = masterHighTypesP3ShadowRate(config);
+  if (!(rate > 0)) return false;
+  const bucket = masterHighTypesP3ShadowHash(lineas) % 10000;
+  return bucket < Math.floor(rate * 10000);
 }
 
 function usarCotaBarataPostBaseline(config) {
@@ -537,14 +584,16 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       const highTypesP3Experimental =
         config.masterHighTypesP3Experimental === true ||
         process.env.OPTIMIZER_MASTER_HIGH_TYPES_P3_EXPERIMENTAL === '1';
+      const highTypesP3Eligible = highTypesP3Experimental && lineas.length > 40;
       const masterRounds =
-        highTypesP3Experimental && lineas.length > 40
+        highTypesP3Eligible
           ? Math.min(3, configuredMasterRounds)
           : configuredMasterRounds;
+      const preMasterBoards = mejor.resumen.placas;
       const pool = generarPatrones(lineas, config, masterRounds)
         .concat(patronesMonotipo(lineas, config));
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
-                                  mejor.resumen.placas, config.msMaster || 8000,
+                                  preMasterBoards, config.msMaster || 8000,
                                   { telemetry: config._step0Telemetry || null,
                                     maxNodos: config.maxNodosMaster,
                                     watchdogMs: config.watchdogMasterMs });
@@ -552,6 +601,63 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
       if (cand) probar('master', cand, Date.now() - t);
       else registrar(metricas.master, Date.now() - t, false,0,false);
+
+      // Shadow audit: nunca modifica `mejor`. P3 sigue siendo el resultado
+      // productivo; Full40 se ejecuta solo sobre una muestra determinista y
+      // registra si habria encontrado menos placas con el mismo incumbente
+      // pre-Master.
+      if (highTypesP3Eligible) {
+        const sm = metricas.masterShadow;
+        sm.eligible++;
+        sm.preMasterBoards = preMasterBoards;
+        sm.primaryBoards = mejor.resumen.placas;
+        if (shouldShadowHighTypesP3(lineas, config)) {
+          sm.sampled++;
+          sm.runs++;
+          const ts = Date.now();
+          try {
+            const shadowPool = generarPatrones(lineas, config, configuredMasterRounds)
+              .concat(patronesMonotipo(lineas, config));
+            const shadowSolver = resolverCobertura(
+              shadowPool,
+              lineas.map(l => l.cant),
+              areaPlaca,
+              preMasterBoards,
+              config.msMaster || 8000,
+              {
+                telemetry: null,
+                maxNodos: config.maxNodosMaster,
+                watchdogMs: config.watchdogMasterMs,
+              },
+            );
+            const shadowSol = shadowSolver
+              ? shadowSolver.resolver(lineas.map(l => l.base * l.altura))
+              : null;
+            const shadowCand = shadowSol && shadowSol.plan
+              ? materializar(shadowSol.plan, lineas, baseline.opts)
+              : null;
+            let shadowBoards = preMasterBoards;
+            if (shadowCand) {
+              const validation = validarPlanIndustrial(
+                shadowCand,
+                lineas.reduce((sum, l) => sum + (+l.cant || 0), 0),
+              );
+              if (validation && validation.ok) {
+                sm.valid++;
+                shadowBoards = shadowCand.resumen.placas;
+              }
+            }
+            sm.full40Boards = shadowBoards;
+            if (shadowBoards < sm.primaryBoards) sm.full40Better++;
+            else if (shadowBoards > sm.primaryBoards) sm.primaryBetter++;
+            else sm.equalBoards++;
+          } catch (_) {
+            sm.errors++;
+          } finally {
+            sm.ms += Date.now() - ts;
+          }
+        }
+      }
     } catch (e) {
       registrar(metricas.master, Date.now() - t, false, 0, false);
     }
