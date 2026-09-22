@@ -1,1 +1,70 @@
-name: Optimizer Sealed Holdout V2 Fast Blind\n\non:\n  push:\n    branches:\n      - research/perfv3-industrial-incremental-20260922\n    paths:\n      - "research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-ab.mjs"\n      - "research/optimizer/holdout-v2-fixture/**"\n      - ".github/workflows/optimizer-sealed-holdout-v2-fast.yml"\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  shard:\n    strategy:\n      fail-fast: false\n      matrix:\n        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n    runs-on: ubuntu-latest\n    timeout-minutes: 70\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 22\n          cache: npm\n      - uses: dtolnay/rust-toolchain@stable\n      - run: npm ci\n      - run: npm run optimizer:rust:build\n      - name: Frozen blind shard ${{ matrix.shard }}\n        env:\n          SHARD_INDEX: ${{ matrix.shard }}\n          SHARD_TOTAL: 16\n          RUST_LEGACY_DEBUG_ERRORS: "1"\n        run: node research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-ab.mjs shard\n      - uses: actions/upload-artifact@v4\n        with:\n          name: sealed-holdout-v2-fast-shard-${{ matrix.shard }}\n          path: research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-shard-${{ matrix.shard }}.json\n          if-no-files-found: error\n          retention-days: 7\n\n  report:\n    needs: shard\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 22\n      - uses: actions/download-artifact@v4\n        with:\n          pattern: sealed-holdout-v2-fast-shard-*\n          path: research/optimizer/pattern-generators/cascade\n          merge-multiple: true\n      - name: Build blind report\n        env:\n          SHARD_TOTAL: 16\n        run: node research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-ab.mjs report\n      - uses: actions/upload-artifact@v4\n        if: always()\n        with:\n          name: sealed-holdout-v2-fast-blind-result\n          path: research/optimizer/pattern-generators/cascade/SEALED_HOLDOUT_V2_FAST_BLIND_RESULT.json\n          if-no-files-found: error\n          retention-days: 7\n
+name: Optimizer Sealed Holdout V2 Fast Blind
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - "research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-ab.mjs"
+      - "research/optimizer/holdout-v2-fixture/**"
+      - ".github/workflows/optimizer-sealed-holdout-v2-fast.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Frozen blind shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 16
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-ab.mjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sealed-holdout-v2-fast-shard-${{ matrix.shard }}
+          path: research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sealed-holdout-v2-fast-shard-*
+          path: research/optimizer/pattern-generators/cascade
+          merge-multiple: true
+      - name: Build blind report
+        env:
+          SHARD_TOTAL: 16
+        run: node research/optimizer/pattern-generators/cascade/sealed-holdout-v2-fast-ab.mjs report
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sealed-holdout-v2-fast-blind-result
+          path: research/optimizer/pattern-generators/cascade/SEALED_HOLDOUT_V2_FAST_BLIND_RESULT.json
+          if-no-files-found: error
+          retention-days: 7
