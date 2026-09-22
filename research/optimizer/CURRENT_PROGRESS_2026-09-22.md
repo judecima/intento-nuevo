@@ -534,3 +534,77 @@ Important interpretation:
 
 Next exact step:
 H2b should turn the residual states into a complete research-only candidate builder, preserving the official lexicographic objective. Start on 4961912, then existing Master wins, then the seven Lepton-gap sentinels. Keep all production behavior unchanged.
+
+
+## H2b Guide-Row complete candidate — SENTINEL PASS 2026-09-22
+Detailed checkpoint:
+- research/optimizer/pattern-generators/guide-row/H2B_4961912_CHECKPOINT_2026-09-22.md
+- commit: 5a18fa754bc819cbd33b4d23eed121c5e2c80c67
+
+Research-only implementation:
+- complete candidate: df583db3afbbc185b9d31db2fdbe36fc0d223f46
+- cheap remnant polish: 24151ba100c7f3cfbe313cd63956a4f7a4a77f7d
+- strict 4961912 gate: f0bde1c0490925b5ffc86fc1fde83c04557a9b9f
+- H2 CI runs on Node 22 from 5d267b772d968392ed3cd291315d35e16f14318b
+
+Initial H2b was correctly rejected:
+- 2 boards, valid
+- ~270 ms
+- remnant 631,540 mm2 vs accepted 725,270
+- equal-board remnant regression -12.92%
+- CI 35749317474 FAILED by design
+
+H2b v2 added one cheap quality-polish arm:
+- noise 0.3
+- 3 passes
+- 1 restart per board
+- Beam/Rescue/MultiVariants off
+
+Remote gate 35749690404 SUCCESS:
+Reference V3 on 4961912:
+- 2 boards
+- remnant 725,270 mm2
+- wall 6,894.211 ms
+- CPU 9,927.672 ms
+- compactation 4,499 ms
+
+H2b v2:
+- 2 boards
+- exact remnant parity 725,270 mm2
+- industrial validation PASS
+- wall 384.193 ms
+- CPU 608.152 ms
+- wall saving 94.43%
+- speedup 17.94x
+
+Important interpretation:
+- H2a/H2b residual ordering did not by itself improve the 4961912 remnant; the cheap targeted polish recovered it
+- this supports separating fast board construction from cheap remnant polishing
+- do not claim a general 17.94x speedup; this is one sentinel
+- no production path has been changed
+
+Additional diagnostic fallback probe:
+- 4062816: cheap+polish reached 1-board LB and exact stored remnant parity
+- 4098088: cheap+polish stayed at 2 vs LB/reference 1 -> mandatory V3 fallback
+- 4066881: cheap+polish stayed at 2 vs LB/reference 1 -> mandatory V3 fallback
+
+This is the desired safe architecture:
+cheap candidate -> cheap remnant polish -> physical validation -> LB check -> possible certification OR full V3 fallback.
+
+But LB parity certifies only board count. H2c must establish a remnant-safe certification region before any early return can be promoted.
+
+### H2c — next exact step
+Run a reproducible broad cohort measuring:
+- candidate reaches valid LB
+- cheap-polish remnant
+- full V3 remnant at same board count
+- compactation equal-board improvement frequency
+- effective branching / repetition compression
+
+Freeze an interpretable early-certification rule only if:
+- 0 board regressions
+- 0 equal-board remnant regressions
+- physical validation always passes
+- material latency coverage is meaningful
+
+Keep current V3 as mandatory fallback outside that certified region.
