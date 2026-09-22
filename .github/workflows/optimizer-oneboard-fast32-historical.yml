@@ -1,0 +1,39 @@
+name: Optimizer OneBoard Fast32 Historical Replay
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - "research/optimizer/oneboard/reserved-root-band-fast32.mjs"
+      - "research/optimizer/oneboard/reserved-root-band-fast32-historical43.mjs"
+      - ".github/workflows/optimizer-oneboard-fast32-historical.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Replay Fast32 on historical one-board gaps
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/oneboard/reserved-root-band-fast32-historical43.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oneboard-fast32-historical43-results
+          path: research/optimizer/oneboard/reserved-root-band-fast32-historical43-results.json
+          if-no-files-found: error
+          retention-days: 7
