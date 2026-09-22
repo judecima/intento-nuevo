@@ -1,0 +1,107 @@
+name: Optimizer Certified P3 Stop
+
+on:
+  push:
+    branches:
+      - research/perfv2-certified-p3-stop-20260922
+    paths:
+      - "research/optimizer/master-generation/master-active-all-prep.cjs"
+      - "research/optimizer/master-generation/master-certified-p3-stop-benchmark.cjs"
+      - ".github/workflows/optimizer-certified-p3-stop.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MINING_RUN_ID: "35662373127"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download mining shards
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p research/optimizer/master-generation
+          rm -rf /tmp/master-win-shards
+          mkdir -p /tmp/master-win-shards
+          gh run download "$MINING_RUN_ID" --repo "$GH_REPO" --pattern "perfv1-master-win-mining-shard-*" --dir /tmp/master-win-shards
+          find /tmp/master-win-shards -name 'master-win-mining-shard-*.json' -exec cp {} research/optimizer/master-generation/ \;
+          count=$(find research/optimizer/master-generation -maxdepth 1 -name 'master-win-mining-shard-*.json' | wc -l)
+          echo "downloaded shards=$count"
+          [ "$count" -eq 32 ]
+      - name: Build active manifest
+        run: node research/optimizer/master-generation/master-active-all-prep.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: master-active-all-manifest
+          path: research/optimizer/master-generation/master-active-all-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+  shard:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - uses: actions/download-artifact@v4
+        with:
+          name: master-active-all-manifest
+          path: research/optimizer/master-generation
+      - name: Certified P3 shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 16
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/master-certified-p3-stop-benchmark.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: certified-p3-stop-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/master-certified-p3-stop-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: certified-p3-stop-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build report
+        env:
+          SHARD_TOTAL: 16
+        run: node research/optimizer/master-generation/master-certified-p3-stop-benchmark.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: certified-p3-stop-results
+          path: research/optimizer/master-generation/master-certified-p3-stop-results.json
+          if-no-files-found: error
+          retention-days: 7
