@@ -1,0 +1,25 @@
+name: Optimizer Historical Corpus Bundle
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - ".github/workflows/optimizer-historical-corpus-bundle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-historical-canonical-corpus
+          path: experiencia/canonical_cases.json
+          if-no-files-found: error
+          retention-days: 7
