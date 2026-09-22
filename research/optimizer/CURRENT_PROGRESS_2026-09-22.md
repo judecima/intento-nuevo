@@ -1190,3 +1190,63 @@ Decision:
 - Monotype-v2 has external geometry PASS
 - R3-M-v4 is holdout-informed and needs one fresh sealed external corpus
 - do not retune v4 risk region or polish before that fresh validation
+
+
+## FAPLAC Blend Scotch 18 mm — 125-piece sentinel
+Detailed report:
+- research/optimizer/sentinels/FAPLAC_BLEND_SCOTCH_125_2026-09-22.md
+- commit: 3d4a210536a60ed2969e383b48c14264de2b3134
+- GitHub Actions run 35772982956: SUCCESS
+
+Demand:
+- 125 pieces
+- 22 types
+- piece area 39,797,840 mm2
+- stock 2750x1830
+- kerf 4.5
+
+Critical result:
+- raw area LB = 8
+- safe Hybrid LB = 9, binding kerf/DFF
+- current V3 = 9
+- therefore minimum board count is certified at 9
+- this holds with orientation locked and with rotation allowed
+
+Locked orientation / trim 0:
+- 9 boards
+- valid
+- 0 rotated placements
+- wall 388.98 ms
+- largest remnant 1,111,250 mm2
+- second 870,375 mm2
+- 6 fragments
+
+Rotation allowed / trim 0:
+- 9 boards
+- valid
+- 69 rotations
+- wall 411.03 ms
+- largest remnant 897,875 mm2
+- second 870,375 mm2
+- official remnant objective is worse than locked trim0 despite larger total useful area
+
+Locked / trim 10:
+- 9 boards
+- valid
+- wall 288.56 ms
+- largest remnant 873,990 mm2
+
+Rotation allowed / trim 10:
+- 9 boards
+- valid
+- wall 397.89 ms
+- largest remnant 2,222,140 mm2
+- second 513,103.5 mm2
+
+OneBoard/Master/MultiSlice/Compactation activations: 0 in all four scenarios.
+
+Interpretation:
+- this is a lower-bound/certification case, not deep search
+- strong kerf/DFF LB proves the 8-board area target impossible
+- current baseline reaches the proven optimum in <0.5 s
+- keep as sentinel for lower-bound correctness and grain/rotation semantics
