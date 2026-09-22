@@ -21,3 +21,10 @@ For a new chat:
 9. keep the next ~20k user cases sealed as external validation until new thresholds/rules are frozen.
 
 If branch HEAD has advanced, trust the latest commit on this same branch and then read the checkpoint again.
+
+
+## Chat handoff — 2026-09-22
+Before continuing in a new conversation, read:
+- `research/optimizer/CHAT_HANDOFF_2026-09-22.md`
+
+It freezes the current state before the user's next ~15k sealed holdout, including Safe Cascade v1, Monotype-v2 external PASS, R3-M-v4 frozen candidate, H2 1399 results, early cheap-LB family evidence, and the no-retuning holdout protocol.
