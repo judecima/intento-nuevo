@@ -533,7 +533,15 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
   if (config.usarMaster !== false && mejor.resumen.placas > cota) {
     const t = Date.now();
     try {
-      const pool = generarPatrones(lineas, config, config.rondasPatrones || 40)
+      const configuredMasterRounds = config.rondasPatrones || 40;
+      const highTypesP3Experimental =
+        config.masterHighTypesP3Experimental === true ||
+        process.env.OPTIMIZER_MASTER_HIGH_TYPES_P3_EXPERIMENTAL === '1';
+      const masterRounds =
+        highTypesP3Experimental && lineas.length > 40
+          ? Math.min(3, configuredMasterRounds)
+          : configuredMasterRounds;
+      const pool = generarPatrones(lineas, config, masterRounds)
         .concat(patronesMonotipo(lineas, config));
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
                                   mejor.resumen.placas, config.msMaster || 8000,
