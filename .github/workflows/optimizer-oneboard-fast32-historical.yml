@@ -7,6 +7,9 @@ on:
     paths:
       - "research/optimizer/oneboard/reserved-root-band-fast32.mjs"
       - "research/optimizer/oneboard/reserved-root-band-fast32-historical43.mjs"
+      - "research/optimizer/oneboard/oneboard-state-capture.mjs"
+      - "research/optimizer/oneboard/integrated-v10-fast32-research.mjs"
+      - "research/optimizer/oneboard/integrated-v10-fast32-historical43.mjs"
       - ".github/workflows/optimizer-oneboard-fast32-historical.yml"
   workflow_dispatch:
 
@@ -30,10 +33,16 @@ jobs:
         env:
           RUST_LEGACY_DEBUG_ERRORS: "1"
         run: node research/optimizer/oneboard/reserved-root-band-fast32-historical43.mjs
+      - name: Validate captured-state Fast32 integration
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/oneboard/integrated-v10-fast32-historical43.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: oneboard-fast32-historical43-results
-          path: research/optimizer/oneboard/reserved-root-band-fast32-historical43-results.json
+          path: |
+            research/optimizer/oneboard/reserved-root-band-fast32-historical43-results.json
+            research/optimizer/oneboard/integrated-v10-fast32-historical43-results.json
           if-no-files-found: error
           retention-days: 7
