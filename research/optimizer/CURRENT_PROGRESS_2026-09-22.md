@@ -710,3 +710,96 @@ Next exact step:
 - when the next ~20k corpus is supplied, run frozen R3-M with no threshold/polish changes
 - acceptance requires 0 board losses, 0 equal-board remnant regressions, 0 invalids
 - in parallel, monotype and directional/grained remain separate research tracks
+
+
+## Monotype Remnant-First v2 — CURRENT-CORPUS PASS 2026-09-22
+Detailed checkpoint:
+- research/optimizer/pattern-generators/monotype/MONOTYPE_REMNANT_FIRST_V2_CURRENT_CORPUS_2026-09-22.md
+- commit: 24a28bf14e18f662897e0f38535374e89eaaf74f
+
+Research integration:
+- research/optimizer/pattern-generators/monotype/integrated-v10-monotype-remnant-first.mjs
+- default OFF
+- current version: monotype-remnant-first-v2
+
+Core change:
+- exactly one logical type
+- build candidate directly with legacy motor
+- set preferirMenorProfundidad=false so equal-board choice follows official commercial-remnant quality before machine-tree depth
+- validate physical plan and exact demand
+- certify board count using max(area LB, existing Hybrid LB)
+- Hybrid LB: Raster OFF + DFF FS0 ON, with incumbent contradiction guard
+- any miss falls back to full current V3
+
+Current validation envelope:
+- non-directional
+- explicit rotation not locked
+- trim 0/0
+- 1..300 pieces
+- exactly 1 type
+
+Current 16,986-case mining corpus:
+- monotype geometries: 1,724
+- raw direct candidate invalids: 0
+- raw board losses vs V3: 1
+- raw equal-board remnant regressions: 0
+- raw remnant equal: 1,701
+- raw remnant better: 22
+
+Only raw board loss:
+- 5245005
+- 97 x 145x380 on 2400x1220
+- candidate 3 boards
+- safe LB 2
+- V3 / Lepton 2
+- gate correctly rejects candidate -> V3 fallback
+
+Certification coverage:
+- area LB alone: 1,699 / 1,724 = 98.55%
+- existing Hybrid LB certifies 24 of the 25 area-LB misses
+- final frozen current-corpus coverage: 1,723 / 1,724 = 99.942%
+- fallback: 1 / 1,724
+- LB violations: 0
+- invalids: 0
+- cumulative Hybrid-LB cost across 1,724: ~244.9 ms
+
+Broad runtime-bundle timing over all 1,724:
+- full V3 total: ~31.665 s
+- safe monotype path total: ~12.201 s
+- saving: 61.47%
+- aggregate speedup: 2.60x
+- p50: 2.51 ms
+- p95: 21.78 ms
+- p99: 88.76 ms
+
+Current-source Rust A/B:
+- workflow: .github/workflows/optimizer-monotype-remnant-first.yml
+- GitHub Actions run 35761546152: SUCCESS
+- native Rust generator rebuilt
+- adversarial cases: 25
+- certified: 24
+- fallback: 1
+- invalid: 0
+- board losses: 0
+- equal-board remnant regressions: 0
+- remnant equal: 3
+- remnant better: 22
+- integrated 2,375.325 ms vs V3 3,532.431 ms
+- saving 32.76%, speedup 1.49x on this intentionally adversarial focused set
+
+Known prior monotype failures now covered:
+- 5273448: exact V3 board/remnant parity
+- 5326719: exact V3 board/remnant parity
+- 5329174: now safely certified by Hybrid LB and improves official remnant
+- 5245005: remains mandatory fallback and preserves V3 2-board result
+
+Decision:
+- Monotype Remnant-First v2 is a real research improvement
+- default remains OFF
+- not production-promoted because current corpus was used for discovery
+- future sealed ~20k must validate this frozen rule without retuning before promotion
+
+Next safe research without consuming the sealed holdout:
+1. directional/grained validation using authoritative per-piece canRotate semantics
+2. nonzero-trim monotype validation as a separate envelope extension
+3. do not retune R3-M or monotype-v2 on the future sealed corpus before first external validation
