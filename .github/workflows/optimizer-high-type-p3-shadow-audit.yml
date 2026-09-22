@@ -1,0 +1,37 @@
+name: Optimizer High-Type P3 Shadow Audit
+
+on:
+  push:
+    branches:
+      - research/perfv2-shadow-audit-20260922
+    paths:
+      - "src/lib/optimizer/legacy/v10.cjs"
+      - "research/optimizer/master-generation/master-high-types-p3-shadow-audit.cjs"
+      - ".github/workflows/optimizer-high-type-p3-shadow-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Verify shadow invariance
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/master-high-types-p3-shadow-audit.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: high-type-p3-shadow-audit-results
+          path: research/optimizer/master-generation/master-high-types-p3-shadow-audit-results.json
+          if-no-files-found: error
+          retention-days: 7
