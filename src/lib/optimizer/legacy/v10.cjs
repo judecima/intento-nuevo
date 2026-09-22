@@ -537,8 +537,19 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       const highTypesP3Experimental =
         config.masterHighTypesP3Experimental === true ||
         process.env.OPTIMIZER_MASTER_HIGH_TYPES_P3_EXPERIMENTAL === '1';
+      const midRepeatP3Experimental =
+        config.masterMidRepeatP3Experimental === true ||
+        process.env.OPTIMIZER_MASTER_MID_REPEAT_P3_EXPERIMENTAL === '1';
+      const typeCount = lineas.length;
+      const piecesPerType = typeCount > 0 ? piezasEsperadas / typeCount : 0;
+      const useHighTypesP3 = highTypesP3Experimental && typeCount > 40;
+      const useMidRepeatP3 =
+        midRepeatP3Experimental &&
+        typeCount >= 20 &&
+        typeCount <= 40 &&
+        piecesPerType >= 4;
       const masterRounds =
-        highTypesP3Experimental && lineas.length > 40
+        useHighTypesP3 || useMidRepeatP3
           ? Math.min(3, configuredMasterRounds)
           : configuredMasterRounds;
       const pool = generarPatrones(lineas, config, masterRounds)
