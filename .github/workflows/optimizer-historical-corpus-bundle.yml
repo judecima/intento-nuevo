@@ -23,3 +23,5 @@ jobs:
           path: experiencia/canonical_cases.json
           if-no-files-found: error
           retention-days: 7
+
+# 2026-09-22: refresh artifact for frozen OneBoard cross-validation.
