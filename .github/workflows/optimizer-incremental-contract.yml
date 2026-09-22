@@ -1,0 +1,28 @@
+name: Optimizer Incremental Contract
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - "src/lib/optimizer/legacy/rust/incremental-master.cjs"
+      - "tests/optimizer/master-incremental-production-contract.test.ts"
+      - ".github/workflows/optimizer-incremental-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - run: npx vitest run tests/optimizer/master-incremental-production-contract.test.ts
