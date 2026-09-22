@@ -1,0 +1,102 @@
+name: Optimizer High-Type Active P3 vs Full40
+
+on:
+  push:
+    branches:
+      - research/perfv1-master-win-mining-20260921
+    paths:
+      - "research/optimizer/master-generation/high-type-active-prep.cjs"
+      - "research/optimizer/master-generation/high-type-active-benchmark.cjs"
+      - ".github/workflows/optimizer-high-type-active-p3-vs-full40.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MINING_RUN_ID: "35662373127"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download mining shards
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p research/optimizer/master-generation
+          gh run download "$MINING_RUN_ID" --repo "$GH_REPO"             --pattern "perfv1-master-win-mining-shard-*"             --dir research/optimizer/master-generation             --merge-multiple
+          ls research/optimizer/master-generation/master-win-mining-shard-*.json | wc -l
+      - name: Build >40-type active manifest
+        run: node research/optimizer/master-generation/high-type-active-prep.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: high-type-active-manifest
+          path: research/optimizer/master-generation/high-type-active-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+  shard:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - uses: actions/download-artifact@v4
+        with:
+          name: high-type-active-manifest
+          path: research/optimizer/master-generation
+      - name: Benchmark shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 16
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/high-type-active-benchmark.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: high-type-active-benchmark-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/high-type-active-benchmark-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: high-type-active-benchmark-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build report
+        env:
+          SHARD_TOTAL: 16
+        run: node research/optimizer/master-generation/high-type-active-benchmark.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: high-type-active-benchmark-results
+          path: research/optimizer/master-generation/high-type-active-benchmark-results.json
+          if-no-files-found: error
+          retention-days: 30
