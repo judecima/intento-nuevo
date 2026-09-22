@@ -1,0 +1,30 @@
+name: Optimizer Compactation Slow Family 11
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/compactation/slow-family-11-ab.mjs
+      - research/optimizer/compactation/fixtures/NO_MASTER_SLOW_FAMILY_11.json.gz.b64
+      - .github/workflows/optimizer-compactation-slow-family-11.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Compare compactation ON vs OFF
+        run: node research/optimizer/compactation/slow-family-11-ab.mjs
