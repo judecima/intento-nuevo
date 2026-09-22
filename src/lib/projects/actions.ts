@@ -183,8 +183,11 @@ async function persistProjectDraftAction(
   }
 
   const existingIds = new Set(data.items.map((item) => item.id));
+  const materialHasGrain = Boolean(selectedMaterial.has_grain);
   const rows = parsed.items.map((item, index) => ({
-    // Las filas nuevas llevan id generado aca para poder escribirlas en lote.
+    // La veta del tablero gobierna todas las piezas. Normalizamos tambien en
+    // servidor para que importaciones, clientes viejos o payloads manuales no
+    // puedan reactivar una rotacion invalida.
     id: item.id && existingIds.has(item.id) ? item.id : randomUUID(),
     project_id: parsed.projectId,
     reference: item.reference,
@@ -192,8 +195,8 @@ async function persistProjectDraftAction(
     quantity: item.quantity,
     width: item.width,
     height: item.height,
-    grain: item.grain,
-    can_rotate: item.canRotate,
+    grain: materialHasGrain,
+    can_rotate: !materialHasGrain,
     edge_top: item.edgeTop,
     edge_bottom: item.edgeBottom,
     edge_left: item.edgeLeft,
