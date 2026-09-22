@@ -1,0 +1,32 @@
+name: Optimizer Safe Fast-Path Cascade
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/pattern-generators/cascade/**
+      - research/optimizer/pattern-generators/monotype/integrated-v10-monotype-v2-frozen.mjs
+      - research/optimizer/pattern-generators/guide-row/integrated-v10-r3m-v4.mjs
+      - research/optimizer/pattern-generators/guide-row/complete-candidate.mjs
+      - .github/workflows/optimizer-safe-fast-path-cascade.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Run safe cascade A/B
+        run: node research/optimizer/pattern-generators/cascade/safe-cascade-ab.mjs
