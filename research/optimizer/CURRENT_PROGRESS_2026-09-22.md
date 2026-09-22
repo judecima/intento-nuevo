@@ -938,3 +938,17 @@ Next exact steps:
 3. add a focused CI regression gate for the four R3-M external remnant failures plus v4 improvements;
 4. validate R3-M v4 only on a future sealed corpus;
 5. validate directional/grained behavior only with authoritative per-piece canRotate inputs.
+
+
+### R3-M v4 focused Rust regression gate — PASS
+GitHub Actions run `35767929546`:
+- 10 known critical cases
+- invalid 0
+- board losses 0
+- remnant regressions 0
+- remnant equal 4
+- remnant better 6
+- candidate 250.266 ms vs V3 433.117 ms
+- saving 42.22%, speedup 1.73x
+
+This only protects the known holdout failures/improvements. It does NOT count as external validation for v4 because v4 was designed after the 13,842-XML holdout was opened.
