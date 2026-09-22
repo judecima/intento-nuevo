@@ -1,0 +1,33 @@
+name: Optimizer Grain Rotation Override
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - "src/lib/optimizer/schema.ts"
+      - "src/lib/optimizer/engine/legacy-engine.ts"
+      - "src/lib/optimizations/project-input.ts"
+      - "src/lib/projects/actions.ts"
+      - "src/components/projects/project-workspace.tsx"
+      - "tests/optimizer/optimizer.test.ts"
+      - "tests/optimizations/project-input.test.ts"
+      - ".github/workflows/optimizer-grain-rotation-override.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/optimizer/optimizer.test.ts tests/optimizations/project-input.test.ts
+      - run: npm run typecheck
