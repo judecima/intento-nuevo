@@ -1,0 +1,67 @@
+name: Optimizer Guide-Row R3-M Integration A/B
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/pattern-generators/guide-row/integrated-v10-r3m.mjs
+      - research/optimizer/pattern-generators/guide-row/r3m-integration-ab.mjs
+      - research/optimizer/pattern-generators/guide-row/complete-candidate.mjs
+      - research/optimizer/pattern-generators/guide-row/fixtures/H2C_R2M_438_CASES.json.gz.b64
+      - .github/workflows/optimizer-guide-row-r3m-integration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Integrated R3-M A/B shard
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 16
+        run: node research/optimizer/pattern-generators/guide-row/r3m-integration-ab.mjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r3m-integration-ab-shard-${{ matrix.shard }}
+          path: research/optimizer/pattern-generators/guide-row/r3m-integration-ab-shard-${{ matrix.shard }}.json
+          retention-days: 7
+
+  report:
+    runs-on: ubuntu-latest
+    needs: shard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: r3m-integration-ab-shard-*
+          path: research/optimizer/pattern-generators/guide-row
+          merge-multiple: true
+      - name: Integrated R3-M A/B report
+        env:
+          SHARD_TOTAL: 16
+        run: node research/optimizer/pattern-generators/guide-row/r3m-integration-ab.mjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r3m-integration-ab-results
+          path: research/optimizer/pattern-generators/guide-row/r3m-integration-ab-results.json
+          retention-days: 7
