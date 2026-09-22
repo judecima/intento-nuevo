@@ -1061,3 +1061,132 @@ On the already-consumed 354-case holdout:
 
 R3-M-v4 is NOT externally validated because this holdout was used to derive the polish.
 Freeze v4 now and validate unchanged on a future fresh corpus.
+
+
+## Safe Fast-Path Cascade v1 — CLOSED AS RESEARCH ARCHITECTURE 2026-09-22
+Detailed report:
+- research/optimizer/SAFE_FAST_PATH_CASCADE_V1_2026-09-22.md
+- commit: 347ef8573a0053950a9a5a5d49341f3b1963f2b5
+
+Composition:
+1. one type -> frozen externally validated Monotype-v2 envelope
+2. two/three types -> R3-M-v4
+3. everything else -> current V3
+4. every miss falls back to V3; default remains OFF
+
+Frozen Monotype-v2 wrapper:
+- research/optimizer/pattern-generators/monotype/integrated-v10-monotype-v2-frozen.mjs
+- commit 14ef8a4e9bef5ce2ca2c208b45c8ce3e0f98a03b
+- exact external geometry envelope only:
+  - one type
+  - 1..300 pieces
+  - non-directional
+  - rotation not explicitly locked
+  - trim 0/0
+
+R3-M-v4:
+- research/optimizer/pattern-generators/guide-row/integrated-v10-r3m-v4.mjs
+- does NOT expand frozen R3-M-v1 certification coverage
+- risk polish only after v1 already certifies and:
+  - boards = 1
+  - naturalStates = 3
+- polish:
+  - preferirMenorProfundidad=false
+  - ruido=.4
+  - pases=4
+  - restartsPorPlaca=4
+  - Rescue/Beam/MultiVariants OFF
+
+Consumed external 354-case R3 certification set:
+- risk region 165
+- polish selected 10
+- board losses 0
+- remnant regressions 0
+- equal 348
+- better 6
+- narrow-v4 reconstructed timing ~16,782.904 ms vs V3 60,790.648 ms
+- saving ~72.39%
+- speedup ~3.62x
+- p95 ~165.79 ms
+- p99 ~288.48 ms
+
+Broad current-source R3-M-v4 regression gate:
+- 438 original frozen R3-M cases + 4 external remnant regressions = 442
+- GitHub Actions run 35772145591 SUCCESS
+- certified 442/442
+- invalid 0
+- board losses 0
+- remnant regressions 0
+- equal 432
+- better 10
+- risk polish attempted 201
+- selected 11
+- 5,362.829 ms vs V3 15,424.350 ms
+- saving 65.23%
+- speedup 2.88x
+- p95 37.023 vs 135.139 ms
+- p99 76.481 vs 569.100 ms
+
+R3-M residual precheck + reuse:
+- frozen v1 can never certify naturalStates>3
+- precompute residual before full H2 candidate
+- skip complete candidate if naturalStates>3
+- reuse exact same residual in buildGuideRowCandidate otherwise
+- complete-candidate reuse commit 75bf57851fa8d260a8709c200e3dd01b441c3ace
+- v4 precheck/reuse commit a84280a542aa75c7792198026483f99dfb35b61d
+
+Full 2,112-case external R3 pre-candidate serial A/B:
+- old screening 20,895.859 ms
+- precheck+reuse 7,309.676 ms
+- saving 65.02%
+- speedup 2.86x
+- residual precheck cost only 63.751 ms total
+- 1,444 complete H2 candidates skipped
+- 668 still built
+- plan mismatches on built cases: 0
+- certification classification unchanged exactly:
+  - 1,444 NATURAL_STATES_GT_3
+  - 312 SECOND_REMNANT_NONZERO
+  - 354 certified
+  - 2 LB_NOT_REACHED
+
+Net routing economics INCLUDING fallbacks on the same 2,112:
+- certified 354
+- fallback 1,758
+- screening 8,102.471 ms
+- risk polish 269.397 ms
+- total fast-path cost 8,371.869 ms
+- V3 work avoided by certifications 10,898.989 ms
+- net saving after paying every fallback screen: 2,527.120 ms
+- net positive YES
+- 0 regressions, 6 remnant improvements, 348 equal
+
+Safe cascade:
+- research/optimizer/pattern-generators/cascade/integrated-v10-safe-cascade.mjs
+- commit 7cfd6757a3c211b5520d4bffb9706c79f4c7df82
+- gate research/optimizer/pattern-generators/cascade/safe-cascade-ab.mjs
+- workflow .github/workflows/optimizer-safe-fast-path-cascade.yml
+- GitHub Actions run 35772452520 SUCCESS
+- 8/8 critical routes PASS
+- expected fallbacks have exact board/remnant/placement digest parity with V3
+
+Fast-return coverage stability:
+- previous 16,986 corpus:
+  - Monotype 1,723
+  - R3-M 438
+  - combined 2,161 = 12.72%
+- external 13,839 corpus:
+  - Monotype 1,479
+  - R3-M certification region 354
+  - combined 1,833 = 13.25%
+- combined two disjoint newer corpora:
+  - 30,825 cases
+  - 3,994 fast returns
+  - 12.96%
+
+Decision:
+- Safe Fast-Path Cascade v1 is a coherent research architecture and is frozen
+- whole cascade NOT production-promoted yet
+- Monotype-v2 has external geometry PASS
+- R3-M-v4 is holdout-informed and needs one fresh sealed external corpus
+- do not retune v4 risk region or polish before that fresh validation
