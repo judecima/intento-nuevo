@@ -199,6 +199,14 @@ describe("project optimization input mapper", () => {
     expect(optimizerProfileForStrategy("baseline")).toBe("fast");
     expect(optimizerProfileForStrategy("v10")).toBe("balanced");
     expect(stripPersistenceIdentity(previewInput)).toEqual(stripPersistenceIdentity(savedInput));
+    expect(previewInput.pieces).toMatchObject([
+      { grain: true, canRotate: false },
+      { grain: true, canRotate: false }
+    ]);
+    expect(savedInput.pieces).toMatchObject([
+      { grain: true, canRotate: false },
+      { grain: true, canRotate: false }
+    ]);
   });
 
   it("maps the four UI optimization modes to explicit strategy and profile pairs", () => {
