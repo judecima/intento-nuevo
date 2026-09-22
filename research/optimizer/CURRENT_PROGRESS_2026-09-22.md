@@ -377,7 +377,7 @@ Then:
 
 ## Additional structural sentinel — FAPLAC Blanco Nature one-board case
 User-provided demand, material `MDF FAPLAC BLANCO 18MM. NATURE`.
-Use stock 2750x1830 and kerf 4.5 for this material. CORRECTION: Nature is treated as wood-like/grained for this investigation, so pieces must keep their loaded orientation unless an explicit business rule says otherwise.
+Use stock 2750x1830 and kerf 4.5 for this material. CORRECTION: Nature is treated as wood-like/grained for this investigation. New/imported pieces default to rotation disabled, but the user may explicitly enable rotation per piece; that override must be preserved end-to-end.
 Demand:
 - 30 pieces
 - 12 types
@@ -427,7 +427,7 @@ This case is now a required sentinel for the Guide-Row / early-certification exp
 
 ## Grain/orientation correctness correction — 2026-09-22
 The Nature example exposed a correctness risk in the project input flow.
-Domain rule: board grain governs all piece orientation; for a grained board every piece must be `grain=true` and `canRotate=false`.
+Domain rule: board grain governs the DEFAULT orientation policy. On a grained board, newly loaded/imported pieces default to `grain=true` and `canRotate=false`, but an explicit user choice `canRotate=true` overrides that default for that piece.
 
 Relevant runtime semantics:
 - legacy motor only rotates a piece when it is not locked by grain/no-rotate
@@ -445,9 +445,14 @@ Corrected Nature rerun:
 - therefore minimum is certified at 1 board despite grain
 
 Correctness fixes committed on V3 research branch:
-- `d7edaa7ee731d550c48dd92f920f83bb5b6bc648` — optimization input mapper enforces board grain on every piece
-- `70723b4650cc6a004137de5e7e119c5cf4bbded1` — server save normalizes grain/canRotate from selected board material
-- `94f40294a1fb6388b222c4a7d7a0e367f83b2301` — UI add/import inherits selected board grain
-- `e1ccccb80b73748c961967d0ac820af203910d08` — tests assert preview/saved inputs lock orientation on grained boards
+- superseded: `d7edaa7...` / `70723b4...` were too strict because they made grain an absolute lock
+- `2d9a7ac060a91084b34bc5351785930ea1c1592e` — optimization input preserves explicit per-piece override
+- `1e0497d8701d972b59993bafd4da0d234e0097b7` — server persists explicit rotation choice
+- `94f40294a1fb6388b222c4a7d7a0e367f83b2301` — UI add/import inherits board default
+- `e2798c8afb5ddd9021080642c099b55ca6af75bf` — editor load no longer wipes saved overrides
+- `485029c816cd2190c21ed74a8dd92a0db603ac27` — schema lets explicit `canRotate=true` override grain default
+- `4b31e200ff8df41866bf234dcda13aea6cf29dd8` — legacy mapper gives explicit canRotate precedence
+- `136fbdbacf2e1932b8bef5b44d049f1f0b870e3e` — end-to-end optimizer test for grain override
+- CI workflow `35743091130`: Vitest + TypeScript PASS
 
 Do not use inferred material-name grain classifications to certify optimization results. The material catalog/business rule is authoritative.
