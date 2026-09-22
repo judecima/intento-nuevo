@@ -1,0 +1,105 @@
+name: Optimizer PerfV1 Guided Frozen Holdout
+
+on:
+  push:
+    branches:
+      - research/perfv1-master-win-mining-20260921
+    paths:
+      - "research/optimizer/master-generation/incremental-rust-master-frozen.cjs"
+      - "research/optimizer/master-generation/master40-guided-frozen-benchmark.cjs"
+      - ".github/workflows/optimizer-perfv1-guided-frozen.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FREEZE_RUN_ID: "35663298999"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download frozen manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p research/optimizer/master-generation
+          gh run download "$FREEZE_RUN_ID" --repo "$GH_REPO"             --name perfv1-master-win-frozen-manifest             --dir research/optimizer/master-generation
+          test -f research/optimizer/master-generation/master-win-frozen-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guided-frozen-input
+          path: research/optimizer/master-generation/master-win-frozen-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+  shard:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Check benchmark syntax
+        run: |
+          node --check research/optimizer/master-generation/incremental-rust-master-frozen.cjs
+          node --check research/optimizer/master-generation/master40-guided-frozen-benchmark.cjs
+      - name: Build native optimizer
+        run: npm run optimizer:rust:build
+      - name: Production unique-mask contract
+        run: npx vitest run tests/optimizer/master-unique-masks.test.ts
+      - uses: actions/download-artifact@v4
+        with:
+          name: guided-frozen-input
+          path: research/optimizer/master-generation
+      - name: Benchmark frozen holdout shard ${{ matrix.shard }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 8
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/master40-guided-frozen-benchmark.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guided-frozen-shard-${{ matrix.shard }}
+          path: research/optimizer/master-generation/master40-guided-frozen-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: guided-frozen-shard-*
+          path: research/optimizer/master-generation
+          merge-multiple: true
+      - name: Build guided scheduling report
+        env:
+          SHARD_TOTAL: 8
+        run: node research/optimizer/master-generation/master40-guided-frozen-benchmark.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guided-frozen-results
+          path: research/optimizer/master-generation/master40-guided-frozen-results.json
+          if-no-files-found: error
+          retention-days: 30
