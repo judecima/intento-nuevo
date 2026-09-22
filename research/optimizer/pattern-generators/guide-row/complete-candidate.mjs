@@ -14,7 +14,7 @@ const {
   validarPlanIndustrial,
 } = require("../../../../src/lib/optimizer/legacy/validador_industrial_v3.cjs");
 
-export const GUIDE_ROW_H2B_VERSION = "guide-row-complete-candidate-h2b-v3";
+export const GUIDE_ROW_H2B_VERSION = "guide-row-complete-candidate-h2b-v4";
 
 function countPieces(lines) {
   return lines.reduce((sum, line) => sum + Number(line?.cant || 0), 0);
@@ -224,6 +224,26 @@ export function buildGuideRowCandidate(
     );
     if (simpleStatePolish.plan) best = betterPlan(best, simpleStatePolish.plan, config);
     runs.push(simpleStatePolish.telemetry);
+
+    // Multitype low-branching cases can expose a larger reusable strip only
+    // through a slightly different stochastic/root-axis trajectory. This arm
+    // is still cheap and competes lexicographically, so it cannot degrade the
+    // research candidate.
+    if (lines.length >= 2) {
+      const axisPolish = runCompletePlan(
+        lines.map((line) => structuredClone(line)),
+        config,
+        expectedPieces,
+        { kind: "LOW_BRANCHING_AXIS_POLISH" },
+        {
+          ruido: 0.5,
+          pases: 4,
+          restartsPorPlaca: 1,
+        },
+      );
+      if (axisPolish.plan) best = betterPlan(best, axisPolish.plan, config);
+      runs.push(axisPolish.telemetry);
+    }
   }
 
   const wallMs = Number(process.hrtime.bigint() - started) / 1e6;
