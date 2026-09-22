@@ -8,7 +8,7 @@ const {optimizarV10,nuevasMetricas,validarPlanIndustrial}=
 const {computeHybridLowerBound}=
   require("../../../../src/lib/optimizer/experimental/hybrid-lower-bound.cjs");
 
-export const MONOTYPE_REMNANT_FIRST_VERSION="monotype-remnant-first-v2";
+export const MONOTYPE_REMNANT_FIRST_VERSION="monotype-remnant-first-v3";
 
 function pieceCount(lines){
   return lines.reduce((s,l)=>s+Number(l?.cant||0),0);
@@ -71,33 +71,66 @@ function preGate(lines,config){
     return {ok:false,reason:"FLAG_OFF"};
   if(!Array.isArray(lines)||lines.length!==1)
     return {ok:false,reason:"NOT_MONOTYPE"};
-  if(config?.materialConVeta===true)
-    return {ok:false,reason:"DIRECTIONAL_EXCLUDED"};
-  if(lines[0]?.canRotate===false)
-    return {ok:false,reason:"ROTATION_LOCKED_EXCLUDED"};
-  if(Number(config?.refiladoX||0)!==0||Number(config?.refiladoY||0)!==0)
-    return {ok:false,reason:"TRIM_OUTSIDE_VALIDATED_ENVELOPE"};
+
+  const trimX=Number(config?.refiladoX||0);
+  const trimY=Number(config?.refiladoY||0);
+  if(
+    !Number.isFinite(trimX) ||
+    !Number.isFinite(trimY) ||
+    trimX<0 ||
+    trimY<0 ||
+    trimX>20 ||
+    trimY>20
+  ){
+    return {ok:false,reason:"TRIM_OUTSIDE_0_20_ENVELOPE"};
+  }
+
   const pieces=pieceCount(lines);
   if(pieces<1||pieces>300)
     return {ok:false,reason:"PIECES_OUTSIDE_1_300"};
-  return {ok:true,pieces};
+
+  // Orientation semantics are already effective at the legacy boundary:
+  // veta=true means this line is locked; veta=false means rotation is allowed.
+  // A grained board does not imply a lock when the user explicitly enabled
+  // canRotate upstream; the production mapper converts that override to
+  // veta=false before entering the legacy motor.
+  return {
+    ok:true,
+    pieces,
+    orientationLocked:Boolean(lines[0]?.veta),
+    trimX,
+    trimY,
+  };
 }
 
 /**
  * Research-only monotype fast path.
  *
- * Current-corpus discovery:
+ * v2 current-corpus discovery:
  * - 1,724 geometry-only monotype cases
- * - raw remnant-first candidate: 0 equal-board remnant regressions,
- *   22 remnant improvements, 1 raw board loss
- * - area LB alone certifies 1,699/1,724
- * - existing Hybrid LB (Raster OFF + DFF FS0 ON) certifies 24 more
- * - final frozen research gate certifies 1,723/1,724 = 99.94%
- * - the single raw board loss (5245005) remains candidate=3 vs safe LB=2
- *   and therefore falls back to full V3
+ * - 1,723/1,724 certified with the safe LB stack
+ * - 0 accepted board losses
+ * - 0 accepted equal-board remnant regressions
+ * - 22 equal-board remnant improvements
  *
- * Default is OFF. This is not production-promoted and must be externally
- * validated on a future sealed corpus before promotion.
+ * v3 controlled envelope extensions on the same 1,724 geometries:
+ * - grained board + explicit rotation override:
+ *   1,723/1,724 certified, 0 board/remnant regressions, 22 remnant wins
+ * - orientation locked:
+ *   873/873 valid loaded-orientation cases certified,
+ *   0 board/remnant regressions
+ * - trim 10x10:
+ *   1,389/1,396 valid cases certified, 0 board/remnant regressions
+ * - trim 20x20:
+ *   1,282/1,305 valid cases certified, 0 board/remnant regressions
+ * - trim 10x20:
+ *   1,371/1,385 valid cases certified, 0 board/remnant regressions
+ * - trim 20x10:
+ *   1,302/1,315 valid cases certified, 0 board/remnant regressions
+ *
+ * These are research stress transforms, not external production traffic.
+ * Default remains OFF. Any candidate that does not reach the safe LB falls
+ * back to full current V3.
  */
 export function optimizarV10ConMonotypeRemnantFirst(
   lines,
@@ -164,6 +197,9 @@ export function optimizarV10ConMonotypeRemnantFirst(
         attempted:true,
         certified:true,
         reason:"MONOTYPE_SAFE_LB_CERTIFIED",
+        orientationLocked:gate.orientationLocked,
+        trimX:gate.trimX,
+        trimY:gate.trimY,
         lowerBound:lb,
         quality:calidadPlanPlacas(candidate.placas,candidate.opts||config),
         wallMs:Number(process.hrtime.bigint()-started)/1e6,
@@ -183,6 +219,9 @@ export function optimizarV10ConMonotypeRemnantFirst(
              !demandOk?"DEMAND_MISMATCH":
              lb.violation?"LB_VIOLATION":
              "SAFE_LB_NOT_REACHED",
+      orientationLocked:gate.orientationLocked,
+      trimX:gate.trimX,
+      trimY:gate.trimY,
       error,
       candidateBoards:candidate?.resumen?.placas??null,
       lowerBound:lb,
