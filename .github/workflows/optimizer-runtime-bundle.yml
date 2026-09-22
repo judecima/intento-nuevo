@@ -1,0 +1,36 @@
+name: Optimizer Runtime Bundle
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - ".github/workflows/optimizer-runtime-bundle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Build runtime archive
+        run: |
+          test -f native/optimizer-pattern-generator/optimizer_pattern_generator.node
+          tar -czf /tmp/optimizer-runtime.tgz             src/lib/optimizer             native/optimizer-pattern-generator/optimizer_pattern_generator.node
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-runtime-linux-x64
+          path: /tmp/optimizer-runtime.tgz
+          if-no-files-found: error
+          retention-days: 7
