@@ -14,7 +14,7 @@ const {
   validarPlanIndustrial,
 } = require("../../../../src/lib/optimizer/legacy/validador_industrial_v3.cjs");
 
-export const GUIDE_ROW_H2B_VERSION = "guide-row-complete-candidate-h2b-v1";
+export const GUIDE_ROW_H2B_VERSION = "guide-row-complete-candidate-h2b-v2";
 
 function countPieces(lines) {
   return lines.reduce((sum, line) => sum + Number(line?.cant || 0), 0);
@@ -103,13 +103,52 @@ function distinctCandidateOrders(lines, config, maxCandidates) {
   return { residual, orders: orders.slice(0, maxCandidates) };
 }
 
+function runCompletePlan(lines, config, expectedPieces, source, tuning) {
+  const t0 = process.hrtime.bigint();
+  let plan = null;
+  let error = null;
+  let validation = null;
+
+  try {
+    plan = optimizar(lines, {
+      ...structuredClone(config),
+      ...tuning,
+      usarRescue: false,
+      maxPiezasBeam: 0,
+      multiVariantes: false,
+    });
+    validation = validarPlanIndustrial(plan, expectedPieces);
+    if (!validation?.ok) plan = null;
+  } catch (err) {
+    error = String(err?.stack || err?.message || err);
+    plan = null;
+  }
+
+  return {
+    plan,
+    telemetry: {
+      ...source,
+      wallMs: Number(process.hrtime.bigint() - t0) / 1e6,
+      ok: Boolean(plan),
+      boards: plan?.resumen?.placas ?? null,
+      quality: plan ? quality(plan, config) : null,
+      validation: validation?.ok ?? false,
+      error,
+    },
+  };
+}
+
 export function buildGuideRowCandidate(
   lines,
   config,
   {
-    maxCandidates = 6,
+    maxCandidates = 3,
     passes = 1,
     restartsPerBoard = 1,
+    qualityPolish = true,
+    qualityPolishPasses = 3,
+    qualityPolishRestarts = 1,
+    qualityPolishNoise = 0.3,
   } = {},
 ) {
   if (!Array.isArray(lines) || !lines.length) {
@@ -136,40 +175,35 @@ export function buildGuideRowCandidate(
 
   for (const spec of orders) {
     const orderedLines = spec.order.map((index) => structuredClone(lines[index]));
-    const t0 = process.hrtime.bigint();
-    let plan = null;
-    let error = null;
-    let validation = null;
-
-    try {
-      plan = optimizar(orderedLines, {
-        ...structuredClone(config),
+    const run = runCompletePlan(
+      orderedLines,
+      config,
+      expectedPieces,
+      spec.source,
+      {
         ruido: 0,
         pases: passes,
         restartsPorPlaca: restartsPerBoard,
-        usarRescue: false,
-        maxPiezasBeam: 0,
-        multiVariantes: false,
-      });
-      validation = validarPlanIndustrial(plan, expectedPieces);
-      if (!validation?.ok) plan = null;
-    } catch (err) {
-      error = String(err?.stack || err?.message || err);
-      plan = null;
-    }
+      },
+    );
+    if (run.plan) best = betterPlan(best, run.plan, config);
+    runs.push(run.telemetry);
+  }
 
-    const wallMs = Number(process.hrtime.bigint() - t0) / 1e6;
-    if (plan) best = betterPlan(best, plan, config);
-
-    runs.push({
-      ...spec.source,
-      wallMs,
-      ok: Boolean(plan),
-      boards: plan?.resumen?.placas ?? null,
-      quality: plan ? quality(plan, config) : null,
-      validation: validation?.ok ?? false,
-      error,
-    });
+  if (qualityPolish) {
+    const polish = runCompletePlan(
+      lines.map((line) => structuredClone(line)),
+      config,
+      expectedPieces,
+      { kind: "QUALITY_POLISH" },
+      {
+        ruido: qualityPolishNoise,
+        pases: qualityPolishPasses,
+        restartsPorPlaca: qualityPolishRestarts,
+      },
+    );
+    if (polish.plan) best = betterPlan(best, polish.plan, config);
+    runs.push(polish.telemetry);
   }
 
   const wallMs = Number(process.hrtime.bigint() - started) / 1e6;
@@ -180,6 +214,7 @@ export function buildGuideRowCandidate(
     telemetry: {
       version: GUIDE_ROW_H2B_VERSION,
       candidates: orders.length,
+      qualityPolish,
       wallMs,
       residual: residual.telemetry,
       runs,
