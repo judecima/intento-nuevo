@@ -117,7 +117,7 @@ function shard(){
     }else if(h2===base){cls="EQUAL";counts.equal++;}
     else{cls="WORSE_IGNORED";counts.worseIgnored++;}
     rows.push({
-      index,order,class,
+      index,order,class:cls,
       category:r.category,
       pieces:r.pieces,typeCount:r.typeCount,
       structuralFp:c.structural_fp,
