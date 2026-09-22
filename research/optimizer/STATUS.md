@@ -1,3 +1,6 @@
+> **CURRENT CROSS-CHAT CHECKPOINT — 2026-09-22**
+> Read [CURRENT_PROGRESS_2026-09-22.md](CURRENT_PROGRESS_2026-09-22.md) first. It supersedes older sequencing for the active V3 industrial-rule / incremental / Guide-Row research while preserving this file as historical context.
+
 # Optimizer status
 
 Base branch: `feature/agregar_configuracion_organizacion`
