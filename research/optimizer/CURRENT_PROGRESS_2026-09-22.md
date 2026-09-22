@@ -608,3 +608,62 @@ Freeze an interpretable early-certification rule only if:
 - material latency coverage is meaningful
 
 Keep current V3 as mandatory fallback outside that certified region.
+
+
+## H2c R3-M — CURRENT-CORPUS PASS 2026-09-22
+Detailed checkpoint:
+- research/optimizer/pattern-generators/guide-row/H2C_R3M_CLOSED_2026-09-22.md
+- commit: 354d10f069b412230f1cd0dcdcaba7beb816af94
+
+R1 and R2/R2-M intermediate rules were rejected when new equal-board remnant counterexamples appeared. Do not promote or reuse them.
+
+Final research candidate R3-M:
+- non-directional validation envelope
+- <=160 pieces
+- typeCount >= 2
+- complete H2 candidate physically valid
+- exact logical demand
+- naturalStates <= 3
+- second commercial remnant == 0
+- candidate reaches valid safe LB
+- cheap polish arms complete, including LOW_BRANCHING_AXIS_POLISH:
+  - noise 0.5
+  - 4 passes
+  - 1 restart
+  - Beam/Rescue/MultiVariants off
+
+Frozen normalized cohort:
+- 815 new multitip cases in the structural region
+- H2 complete 815/815
+- 0 invalid
+- safe LB reached 812/815
+- frozen R3-M hits: 438
+- fixture: research/optimizer/pattern-generators/guide-row/fixtures/H2C_R2M_438_CASES.json.gz.b64
+
+Reproducible GitHub run 35754938119:
+- compared: 438
+- board losses: 0
+- remnant regressions: 0
+- candidate errors: 0
+- reference errors: 0
+- remnant equal: 435
+- remnant better: 3
+- board wins: 0
+- candidate total 5,919.767 ms vs V3 16,309.798 ms
+- total saving 63.70%
+- aggregate speedup 2.76x
+- p50 6.418 vs 14.183 ms (-54.75%)
+- p95 45.808 vs 119.508 ms (-61.67%)
+
+R3-M is NOT externally validated against the next sealed ~20k corpus and is NOT production-promoted yet.
+
+Monotype remains excluded after two distinct remnant counterexamples. Treat monotype as a separate concentrated-remnant optimization problem.
+
+Directional/grained requests remain excluded from R3-M certification until a dedicated validation uses authoritative per-piece canRotate semantics.
+
+Next exact step:
+- wire R3-M into V10 behind a disabled experimental flag only
+- A/B integrated path vs current V3
+- confirm exact fallback parity outside the gate
+- keep production default unchanged
+- preserve next ~20k as sealed external validation
