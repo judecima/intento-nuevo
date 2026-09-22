@@ -537,12 +537,36 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       const highTypesP3Experimental =
         config.masterHighTypesP3Experimental === true ||
         process.env.OPTIMIZER_MASTER_HIGH_TYPES_P3_EXPERIMENTAL === '1';
+      const industrialRulesV3Experimental =
+        config.masterIndustrialRulesV3Experimental === true ||
+        process.env.OPTIMIZER_MASTER_INDUSTRIAL_RULES_V3_EXPERIMENTAL === '1';
+      const typeCount = lineas.length;
+      const piecesPerType = typeCount > 0 ? piezasEsperadas / typeCount : 0;
+      const highTypesP3 =
+        (highTypesP3Experimental || industrialRulesV3Experimental) &&
+        typeCount > 40;
+      const midTypesHighRepeatP3 =
+        industrialRulesV3Experimental &&
+        typeCount >= 20 &&
+        typeCount <= 40 &&
+        piecesPerType >= 4;
+      const industrialP3 = highTypesP3 || midTypesHighRepeatP3;
       const masterRounds =
-        highTypesP3Experimental && lineas.length > 40
+        industrialP3
           ? Math.min(3, configuredMasterRounds)
           : configuredMasterRounds;
-      const pool = generarPatrones(lineas, config, masterRounds)
-        .concat(patronesMonotipo(lineas, config));
+
+      let masterPatterns;
+      if (industrialRulesV3Experimental && configuredMasterRounds === 40) {
+        const { createIncrementalRustMasterGenerator } = require('./rust/incremental-master.cjs');
+        const incremental = createIncrementalRustMasterGenerator(lineas, config, configuredMasterRounds, 7);
+        const rounds = Array.from({ length: masterRounds }, (_, i) => i);
+        incremental.execute(rounds);
+        masterPatterns = incremental.patterns(rounds);
+      } else {
+        masterPatterns = generarPatrones(lineas, config, masterRounds);
+      }
+      const pool = masterPatterns.concat(patronesMonotipo(lineas, config));
       const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
                                   mejor.resumen.placas, config.msMaster || 8000,
                                   { telemetry: config._step0Telemetry || null,
