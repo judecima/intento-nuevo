@@ -83,7 +83,7 @@ assert.equal(validarPlanIndustrial(reference, pieces).ok, true);
 
 const candidateRun = timed(() =>
   buildGuideRowCandidate(lines, config, {
-    maxCandidates: 6,
+    maxCandidates: 3,
     passes: 1,
     restartsPerBoard: 1,
   }),
