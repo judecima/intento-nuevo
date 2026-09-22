@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { buildGuideRowCandidate } from "./complete-candidate.mjs";
+import { enumerateGuideResidualStates } from "./residual-builder.mjs";
 
 const require=createRequire(import.meta.url);
 const {
@@ -159,9 +160,35 @@ export function optimizarV10ConGuideRowR3MV4(
     };
   }
 
+  const residualPrecheck=enumerateGuideResidualStates(lines,config);
+  const preNaturalStates=residualPrecheck?.telemetry?.naturalStates??Infinity;
+
+  // Frozen v1 can never certify naturalStates > 3. Reject before complete
+  // candidate construction and reuse the same residual structure when it can
+  // proceed. This changes only cost, not the certification region.
+  if(preNaturalStates>3){
+    const result=optimizarV10(lines,config,metricas);
+    return {
+      ...result,
+      guideRowR3MV4:{
+        version:GUIDE_ROW_R3M_V4_VERSION,
+        attempted:true,
+        certified:false,
+        reason:"NATURAL_STATES_GT_3",
+        naturalStates:preNaturalStates,
+        residualPrecheck:residualPrecheck.telemetry,
+        wallMs:Number(process.hrtime.bigint()-started)/1e6,
+      },
+    };
+  }
+
   let candidateResult=null;
   try{
-    candidateResult=buildGuideRowCandidate(lines,config);
+    candidateResult=buildGuideRowCandidate(
+      lines,
+      config,
+      {precomputedResidual:residualPrecheck},
+    );
   }catch(error){
     const result=optimizarV10(lines,config,metricas);
     return {
