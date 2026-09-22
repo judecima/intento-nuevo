@@ -374,3 +374,52 @@ Then:
 3. continue H1 complexity/branching audit and H2 Guide-Row prototype
 4. preserve lexicographic remnant objective
 5. keep the next ~20k user cases sealed until the current mining thresholds are frozen
+
+## Additional structural sentinel — FAPLAC Blanco Nature one-board case
+User-provided demand, material `MDF FAPLAC BLANCO 18MM. NATURE`.
+Historical corpus confirms stock 2750x1830, kerf 4.5, non-directional for this material.
+Demand:
+- 30 pieces
+- 12 types
+- dominant repeated family: 12 x 290x200
+- includes large anchors such as 300x1800, 1400x500, 1100x250, 2 x 717x700, 2 x 717x464
+
+Area:
+- piece area: 4,554,372 mm2
+- board area: 5,032,500 mm2
+- raw utilization: 90.4992%
+- area lower bound: 1 board
+
+Measured current V3 runtime:
+- final boards: 1
+- lower bound: 1
+- valid plan: yes
+- Master: inactive
+- OneBoard: inactive
+- MultiSlice: inactive
+- compactation: active, no board gain
+- wall with compactation: ~1.15 s in measured run
+- compactation time: ~0.63 s
+- wall with compactation disabled: ~0.35 s
+- same final physical placement digest with and without compactation
+- same remnant quality: no commercial remnant detected in either arm
+
+Interpretation:
+- this is a fast-construction/certification case, not a deep-search case
+- large anchor pieces naturally define vertical strips/bands
+- repeated 290x200 pieces act as fillers and should be handled as a quantity family, not expanded as 12 independent branches
+- a one-board candidate already matches LB=1; expensive later work is only justified if it can improve equal-board remnant quality
+- in this measured case compactation consumed most of the avoidable latency while producing identical geometry and quality
+
+Do NOT promote a global compactation skip from this single case. Mine a safe rule over the 37,828-case corpus using:
+- LB reached after baseline
+- remnant quality before/after compactation
+- effective branching / strip structure
+- dominant-family compression
+- commercial-remnant improvement frequency
+
+This case is now a required sentinel for the Guide-Row / early-certification experiment:
+- remain at 1 board
+- preserve or improve remnant quality
+- preserve physical validity
+- target materially below current ~1 s path; measured no-compact path was ~0.35 s
