@@ -11,10 +11,8 @@ const SHARD_TOTAL=Number(process.env.SHARD_TOTAL||1);
 const MODE=process.argv[2]||"shard";
 
 const FULL_MS=8000,FULL_NODES=1600000,FULL_WATCHDOG_MS=12000;
-const P16=Object.freeze([0,2,6,10,12,13,16,17,18,19,20,21,22,25,34,36]);
-const GUIDED_FIRST=Object.freeze([]);
-const NORMAL=Object.freeze([...P16,...Array.from({length:40},(_,i)=>i).filter(r=>!P16.includes(r))]);
-const GUIDED=Object.freeze([...P16,...GUIDED_FIRST,...Array.from({length:40},(_,i)=>i).filter(r=>!P16.includes(r)&&!GUIDED_FIRST.includes(r))]);
+const NORMAL=Object.freeze(Array.from({length:40},(_,i)=>i));
+const GUIDED=NORMAL;
 const CHECKPOINTS=Object.freeze([3,7,11,15,19,23,27,31,35,39,40]);
 
 process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL="1";
