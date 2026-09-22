@@ -952,3 +952,112 @@ GitHub Actions run `35767929546`:
 - saving 42.22%, speedup 1.73x
 
 This only protects the known holdout failures/improvements. It does NOT count as external validation for v4 because v4 was designed after the 13,842-XML holdout was opened.
+
+
+## Sealed 4-ZIP holdout — CLOSED 2026-09-22
+Detailed report:
+- research/optimizer/HOLDOUT_VALIDATION_4ZIP_2026-09-22.md
+- commit: 6ea7e23fcaa53af1543b7fd3a7c5de52b4e4c18c
+
+Input:
+- 13,842 XML
+- 13,839 canonical valid
+- 3 excluded mixed-board-formats
+- order IDs approx 5,336,679 .. 5,431,046
+
+Important:
+- project XML does not carry authoritative current per-piece canRotate overrides
+- no material-name grain inference was used
+- blind validation is non-directional / geometry only
+
+### Frozen Monotype Remnant-First v2 — EXTERNAL GEOMETRY PASS
+Frozen holdout envelope:
+- one type
+- <=300 pieces
+- 1,483 cases
+
+Result:
+- valid integrated: 1,483
+- valid V3 reference: 1,483
+- certified: 1,479
+- fallback: 4
+- accepted board losses: 0
+- equal-board remnant regressions: 0
+- remnant equal: 1,456
+- remnant better: 27
+- vs Lepton: 27 better, 1,456 equal, 0 worse
+
+Timing:
+- integrated total 78,135.980 ms
+- V3 total 174,175.445 ms
+- saving 55.14%
+- speedup 2.23x
+- p50 11.623 vs 32.403 ms
+- p95 230.295 vs 486.760 ms
+- p99 703.144 vs 1,449.963 ms
+
+Decision:
+- frozen Monotype v2 geometry envelope PASSES external holdout
+- later grain/trim v3 stress extension is NOT externally validated by this corpus
+
+### Frozen Guide-Row R3-M v1 — EXTERNAL HOLDOUT FAIL ON REMNANT
+Pre-candidates:
+- 2,112 cases, 2..3 types, <=160 pieces
+
+Frozen screening:
+- certified: 354
+- NATURAL_STATES_GT_3: 1,444
+- SECOND_REMNANT_NONZERO: 312
+- LB_NOT_REACHED: 2
+
+Reference comparison on 354 certifications:
+- board losses: 0
+- remnant equal: 350
+- remnant worse: 4
+- remnant better: 0
+- vs Lepton boards: 6 better, 348 equal, 0 worse
+
+Timing on certifications:
+- candidate total 13,305.496 ms
+- V3 total 60,790.648 ms
+- saving 78.11%
+- speedup 4.57x
+- p95 147.296 vs 548.604 ms
+- p99 255.968 vs 1,648.501 ms
+
+Four external remnant regressions:
+- 5344286
+- 5344296
+- 5362238
+- 5407018
+
+Decision:
+- DO NOT PROMOTE frozen R3-M v1
+- board safety held; remnant safety did not
+
+### Post-holdout R3-M-v4 discovery candidate
+Derived only AFTER recording the frozen failure:
+- preferirMenorProfundidad=false
+- ruido=0.4
+- pases=4
+- restartsPorPlaca=4
+- Rescue OFF
+- Beam OFF
+- MultiVariants OFF
+- polish competes lexicographically with original R3-M candidate
+
+On the already-consumed 354-case holdout:
+- board losses: 0
+- remnant regressions: 0
+- remnant equal: 348
+- remnant better: 6
+- polish selected: 10/354
+- base retained: 344/354
+- combined candidate+polish 22,815.650 ms vs V3 60,790.648 ms
+- saving 62.47%
+- speedup 2.66x
+- p95 223.863 vs 548.604 ms
+- p99 477.984 vs 1,648.501 ms
+
+R3-M-v4 is NOT externally validated because this holdout was used to derive the polish.
+Freeze v4 now and validate unchanged on a future fresh corpus.
