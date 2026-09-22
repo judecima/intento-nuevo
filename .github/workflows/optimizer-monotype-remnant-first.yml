@@ -1,0 +1,25 @@
+name: Optimizer Monotype Remnant-First A/B
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/pattern-generators/monotype/**
+      - .github/workflows/optimizer-monotype-remnant-first.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Monotype remnant-first A/B
+        run: node research/optimizer/pattern-generators/monotype/monotype-remnant-first-ab.mjs
