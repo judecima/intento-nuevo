@@ -200,12 +200,12 @@ describe("project optimization input mapper", () => {
     expect(optimizerProfileForStrategy("v10")).toBe("balanced");
     expect(stripPersistenceIdentity(previewInput)).toEqual(stripPersistenceIdentity(savedInput));
     expect(previewInput.pieces).toMatchObject([
-      { grain: true, canRotate: false },
-      { grain: true, canRotate: false }
+      { grain: false, canRotate: true },
+      { grain: false, canRotate: true }
     ]);
     expect(savedInput.pieces).toMatchObject([
-      { grain: true, canRotate: false },
-      { grain: true, canRotate: false }
+      { grain: false, canRotate: true },
+      { grain: false, canRotate: true }
     ]);
   });
 
