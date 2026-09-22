@@ -15,11 +15,15 @@ permissions:
 jobs:
   ab:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
       - name: Monotype remnant-first A/B
         run: node research/optimizer/pattern-generators/monotype/monotype-remnant-first-ab.mjs
