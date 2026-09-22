@@ -377,7 +377,7 @@ Then:
 
 ## Additional structural sentinel — FAPLAC Blanco Nature one-board case
 User-provided demand, material `MDF FAPLAC BLANCO 18MM. NATURE`.
-Historical corpus confirms stock 2750x1830, kerf 4.5, non-directional for this material.
+Use stock 2750x1830 and kerf 4.5 for this material. CORRECTION: Nature is treated as wood-like/grained for this investigation, so pieces must keep their loaded orientation unless an explicit business rule says otherwise.
 Demand:
 - 30 pieces
 - 12 types
@@ -391,9 +391,10 @@ Area:
 - area lower bound: 1 board
 
 Measured current V3 runtime:
-- final boards: 1
-- lower bound: 1
+- corrected rerun with materialConVeta=true and every piece orientation locked: final boards 1
+- area/strong/cascade lower bound: 1
 - valid plan: yes
+- rotated placements: 0
 - Master: inactive
 - OneBoard: inactive
 - MultiSlice: inactive
@@ -423,3 +424,30 @@ This case is now a required sentinel for the Guide-Row / early-certification exp
 - preserve or improve remnant quality
 - preserve physical validity
 - target materially below current ~1 s path; measured no-compact path was ~0.35 s
+
+## Grain/orientation correctness correction — 2026-09-22
+The Nature example exposed a correctness risk in the project input flow.
+Domain rule: board grain governs all piece orientation; for a grained board every piece must be `grain=true` and `canRotate=false`.
+
+Relevant runtime semantics:
+- legacy motor only rotates a piece when it is not locked by grain/no-rotate
+- strong lower bounds use the same feasible-orientation restriction
+- area LB remains safe but can be weak; exact optimality is certified only when a valid incumbent board count equals the orientation-aware LB
+
+Corrected Nature rerun:
+- board 2750x1830, kerf 4.5
+- all pieces locked to loaded orientation
+- area LB = 1
+- strong LB = 1 (area binding)
+- cascade LB = 1
+- valid incumbent = 1 board
+- rotated placements = 0
+- therefore minimum is certified at 1 board despite grain
+
+Correctness fixes committed on V3 research branch:
+- `d7edaa7ee731d550c48dd92f920f83bb5b6bc648` — optimization input mapper enforces board grain on every piece
+- `70723b4650cc6a004137de5e7e119c5cf4bbded1` — server save normalizes grain/canRotate from selected board material
+- `94f40294a1fb6388b222c4a7d7a0e367f83b2301` — UI add/import inherits selected board grain
+- `e1ccccb80b73748c961967d0ac820af203910d08` — tests assert preview/saved inputs lock orientation on grained boards
+
+Do not use inferred material-name grain classifications to certify optimization results. The material catalog/business rule is authoritative.
