@@ -4,7 +4,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 const ROOT=path.resolve(__dirname,"../../..");
 const CORPUS=path.join(ROOT,"experiencia/canonical_cases.json");
-const MANIFEST=path.join(__dirname,"high-type-active-manifest.json");
+const MANIFEST=path.join(__dirname,"mid-types-high-repeat-active-manifest.json");
 const SHARD_INDEX=Number(process.env.SHARD_INDEX||0);
 const SHARD_TOTAL=Number(process.env.SHARD_TOTAL||1);
 const MODE=process.argv[2]||"shard";
@@ -104,7 +104,7 @@ function report(){
    boards:{p3MatchesFull40:rows.length-parityFailures.length,winsMatched:wins.filter(r=>r.parity).length,nonWinsMatched:nonwins.filter(r=>r.parity).length},
    cpu:{p3TotalMs:sum(p3Cpu),full40TotalMs:sum(fullCpu),savingPct:sum(fullCpu)>0?100*(sum(fullCpu)-sum(p3Cpu))/sum(fullCpu):null,p3P50:q(p3Cpu,.5),fullP50:q(fullCpu,.5),p3P95:q(p3Cpu,.95),fullP95:q(fullCpu,.95),p3P99:q(p3Cpu,.99),fullP99:q(fullCpu,.99)},
    rows};
- fs.writeFileSync(path.join(__dirname,"high-type-active-benchmark-results.json"),JSON.stringify(result,null,2)+"\n");
+ fs.writeFileSync(path.join(__dirname,"mid-types-high-repeat-benchmark-results.json"),JSON.stringify(result,null,2)+"\n");
  console.log("MID_REPEAT_SUMMARY "+JSON.stringify({cases:result.cases,wins:result.wins,nonWins:result.nonWins,boards:result.boards,cpu:result.cpu,parityFailures}));
  if(parityFailures.length)process.exitCode=2;
 }
