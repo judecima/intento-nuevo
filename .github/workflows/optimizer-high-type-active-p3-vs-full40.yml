@@ -31,8 +31,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p research/optimizer/master-generation
-          gh run download "$MINING_RUN_ID" --repo "$GH_REPO"             --pattern "perfv1-master-win-mining-shard-*"             --dir research/optimizer/master-generation             --merge-multiple
-          ls research/optimizer/master-generation/master-win-mining-shard-*.json | wc -l
+          rm -rf /tmp/master-win-shards
+          mkdir -p /tmp/master-win-shards
+          gh run download "$MINING_RUN_ID" --repo "$GH_REPO" --pattern "perfv1-master-win-mining-shard-*" --dir /tmp/master-win-shards
+          find /tmp/master-win-shards -name 'master-win-mining-shard-*.json' -exec cp {} research/optimizer/master-generation/ \;
+          count=$(find research/optimizer/master-generation -maxdepth 1 -name 'master-win-mining-shard-*.json' | wc -l)
+          echo "downloaded shards=$count"
+          [ "$count" -eq 32 ]
       - name: Build >40-type active manifest
         run: node research/optimizer/master-generation/high-type-active-prep.cjs
       - uses: actions/upload-artifact@v4
