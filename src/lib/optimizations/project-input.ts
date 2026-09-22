@@ -41,7 +41,6 @@ export function buildOptimizationInputFromProject({
     description: material?.description,
     thickness: material?.thickness ?? project.board_thickness
   });
-  const hasGrain = Boolean(project.grain_enabled || material?.has_grain);
 
   return {
     projectId: project.id,
@@ -56,7 +55,7 @@ export function buildOptimizationInputFromProject({
       id: material?.id ?? project.material_id,
       code: material?.code ?? undefined,
       description: material?.description ?? "Material snapshot",
-      hasGrain,
+      hasGrain: Boolean(project.grain_enabled || material?.has_grain),
       ...(materialThickness ? { thickness: materialThickness } : {})
     },
     kerf: Number(project.kerf),
@@ -75,8 +74,8 @@ export function buildOptimizationInputFromProject({
       quantity: Number(item.quantity),
       width: Number(item.width),
       height: Number(item.height),
-      grain: hasGrain,
-      canRotate: !hasGrain,
+      grain: Boolean(item.grain),
+      canRotate: Boolean(item.can_rotate),
       edges: {
         top: Boolean(item.edge_top),
         bottom: Boolean(item.edge_bottom),
@@ -107,7 +106,6 @@ export function buildOptimizationInputFromDraft({
     thickness: material.thickness
   });
   const resolvedProfile = profile ?? optimizerProfileForStrategy(draft.strategy);
-  const hasGrain = Boolean(material.has_grain);
 
   return {
     projectId: project.id,
@@ -122,7 +120,7 @@ export function buildOptimizationInputFromDraft({
       id: material.id,
       code: material.code ?? undefined,
       description: material.description,
-      hasGrain,
+      hasGrain: Boolean(material.has_grain),
       ...(thickness ? { thickness } : {})
     },
     kerf: draft.kerf,
@@ -141,8 +139,8 @@ export function buildOptimizationInputFromDraft({
       quantity: item.quantity,
       width: item.width,
       height: item.height,
-      grain: hasGrain,
-      canRotate: !hasGrain,
+      grain: item.grain,
+      canRotate: item.canRotate,
       edges: {
         top: item.edgeTop,
         bottom: item.edgeBottom,
