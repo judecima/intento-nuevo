@@ -1,0 +1,29 @@
+name: Optimizer Faplac Blend Scotch Sentinel
+
+on:
+  push:
+    branches:
+      - research/perfv3-industrial-incremental-20260922
+    paths:
+      - research/optimizer/sentinels/faplac-blend-scotch-125.mjs
+      - .github/workflows/optimizer-faplac-blend-scotch.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Run Scotch sentinel
+        run: node research/optimizer/sentinels/faplac-blend-scotch-125.mjs
