@@ -1,0 +1,49 @@
+name: Optimizer High-Type Win Checkpoints
+
+on:
+  push:
+    branches:
+      - research/perfv1-master-win-mining-20260921
+    paths:
+      - "research/optimizer/master-generation/high-type-win-checkpoints.cjs"
+      - "research/optimizer/master-generation/incremental-rust-master-frozen.cjs"
+      - ".github/workflows/optimizer-high-type-win-checkpoints.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FREEZE_RUN_ID: "35663298999"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Download frozen manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p research/optimizer/master-generation
+          gh run download "$FREEZE_RUN_ID" --repo "$GH_REPO"             --name perfv1-master-win-frozen-manifest             --dir research/optimizer/master-generation
+          test -f research/optimizer/master-generation/master-win-frozen-manifest.json
+      - name: Probe four >40-type wins
+        env:
+          RUST_LEGACY_DEBUG_ERRORS: "1"
+        run: node research/optimizer/master-generation/high-type-win-checkpoints.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: high-type-win-checkpoints-results
+          path: research/optimizer/master-generation/high-type-win-checkpoints-results.json
+          if-no-files-found: error
+          retention-days: 30
