@@ -92,9 +92,9 @@ export const optimizationInputSchema: z.ZodType<OptimizationInput> = z
 
     for (const [index, piece] of input.pieces.entries()) {
       const fitsNormal = piece.width <= usableWidth && piece.height <= usableHeight;
+      const rotationAllowed = piece.canRotate ?? !piece.grain;
       const fitsRotated =
-        piece.canRotate !== false &&
-        !piece.grain &&
+        rotationAllowed &&
         piece.height <= usableWidth &&
         piece.width <= usableHeight;
 
