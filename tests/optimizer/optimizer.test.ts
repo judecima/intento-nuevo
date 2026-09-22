@@ -73,6 +73,56 @@ const baseInput: OptimizationInput = {
   ]
 };
 
+describe("grain rotation override", () => {
+  const grainInput: OptimizationInput = {
+    board: { width: 100, height: 200, thickness: 18 },
+    material: { description: "MDF NATURE TEST", hasGrain: true, thickness: 18 },
+    kerf: 0,
+    trim: { x: 0, y: 0 },
+    constraints: {
+      minRemnant: 0,
+      minCommercialRemnantLongSide: 0,
+      allowOneBoard: false,
+      allowPatternMaster: false,
+      allowMultiSlice: false,
+      allowDeadStripCompaction: false
+    },
+    pieces: [
+      {
+        reference: "ROT",
+        quantity: 1,
+        width: 150,
+        height: 80,
+        grain: true,
+        canRotate: true
+      }
+    ]
+  };
+
+  it("allows an explicit per-piece rotation on a grained board", () => {
+    const result = optimizeProject(grainInput);
+    expect(result.validation.ok).toBe(true);
+    expect(result.metrics.boardCount).toBe(1);
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0]).toMatchObject({
+      sourceWidth: 150,
+      sourceHeight: 80,
+      width: 80,
+      height: 150,
+      rotated: true
+    });
+  });
+
+  it("keeps the grained-board default locked when rotation is false", () => {
+    expect(() =>
+      optimizeProject({
+        ...grainInput,
+        pieces: grainInput.pieces.map((piece) => ({ ...piece, canRotate: false }))
+      })
+    ).toThrow(/does not fit in the selected board format/i);
+  });
+});
+
 describe("optimizer facade", () => {
   it("packs all requested pieces with valid guillotine geometry", () => {
     const result = optimizeProject(baseInput);
