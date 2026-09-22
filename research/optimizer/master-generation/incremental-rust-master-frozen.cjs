@@ -25,15 +25,17 @@ function toPatternCandidate(board,payloadIndex,round,boardOrdinal){
     typeIndex:typeof p?.pieza?.ref==="number"?p.pieza.ref:null,base:p.base,altura:p.altura
   }))};
 }
-function patternFromSelected(entry,boards){
+function patternFromSelected(entry,boards,meta){
+  const m=meta[entry.payloadIndex]||null;
   return {uso:new Map(entry.usageVector.map((count,index)=>[index,count]).filter(([,count])=>count>0)),
-    area:entry.area,placa:boards[entry.payloadIndex]};
+    area:entry.area,placa:boards[entry.payloadIndex],
+    _round:m?.round??null,_boardOrdinal:m?.boardOrdinal??null};
 }
 function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
   if(!Array.isArray(lineas)||!lineas.length)throw new TypeError("incremental Master requires nonempty lines");
   const schedule=legacyRoundSubsets(lineas.length,rondas,semilla);
   const conRef=lineas.map((linea,index)=>({...linea,ref:index,_refOriginal:linea.ref}));
-  const boards=[],candidates=[],executed=new Set();
+  const boards=[],boardMeta=[],candidates=[],executed=new Set();
   const uniqueMaskPolicy =
     Array.isArray(lineas) && lineas.length >= 1 && lineas.length <= 4 && rondas === 40 && semilla === 7;
   const allowedRounds = new Set();
@@ -68,7 +70,9 @@ function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
         let boardOrdinal=0;
         for(const board of result.placas??[]){
           const payloadIndex=boards.length;boards.push(board);
-          candidates.push(toPatternCandidate(board,payloadIndex,round,boardOrdinal++));
+          const ordinal=boardOrdinal++;
+          boardMeta.push({round,boardOrdinal:ordinal});
+          candidates.push(toPatternCandidate(board,payloadIndex,round,ordinal));
         }
       }catch(error){
         const cpu=process.cpuUsage(started);generationCpuMs+=(cpu.user+cpu.system)/1000;
@@ -85,7 +89,7 @@ function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
     const ordered=orderedCandidates(roundFilter);if(!ordered.length)return [];
     const nativeCandidates=ordered.map(c=>({payloadIndex:c.payloadIndex,placements:c.placements}));
     const selected=JSON.parse(native().legacyDedupBoards(JSON.stringify(nativeCandidates),lineas.length));
-    return selected.map(entry=>patternFromSelected(entry,boards));
+    return selected.map(entry=>patternFromSelected(entry,boards,boardMeta));
   }
   function executedRounds(){return [...executed].sort((a,b)=>a-b);}
   function missingRounds(){const out=[];for(let r=0;r<schedule.length;r++)if(!executed.has(r))out.push(r);return out;}
