@@ -667,3 +667,46 @@ Next exact step:
 - confirm exact fallback parity outside the gate
 - keep production default unchanged
 - preserve next ~20k as sealed external validation
+
+
+## R3-M integrated V10 A/B — PASS 2026-09-22
+Detailed checkpoint:
+- research/optimizer/pattern-generators/guide-row/R3M_INTEGRATION_AB_PASS_2026-09-22.md
+- commit: 3cb7bff22619d5e0c692a9259f5585d9262341cb
+
+Integration:
+- wrapper commit: 6095ad25b293ac29ca57e0a21f6da0ca97978dd6
+- A/B harness: 6cab3c99f3fe02428aa9d74f114163b4b899d207
+- workflow: c5266443a467b51a198d2186be00cf2cc027b657
+- GitHub Actions run 35757630324: SUCCESS
+
+Frozen 438-case integrated result:
+- expected certifications: 438/438
+- integrated errors: 0
+- reference errors: 0
+- board losses: 0
+- equal-board remnant regressions: 0
+- remnant equal: 435
+- remnant better: 3
+- integrated total: 6,486.832 ms
+- V3 total: 16,866.595 ms
+- saving: 61.54%
+- aggregate speedup: 2.60x
+- p50: 6.934 vs 15.162 ms (-54.27%)
+- p95: 52.321 vs 138.069 ms (-62.10%)
+
+Fallback parity with experimental flag ON:
+- monotype -> TYPE_COUNT_OUTSIDE_2_3 -> exact V3 board/remnant/digest parity
+- directional -> DIRECTIONAL_EXCLUDED -> exact V3 board/remnant/digest parity
+- non-certifiable multitype -> NATURAL_STATES_GT_3 -> exact V3 board/remnant/digest parity
+
+Decision:
+- integrated R3-M wrapper PASS as disabled research path
+- production default remains unchanged
+- do not retune R3-M on the next ~20k corpus
+- next ~20k remains sealed external validation before production promotion
+
+Next exact step:
+- when the next ~20k corpus is supplied, run frozen R3-M with no threshold/polish changes
+- acceptance requires 0 board losses, 0 equal-board remnant regressions, 0 invalids
+- in parallel, monotype and directional/grained remain separate research tracks
