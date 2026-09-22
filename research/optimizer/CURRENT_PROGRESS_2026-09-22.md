@@ -803,3 +803,138 @@ Next safe research without consuming the sealed holdout:
 1. directional/grained validation using authoritative per-piece canRotate semantics
 2. nonzero-trim monotype validation as a separate envelope extension
 3. do not retune R3-M or monotype-v2 on the future sealed corpus before first external validation
+
+
+## Sealed external holdout — 13,842 XML — 2026-09-22
+Detailed report:
+- research/optimizer/EXTERNAL_HOLDOUT_13842_2026-09-22.md
+- commit: ccbafa1c61f99ca0c9b122cc8a735f3b30aa1ef2
+
+Input:
+- 4 sealed ZIPs supplied after R3-M and Monotype rules were frozen
+- raw XML: 13,842
+- canonical valid: 13,839
+- mixed-board-format exclusions: 3
+- order range: 5,336,679 .. 5,431,046
+- no material-name grain inference
+- Project XML does not carry authoritative application-level canRotate overrides, so this holdout validates the geometry/non-directional envelope only
+
+### Monotype Remnant-First v3 — EXTERNAL PASS
+Eligible:
+- 1,483 monotype cases <=300 pieces
+
+Result:
+- certified: 1,479 / 1,483 = 99.7303%
+- fallback: 4
+- invalids: 0
+- board losses vs V3: 0
+- equal-board remnant regressions: 0
+- remnant equal: 1,456
+- remnant better: 27
+
+Against Lepton board count:
+- better: 27
+- equal: 1,456
+- worse: 0
+- aggregate boards saved: 33
+
+Timing including fallback overhead:
+- integrated total 78,135.980 ms
+- V3 total 174,175.445 ms
+- saving 55.14%
+- speedup 2.23x
+- p50 11.62 vs 32.40 ms
+- p95 230.30 vs 486.76 ms
+- p99 703.14 vs 1,449.96 ms
+
+Decision:
+- first external geometry validation PASS for Monotype
+- directional/grained and trim-extension claims remain separately unvalidated by Project XML
+
+### Frozen R3-M — EXTERNAL FAIL
+External pre-candidates:
+- 2,112 cases with 2..3 types and <=160 pieces
+
+Frozen certifications:
+- 354 = 16.7614%
+- candidate errors 0
+- LB violations 0
+
+Fallback reasons:
+- NATURAL_STATES_GT_3: 1,444
+- SECOND_REMNANT_NONZERO: 312
+- LB_NOT_REACHED: 2
+
+Certified-board comparison:
+- board losses vs V3: 0
+- board wins vs V3: 0
+- exact board parity: 354/354
+
+Against Lepton:
+- better: 6
+- equal: 348
+- worse: 0
+
+Equal-board remnant vs V3:
+- equal: 350
+- worse: 4
+- better: 0
+
+Regression IDs:
+- 5344286
+- 5362238
+- 5407018
+- 5344296
+
+Frozen R3-M therefore FAILS the zero-remnant-regression external acceptance gate and remains disabled.
+
+Potential certified-path timing before quality rejection:
+- candidate 13,305.496 ms
+- V3 60,790.648 ms
+- 78.11% saving
+- 4.57x speedup
+
+### R3-M v4 — holdout-informed research candidate
+New implementation:
+- research/optimizer/pattern-generators/guide-row/integrated-v10-r3m-v4.mjs
+- commit: 3c04d017edf9323de2713a69de517b60eb14a1e1
+
+v4 does NOT expand the frozen R3-M hit set.
+It first requires the exact frozen v1 certification, then runs an extra remnant-first polish only in the discovered risk region:
+- candidate boards = 1
+- naturalStates = 3
+
+Risk polish:
+- preferirMenorProfundidad=false
+- noise 0.4
+- passes 4
+- restarts 4
+- Beam/Rescue/MultiVariants off
+
+Same-holdout diagnostic after the external FAIL was frozen:
+- board losses: 0
+- remnant regressions: 0
+- remnant equal: 348
+- remnant better: 6
+- polish selected in 10 cases
+
+Targeted polish runs on 165/354 hits.
+Same-holdout timing:
+- base candidate 13,305.496 ms
+- added targeted polish 3,477.408 ms
+- combined 16,782.904 ms
+- V3 60,790.648 ms
+- saving 72.39%
+- speedup 3.62x
+
+IMPORTANT:
+- the 13,842-XML holdout is now consumed for R3-M v4 development
+- these v4 results are NOT external validation
+- v4 requires a later sealed corpus before promotion
+
+Next exact steps:
+1. keep Monotype fast path as external-PASS production candidate for the validated non-directional geometry envelope;
+2. keep frozen R3-M disabled;
+3. add a focused CI regression gate for the four R3-M external remnant failures plus v4 improvements;
+4. validate R3-M v4 only on a future sealed corpus;
+5. validate directional/grained behavior only with authoritative per-piece canRotate inputs.
