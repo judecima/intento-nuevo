@@ -302,7 +302,10 @@ function toLegacyLines(input: OptimizationInput): LegacyLineInput[] {
     cant: piece.quantity,
     base: piece.width,
     altura: piece.height,
-    veta: Boolean(piece.grain || piece.canRotate === false),
+    veta:
+      piece.canRotate === undefined
+        ? Boolean(piece.grain)
+        : piece.canRotate === false,
     edgeType: resolveEdgeType(piece.edgeType, piece.edges),
     cantos: piece.edges
       ? {
