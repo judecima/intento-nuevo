@@ -57,7 +57,7 @@ inc.createIncrementalRustMasterGenerator=function(lineas,config,rondas=40,semill
       return;
     }
     const t=process.hrtime.bigint();
-    const r=runStructuralRepetitionRescue(normalized,config,{maxProbeTests:4,maxTotalTests:4});
+    const r=runStructuralRepetitionRescue(normalized,config,{maxProbeTests:1,maxTotalTests:1});
     const ms=Number(process.hrtime.bigint()-t)/1e6;
     rescueMeta={
       attempted:true,certified:Boolean(r?.certified),valid:Boolean(r?.valid),
