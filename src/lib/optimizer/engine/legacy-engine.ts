@@ -91,9 +91,17 @@ const legacyV10 = require("../legacy/v10.cjs") as LegacyV10Module;
 export const LEGACY_OPTIMIZER_VERSION = "legacy-guillotine-v10-lepton-remnants-20260813";
 export const RUST_LEGACY_PATTERN_GENERATOR_VERSION = `${LEGACY_OPTIMIZER_VERSION}+rust-pattern-v1`;
 export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION}+hybrid-staged-v17`;
+export const MOTOR_BETA_V2_VERSION = `${LEGACY_OPTIMIZER_VERSION}+master-structural-v2`;
+
+export type OptimizerMotorVersion = "v1" | "v2";
 
 export interface OptimizeProjectRuntimeOptions {
   patternGenerator?: OptimizerPatternGenerator;
+  /**
+   * V1 is the frozen universal fallback. V2 adds the certified structural
+   * short-circuit inside Master only; all misses continue through V1 unchanged.
+   */
+  motorVersion?: OptimizerMotorVersion;
 }
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
@@ -106,6 +114,12 @@ function parseEnvFlag(name: string, defaultValue: boolean): boolean {
   const raw = process.env[name];
   if (raw == null || raw === "") return defaultValue;
   return /^(1|true|yes|on)$/i.test(raw);
+}
+
+function resolveMotorVersion(explicit?: OptimizerMotorVersion): OptimizerMotorVersion {
+  if (explicit) return explicit;
+  const raw = process.env.OPTIMIZER_MOTOR_VERSION?.trim().toLowerCase();
+  return raw === "v2" ? "v2" : "v1";
 }
 
 function parseEnvPositiveInt(name: string, defaultValue: number): number {
@@ -212,12 +226,18 @@ export function optimizeProject(
   const strategy = parsed.strategy ?? "baseline";
   const stagedConfig = resolveExperimentalStagedConfig(strategy);
   const deterministicBudgets = resolveDeterministicBudgetConfig();
+  const requestedMotorVersion = resolveMotorVersion(runtimeOptions.motorVersion);
+  // The staged research pipeline is versioned independently; do not combine it
+  // implicitly with the production V2 Master short-circuit.
+  const motorVersion: OptimizerMotorVersion =
+    strategy === "v10" && !stagedConfig ? requestedMotorVersion : "v1";
   const patternGenerator: OptimizerPatternGenerator =
     strategy === "v10" ? (runtimeOptions.patternGenerator ?? "js") : "js";
   const cacheKey = [
     inputHash,
     deterministicBudgets.cacheDiscriminator,
     stagedConfig?.cacheDiscriminator,
+    `motor-version=${motorVersion}`,
     `pattern-generator=${patternGenerator}`,
   ]
     .filter(Boolean)
@@ -231,7 +251,7 @@ export function optimizeProject(
   }
 
   const lineas = toLegacyLines(parsed);
-  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator);
+  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator, motorVersion);
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
@@ -265,9 +285,13 @@ export function optimizeProject(
   const algorithmVersion =
     stagedConfig
       ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
-      : patternGeneratorUsed === "rust"
-        ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
-        : LEGACY_OPTIMIZER_VERSION;
+      : motorVersion === "v2"
+        ? (patternGeneratorUsed === "rust"
+            ? `${MOTOR_BETA_V2_VERSION}+rust-pattern-v1`
+            : MOTOR_BETA_V2_VERSION)
+        : patternGeneratorUsed === "rust"
+          ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
+          : LEGACY_OPTIMIZER_VERSION;
 
   const result: OptimizationResult = {
     algorithmVersion,
@@ -323,6 +347,7 @@ function toLegacyOptions(
   strategy: OptimizerStrategy,
   deterministicBudgets: DeterministicBudgetConfig,
   patternGenerator: OptimizerPatternGenerator,
+  motorVersion: OptimizerMotorVersion,
 ): LegacyOptimizerOptions {
   const minLongSide = input.constraints.minCommercialRemnantLongSide;
   const totalPieces = input.pieces.reduce((total, piece) => total + piece.quantity, 0);
@@ -344,6 +369,7 @@ function toLegacyOptions(
     usarMultiSlice: strategy === "v10" ? input.constraints.allowMultiSlice !== false : false,
     usarCompactacion: strategy === "v10" ? input.constraints.allowDeadStripCompaction !== false : false,
     usarRustPatternGenerator: strategy === "v10" && patternGenerator === "rust",
+    masterStructuralV2: strategy === "v10" && motorVersion === "v2",
     instrumentarStep0: strategy === "v10" && parseEnvFlag("OPTIMIZER_STEP0_TELEMETRY", false)
   };
 
