@@ -3,7 +3,7 @@
 import { build } from "esbuild";
 import {
   appendFileSync,
-  createReadStream,
+  closeSync,
   existsSync,
   mkdirSync,
   openSync,
