@@ -114,6 +114,31 @@ export interface OptimizeProjectRuntimeOptions {
    */
   motorVersion?: OptimizerMotorVersion;
 }
+
+export function optimizerAlgorithmVersionForRuntime({
+  strategy,
+  patternGenerator = "js",
+  motorVersion = "v1",
+  effortMode = "fixed",
+}: {
+  strategy: OptimizerStrategy;
+  patternGenerator?: OptimizerPatternGenerator;
+  motorVersion?: OptimizerMotorVersion;
+  effortMode?: OptimizerEffortMode;
+}): string {
+  if (strategy !== "v10") return LEGACY_OPTIMIZER_VERSION;
+
+  const rustSuffix = patternGenerator === "rust" ? "+rust-pattern-v1" : "";
+  if (motorVersion !== "v2") {
+    return patternGenerator === "rust"
+      ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
+      : LEGACY_OPTIMIZER_VERSION;
+  }
+
+  if (effortMode === "auto") return `${OPTIMIZER_AUTO_EFFORT_VERSION}${rustSuffix}`;
+  if (effortMode === "advanced") return `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}${rustSuffix}`;
+  return `${MOTOR_BETA_V2_VERSION}${rustSuffix}`;
+}
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
 
@@ -311,21 +336,12 @@ export function optimizeProject(
   const algorithmVersion =
     stagedConfig
       ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
-      : motorVersion === "v2"
-        ? effortMode === "auto"
-          ? (patternGeneratorUsed === "rust"
-              ? `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`
-              : OPTIMIZER_AUTO_EFFORT_VERSION)
-          : effortMode === "advanced"
-            ? (patternGeneratorUsed === "rust"
-                ? `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}+rust-pattern-v1`
-                : OPTIMIZER_ADVANCED_REFERENCE_VERSION)
-            : (patternGeneratorUsed === "rust"
-                ? `${MOTOR_BETA_V2_VERSION}+rust-pattern-v1`
-                : MOTOR_BETA_V2_VERSION)
-        : patternGeneratorUsed === "rust"
-          ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
-          : LEGACY_OPTIMIZER_VERSION;
+      : optimizerAlgorithmVersionForRuntime({
+          strategy,
+          patternGenerator: patternGeneratorUsed === "rust" ? "rust" : "js",
+          motorVersion,
+          effortMode,
+        });
 
   const result: OptimizationResult = {
     algorithmVersion,
