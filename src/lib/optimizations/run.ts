@@ -30,7 +30,7 @@ type OptimizationRemnantInsert = Database["public"]["Tables"]["optimization_remn
 
 export type RunOptimizationOutcome =
   | { ok: true; resultId: string; projectVersion: number }
-  | { ok: false; error: string };
+  | { ok: false; error: string; cancelled?: boolean };
 
 /**
  * Ejecuta y persiste la optimizacion contra el estado actual del proyecto.
@@ -52,7 +52,8 @@ export async function runAndStoreOptimization({
   patternGenerator = "js",
   motorVersion = "v1",
   effortMode = "fixed",
-  isolateKernel = false
+  isolateKernel = false,
+  kernelSignal
 }: {
   projectId: string;
   strategy: OptimizerStrategy;
@@ -78,6 +79,8 @@ export async function runAndStoreOptimization({
    * Inline UI keeps the synchronous in-process path to avoid process overhead.
    */
   isolateKernel?: boolean;
+  /** Abort is meaningful only for the isolated child-process path. */
+  kernelSignal?: AbortSignal;
 }): Promise<RunOptimizationOutcome> {
   const supabase = supabaseClient ?? createSupabaseServerClient();
   const data = preloaded ?? (await getProjectEditorData(projectId));
@@ -193,16 +196,28 @@ export async function runAndStoreOptimization({
     }
 
     const result = isolateKernel
-      ? await optimizeProjectIsolated(input, {
-          patternGenerator,
-          motorVersion,
-          effortMode,
-        })
+      ? await optimizeProjectIsolated(
+          input,
+          {
+            patternGenerator,
+            motorVersion,
+            effortMode,
+          },
+          { signal: kernelSignal },
+        )
       : optimizeProject(input, {
           patternGenerator,
           motorVersion,
           effortMode,
         });
+
+    if (kernelSignal?.aborted) {
+      return { ok: false, error: "OPTIMIZATION_CANCELLED", cancelled: true };
+    }
+
+    if (jobId && isolateKernel && !(await optimizationJobIsRunning(supabase, jobId))) {
+      return { ok: false, error: "OPTIMIZATION_CANCELLED", cancelled: true };
+    }
 
     if (jobId && result.algorithmVersion !== requestedAlgorithmVersion) {
       const { error: fallbackVersionError } = await supabase
@@ -229,12 +244,20 @@ export async function runAndStoreOptimization({
 
     await persistOptimizationDetails({ supabase, resultId, result });
 
-    const { error: jobCompleteError } = await supabase
+    const { data: completedJob, error: jobCompleteError } = await supabase
       .from("optimization_jobs")
       .update({ status: "completed", completed_at: new Date().toISOString(), error: null })
-      .eq("id", jobId);
+      .eq("id", jobId)
+      .eq("status", "running")
+      .select("id")
+      .maybeSingle();
 
     if (jobCompleteError) throw new Error(`OPTIMIZATION_JOB_UPDATE_FAILED: ${jobCompleteError.message}`);
+
+    if (!completedJob) {
+      await cleanupPersistedOptimizationResult(supabase, resultId);
+      return { ok: false, error: "OPTIMIZATION_CANCELLED", cancelled: true };
+    }
 
     if (data.project.status !== "optimized") {
       // Marcar el estado ya no mueve la version (migracion 20260813210000),
@@ -251,6 +274,34 @@ export async function runAndStoreOptimization({
     return { ok: true, resultId, projectVersion };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const cancelled =
+      kernelSignal?.aborted === true ||
+      message.includes("OPTIMIZER_KERNEL_ABORTED");
+
+    if (cancelled) {
+      if (jobId) {
+        await supabase
+          .from("optimization_jobs")
+          .update({
+            status: "cancelled",
+            completed_at: new Date().toISOString(),
+            error: "CANCELLED_BY_USER"
+          })
+          .eq("id", jobId)
+          .eq("status", "running");
+      }
+
+      if (data.project.status === "optimizing") {
+        await supabase
+          .from("projects")
+          .update({ status: "draft" })
+          .eq("id", data.project.id)
+          .eq("version", projectVersion)
+          .eq("status", "optimizing");
+      }
+
+      return { ok: false, error: "OPTIMIZATION_CANCELLED", cancelled: true };
+    }
 
     if (jobId) {
       await supabase
@@ -347,6 +398,27 @@ function resultInputHash(value: Json): string {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "";
   const hash = (value as Record<string, unknown>).inputHash;
   return typeof hash === "string" ? hash : "";
+}
+
+async function optimizationJobIsRunning(supabase: Supabase, jobId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("optimization_jobs")
+    .select("status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(`OPTIMIZATION_JOB_STATUS_FAILED: ${error.message}`);
+  return data?.status === "running";
+}
+
+async function cleanupPersistedOptimizationResult(supabase: Supabase, resultId: string): Promise<void> {
+  await Promise.all([
+    supabase.from("optimization_boards").delete().eq("optimization_result_id", resultId),
+    supabase.from("optimization_pieces").delete().eq("optimization_result_id", resultId),
+    supabase.from("optimization_cuts").delete().eq("optimization_result_id", resultId),
+    supabase.from("optimization_remnants").delete().eq("optimization_result_id", resultId),
+  ]);
+  await supabase.from("optimization_results").delete().eq("id", resultId);
 }
 
 async function persistOptimizationResult({
