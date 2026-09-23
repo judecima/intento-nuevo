@@ -10,6 +10,7 @@ import { cutPlanViewFromResult, type CutPlanView } from "./plan-view";
 import { buildOptimizationInputFromDraft } from "./project-input";
 import { describeValidation } from "./run";
 import { resolveOptimizerRuntimeForExecution } from "./runtime-policy";
+import { createOptimizerTimingTrace } from "./timing";
 
 export type PreviewOptimizationOutcome =
   | { ok: true; plan: CutPlanView }
@@ -21,8 +22,11 @@ export type PreviewOptimizationOutcome =
  */
 export async function previewProjectOptimizationAction(draft: ProjectDraft): Promise<PreviewOptimizationOutcome> {
   const parsed = projectDraftSchema.parse(draft);
+  const timing = createOptimizerTimingTrace("preview", { projectId: parsed.projectId });
   const context = await getCurrentUserContext();
+  timing.mark("auth");
   const data = await getProjectEditorData(parsed.projectId);
+  timing.mark("loadProject");
 
   if (!context.user || !data) {
     return { ok: false, error: "No se encontro el proyecto." };
@@ -37,6 +41,7 @@ export async function previewProjectOptimizationAction(draft: ProjectDraft): Pro
   }
 
   const material = await getMaterialForOrganization(data.project.organization_id, parsed.materialId);
+  timing.mark("loadMaterial");
   if (!material || material.type !== "board") {
     return { ok: false, error: "El tablero seleccionado no esta disponible." };
   }
@@ -58,14 +63,18 @@ export async function previewProjectOptimizationAction(draft: ProjectDraft): Pro
       motorVersion: runtime.motorVersion,
       effortMode: runtime.effortMode,
     });
+    timing.mark("engine");
 
     if (!result.validation.ok) {
+      timing.log({
+        ok: false,
+        algorithmVersion: result.algorithmVersion,
+        engineMs: result.metrics?.engineMs ?? null,
+      });
       return { ok: false, error: describeValidation(result) };
     }
 
-    return {
-      ok: true,
-      plan: cutPlanViewFromResult(result, {
+    const plan = cutPlanViewFromResult(result, {
         strategy: parsed.strategy,
         project: {
           version: input.projectVersion ?? Number(data.project.version),
@@ -79,9 +88,17 @@ export async function previewProjectOptimizationAction(draft: ProjectDraft): Pro
           grain_enabled: input.material.hasGrain
         },
         material: { code: input.material.code ?? null, description: input.material.description }
-      })
-    };
+      });
+    timing.mark("buildView");
+    timing.log({
+      ok: true,
+      algorithmVersion: result.algorithmVersion,
+      engineMs: result.metrics?.engineMs ?? null,
+      boards: result.metrics?.boardCount ?? null,
+    });
+    return { ok: true, plan };
   } catch (error) {
+    timing.log({ ok: false, error: error instanceof Error ? error.message : String(error) });
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
