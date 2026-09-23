@@ -43,6 +43,26 @@ describe("optimizer SaaS runtime identity", () => {
     });
   });
 
+  it("uses Auto+Rust for an isolated preview without requiring the queued worker path", () => {
+    process.env.OPTIMIZER_MOTOR_VERSION = "v2";
+    process.env.OPTIMIZER_EFFORT_MODE = "auto";
+    process.env.OPTIMIZER_RUST_LEGACY_WORKER = "1";
+
+    const runtime = resolveOptimizerRuntimeForExecution({
+      strategy: "v10",
+      queuedWorker: false,
+      isolatedExecution: true,
+      rolloutKey: "preview-project",
+    });
+
+    expect(runtime).toEqual({
+      motorVersion: "v2",
+      effortMode: "auto",
+      patternGenerator: "rust",
+      algorithmVersion: `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`,
+    });
+  });
+
   it("supports deterministic project-level Auto rollout without changing V2", () => {
     process.env.OPTIMIZER_MOTOR_VERSION = "v2";
     process.env.OPTIMIZER_EFFORT_MODE = "auto";
