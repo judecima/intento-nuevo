@@ -413,6 +413,11 @@ if (fatalRustError) {
   process.exitCode = 2;
 } else if (stopRequested) {
   console.log("\nCheckpoint guardado. Ejecuta el mismo comando para continuar.");
+} else if (!finalSummary.complete) {
+  console.log(
+    `\nLOTE COMPLETADO: ${allRows.length}/${files.length} XML registrados. ` +
+    "La certificacion completa sigue pendiente."
+  );
 } else {
   console.log("\nVALIDACION COMPLETA.");
 }
