@@ -1,5 +1,9 @@
 name: Optimizer Auto Effort Controller Gate
 
+concurrency:
+  group: optimizer-auto-effort-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches:
