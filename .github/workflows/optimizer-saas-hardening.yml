@@ -9,7 +9,9 @@ on:
       - "src/lib/optimizations/**"
       - "src/lib/projects/actions.ts"
       - "tests/optimizer/runtime-policy.test.ts"
+      - "tests/optimizer/isolated-execution.test.ts"
       - "tests/optimizer-telemetry.test.ts"
+      - "scripts/optimizer-kernel-child.cjs"
       - ".github/workflows/optimizer-saas-hardening.yml"
   workflow_dispatch:
 
@@ -35,6 +37,7 @@ jobs:
         run: >
           npx vitest run
           tests/optimizer/runtime-policy.test.ts
+          tests/optimizer/isolated-execution.test.ts
           tests/optimizer-telemetry.test.ts
           tests/optimizer/motor-beta-v2-runtime.test.ts
           tests/optimizer/auto-effort-controller.test.ts
