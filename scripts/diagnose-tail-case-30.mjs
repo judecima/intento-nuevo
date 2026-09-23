@@ -52,19 +52,21 @@ function makeInput(trim) {
   };
 }
 
-for (const trim of [0, 10]) {
-  const input = makeInput(trim);
-  const t0 = process.hrtime.bigint();
-  const result = optimizer.optimizeProject(input, {
-    patternGenerator: "rust",
-    motorVersion: "v2",
-    effortMode: "auto",
-  });
-  const totalMs = Number(process.hrtime.bigint() - t0) / 1e6;
-  const m = result.raw?.metricasV10 ?? {};
-  const step0 = m.step0 ?? {};
-  console.log("TAIL30_RESULT " + JSON.stringify({
-    trim,
+for (const patternGenerator of ["js", "rust"]) {
+  for (const trim of [0, 10]) {
+    const input = { ...makeInput(trim), projectId: "tail-case-30-" + patternGenerator + "-trim-" + trim };
+    const t0 = process.hrtime.bigint();
+    const result = optimizer.optimizeProject(input, {
+      patternGenerator,
+      motorVersion: "v2",
+      effortMode: "auto",
+    });
+    const totalMs = Number(process.hrtime.bigint() - t0) / 1e6;
+    const m = result.raw?.metricasV10 ?? {};
+    const step0 = m.step0 ?? {};
+    console.log("TAIL30_RESULT " + JSON.stringify({
+      patternGeneratorRequested: patternGenerator,
+      trim,
     totalMs: +totalMs.toFixed(3),
     engineMs: result.metrics?.engineMs ?? null,
     boards: result.metrics?.boardCount ?? null,
@@ -85,6 +87,7 @@ for (const trim of [0, 10]) {
       lowerBoundPostCompactMs: m.lowerBound?.postCompactMs ?? 0,
       remnantPolishMs: m.remnantPolish?.ms ?? 0,
     },
-    effort: m.effortController ?? null,
-  }));
+      effort: m.effortController ?? null,
+    }));
+  }
 }
