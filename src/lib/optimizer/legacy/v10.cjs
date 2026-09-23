@@ -593,16 +593,10 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           ? [Array.from({ length: Math.min(3, configuredMasterRounds) }, (_, i) => i)]
           : [
               Array.from({ length: 16 }, (_, i) => i),
-              [16,17,18,19],
-              [20,21,22,23],
-              [24,25,26,27],
-              [28,29,30,31],
-              [32,33,34,35],
-              [36,37,38,39],
+              Array.from({ length: Math.max(0, configuredMasterRounds - 16) }, (_, i) => i + 16),
             ];
 
         let previousGenerationCpuMs = 0;
-        let firstCheckpointImproved = false;
         for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
           const rounds = blocks[blockIndex].filter(r => r < configuredMasterRounds);
           if (!rounds.length) continue;
@@ -613,17 +607,15 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           const generationDeltaCpuMs = Math.max(0, generationCpuMs - previousGenerationCpuMs);
           previousGenerationCpuMs = generationCpuMs;
 
-          // The P16 solve is deliberately a tiny feasibility probe. On the
-          // certified 50-case Master cohort every successful safe-LB closure
-          // needed <=75 nodes; misses fall through to the exact Full40 solve.
-          // A low default therefore reduces miss overhead without changing
-          // correctness: failure to certify here only means "keep going".
-          // Solving every +4 block is counterproductive when the first 16
-          // rounds produced no board progress: generation is cumulative, so in
-          // that case keep collecting the exact Full40 pool and solve only at
-          // the final checkpoint. If P16 did improve the incumbent, that is
-          // concrete structural evidence and the +4 solve cadence remains
-          // worthwhile because it may certify the safe LB earlier.
+          // Auto has only two Master checkpoints:
+          //   P16 = tiny feasibility probe against safeLB
+          //   P40 = exact/reference solve over the complete generated pool
+          // The certified 50-case Master cohort produced every early closure
+          // at structural rescue or P16; none closed at 20/24/28/32/36.
+          // Intermediate solves also cannot improve the final P40 search bound:
+          // the final solver deliberately uses preMasterBoards. Therefore the
+          // remaining rounds are generated in one cumulative batch and solved
+          // once, preserving Full40 quality while removing redundant work.
           const isFirstCheckpoint = blockIndex === 0;
           const isFinalCheckpoint = blockIndex === blocks.length - 1;
           const structuralShortCircuit = incremental.structuralShortCircuit === true;
@@ -631,8 +623,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             isFirstCheckpoint ||
             isFinalCheckpoint ||
             industrialP3 ||
-            structuralShortCircuit ||
-            firstCheckpointImproved;
+            structuralShortCircuit;
 
           let pool = null;
           let sol = null;
@@ -683,12 +674,6 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             metricas.master.peorMs = Math.max(metricas.master.peorMs, blockMs);
           }
 
-          if (isFirstCheckpoint) {
-            firstCheckpointImproved =
-              Number.isFinite(mejor?.resumen?.placas) &&
-              mejor.resumen.placas < preMasterBoards;
-          }
-
           const executedRounds = incremental.executedRounds();
           metricas.effortController.roundsExecuted = executedRounds.length;
           metricas.effortController.generationCpuMs = generationCpuMs;
@@ -698,7 +683,6 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             newlyExecuted: exec?.newlyExecuted || [],
             executedRounds: executedRounds.length,
             solved: shouldSolve,
-            firstCheckpointImproved,
             poolSize: pool?.length ?? null,
             candidateCount: incremental.candidateCount,
             generationDeltaCpuMs,
