@@ -1,0 +1,38 @@
+name: Optimizer Motor V2 Master Structural Serial Perf
+
+on:
+  push:
+    branches:
+      - research/motor-v2-structural-20260922
+    paths:
+      - "research/optimizer/motor-v2/master-structural-shortcircuit-v2.mjs"
+      - "research/optimizer/motor-v2/master-structural-v2-serial-perf.mjs"
+      - "research/optimizer/holdout-v2-fixture/**"
+      - ".github/workflows/optimizer-motor-v2-master-structural-serial-perf.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Run serial alternating A/B performance gate
+        run: node research/optimizer/motor-v2/master-structural-v2-serial-perf.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: master-structural-v2-serial-perf-result
+          path: research/optimizer/motor-v2/MASTER_STRUCTURAL_V2_SERIAL_PERF_RESULT.json
+          if-no-files-found: error
+          retention-days: 14
