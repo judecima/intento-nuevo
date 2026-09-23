@@ -114,7 +114,11 @@ export function runStructuralRepetitionRescue(lines,config,{maxProbeTests=8,maxT
   const demand=lines.map(l=>+l.cant);
   const expected=demand.reduce((a,b)=>a+b,0);
   const lbR=computeHybridLowerBound(lines,config,null,{useRaster:false,claude:{usarRaster:false,usarDffFs0:true}});
-  const lb=Math.max(1,Math.floor(Number(lbR?.cheapLowerBound??lbR?.lowerBound??1)));
+  const lb=Math.max(
+    1,
+    Math.floor(Number(lbR?.cheapLowerBound ?? 0)),
+    Math.floor(Number(lbR?.lowerBound ?? 0)),
+  );
 
   const mono=patronesMonotipo(lines,config);
   const maxs=new Array(lines.length).fill(0);
@@ -141,7 +145,10 @@ export function runStructuralRepetitionRescue(lines,config,{maxProbeTests=8,maxT
     }
 
     const cand=portfolio[idx];
-    const sub=lines.map((l,i)=>({...l,cant:cand.v[i]})).filter(l=>l.cant>0);
+    // materializar() indexes pattern pieces by numeric logical type.
+    // The external line ref may be a string XML code, so research patterns
+    // must use the stable numeric type index internally.
+    const sub=lines.map((l,i)=>({...l,ref:i,cant:cand.v[i]})).filter(l=>l.cant>0);
     const subPieces=sub.reduce((s,l)=>s+l.cant,0);
     if(subPieces>120)continue;
 
