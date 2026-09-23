@@ -5,14 +5,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   getOptimizationInputHash,
-  LEGACY_OPTIMIZER_VERSION,
-  RUST_LEGACY_PATTERN_GENERATOR_VERSION,
+  optimizerAlgorithmVersionForRuntime,
   optimizeProject,
   type OptimizationBoardResult,
   type OptimizationCut,
   type OptimizationPlacement,
   type OptimizationRemnant,
   type OptimizationResult,
+  type OptimizerEffortMode,
+  type OptimizerMotorVersion,
   type OptimizerPatternGenerator,
   type OptimizerProfile,
   type OptimizerStrategy
@@ -47,7 +48,9 @@ export async function runAndStoreOptimization({
   existingJobId,
   existingJobClaimed = false,
   expectedProjectVersion,
-  patternGenerator = "js"
+  patternGenerator = "js",
+  motorVersion = "v1",
+  effortMode = "fixed"
 }: {
   projectId: string;
   strategy: OptimizerStrategy;
@@ -65,6 +68,9 @@ export async function runAndStoreOptimization({
   expectedProjectVersion?: number;
   /** Runtime del worker. Inline/preview conserva JS por defecto. */
   patternGenerator?: OptimizerPatternGenerator;
+  /** Runtime algorítmico explícito; evita que un job cambie por flags globales. */
+  motorVersion?: OptimizerMotorVersion;
+  effortMode?: OptimizerEffortMode;
 }): Promise<RunOptimizationOutcome> {
   const supabase = supabaseClient ?? createSupabaseServerClient();
   const data = preloaded ?? (await getProjectEditorData(projectId));
@@ -100,10 +106,12 @@ export async function runAndStoreOptimization({
     strategy
   });
   const inputHash = getOptimizationInputHash(input);
-  const requestedAlgorithmVersion =
-    strategy === "v10" && patternGenerator === "rust"
-      ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
-      : LEGACY_OPTIMIZER_VERSION;
+  const requestedAlgorithmVersion = optimizerAlgorithmVersionForRuntime({
+    strategy,
+    patternGenerator,
+    motorVersion,
+    effortMode,
+  });
   const cachedResultId = await findCachedOptimizationResultId({
     supabase,
     organizationId: data.project.organization_id,
@@ -177,7 +185,11 @@ export async function runAndStoreOptimization({
       if (versionError) throw new Error(`OPTIMIZATION_JOB_VERSION_UPDATE_FAILED: ${versionError.message}`);
     }
 
-    const result = optimizeProject(input, { patternGenerator });
+    const result = optimizeProject(input, {
+      patternGenerator,
+      motorVersion,
+      effortMode,
+    });
 
     if (jobId && result.algorithmVersion !== requestedAlgorithmVersion) {
       const { error: fallbackVersionError } = await supabase
