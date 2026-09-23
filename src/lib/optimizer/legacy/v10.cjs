@@ -613,6 +613,11 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           const generationDeltaCpuMs = Math.max(0, generationCpuMs - previousGenerationCpuMs);
           previousGenerationCpuMs = generationCpuMs;
 
+          // The P16 solve is deliberately a tiny feasibility probe. On the
+          // certified 50-case Master cohort every successful safe-LB closure
+          // needed <=75 nodes; misses fall through to the exact Full40 solve.
+          // A low default therefore reduces miss overhead without changing
+          // correctness: failure to certify here only means "keep going".
           // Solving every +4 block is counterproductive when the first 16
           // rounds produced no board progress: generation is cumulative, so in
           // that case keep collecting the exact Full40 pool and solve only at
@@ -644,7 +649,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             const checkpointNodeCap =
               Number.isFinite(checkpointNodeCapRaw) && checkpointNodeCapRaw > 0
                 ? Math.floor(checkpointNodeCapRaw)
-                : 12000;
+                : 128;
             const solveNodeCap = isFinalCheckpoint
               ? fullNodeCap
               : fullNodeCap === null
@@ -706,7 +711,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
                   ? (Number.isFinite(Number(config.maxNodosMaster)) ? Number(config.maxNodosMaster) : null)
                   : (Number.isFinite(Number(config.autoCheckpointMaxNodes))
                       ? Number(config.autoCheckpointMaxNodes)
-                      : 12000))
+                      : 128))
               : null,
             candidateBoards: cand?.resumen?.placas ?? null,
             incumbentBoards: mejor?.resumen?.placas ?? null,
