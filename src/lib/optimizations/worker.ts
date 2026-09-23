@@ -78,7 +78,8 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
       expectedProjectVersion: Number(job.project_version),
       patternGenerator: runtime.patternGenerator,
       motorVersion: runtime.motorVersion,
-      effortMode: runtime.effortMode
+      effortMode: runtime.effortMode,
+      isolateKernel: true
     });
 
     if (!outcome.ok) {
