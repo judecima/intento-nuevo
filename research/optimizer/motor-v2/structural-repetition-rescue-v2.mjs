@@ -108,6 +108,10 @@ export function repetitionGate(lines){
   if(lines.length===3 && pieces>100)return {eligible:false,reason:"TYPE3_PIECES_GT_100_SYNC"};
   const g=gcdAll(demand);
   if(g<2)return {eligible:false,reason:"NO_QUANTITY_REPETITION"};
+  // The one-probe synchronous route needs a repeated demand unit of at least
+  // three. GCD=2 has produced no certifications in the protected broad/serial
+  // cohorts and only adds probe cost; frozen beta remains the exact fallback.
+  if(g<3)return {eligible:false,reason:"REPETITION_GCD_LT_3",gcd:g,pieces};
   return {eligible:true,reason:"ELIGIBLE",gcd:g,pieces};
 }
 
