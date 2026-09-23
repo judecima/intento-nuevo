@@ -20,6 +20,7 @@ import {
   type OptimizerStrategy
 } from "@/lib/optimizer";
 import { buildOptimizationInputFromProject, optimizerProfileForStrategy } from "./project-input";
+import { createOptimizerTimingTrace } from "./timing";
 
 type Supabase = SupabaseClient<Database, "public">;
 type OptimizationResultInsert = Database["public"]["Tables"]["optimization_results"]["Insert"];
@@ -82,8 +83,17 @@ export async function runAndStoreOptimization({
   /** Abort is meaningful only for the isolated child-process path. */
   kernelSignal?: AbortSignal;
 }): Promise<RunOptimizationOutcome> {
+  const timing = createOptimizerTimingTrace("run-and-store", {
+    projectId,
+    strategy,
+    isolateKernel,
+    patternGenerator,
+    motorVersion,
+    effortMode,
+  });
   const supabase = supabaseClient ?? createSupabaseServerClient();
   const data = preloaded ?? (await getProjectEditorData(projectId));
+  timing.mark("loadProject");
 
   if (!data) {
     return { ok: false, error: optimizationDomainErrors.projectNotFound };
@@ -131,6 +141,7 @@ export async function runAndStoreOptimization({
     inputHash,
     algorithmVersion: requestedAlgorithmVersion
   });
+  timing.mark("cacheLookup");
 
   if (cachedResultId) {
     if (existingJobId) {
@@ -148,6 +159,8 @@ export async function runAndStoreOptimization({
       await supabase.from("projects").update({ status: "optimized" }).eq("id", data.project.id);
     }
 
+    timing.mark("cacheHitFinalize");
+    timing.log({ ok: true, cacheHit: true, resultId: cachedResultId });
     return { ok: true, resultId: cachedResultId, projectVersion };
   }
 
@@ -194,6 +207,7 @@ export async function runAndStoreOptimization({
         .eq("id", jobId);
       if (versionError) throw new Error(`OPTIMIZATION_JOB_VERSION_UPDATE_FAILED: ${versionError.message}`);
     }
+    timing.mark("jobSetup");
 
     const result = isolateKernel
       ? await optimizeProjectIsolated(
@@ -210,6 +224,7 @@ export async function runAndStoreOptimization({
           motorVersion,
           effortMode,
         });
+    timing.mark("engine");
 
     if (kernelSignal?.aborted) {
       return { ok: false, error: "OPTIMIZATION_CANCELLED", cancelled: true };
@@ -241,8 +256,10 @@ export async function runAndStoreOptimization({
       projectVersion,
       result
     });
+    timing.mark("persistResult");
 
     await persistOptimizationDetails({ supabase, resultId, result });
+    timing.mark("persistDetails");
 
     const { data: completedJob, error: jobCompleteError } = await supabase
       .from("optimization_jobs")
@@ -253,6 +270,7 @@ export async function runAndStoreOptimization({
       .maybeSingle();
 
     if (jobCompleteError) throw new Error(`OPTIMIZATION_JOB_UPDATE_FAILED: ${jobCompleteError.message}`);
+    timing.mark("completeJob");
 
     if (!completedJob) {
       await cleanupPersistedOptimizationResult(supabase, resultId);
@@ -270,10 +288,20 @@ export async function runAndStoreOptimization({
 
       if (projectUpdateError) throw new Error(`PROJECT_STATUS_UPDATE_FAILED: ${projectUpdateError.message}`);
     }
+    timing.mark("projectStatus");
+    timing.log({
+      ok: true,
+      cacheHit: false,
+      resultId,
+      engineMs: result.metrics?.engineMs ?? null,
+      boards: result.metrics?.boardCount ?? null,
+      algorithmVersion: result.algorithmVersion,
+    });
 
     return { ok: true, resultId, projectVersion };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    timing.log({ ok: false, error: message });
     const cancelled =
       kernelSignal?.aborted === true ||
       message.includes("OPTIMIZER_KERNEL_ABORTED");
