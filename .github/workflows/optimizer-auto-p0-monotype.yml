@@ -1,0 +1,31 @@
+name: Optimizer Auto P0 Monotype Research
+
+on:
+  pull_request:
+    branches:
+      - motor-beta-v2
+    paths:
+      - "research/optimizer/auto-p0-monotype/**"
+      - ".github/workflows/optimizer-auto-p0-monotype.yml"
+  workflow_dispatch:
+
+jobs:
+  p0-monotype:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Compare P0 monotype against current Auto and Advanced
+        run: node research/optimizer/auto-p0-monotype/monotype-p0-gate.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auto-p0-monotype-result
+          path: research/optimizer/auto-p0-monotype/AUTO_P0_MONOTYPE_RESULT.json
+          retention-days: 30
