@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { build } from "esbuild";
-import { createRequire } from "node:module";
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -22,18 +21,6 @@ await build({
 });
 
 const optimizer = await import(pathToFileURL(bundlePath).href + "?v=" + Date.now());
-const require = createRequire(import.meta.url);
-const {
-  defragmentarPlanPorPlaca,
-  lineasDesdePlaca,
-} = require("../src/lib/optimizer/experimental/per-board-remnant-defrag.cjs");
-const {
-  optimizar,
-  calidadRestos,
-  compararCalidad,
-  calidadPlanPlacas,
-} = require("../src/lib/optimizer/legacy/motor.cjs");
-const { validarPlanIndustrial } = require("../src/lib/optimizer/legacy/validador_industrial_v3.cjs");
 
 const rows = [
 [4,882,600],[1,1554,600],[2,1518,70],[1,1518,600],[2,516,880],[2,1550,100],[2,550,100],[2,480,70],
@@ -75,6 +62,7 @@ const totalArea = rows.reduce((s,[q,w,h]) => s + q*w*h, 0);
 const usableArea = (2750-10)*(1830-10);
 const areaLB = Math.ceil(totalArea/usableArea - 1e-9);
 
+process.env.OPTIMIZER_V2_REMNANT_POLISH = "1";
 const t0 = process.hrtime.bigint();
 const result = optimizer.optimizeProject(input, {
   patternGenerator: "rust",
@@ -82,111 +70,31 @@ const result = optimizer.optimizeProject(input, {
   effortMode: "auto",
 });
 const totalMs = Number(process.hrtime.bigint()-t0)/1e6;
-const raw = result.raw;
-const board5 = raw.placas?.[4];
 
-const placementView = (board5?.colocadas || []).map(c => ({
-  ref: c.pieza?.ref,
-  x: c.x, y: c.y, w: c.base, h: c.altura,
-  rotated: c.rotada ?? c.rotated ?? null,
-})).sort((a,b)=>a.y-b.y || a.x-b.x);
-const remnantView = (board5?.restos || []).map(r => ({
-  x:r.x,y:r.y,w:r.w,h:r.h,area:r.w*r.h,
-})).sort((a,b)=>b.area-a.area);
-
-const p8 = placementView.filter(p=>p.ref==="P8");
-const holesForP8 = remnantView.filter(r =>
-  (r.w >= 480 && r.h >= 70) || (r.w >= 70 && r.h >= 480)
-);
-
-const qBefore = calidadPlanPlacas(raw.placas, raw.opts);
-const defrag = defragmentarPlanPorPlaca(raw, { piezasEsperadas: 95 });
-const qAfter = calidadPlanPlacas(defrag.plan.placas, defrag.plan.opts);
-const defragBoard5 = defrag.plan.placas?.[4];
-const defragP8 = (defragBoard5?.colocadas || []).filter(c=>c.pieza?.ref==="P8").map(c=>({
-  x:c.x,y:c.y,w:c.base,h:c.altura
-}));
-const defragRemnants = (defragBoard5?.restos || []).map(r=>({x:r.x,y:r.y,w:r.w,h:r.h,area:r.w*r.h}))
-  .sort((a,b)=>b.area-a.area).slice(0,10);
-
-const board5Lines = lineasDesdePlaca(board5);
-const localSweeps = [];
-const baseCfg = Object.fromEntries(
-  Object.entries(raw.opts || {}).filter(([key]) => !key.startsWith("_"))
-);
-const variants = [
-  { name:"mv", multiVariantes:true },
-  { name:"r28", restartsPorPlaca:28 },
-  { name:"r56", restartsPorPlaca:56 },
-  { name:"r28-mv", restartsPorPlaca:28, multiVariantes:true },
-  { name:"r56-mv", restartsPorPlaca:56, multiVariantes:true },
-  { name:"noise50-r28-mv", ruido:0.5, restartsPorPlaca:28, multiVariantes:true },
-  { name:"noise80-r56-mv", ruido:0.8, restartsPorPlaca:56, multiVariantes:true },
-  { name:"tol05-r28-mv", tolerancia:0.05, restartsPorPlaca:28, multiVariantes:true },
-  { name:"tol10-r56-mv", tolerancia:0.10, restartsPorPlaca:56, multiVariantes:true },
-  { name:"depth-off-r28-mv", preferirMenorProfundidad:false, restartsPorPlaca:28, multiVariantes:true },
-];
-
-for (const variant of variants) {
-  let best = null;
-  const started = process.hrtime.bigint();
-  for (let seedOffset=0; seedOffset<8; seedOffset++) {
-    try {
-      const candidate = optimizar(board5Lines, {
-        ...baseCfg,
-        ...variant,
-        penalizarFranjaMuerta:true,
-        semilla:(Number(baseCfg.semilla)||20260812) + 900000 + seedOffset,
-      });
-      if (!candidate?.placas || candidate.placas.length !== 1) continue;
-      const validation = validarPlanIndustrial(candidate, board5Lines.reduce((s,l)=>s+l.cant,0));
-      if (!validation?.ok) continue;
-      const q = calidadRestos(candidate.placas[0].restos || [], candidate.opts || raw.opts);
-      if (!best || compararCalidad(q, best.q) > 0) best = { candidate, q, seedOffset };
-    } catch (_) {}
-  }
-  const ms = Number(process.hrtime.bigint()-started)/1e6;
-  if (!best) {
-    localSweeps.push({name:variant.name, valid:false, ms:+ms.toFixed(3)});
-    continue;
-  }
-  const b=best.candidate.placas[0];
-  localSweeps.push({
-    name:variant.name,
-    valid:true,
-    ms:+ms.toFixed(3),
-    improved:compararCalidad(best.q, calidadRestos(board5.restos||[], raw.opts))>0,
-    quality:best.q,
-    seedOffset:best.seedOffset,
-    p8:(b.colocadas||[]).filter(x=>x.pieza?.ref==="P8").map(x=>({x:x.x,y:x.y,w:x.base,h:x.altura})),
-    remnants:(b.restos||[]).map(r=>({x:r.x,y:r.y,w:r.w,h:r.h,area:r.w*r.h})).sort((a,b)=>b.area-a.area).slice(0,8),
-  });
-}
-
-console.log("REMNANT95 " + JSON.stringify({
+const output = {
   totalMs:+totalMs.toFixed(3),
   valid:result.validation.ok,
   boards:result.metrics.boardCount,
   areaLB,
   pieceCount:result.metrics.pieceCount,
   algorithmVersion:result.algorithmVersion,
-  board5:{
-    placements:placementView,
-    remnants:remnantView,
-    p8,
-    holesForP8,
-  },
-  qualityBefore:qBefore,
-  defrag:{
-    changed:defrag.changed,
-    attemptedBoards:defrag.attemptedBoards,
-    improvedBoards:defrag.improvedBoards,
-    rejectedBoards:defrag.rejectedBoards,
-    invalidFinal:defrag.invalidFinal,
-    ms:defrag.ms,
-    qualityAfter:qAfter,
-    board5P8:defragP8,
-    board5Remnants:defragRemnants,
-  },
-  localSweeps,
-}));
+  largestCommercialRemnantM2:result.metrics.largestCommercialRemnantM2,
+  secondLargestCommercialRemnantM2:result.metrics.secondLargestCommercialRemnantM2,
+  commercialRemnantCount:result.metrics.commercialRemnantCount,
+  commercialRemnantAreaM2:result.metrics.commercialRemnantAreaM2,
+  remnantPolish:result.raw?.metricasV10?.remnantPolish ?? null,
+};
+console.log("REMNANT95_SENTINEL " + JSON.stringify(output));
+
+if (result.validation.ok !== true) throw new Error("REMNANT95 invalid plan");
+if (result.metrics.boardCount !== 5 || areaLB !== 5) {
+  throw new Error(`REMNANT95 boards expected=5 actual=${result.metrics.boardCount} lb=${areaLB}`);
+}
+if (!String(result.algorithmVersion).includes("+remnant-polish-v1")) {
+  throw new Error("REMNANT95 remnant-polish version missing");
+}
+if (result.metrics.largestCommercialRemnantM2 < 1.50) {
+  throw new Error(
+    `REMNANT95 largest remnant regressed: ${result.metrics.largestCommercialRemnantM2} m2`,
+  );
+}
