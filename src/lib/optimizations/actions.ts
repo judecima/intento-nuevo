@@ -5,7 +5,7 @@ import { canEditProject, projectDraftSchema, type ProjectDraft } from "@/lib/dom
 import { canManagePlatform } from "@/lib/domain/platform";
 import { getMaterialForOrganization } from "@/lib/materials/queries";
 import { getProjectEditorData } from "@/lib/projects/queries";
-import { optimizeProject } from "@/lib/optimizer";
+import { optimizeProjectIsolated } from "@/lib/optimizer";
 import { cutPlanViewFromResult, type CutPlanView } from "./plan-view";
 import { buildOptimizationInputFromDraft } from "./project-input";
 import { describeValidation } from "./run";
@@ -56,9 +56,10 @@ export async function previewProjectOptimizationAction(draft: ProjectDraft): Pro
     const runtime = resolveOptimizerRuntimeForExecution({
       strategy: parsed.strategy,
       queuedWorker: false,
+      isolatedExecution: true,
       rolloutKey: parsed.projectId,
     });
-    const result = optimizeProject(input, {
+    const result = await optimizeProjectIsolated(input, {
       patternGenerator: runtime.patternGenerator,
       motorVersion: runtime.motorVersion,
       effortMode: runtime.effortMode,
