@@ -160,7 +160,7 @@ export function runStructuralRepetitionRescue(lines,config,{maxProbeTests=1,maxT
     tests++;
     let r=null;
     try{
-      r=optimizar(sub,{...config,pases:2,restartsPorPlaca:4,usarRescue:false,presupuestoBeamMs:250,maxPiezasBeam:120,preferirMenorProfundidad:false});
+      r=optimizar(sub,{...config,pases:1,restartsPorPlaca:1,usarRescue:false,presupuestoBeamMs:100,maxPiezasBeam:120,preferirMenorProfundidad:false});
     }catch{r=null;}
     if(!r||r.resumen?.placas!==1||!r.placas?.[0])continue;
 
