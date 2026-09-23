@@ -23,6 +23,53 @@ describe("summarizeOptimizationTimings", () => {
     expect(summary.engineMs).toEqual({ p50: 200, p95: 380, p99: 396 });
   });
 
+  it("summarizes runtime variants and Auto stop reasons", () => {
+    const samples: OptimizationTimingSample[] = [
+      {
+        jobId: "a",
+        status: "completed",
+        queuedMs: 1,
+        runMs: 10,
+        totalMs: 11,
+        engineMs: 8,
+        cacheHit: false,
+        algorithmVersion: "auto-v1",
+        effortMode: "auto",
+        stopReason: "safe-lb"
+      },
+      {
+        jobId: "b",
+        status: "completed",
+        queuedMs: 2,
+        runMs: 20,
+        totalMs: 22,
+        engineMs: 18,
+        cacheHit: false,
+        algorithmVersion: "auto-v1",
+        effortMode: "auto",
+        stopReason: "advanced-exhausted"
+      },
+      {
+        jobId: "c",
+        status: "completed",
+        queuedMs: 3,
+        runMs: 30,
+        totalMs: 33,
+        engineMs: 28,
+        cacheHit: false,
+        algorithmVersion: "v1",
+        effortMode: "fixed",
+        stopReason: null
+      }
+    ];
+
+    const summary = summarizeOptimizationTimings(samples);
+
+    expect(summary.runtime.algorithmVersions).toEqual({ "auto-v1": 2, v1: 1 });
+    expect(summary.runtime.effortModes).toEqual({ auto: 2, fixed: 1 });
+    expect(summary.runtime.stopReasons).toEqual({ "safe-lb": 1, "advanced-exhausted": 1 });
+  });
+
   it("keeps active and failed jobs without inventing durations", () => {
     const samples: OptimizationTimingSample[] = [
       { jobId: "q", status: "queued", queuedMs: null, runMs: null, totalMs: null, engineMs: null, cacheHit: null },
