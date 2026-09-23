@@ -145,7 +145,7 @@ function calcularCotaBarataPostCompactacion(lineas, config, incumbente, metricas
   }
 }
 
-function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
+function intentarPolishV20(plan, config, piezasEsperadas, metricas, options = {}) {
   const m = metricas.remnantPolish;
   const t0 = process.hrtime.bigint();
   m.runs++;
@@ -157,7 +157,7 @@ function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
       return { valido: false, plan };
     }
     const { defragmentarPlanPorPlaca } = require('../experimental/per-board-remnant-defrag.cjs');
-    const r = defragmentarPlanPorPlaca(plan, { piezasEsperadas });
+    const r = defragmentarPlanPorPlaca(plan, { piezasEsperadas, ...options });
     m.attemptedBoards += +r.attemptedBoards || 0;
     m.improvedBoards += +r.improvedBoards || 0;
     m.rejectedBoards += +r.rejectedBoards || 0;
@@ -472,6 +472,38 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       probar('compactacion',alt,Date.now()-t,true);
     }else{
       registrar(metricas.compactacion,Date.now()-t,false,0,false);
+    }
+  }
+
+  // ---- polish local de remanente para pedidos que quedaron fuera de la
+  // compactacion global por tamaño/variedad. A esta altura la cantidad de
+  // placas ya esta certificada: cada placa se repaca de forma independiente,
+  // nunca se mueven piezas entre placas y el plan completo se revalida.
+  if (
+    config.usarPolishRemanentePorPlacaV2 === true &&
+    mejor.resumen.placas <= cota &&
+    (lineas.length > 40 || nPiezas > 120)
+  ) {
+    const polished = intentarPolishV20(
+      mejor,
+      { ...config, usarDefragRemanentePorPlaca: true },
+      piezasEsperadas,
+      metricas,
+      {
+        multiVariantes: true,
+        maxBoards: Number(config.polishRemanenteMaxPlacas) || 2,
+        seedOffsets: [0],
+        seedBaseOffset: 900000,
+      },
+    );
+    if (
+      polished.valido &&
+      polished.plan &&
+      polished.plan.resumen &&
+      polished.plan.resumen.placas === mejor.resumen.placas &&
+      mejorRemanentePlan(polished.plan, mejor)
+    ) {
+      mejor = polished.plan;
     }
   }
 
