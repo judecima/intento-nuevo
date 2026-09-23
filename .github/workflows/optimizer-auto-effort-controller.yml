@@ -1,0 +1,31 @@
+name: Optimizer Auto Effort Controller Gate
+
+on:
+  pull_request:
+    branches:
+      - motor-beta-v2
+    paths:
+      - "src/lib/optimizer/**"
+      - "tests/optimizer/auto-effort-controller.test.ts"
+      - "tests/optimizer/motor-beta-v2-runtime.test.ts"
+      - "research/optimizer/auto-effort/**"
+      - ".github/workflows/optimizer-auto-effort-controller.yml"
+  workflow_dispatch:
+
+jobs:
+  runtime-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Typecheck runtime integration
+        run: npm run typecheck
+      - name: V2 rollback + Auto runtime contract
+        run: npx vitest run tests/optimizer/motor-beta-v2-runtime.test.ts tests/optimizer/auto-effort-controller.test.ts
