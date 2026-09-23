@@ -101,6 +101,10 @@ export function repetitionGate(lines){
   const demand=lines.map(l=>+l.cant||0);
   const pieces=demand.reduce((a,b)=>a+b,0);
   if(pieces<6)return {eligible:false,reason:"PIECES_LT_6"};
+  // Synchronous beta-v2 envelope. Larger repeated batches remain valid inputs
+  // but use the frozen fallback / future XL effort route instead of paying
+  // deep structural probes on the interactive path.
+  if(pieces>300)return {eligible:false,reason:"PIECES_GT_300"};
   const g=gcdAll(demand);
   if(g<2)return {eligible:false,reason:"NO_QUANTITY_REPETITION"};
   return {eligible:true,reason:"ELIGIBLE",gcd:g,pieces};
