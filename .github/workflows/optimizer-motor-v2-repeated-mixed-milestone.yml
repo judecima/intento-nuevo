@@ -1,0 +1,36 @@
+name: Optimizer Motor V2 Repeated Mixed Milestone
+
+on:
+  push:
+    branches:
+      - research/motor-v2-structural-20260922
+    paths:
+      - "research/optimizer/motor-v2/repetition-aware-mixed-pattern-generator.mjs"
+      - "research/optimizer/motor-v2/repetition-aware-mixed-pattern-milestone.mjs"
+      - "research/optimizer/motor-v2/fixtures/REPEATED_MIXED_MILESTONE_8.json"
+      - ".github/workflows/optimizer-motor-v2-repeated-mixed-milestone.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  milestone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run repeated mixed-pattern research gate
+        env:
+          MAX_PHYSICAL_TESTS: "64"
+        run: node research/optimizer/motor-v2/repetition-aware-mixed-pattern-milestone.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motor-v2-repeated-mixed-milestone
+          path: research/optimizer/motor-v2/REPEATED_MIXED_PATTERN_MILESTONE_RESULT.json
+          if-no-files-found: error
+          retention-days: 14
