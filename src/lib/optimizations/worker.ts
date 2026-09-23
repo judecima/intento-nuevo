@@ -18,6 +18,7 @@ export type OptimizerWorkerOutcome =
   | { status: "idle" }
   | { status: "contended"; jobId: string }
   | { status: "completed"; jobId: string; resultId: string }
+  | { status: "cancelled"; jobId: string }
   | { status: "failed"; jobId: string; error: string };
 
 /**
@@ -66,23 +67,33 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
         strategy === "v10" && rustPatternGeneratorWorkerEnabled() ? "rust" : "js",
     });
 
-    const outcome = await runAndStoreOptimization({
-      projectId: job.project_id,
-      strategy,
-      profile: parseProfile(job.profile),
-      requestedBy: job.requested_by,
-      preloaded,
-      supabaseClient: supabase,
-      existingJobId: job.id,
-      existingJobClaimed: true,
-      expectedProjectVersion: Number(job.project_version),
-      patternGenerator: runtime.patternGenerator,
-      motorVersion: runtime.motorVersion,
-      effortMode: runtime.effortMode,
-      isolateKernel: true
-    });
+    const controller = new AbortController();
+    const stopCancellationWatch = watchForJobCancellation(supabase, job.id, controller);
+
+    let outcome;
+    try {
+      outcome = await runAndStoreOptimization({
+        projectId: job.project_id,
+        strategy,
+        profile: parseProfile(job.profile),
+        requestedBy: job.requested_by,
+        preloaded,
+        supabaseClient: supabase,
+        existingJobId: job.id,
+        existingJobClaimed: true,
+        expectedProjectVersion: Number(job.project_version),
+        patternGenerator: runtime.patternGenerator,
+        motorVersion: runtime.motorVersion,
+        effortMode: runtime.effortMode,
+        isolateKernel: true,
+        kernelSignal: controller.signal
+      });
+    } finally {
+      stopCancellationWatch();
+    }
 
     if (!outcome.ok) {
+      if (outcome.cancelled) return { status: "cancelled", jobId: job.id };
       return { status: "failed", jobId: job.id, error: outcome.error };
     }
 
@@ -92,6 +103,39 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
     await failClaimedJob(supabase, job, message);
     return { status: "failed", jobId: job.id, error: message };
   }
+}
+
+function watchForJobCancellation(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  jobId: string,
+  controller: AbortController,
+): () => void {
+  let stopped = false;
+  let checking = false;
+
+  const check = async () => {
+    if (stopped || checking || controller.signal.aborted) return;
+    checking = true;
+    try {
+      const { data } = await supabase
+        .from("optimization_jobs")
+        .select("status")
+        .eq("id", jobId)
+        .maybeSingle();
+
+      if (data?.status === "cancelled") controller.abort();
+    } finally {
+      checking = false;
+    }
+  };
+
+  const timer = setInterval(check, 500);
+  timer.unref?.();
+
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 }
 
 async function loadProjectForWorker(
