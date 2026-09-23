@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import { cpus, hostname, platform, release, totalmem } from "node:os";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createGzip, gzipSync } from "node:zlib";
+import { gzipSync } from "node:zlib";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -583,7 +583,13 @@ function loadCheckpointRows(path) {
     }
   }
   const dedup = new Map();
-  for (const row of rows) dedup.set(row.caseKey, row);
+  for (const row of rows) {
+    if (row.failures?.includes("rust_not_active")) {
+      repaired = true;
+      continue;
+    }
+    dedup.set(row.caseKey, row);
+  }
   if (dedup.size !== rows.length) repaired = true;
   return { rows: [...dedup.values()], repaired };
 }
@@ -721,6 +727,7 @@ function buildSummary(meta, rows, discoveredXml, complete) {
 
   return {
     schema: "optimizer-full-runtime-validation-summary-v1",
+    status: !complete ? "INCOMPLETE" : base.failures > 0 ? "FAIL" : "PASS",
     complete,
     generatedAt: new Date().toISOString(),
     git: meta.git,
@@ -846,7 +853,12 @@ function timingSummary(arms) {
 }
 
 function remnantTriplet(rows, key) {
-  return triplet(rows.map((row) => row.comparisons?.[key]).filter(Number.isFinite));
+  const values = rows.map((row) => row.comparisons?.[key]).filter(Number.isFinite);
+  return {
+    better: values.filter((v) => v > 0).length,
+    equal: values.filter((v) => v === 0).length,
+    worse: values.filter((v) => v < 0).length,
+  };
 }
 
 function triplet(values) {
@@ -1001,16 +1013,6 @@ function gitInfo() {
 function gitCommand(args) {
   const r = spawnSync("git", args, { cwd: REPO, encoding: "utf8" });
   return r.status === 0 ? String(r.stdout || "").trim() : "";
-}
-
-function sha256StreamFile(path) {
-  return new Promise((resolvePromise, rejectPromise) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(path);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("error", rejectPromise);
-    stream.on("end", () => resolvePromise(hash.digest("hex")));
-  });
 }
 
 function writeJson(path, value) {
