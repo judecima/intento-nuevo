@@ -9,7 +9,7 @@ on:
     branches:
       - motor-auto-v1
     paths:
-      - "research/optimizer/saas-hardening/isolation-overhead.test.ts"
+      - "tests/optimizer/isolated-performance.test.ts"
       - ".github/workflows/optimizer-isolation-overhead.yml"
       - "src/lib/optimizer/**"
       - "scripts/optimizer-kernel-child.cjs"
@@ -32,7 +32,7 @@ jobs:
       - run: npm ci
       - run: npm run optimizer:rust:build
       - name: Measure isolation overhead
-        run: npx vitest run research/optimizer/saas-hardening/isolation-overhead.test.ts
+        run: npx vitest run tests/optimizer/isolated-performance.test.ts
       - uses: actions/upload-artifact@v4
         with:
           name: optimizer-isolation-overhead-result
