@@ -14,12 +14,14 @@ const ORIGINAL = {
   motor: process.env.OPTIMIZER_MOTOR_VERSION,
   effort: process.env.OPTIMIZER_EFFORT_MODE,
   rust: process.env.OPTIMIZER_RUST_LEGACY_WORKER,
+  rollout: process.env.OPTIMIZER_AUTO_ROLLOUT_PERCENT,
 };
 
 afterEach(() => {
   restore("OPTIMIZER_MOTOR_VERSION", ORIGINAL.motor);
   restore("OPTIMIZER_EFFORT_MODE", ORIGINAL.effort);
   restore("OPTIMIZER_RUST_LEGACY_WORKER", ORIGINAL.rust);
+  restore("OPTIMIZER_AUTO_ROLLOUT_PERCENT", ORIGINAL.rollout);
 });
 
 describe("optimizer SaaS runtime identity", () => {
@@ -39,6 +41,30 @@ describe("optimizer SaaS runtime identity", () => {
       patternGenerator: "rust",
       algorithmVersion: `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`,
     });
+  });
+
+  it("supports deterministic project-level Auto rollout without changing V2", () => {
+    process.env.OPTIMIZER_MOTOR_VERSION = "v2";
+    process.env.OPTIMIZER_EFFORT_MODE = "auto";
+
+    process.env.OPTIMIZER_AUTO_ROLLOUT_PERCENT = "0";
+    const control = resolveOptimizerRuntimeForExecution({
+      strategy: "v10",
+      queuedWorker: false,
+      rolloutKey: "project-123",
+    });
+
+    process.env.OPTIMIZER_AUTO_ROLLOUT_PERCENT = "100";
+    const treatment = resolveOptimizerRuntimeForExecution({
+      strategy: "v10",
+      queuedWorker: false,
+      rolloutKey: "project-123",
+    });
+
+    expect(control.motorVersion).toBe("v2");
+    expect(control.effortMode).toBe("fixed");
+    expect(treatment.motorVersion).toBe("v2");
+    expect(treatment.effortMode).toBe("auto");
   });
 
   it("replays the persisted runtime even after deploy flags change", () => {
