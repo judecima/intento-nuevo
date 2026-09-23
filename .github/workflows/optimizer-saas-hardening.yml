@@ -18,6 +18,7 @@ on:
       - "tests/optimizer/isolated-execution.test.ts"
       - "tests/optimizer-telemetry.test.ts"
       - "scripts/optimizer-kernel-child.cjs"
+      - "scripts/diagnose-tail-case-30.mjs"
       - ".github/workflows/optimizer-saas-hardening.yml"
   workflow_dispatch:
 
