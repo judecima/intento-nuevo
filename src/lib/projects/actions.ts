@@ -22,6 +22,7 @@ import { getDefaultMachineCutSettings } from "@/lib/production/queries";
 import { optimizationExecutionPolicy } from "@/lib/optimizations/execution-policy";
 import { enqueueOptimizationJob } from "@/lib/optimizations/queue";
 import { runAndStoreOptimization } from "@/lib/optimizations/run";
+import { resolveOptimizerRuntimeForExecution } from "@/lib/optimizations/runtime-policy";
 import { getProjectEditorData } from "@/lib/projects/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
@@ -268,14 +269,25 @@ async function persistProjectDraftAction(
     const policy = optimizationExecutionPolicy(rows);
 
     if (policy.mode === "inline") {
+      const runtime = resolveOptimizerRuntimeForExecution({
+        strategy: parsed.strategy,
+        queuedWorker: false,
+      });
       optimization = await runAndStoreOptimization({
         projectId: parsed.projectId,
         strategy: parsed.strategy,
         profile: parsed.profile,
         requestedBy: context.user.id,
-        preloaded
+        preloaded,
+        patternGenerator: runtime.patternGenerator,
+        motorVersion: runtime.motorVersion,
+        effortMode: runtime.effortMode
       });
     } else {
+      const runtime = resolveOptimizerRuntimeForExecution({
+        strategy: parsed.strategy,
+        queuedWorker: true,
+      });
       optimization = await enqueueOptimizationJob({
         supabase,
         organizationId: project.organization_id,
@@ -283,7 +295,8 @@ async function persistProjectDraftAction(
         projectVersion: version,
         strategy: parsed.strategy,
         profile: parsed.profile,
-        requestedBy: context.user.id
+        requestedBy: context.user.id,
+        algorithmVersion: runtime.algorithmVersion
       });
     }
   }
