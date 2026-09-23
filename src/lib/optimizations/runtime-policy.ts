@@ -58,8 +58,12 @@ export function resolveOptimizerRuntimeForExecution({
 export function optimizerRuntimeFromAlgorithmVersion(
   algorithmVersion: string,
   {
+    strategy = "v10",
     legacyPatternGenerator = "js",
-  }: { legacyPatternGenerator?: OptimizerPatternGenerator } = {},
+  }: {
+    strategy?: OptimizerStrategy;
+    legacyPatternGenerator?: OptimizerPatternGenerator;
+  } = {},
 ): OptimizerRuntimeSelection {
   const rust = algorithmVersion.endsWith("+rust-pattern-v1");
   const patternGenerator: OptimizerPatternGenerator =
@@ -94,7 +98,7 @@ export function optimizerRuntimeFromAlgorithmVersion(
     effortMode,
     patternGenerator,
     algorithmVersion: optimizerAlgorithmVersionForRuntime({
-      strategy: "v10",
+      strategy,
       patternGenerator,
       motorVersion,
       effortMode,
