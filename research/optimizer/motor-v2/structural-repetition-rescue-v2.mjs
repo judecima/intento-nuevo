@@ -52,7 +52,7 @@ function structuralPortfolio(demand,maxs,lb){
   for(const scale of [1.25,1.5,2]){
     for(let mask=0;mask<(1<<n);mask++){
       const v=target.map((x,i)=>(mask&(1<<i))?Math.ceil(x*scale):Math.floor(x*scale));
-      pushUnique(out,seen,v,demand,maxs,"SCALED_AVG",1);
+      pushUnique(out,seen,v,demand,maxs,"SCALED_AVG",2);
     }
   }
 
@@ -66,7 +66,7 @@ function structuralPortfolio(demand,maxs,lb){
           if(i===a)return level;
           const q=(mask&(1<<bit))?hi[i]:lo[i]; bit++; return q;
         });
-        pushUnique(out,seen,v,demand,maxs,"ANCHOR_CAPACITY",2);
+        pushUnique(out,seen,v,demand,maxs,"ANCHOR_CAPACITY",1);
       }
     }
   }
@@ -75,7 +75,7 @@ function structuralPortfolio(demand,maxs,lb){
   for(let hub=0;hub<n;hub++){
     for(const level of [maxs[hub],Math.ceil(maxs[hub]*.75),Math.ceil(maxs[hub]*.5),hi[hub]]){
       const v=demand.map((_,i)=>i===hub?level:1);
-      pushUnique(out,seen,v,demand,maxs,"HUB_FILL",2);
+      pushUnique(out,seen,v,demand,maxs,"HUB_FILL",1);
     }
   }
 
