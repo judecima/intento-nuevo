@@ -123,6 +123,16 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
       continue;
     }
 
+    // optimizar() rebuilds a one-board subproblem with local ids 0..N-1.
+    // Before reinserting it into the order, restore the original physical
+    // piece objects/ids; otherwise ids collide with pieces on other boards and
+    // the industrial validator correctly rejects the whole plan as duplicate.
+    if (!reasignarIdentidadesOriginales(mejorCandidato, original)) {
+      nuevas.push(original);
+      rejectedBoards++;
+      continue;
+    }
+
     const qOriginal = calidadRestos(original.restos || [], opts);
     if (compararCalidad(mejorCalidad, qOriginal) > 0) {
       nuevas.push(mejorCandidato);
@@ -171,6 +181,63 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
     validation: validacion,
     ms,
   };
+}
+
+function reasignarIdentidadesOriginales(candidata, original) {
+  const originales = new Map();
+  for (const colocada of (original && original.colocadas) || []) {
+    const pieza = colocada && colocada.pieza;
+    if (!pieza) return false;
+    const key = claveIdentidadPieza(pieza);
+    if (!originales.has(key)) originales.set(key, []);
+    originales.get(key).push(pieza);
+  }
+
+  for (const pool of originales.values()) {
+    pool.sort((a, b) => (+a.id || 0) - (+b.id || 0));
+  }
+
+  const porIdLocal = new Map();
+  for (const colocada of (candidata && candidata.colocadas) || []) {
+    const local = colocada && colocada.pieza;
+    if (!local) return false;
+    const pool = originales.get(claveIdentidadPieza(local));
+    if (!pool || !pool.length) return false;
+    const originalPieza = pool.shift();
+    porIdLocal.set(local.id, originalPieza);
+    colocada.pieza = originalPieza;
+  }
+
+  for (const pool of originales.values()) if (pool.length) return false;
+
+  const visitar = (nodo) => {
+    if (!nodo) return true;
+    for (const parte of nodo.partes || []) {
+      if (parte && parte.pieza) {
+        const mapped = porIdLocal.get(parte.pieza.id);
+        if (!mapped) return false;
+        parte.pieza = mapped;
+      }
+      if (parte && parte.hijo && !visitar(parte.hijo)) return false;
+    }
+    return true;
+  };
+
+  return visitar(candidata && candidata.arbol);
+}
+
+function claveIdentidadPieza(p) {
+  const c = p && p.cantos;
+  return JSON.stringify([
+    p && (p.ref ?? p._codigoXml ?? null),
+    +(p && p.base),
+    +(p && p.altura),
+    !!(p && p.veta),
+    c ? !!c.arr : false,
+    c ? !!c.aba : false,
+    c ? !!c.izq : false,
+    c ? !!c.der : false,
+  ]);
 }
 
 /**
