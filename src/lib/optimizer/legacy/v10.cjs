@@ -602,36 +602,71 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             ];
 
         let previousGenerationCpuMs = 0;
+        let firstCheckpointImproved = false;
         for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
           const rounds = blocks[blockIndex].filter(r => r < configuredMasterRounds);
           if (!rounds.length) continue;
 
           const tb = Date.now();
           const exec = incremental.execute(rounds);
-          const masterPatterns = incremental.patterns();
-          const pool = masterPatterns.concat(mono);
           const generationCpuMs = incremental.generationCpuMs;
           const generationDeltaCpuMs = Math.max(0, generationCpuMs - previousGenerationCpuMs);
           previousGenerationCpuMs = generationCpuMs;
 
-          const s = resolverCobertura(
-            pool,
-            lineas.map(l => l.cant),
-            areaPlaca,
-            preMasterBoards,
-            config.msMaster || 8000,
-            {
-              telemetry: config._step0Telemetry || null,
-              maxNodos: config.maxNodosMaster,
-              watchdogMs: config.watchdogMasterMs
-            }
-          );
-          const sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
-          const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
-          const blockMs = Date.now() - tb;
+          // Solving every +4 block is counterproductive when the first 16
+          // rounds produced no board progress: generation is cumulative, so in
+          // that case keep collecting the exact Full40 pool and solve only at
+          // the final checkpoint. If P16 did improve the incumbent, that is
+          // concrete structural evidence and the +4 solve cadence remains
+          // worthwhile because it may certify the safe LB earlier.
+          const isFirstCheckpoint = blockIndex === 0;
+          const isFinalCheckpoint = blockIndex === blocks.length - 1;
+          const structuralShortCircuit = incremental.structuralShortCircuit === true;
+          const shouldSolve =
+            isFirstCheckpoint ||
+            isFinalCheckpoint ||
+            industrialP3 ||
+            structuralShortCircuit ||
+            firstCheckpointImproved;
 
-          if (cand) probar('master', cand, blockMs, true);
-          else registrar(metricas.master, blockMs, false, 0, false);
+          let pool = null;
+          let sol = null;
+          let cand = null;
+          if (shouldSolve) {
+            const masterPatterns = incremental.patterns();
+            pool = masterPatterns.concat(mono);
+            const s = resolverCobertura(
+              pool,
+              lineas.map(l => l.cant),
+              areaPlaca,
+              preMasterBoards,
+              config.msMaster || 8000,
+              {
+                telemetry: config._step0Telemetry || null,
+                maxNodos: config.maxNodosMaster,
+                watchdogMs: config.watchdogMasterMs
+              }
+            );
+            sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
+            cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
+          }
+
+          const blockMs = Date.now() - tb;
+          if (shouldSolve) {
+            if (cand) probar('master', cand, blockMs, true);
+            else registrar(metricas.master, blockMs, false, 0, false);
+          } else {
+            // Preserve generation cost in the controller telemetry without
+            // pretending an additional Master solve/activation occurred.
+            metricas.master.ms += blockMs;
+            metricas.master.peorMs = Math.max(metricas.master.peorMs, blockMs);
+          }
+
+          if (isFirstCheckpoint) {
+            firstCheckpointImproved =
+              Number.isFinite(mejor?.resumen?.placas) &&
+              mejor.resumen.placas < preMasterBoards;
+          }
 
           const executedRounds = incremental.executedRounds();
           metricas.effortController.roundsExecuted = executedRounds.length;
@@ -641,7 +676,9 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             requestedRounds: rounds,
             newlyExecuted: exec?.newlyExecuted || [],
             executedRounds: executedRounds.length,
-            poolSize: pool.length,
+            solved: shouldSolve,
+            firstCheckpointImproved,
+            poolSize: pool?.length ?? null,
             candidateCount: incremental.candidateCount,
             generationDeltaCpuMs,
             generationCpuMs,
@@ -651,12 +688,12 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             incumbentBoards: mejor?.resumen?.placas ?? null,
             safeLowerBound: cota,
             wallMs: blockMs,
-            structuralShortCircuit: incremental.structuralShortCircuit === true,
+            structuralShortCircuit,
           });
 
           if (mejor?.resumen?.placas <= cota) {
             metricas.effortController.stopReason =
-              incremental.structuralShortCircuit === true
+              structuralShortCircuit
                 ? "structural-safe-lb"
                 : "safe-lb";
             break;
