@@ -8,6 +8,8 @@ on:
       - "src/lib/optimizer/**"
       - "src/lib/optimizations/**"
       - "src/lib/projects/actions.ts"
+      - "src/components/optimizer/optimization-job-watcher.tsx"
+      - "src/app/(dashboard)/projects/[projectId]/layout.tsx"
       - "tests/optimizer/runtime-policy.test.ts"
       - "tests/optimizer/isolated-execution.test.ts"
       - "tests/optimizer-telemetry.test.ts"
