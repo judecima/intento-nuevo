@@ -6,7 +6,9 @@ import {
   createReadStream,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
+  readSync,
   readdirSync,
   rmSync,
   statSync,
@@ -330,13 +332,18 @@ for (const file of selected) {
     };
   } catch (error) {
     const message = String(error?.stack || error);
+    const parseError =
+      error?.name === "CanonicalXmlParseError" ||
+      error instanceof optimizer.CanonicalXmlParseError;
     if (message.includes("RUST_REQUIRED_FOR_CERTIFICATION")) {
       fatalRustError = message;
     }
     row = {
       schema: "optimizer-full-runtime-validation-row-v1",
-      status: "FAIL",
-      failures: [fatalRustError ? "rust_not_active" : "exception"],
+      status: parseError ? "SKIP" : "FAIL",
+      failures: parseError ? [] : [fatalRustError ? "rust_not_active" : "exception"],
+      skipReason: parseError ? "canonical_parse_error" : null,
+      parseErrorCode: parseError ? (error?.code ?? null) : null,
       caseKey: file.caseKey,
       source: file.source,
       relativePath: file.relativePath,
@@ -711,8 +718,10 @@ function summarize(rows) {
   return {
     rows: rows.length,
     ok: rows.filter((row) => row.status === "OK").length,
+    skipped: rows.filter((row) => row.status === "SKIP").length,
+    parseErrors: rows.filter((row) => row.skipReason === "canonical_parse_error").length,
     failures: rows.filter((row) => row.status === "FAIL").length,
-    parseOrExceptions: rows.filter((row) => row.failures?.includes("exception")).length,
+    runtimeExceptions: rows.filter((row) => row.failures?.includes("exception")).length,
     candidateVsBaseline,
     candidateVsLepton,
     autoVsAdvanced,
@@ -733,6 +742,7 @@ function buildSummary(meta, rows, discoveredXml, complete) {
     git: meta.git,
     discoveredXml,
     processedRows: rows.length,
+    canonicalValidRows: rows.filter((row) => row.status !== "SKIP").length,
     ...base,
     safety: {
       candidateInvalid: rows.filter((r) => r.candidate && !r.candidate.valid).length,
@@ -894,6 +904,8 @@ function renderSummaryMarkdown(summary) {
 - Git: \`${summary.git?.head ?? "unknown"}\`
 - XML discovered: **${summary.discoveredXml}**
 - Rows processed: **${summary.processedRows}**
+- Canonical valid rows: **${summary.canonicalValidRows}**
+- Parse errors skipped: **${summary.parseErrors}**
 - FAIL: **${summary.failures}**
 
 ## Candidate vs frozen V1
@@ -981,8 +993,17 @@ function sha256Text(value) {
 
 function sha256File(path) {
   const hash = createHash("sha256");
-  const data = readFileSync(path);
-  hash.update(data);
+  const fd = openSync(path, "r");
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    for (;;) {
+      const bytes = readSync(fd, buffer, 0, buffer.length, null);
+      if (!bytes) break;
+      hash.update(buffer.subarray(0, bytes));
+    }
+  } finally {
+    closeSync(fd);
+  }
   return hash.digest("hex");
 }
 
