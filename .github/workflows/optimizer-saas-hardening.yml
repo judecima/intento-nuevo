@@ -47,5 +47,7 @@ jobs:
           tests/optimizer-telemetry.test.ts
           tests/optimizer/motor-beta-v2-runtime.test.ts
           tests/optimizer/auto-effort-controller.test.ts
+      - name: Diagnose 30-piece local tail
+        run: node scripts/diagnose-tail-case-30.mjs
       - name: Next production build
         run: npm run build
