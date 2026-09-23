@@ -137,9 +137,12 @@ export function optimizerAlgorithmVersionForRuntime({
       : LEGACY_OPTIMIZER_VERSION;
   }
 
-  if (effortMode === "auto") return `${OPTIMIZER_AUTO_EFFORT_VERSION}${V2_REMNANT_POLISH_SUFFIX}${rustSuffix}`;
-  if (effortMode === "advanced") return `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}${V2_REMNANT_POLISH_SUFFIX}${rustSuffix}`;
-  return `${MOTOR_BETA_V2_VERSION}${V2_REMNANT_POLISH_SUFFIX}${rustSuffix}`;
+  const polishSuffix = parseEnvFlag("OPTIMIZER_V2_REMNANT_POLISH", true)
+    ? V2_REMNANT_POLISH_SUFFIX
+    : "";
+  if (effortMode === "auto") return `${OPTIMIZER_AUTO_EFFORT_VERSION}${polishSuffix}${rustSuffix}`;
+  if (effortMode === "advanced") return `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}${polishSuffix}${rustSuffix}`;
+  return `${MOTOR_BETA_V2_VERSION}${polishSuffix}${rustSuffix}`;
 }
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
@@ -556,7 +559,7 @@ function toLegacyOptions(
           usarCotaBarataPostCompactacion: true,
           usarDffFs0PostCompactacion: true,
           usarMascarasUnicasMasterLe4: true,
-          usarPolishRemanentePorPlacaV2: true,
+          usarPolishRemanentePorPlacaV2: parseEnvFlag("OPTIMIZER_V2_REMNANT_POLISH", true),
           polishRemanenteMaxPlacas: 2,
           minPiezasMultiSliceExperimental: 200,
           maxPiezasMultiSliceExperimental: 500,
