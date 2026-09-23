@@ -5,6 +5,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { ProjectEditorData } from "@/lib/projects/queries";
 import type { OptimizerProfile, OptimizerStrategy } from "@/lib/optimizer";
 import { runAndStoreOptimization } from "./run";
+import { optimizerRuntimeFromAlgorithmVersion } from "./runtime-policy";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type ProjectItemRow = Database["public"]["Tables"]["project_items"]["Row"];
@@ -29,7 +30,7 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
   const jobs = supabase.from("optimization_jobs") as any;
 
   const { data: candidate, error: lookupError } = await jobs
-    .select("id, organization_id, project_id, project_version, strategy, profile, requested_by")
+    .select("id, organization_id, project_id, project_version, strategy, profile, requested_by, algorithm_version")
     .eq("status", "queued")
     .order("created_at", { ascending: true })
     .limit(1)
@@ -42,7 +43,7 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
     .update({ status: "running", started_at: new Date().toISOString(), error: null })
     .eq("id", candidate.id)
     .eq("status", "queued")
-    .select("id, organization_id, project_id, project_version, strategy, profile, requested_by")
+    .select("id, organization_id, project_id, project_version, strategy, profile, requested_by, algorithm_version")
     .maybeSingle();
 
   if (claimError) throw new Error(`OPTIMIZATION_WORKER_CLAIM_FAILED: ${claimError.message}`);
@@ -59,8 +60,11 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
     }
 
     const strategy = parseStrategy(job.strategy);
-    const patternGenerator =
-      strategy === "v10" && rustPatternGeneratorWorkerEnabled() ? "rust" : "js";
+    const runtime = optimizerRuntimeFromAlgorithmVersion(job.algorithm_version, {
+      strategy,
+      legacyPatternGenerator:
+        strategy === "v10" && rustPatternGeneratorWorkerEnabled() ? "rust" : "js",
+    });
 
     const outcome = await runAndStoreOptimization({
       projectId: job.project_id,
@@ -72,7 +76,9 @@ export async function processNextQueuedOptimizationJob(): Promise<OptimizerWorke
       existingJobId: job.id,
       existingJobClaimed: true,
       expectedProjectVersion: Number(job.project_version),
-      patternGenerator
+      patternGenerator: runtime.patternGenerator,
+      motorVersion: runtime.motorVersion,
+      effortMode: runtime.effortMode
     });
 
     if (!outcome.ok) {
