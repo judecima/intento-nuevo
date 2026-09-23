@@ -232,7 +232,9 @@ export function optimizeProject(
   const motorVersion: OptimizerMotorVersion =
     strategy === "v10" && !stagedConfig ? requestedMotorVersion : "v1";
   const patternGenerator: OptimizerPatternGenerator =
-    strategy === "v10" ? (runtimeOptions.patternGenerator ?? "js") : "js";
+    strategy === "v10"
+      ? (runtimeOptions.patternGenerator ?? (motorVersion === "v2" ? "rust" : "js"))
+      : "js";
   const cacheKey = [
     inputHash,
     deterministicBudgets.cacheDiscriminator,
@@ -373,13 +375,38 @@ function toLegacyOptions(
     instrumentarStep0: strategy === "v10" && parseEnvFlag("OPTIMIZER_STEP0_TELEMETRY", false)
   };
 
+  const frozenBetaV2 =
+    motorVersion === "v2"
+      ? {
+          // Keep the production runtime identical to the certified V3/V2 stack.
+          masterStructuralV2: true,
+          masterIndustrialRulesV3Experimental: true,
+          usarCotaBarataPostCompactacion: true,
+          usarDffFs0PostCompactacion: true,
+          usarMascarasUnicasMasterLe4: true,
+          minPiezasMultiSliceExperimental: 200,
+          maxPiezasMultiSliceExperimental: 500,
+          rondasPatrones: 40,
+          msMaster: 8000,
+          maxNodosMaster: deterministicBudgets.maxNodosMaster ?? 1600000,
+          watchdogMasterMs: deterministicBudgets.watchdogMasterMs ?? 12000,
+        }
+      : {};
+
   return {
     ...options,
     ...profileOptions(input.constraints.profile ?? "balanced", totalPieces),
+    ...frozenBetaV2,
     maxExpansionesBeam: deterministicBudgets.maxExpansionesBeam,
     watchdogBeamMs: deterministicBudgets.watchdogBeamMs,
-    maxNodosMaster: deterministicBudgets.maxNodosMaster,
-    watchdogMasterMs: deterministicBudgets.watchdogMasterMs,
+    maxNodosMaster:
+      motorVersion === "v2"
+        ? (deterministicBudgets.maxNodosMaster ?? 1600000)
+        : deterministicBudgets.maxNodosMaster,
+    watchdogMasterMs:
+      motorVersion === "v2"
+        ? (deterministicBudgets.watchdogMasterMs ?? 12000)
+        : deterministicBudgets.watchdogMasterMs,
     maxIntentosRescate: deterministicBudgets.maxIntentosRescate,
     watchdogRescateMs: deterministicBudgets.watchdogRescateMs,
   };
