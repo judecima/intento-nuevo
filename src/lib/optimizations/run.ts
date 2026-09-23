@@ -7,6 +7,7 @@ import {
   getOptimizationInputHash,
   optimizerAlgorithmVersionForRuntime,
   optimizeProject,
+  optimizeProjectIsolated,
   type OptimizationBoardResult,
   type OptimizationCut,
   type OptimizationPlacement,
@@ -50,7 +51,8 @@ export async function runAndStoreOptimization({
   expectedProjectVersion,
   patternGenerator = "js",
   motorVersion = "v1",
-  effortMode = "fixed"
+  effortMode = "fixed",
+  isolateKernel = false
 }: {
   projectId: string;
   strategy: OptimizerStrategy;
@@ -71,6 +73,11 @@ export async function runAndStoreOptimization({
   /** Runtime algorítmico explícito; evita que un job cambie por flags globales. */
   motorVersion?: OptimizerMotorVersion;
   effortMode?: OptimizerEffortMode;
+  /**
+   * Worker path: run the CPU-heavy legacy kernel in a killable child process.
+   * Inline UI keeps the synchronous in-process path to avoid process overhead.
+   */
+  isolateKernel?: boolean;
 }): Promise<RunOptimizationOutcome> {
   const supabase = supabaseClient ?? createSupabaseServerClient();
   const data = preloaded ?? (await getProjectEditorData(projectId));
@@ -185,11 +192,17 @@ export async function runAndStoreOptimization({
       if (versionError) throw new Error(`OPTIMIZATION_JOB_VERSION_UPDATE_FAILED: ${versionError.message}`);
     }
 
-    const result = optimizeProject(input, {
-      patternGenerator,
-      motorVersion,
-      effortMode,
-    });
+    const result = isolateKernel
+      ? await optimizeProjectIsolated(input, {
+          patternGenerator,
+          motorVersion,
+          effortMode,
+        })
+      : optimizeProject(input, {
+          patternGenerator,
+          motorVersion,
+          effortMode,
+        });
 
     if (jobId && result.algorithmVersion !== requestedAlgorithmVersion) {
       const { error: fallbackVersionError } = await supabase
