@@ -65,6 +65,24 @@ describe("optimizer isolated kernel execution", () => {
     ).rejects.toThrow("OPTIMIZER_KERNEL_TIMEOUT:20");
   });
 
+  it("aborts the child when a cancellation signal is raised", async () => {
+    process.env.OPTIMIZER_KERNEL_CHILD_DELAY_MS = "250";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20);
+
+    try {
+      await expect(
+        optimizeProjectIsolated(
+          input("isolation-abort"),
+          { motorVersion: "v1", patternGenerator: "js" },
+          { timeoutMs: 5_000, signal: controller.signal },
+        ),
+      ).rejects.toThrow("OPTIMIZER_KERNEL_ABORTED");
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+
   it("contains a child crash and keeps the parent able to optimize", async () => {
     process.env.OPTIMIZER_KERNEL_CHILD_FORCE_CRASH = "1";
 
