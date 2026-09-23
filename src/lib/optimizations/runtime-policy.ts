@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   LEGACY_OPTIMIZER_VERSION,
   MOTOR_BETA_V2_VERSION,
@@ -21,12 +22,16 @@ export type OptimizerRuntimeSelection = {
 export function resolveOptimizerRuntimeForExecution({
   strategy,
   queuedWorker,
+  rolloutKey,
 }: {
   strategy: OptimizerStrategy;
   queuedWorker: boolean;
+  /** Stable project/tenant key used only for deterministic Auto rollout. */
+  rolloutKey?: string;
 }): OptimizerRuntimeSelection {
   const motorVersion = envMotorVersion();
-  const effortMode = motorVersion === "v2" ? envEffortMode() : "fixed";
+  const requestedEffortMode = motorVersion === "v2" ? envEffortMode() : "fixed";
+  const effortMode = resolveEffortRollout(requestedEffortMode, rolloutKey);
   const patternGenerator: OptimizerPatternGenerator =
     strategy === "v10" && queuedWorker && envFlag("OPTIMIZER_RUST_LEGACY_WORKER")
       ? "rust"
@@ -117,4 +122,32 @@ function envEffortMode(): OptimizerEffortMode {
 
 function envFlag(name: string): boolean {
   return /^(1|true|yes|on)$/i.test(String(process.env[name] ?? ""));
+}
+
+
+export function optimizerAutoRolloutBucket(key: string): number {
+  const digest = createHash("sha256").update(key).digest();
+  return digest.readUInt32BE(0) % 10000;
+}
+
+function resolveEffortRollout(
+  requested: OptimizerEffortMode,
+  rolloutKey?: string,
+): OptimizerEffortMode {
+  if (requested !== "auto" || !rolloutKey) return requested;
+
+  const percent = envPercent("OPTIMIZER_AUTO_ROLLOUT_PERCENT", 100);
+  if (percent <= 0) return "fixed";
+  if (percent >= 100) return "auto";
+
+  const threshold = Math.round(percent * 100);
+  return optimizerAutoRolloutBucket(rolloutKey) < threshold ? "auto" : "fixed";
+}
+
+function envPercent(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw == null || raw.trim() === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(100, value));
 }
