@@ -9,6 +9,9 @@ export type OptimizationTimingSample = {
   totalMs: number | null;
   engineMs: number | null;
   cacheHit: boolean | null;
+  algorithmVersion?: string | null;
+  effortMode?: string | null;
+  stopReason?: string | null;
 };
 
 export type OptimizationTelemetrySummary = {
@@ -21,6 +24,11 @@ export type OptimizationTelemetrySummary = {
   queuedMs: Percentiles;
   runMs: Percentiles;
   engineMs: Percentiles;
+  runtime: {
+    algorithmVersions: Record<string, number>;
+    effortModes: Record<string, number>;
+    stopReasons: Record<string, number>;
+  };
 };
 
 type Percentiles = {
@@ -31,7 +39,7 @@ type Percentiles = {
 
 type JobTimingRow = Pick<
   Database["public"]["Tables"]["optimization_jobs"]["Row"],
-  "id" | "status" | "created_at" | "started_at" | "completed_at"
+  "id" | "status" | "created_at" | "started_at" | "completed_at" | "algorithm_version"
 >;
 
 type ResultTimingRow = Pick<
@@ -52,7 +60,7 @@ export async function getOptimizationTelemetrySummary(
   const safeLimit = Math.max(1, Math.min(1000, Math.trunc(limit)));
   const { data: jobData, error: jobError } = await supabase
     .from("optimization_jobs")
-    .select("id,status,created_at,started_at,completed_at")
+    .select("id,status,created_at,started_at,completed_at,algorithm_version")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
     .limit(safeLimit);
@@ -89,7 +97,12 @@ export function summarizeOptimizationTimings(samples: OptimizationTimingSample[]
     totalMs: percentiles(samples.map((sample) => sample.totalMs)),
     queuedMs: percentiles(samples.map((sample) => sample.queuedMs)),
     runMs: percentiles(samples.map((sample) => sample.runMs)),
-    engineMs: percentiles(samples.map((sample) => sample.engineMs))
+    engineMs: percentiles(samples.map((sample) => sample.engineMs)),
+    runtime: {
+      algorithmVersions: counts(samples.map((sample) => sample.algorithmVersion)),
+      effortModes: counts(samples.map((sample) => sample.effortMode)),
+      stopReasons: counts(samples.map((sample) => sample.stopReason)),
+    }
   };
 }
 
@@ -106,18 +119,57 @@ function timingSample(job: JobTimingRow, resultJson: Json | undefined): Optimiza
     runMs: started != null && completed != null ? Math.max(0, completed - started) : null,
     totalMs: created != null && completed != null ? Math.max(0, completed - created) : null,
     engineMs: metrics.engineMs,
-    cacheHit: metrics.cacheHit
+    cacheHit: metrics.cacheHit,
+    algorithmVersion: job.algorithm_version,
+    effortMode: metrics.effortMode,
+    stopReason: metrics.stopReason
   };
 }
 
-function resultMetrics(value: Json | undefined): { engineMs: number | null; cacheHit: boolean | null } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return { engineMs: null, cacheHit: null };
-  const metrics = (value as Record<string, unknown>).metrics;
-  if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) return { engineMs: null, cacheHit: null };
-  const raw = metrics as Record<string, unknown>;
+function resultMetrics(value: Json | undefined): {
+  engineMs: number | null;
+  cacheHit: boolean | null;
+  effortMode: string | null;
+  stopReason: string | null;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { engineMs: null, cacheHit: null, effortMode: null, stopReason: null };
+  }
+
+  const root = value as Record<string, unknown>;
+  const metricsValue = root.metrics;
+  const metrics =
+    metricsValue && typeof metricsValue === "object" && !Array.isArray(metricsValue)
+      ? metricsValue as Record<string, unknown>
+      : null;
+
+  const rawValue = root.raw;
+  const raw =
+    rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue as Record<string, unknown>
+      : null;
+  const metricasV10Value = raw?.metricasV10;
+  const metricasV10 =
+    metricasV10Value && typeof metricasV10Value === "object" && !Array.isArray(metricasV10Value)
+      ? metricasV10Value as Record<string, unknown>
+      : null;
+  const effortControllerValue = metricasV10?.effortController;
+  const effortController =
+    effortControllerValue && typeof effortControllerValue === "object" && !Array.isArray(effortControllerValue)
+      ? effortControllerValue as Record<string, unknown>
+      : null;
+
   return {
-    engineMs: typeof raw.engineMs === "number" && Number.isFinite(raw.engineMs) ? raw.engineMs : null,
-    cacheHit: typeof raw.cacheHit === "boolean" ? raw.cacheHit : null
+    engineMs:
+      typeof metrics?.engineMs === "number" && Number.isFinite(metrics.engineMs)
+        ? metrics.engineMs
+        : null,
+    cacheHit: typeof metrics?.cacheHit === "boolean" ? metrics.cacheHit : null,
+    effortMode: typeof metrics?.effortMode === "string" ? metrics.effortMode : null,
+    stopReason:
+      typeof effortController?.stopReason === "string"
+        ? effortController.stopReason
+        : null
   };
 }
 
@@ -140,4 +192,14 @@ function percentile(sorted: number[], ratio: number): number | null {
   if (sorted.length === 0) return null;
   const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1));
   return sorted[index] ?? null;
+}
+
+
+function counts(values: Array<string | null | undefined>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const value of values) {
+    if (!value) continue;
+    out[value] = (out[value] ?? 0) + 1;
+  }
+  return out;
 }
