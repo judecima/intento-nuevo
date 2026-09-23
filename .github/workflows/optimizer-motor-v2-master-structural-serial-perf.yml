@@ -5,7 +5,8 @@ on:
     branches:
       - research/motor-v2-structural-20260922
     paths:
-      - "research/optimizer/motor-v2/master-structural-shortcircuit-v2.mjs"\n      - "research/optimizer/motor-v2/structural-repetition-rescue-v2.mjs"
+      - "research/optimizer/motor-v2/master-structural-shortcircuit-v2.mjs"
+      - "research/optimizer/motor-v2/structural-repetition-rescue-v2.mjs"
       - "research/optimizer/motor-v2/master-structural-v2-serial-perf.mjs"
       - "research/optimizer/holdout-v2-fixture/**"
       - ".github/workflows/optimizer-motor-v2-master-structural-serial-perf.yml"
