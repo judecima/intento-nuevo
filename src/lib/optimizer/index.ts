@@ -29,6 +29,7 @@ export {
   RUST_LEGACY_PATTERN_GENERATOR_VERSION,
   optimizerAlgorithmVersionForRuntime,
   optimizeProject,
+  optimizeProjectIsolated,
 } from "./engine/legacy-engine";
 export type { OptimizeProjectRuntimeOptions, OptimizerEffortMode, OptimizerMotorVersion } from "./engine/legacy-engine";
 export { validateIndependentSlices } from "./validators/independent-slices";
