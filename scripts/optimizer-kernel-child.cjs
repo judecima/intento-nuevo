@@ -6,6 +6,24 @@ const v10 = require("../src/lib/optimizer/legacy/v10.cjs");
 process.on("message", (message) => {
   if (!message || message.type !== "run") return;
 
+  if (process.env.NODE_ENV === "test" && process.env.OPTIMIZER_KERNEL_CHILD_FORCE_CRASH === "1") {
+    process.exit(86);
+    return;
+  }
+
+  const delayMs =
+    process.env.NODE_ENV === "test"
+      ? Math.max(0, Number.parseInt(process.env.OPTIMIZER_KERNEL_CHILD_DELAY_MS || "0", 10) || 0)
+      : 0;
+
+  if (delayMs > 0) {
+    setTimeout(() => execute(message), delayMs);
+  } else {
+    execute(message);
+  }
+});
+
+function execute(message) {
   try {
     const { strategy, lineas, options, stagedConfig } = message.payload;
     let result;
@@ -52,4 +70,4 @@ process.on("message", (message) => {
       });
     }
   }
-});
+}
