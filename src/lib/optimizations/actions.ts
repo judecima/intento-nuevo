@@ -9,6 +9,7 @@ import { optimizeProject } from "@/lib/optimizer";
 import { cutPlanViewFromResult, type CutPlanView } from "./plan-view";
 import { buildOptimizationInputFromDraft } from "./project-input";
 import { describeValidation } from "./run";
+import { resolveOptimizerRuntimeForExecution } from "./runtime-policy";
 
 export type PreviewOptimizationOutcome =
   | { ok: true; plan: CutPlanView }
@@ -47,7 +48,15 @@ export async function previewProjectOptimizationAction(draft: ProjectDraft): Pro
       draft: parsed,
       profile: parsed.profile
     });
-    const result = optimizeProject(input);
+    const runtime = resolveOptimizerRuntimeForExecution({
+      strategy: parsed.strategy,
+      queuedWorker: false,
+    });
+    const result = optimizeProject(input, {
+      patternGenerator: runtime.patternGenerator,
+      motorVersion: runtime.motorVersion,
+      effortMode: runtime.effortMode,
+    });
 
     if (!result.validation.ok) {
       return { ok: false, error: describeValidation(result) };
