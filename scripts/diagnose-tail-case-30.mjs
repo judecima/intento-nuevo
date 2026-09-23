@@ -43,7 +43,6 @@ function makeInput(trim) {
       profile: "balanced",
       minRemnant: 250,
       minCommercialRemnantLongSide: 400,
-      minCutSize: 60,
       allowOneBoard: true,
       allowPatternMaster: true,
       allowMultiSlice: true,
