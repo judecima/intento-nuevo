@@ -49,44 +49,78 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
     ? options.deltasEstructurales
     : detectarDeltasEstructurales(lineasDesdePlan(plan), configLimpia(opts));
 
+  const maxBoardsRaw = Number(options.maxBoards);
+  const maxBoards = Number.isFinite(maxBoardsRaw) && maxBoardsRaw > 0
+    ? Math.min(plan.placas.length, Math.floor(maxBoardsRaw))
+    : plan.placas.length;
+  const rankedBoardIndexes = plan.placas
+    .map((board, index) => ({
+      index,
+      quality: calidadRestos((board && board.restos) || [], opts),
+    }))
+    .sort((a, b) => {
+      const quality = compararCalidad(b.quality, a.quality);
+      return quality || a.index - b.index;
+    })
+    .slice(0, maxBoards)
+    .map((entry) => entry.index);
+  const selectedBoardIndexes = new Set(rankedBoardIndexes);
+  const seedOffsets = Array.isArray(options.seedOffsets) && options.seedOffsets.length
+    ? options.seedOffsets.map((value) => Number(value)).filter(Number.isFinite)
+    : [0];
+  const seedBaseOffset = Number.isFinite(+options.seedBaseOffset)
+    ? +options.seedBaseOffset
+    : 900000;
+
   for (let i = 0; i < plan.placas.length; i++) {
     const original = plan.placas[i];
     const lineas = lineasDesdePlaca(original);
 
-    if (!lineas.length) {
+    if (!lineas.length || !selectedBoardIndexes.has(i)) {
       nuevas.push(original);
       continue;
     }
 
     attemptedBoards++;
-    let candidato = null;
-    try {
-      const cfg = configLimpia(opts);
-      candidato = optimizar(lineas, {
-        ...cfg,
-        multiVariantes: false,
-        penalizarFranjaMuerta: true,
-        deltasEstructurales: globalDeltas,
-        // Deterministic but plate-specific seed. This avoids coupling the result
-        // of one plate with how many plates preceded it in the order.
-        semilla: (Number(cfg.semilla) || 20260812) + 700001 + i,
-      });
-    } catch (_) {
-      candidato = null;
+    const cfg = configLimpia(opts);
+    let mejorCandidato = null;
+    let mejorCalidad = null;
+
+    for (const seedOffset of seedOffsets) {
+      let candidato = null;
+      try {
+        candidato = optimizar(lineas, {
+          ...cfg,
+          multiVariantes: options.multiVariantes === true,
+          penalizarFranjaMuerta: true,
+          deltasEstructurales: globalDeltas,
+          semilla: (Number(cfg.semilla) || 20260812) + seedBaseOffset + seedOffset,
+        });
+      } catch (_) {
+        candidato = null;
+      }
+
+      if (!candidato || !Array.isArray(candidato.placas) || candidato.placas.length !== 1) {
+        continue;
+      }
+
+      const nuevaPlaca = candidato.placas[0];
+      const calidad = calidadRestos(nuevaPlaca.restos || [], opts);
+      if (!mejorCandidato || compararCalidad(calidad, mejorCalidad) > 0) {
+        mejorCandidato = nuevaPlaca;
+        mejorCalidad = calidad;
+      }
     }
 
-    if (!candidato || !Array.isArray(candidato.placas) || candidato.placas.length !== 1) {
+    if (!mejorCandidato) {
       nuevas.push(original);
       rejectedBoards++;
       continue;
     }
 
-    const nuevaPlaca = candidato.placas[0];
     const qOriginal = calidadRestos(original.restos || [], opts);
-    const qCandidato = calidadRestos(nuevaPlaca.restos || [], opts);
-
-    if (compararCalidad(qCandidato, qOriginal) > 0) {
-      nuevas.push(nuevaPlaca);
+    if (compararCalidad(mejorCalidad, qOriginal) > 0) {
+      nuevas.push(mejorCandidato);
       improvedBoards++;
     } else {
       nuevas.push(original);
