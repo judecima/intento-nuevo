@@ -635,6 +635,21 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           if (shouldSolve) {
             const masterPatterns = incremental.patterns();
             pool = masterPatterns.concat(mono);
+            const fullNodeCapRaw = Number(config.maxNodosMaster);
+            const fullNodeCap =
+              Number.isFinite(fullNodeCapRaw) && fullNodeCapRaw > 0
+                ? Math.floor(fullNodeCapRaw)
+                : null;
+            const checkpointNodeCapRaw = Number(config.autoCheckpointMaxNodes);
+            const checkpointNodeCap =
+              Number.isFinite(checkpointNodeCapRaw) && checkpointNodeCapRaw > 0
+                ? Math.floor(checkpointNodeCapRaw)
+                : 12000;
+            const solveNodeCap = isFinalCheckpoint
+              ? fullNodeCap
+              : fullNodeCap === null
+                ? checkpointNodeCap
+                : Math.min(fullNodeCap, checkpointNodeCap);
             const s = resolverCobertura(
               pool,
               lineas.map(l => l.cant),
@@ -643,8 +658,9 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
               config.msMaster || 8000,
               {
                 telemetry: config._step0Telemetry || null,
-                maxNodos: config.maxNodosMaster,
-                watchdogMs: config.watchdogMasterMs
+                maxNodos: solveNodeCap,
+                watchdogMs: config.watchdogMasterMs,
+                targetBoards: isFinalCheckpoint ? null : cota
               }
             );
             sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
@@ -684,6 +700,14 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
             generationCpuMs,
             solverNodes: sol?.nodos || 0,
             solverExhausted: !!sol?.agotado,
+            solverTargetReached: !!sol?.targetReached,
+            solverNodeCap: shouldSolve
+              ? (isFinalCheckpoint
+                  ? (Number.isFinite(Number(config.maxNodosMaster)) ? Number(config.maxNodosMaster) : null)
+                  : (Number.isFinite(Number(config.autoCheckpointMaxNodes))
+                      ? Number(config.autoCheckpointMaxNodes)
+                      : 12000))
+              : null,
             candidateBoards: cand?.resumen?.placas ?? null,
             incumbentBoards: mejor?.resumen?.placas ?? null,
             safeLowerBound: cota,
