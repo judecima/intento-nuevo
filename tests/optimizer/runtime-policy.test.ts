@@ -4,6 +4,7 @@ import {
   LEGACY_OPTIMIZER_VERSION,
   OPTIMIZER_AUTO_EFFORT_VERSION,
   RUST_LEGACY_PATTERN_GENERATOR_VERSION,
+  V2_REMNANT_POLISH_SUFFIX,
 } from "@/lib/optimizer";
 import {
   optimizerRuntimeFromAlgorithmVersion,
@@ -39,7 +40,7 @@ describe("optimizer SaaS runtime identity", () => {
       motorVersion: "v2",
       effortMode: "auto",
       patternGenerator: "rust",
-      algorithmVersion: `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`,
+      algorithmVersion: `${OPTIMIZER_AUTO_EFFORT_VERSION}${V2_REMNANT_POLISH_SUFFIX}+rust-pattern-v1`,
     });
   });
 
@@ -59,7 +60,7 @@ describe("optimizer SaaS runtime identity", () => {
       motorVersion: "v2",
       effortMode: "auto",
       patternGenerator: "rust",
-      algorithmVersion: `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`,
+      algorithmVersion: `${OPTIMIZER_AUTO_EFFORT_VERSION}${V2_REMNANT_POLISH_SUFFIX}+rust-pattern-v1`,
     });
   });
 
@@ -88,7 +89,7 @@ describe("optimizer SaaS runtime identity", () => {
   });
 
   it("replays the persisted runtime even after deploy flags change", () => {
-    const persisted = `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`;
+    const persisted = `${OPTIMIZER_AUTO_EFFORT_VERSION}${V2_REMNANT_POLISH_SUFFIX}+rust-pattern-v1`;
 
     process.env.OPTIMIZER_MOTOR_VERSION = "v1";
     process.env.OPTIMIZER_EFFORT_MODE = "fixed";
