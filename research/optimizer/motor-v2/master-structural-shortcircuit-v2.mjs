@@ -43,8 +43,9 @@ function uniquePatternsFromPlan(plan,n){
 
 inc.createIncrementalRustMasterGenerator=function(lineas,config,rondas=40,semilla=7){
   const base=originalCreate(lineas,config,rondas,semilla);
+  const enabled=activeTelemetry!==null;
   const normalized=lineas.map((l,i)=>({...l,ref:i}));
-  const gate=repetitionGate(normalized);
+  const gate=enabled?repetitionGate(normalized):{eligible:false,reason:"STRUCTURAL_DISABLED"};
   let checked=false,shortCircuit=false,extra=[],rescueMeta=null;
 
   function maybeCheck(){
