@@ -49,7 +49,14 @@ incrementalModule.createIncrementalRustMasterGenerator=function(lineas,O,rondas=
       rescue={attempted:true,certified:false,error:String(error?.stack||error)};
     }
     const ms=Number(process.hrtime.bigint()-t)/1e6;
-    const pats=rescue?.certified&&rescue?.valid&&rescue?.plan?patternsFromPlan(rescue.plan,lineas):[];
+    const rawPatternPlan=rescue?.certified&&rescue?.valid&&Array.isArray(rescue?.patternPlan)?rescue.patternPlan:[];
+    const seen=new Set(),pats=[];
+    for(const p of rawPatternPlan){
+      const k=patternKey(p?.uso||new Map());
+      if(!k||seen.has(k))continue;
+      seen.add(k);
+      pats.push(p);
+    }
     const shortCircuit=Boolean(pats.length&&rescue?.boards<=rescue?.lb);
     telemetry.set(O,{
       gate:true,shortCircuit,rescueMs:ms,lb:rescue?.lb??null,boards:rescue?.boards??null,
