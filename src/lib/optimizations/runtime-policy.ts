@@ -22,18 +22,22 @@ export type OptimizerRuntimeSelection = {
 export function resolveOptimizerRuntimeForExecution({
   strategy,
   queuedWorker,
+  isolatedExecution = false,
   rolloutKey,
 }: {
   strategy: OptimizerStrategy;
   queuedWorker: boolean;
+  /** Preview/worker executions that run outside the Next.js event loop may use Rust. */
+  isolatedExecution?: boolean;
   /** Stable project/tenant key used only for deterministic Auto rollout. */
   rolloutKey?: string;
 }): OptimizerRuntimeSelection {
   const motorVersion = envMotorVersion();
   const requestedEffortMode = motorVersion === "v2" ? envEffortMode() : "fixed";
   const effortMode = resolveEffortRollout(requestedEffortMode, rolloutKey);
+  const rustCapableExecution = queuedWorker || isolatedExecution;
   const patternGenerator: OptimizerPatternGenerator =
-    strategy === "v10" && queuedWorker && envFlag("OPTIMIZER_RUST_LEGACY_WORKER")
+    strategy === "v10" && rustCapableExecution && envFlag("OPTIMIZER_RUST_LEGACY_WORKER")
       ? "rust"
       : "js";
 
