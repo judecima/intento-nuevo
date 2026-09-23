@@ -438,7 +438,7 @@ function parseArgs(argv) {
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`Argumento desconocido: ${arg}`);
   }
-  out.inputs = out.inputs.filter(Boolean).map(resolve);
+  out.inputs = out.inputs.filter(Boolean).map((inputPath) => resolve(inputPath));
   return out;
 }
 
