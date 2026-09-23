@@ -15,7 +15,13 @@ export default async function ProjectLayout({
   return (
     <>
       {children}
-      {activeStatus ? <OptimizationJobWatcher status={activeStatus} /> : null}
+      {activeStatus && attempt ? (
+        <OptimizationJobWatcher
+          status={activeStatus}
+          jobId={attempt.id}
+          projectId={params.projectId}
+        />
+      ) : null}
     </>
   );
 }
