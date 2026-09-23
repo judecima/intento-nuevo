@@ -19,6 +19,7 @@ on:
       - "tests/optimizer-telemetry.test.ts"
       - "scripts/optimizer-kernel-child.cjs"
       - "scripts/diagnose-tail-case-30.mjs"
+      - "scripts/diagnose-remnant-case-95.mjs"
       - ".github/workflows/optimizer-saas-hardening.yml"
   workflow_dispatch:
 
@@ -50,5 +51,7 @@ jobs:
           tests/optimizer/auto-effort-controller.test.ts
       - name: Diagnose 30-piece local tail
         run: node scripts/diagnose-tail-case-30.mjs
+      - name: Diagnose 95-piece remnant case
+        run: node scripts/diagnose-remnant-case-95.mjs
       - name: Next production build
         run: npm run build
