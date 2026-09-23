@@ -104,13 +104,14 @@ export function repetitionGate(lines){
   // Synchronous beta-v2 envelope. Larger repeated batches remain valid inputs
   // but use the frozen fallback / future XL effort route instead of paying
   // deep structural probes on the interactive path.
-  if(pieces>300)return {eligible:false,reason:"PIECES_GT_300"};
+  if(lines.length===2 && pieces>300)return {eligible:false,reason:"TYPE2_PIECES_GT_300"};
+  if(lines.length===3 && pieces>100)return {eligible:false,reason:"TYPE3_PIECES_GT_100_SYNC"};
   const g=gcdAll(demand);
   if(g<2)return {eligible:false,reason:"NO_QUANTITY_REPETITION"};
   return {eligible:true,reason:"ELIGIBLE",gcd:g,pieces};
 }
 
-export function runStructuralRepetitionRescue(lines,config,{maxProbeTests=8,maxTotalTests=24}={}){
+export function runStructuralRepetitionRescue(lines,config,{maxProbeTests=1,maxTotalTests=1}={}){
   const gate=repetitionGate(lines);
   const t0=performance.now();
   if(!gate.eligible)return {...gate,attempted:false,certified:false,ms:performance.now()-t0};
