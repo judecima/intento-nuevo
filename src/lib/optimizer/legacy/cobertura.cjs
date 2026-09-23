@@ -40,9 +40,11 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   const modoDeterminista=maxNodos!==null;
   const watchdogRaw=Number(control&&control.watchdogMs);
   const watchdogMs=Number.isFinite(watchdogRaw)&&watchdogRaw>0?watchdogRaw:null;
+  const targetRaw=Number(control&&control.targetBoards);
+  const targetBoards=Number.isFinite(targetRaw)&&targetRaw>0?Math.floor(targetRaw):null;
   let mejor = incumbente, mejorPlan = null;
   const memo = new Map();
-  let nodos = 0, agotado = false, timeoutRegistrado=false, budgetRegistrado=false, watchdogRegistrado=false;
+  let nodos = 0, agotado = false, targetReached=false, timeoutRegistrado=false, budgetRegistrado=false, watchdogRegistrado=false;
   const marcarTimeout=()=>{
     agotado=true;
     if(step0&&!timeoutRegistrado){ step0.timeoutHits++; timeoutRegistrado=true; }
@@ -66,12 +68,17 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
   }
 
   function dfs(rest, areaRest, usadas, plan) {
+    if (targetReached) return;
     if (!modoDeterminista && Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
     if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); return; }
     // En modo determinista el terminal se acepta antes de rechazar el siguiente
     // nodo. Esto preserva la correccion recuperada de 2f2c202.
     if (areaRest <= 1e-9) {
-      if (usadas < mejor) { mejor = usadas; mejorPlan = plan.slice(); }
+      if (usadas < mejor) {
+        mejor = usadas;
+        mejorPlan = plan.slice();
+        if (targetBoards!==null && mejor<=targetBoards) targetReached=true;
+      }
       return;
     }
     if (usadas + cota(rest, areaRest) >= mejor) return;
@@ -109,6 +116,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
       plan.push(p);
       dfs(nr, areaRest - da, usadas + 1, plan);
       plan.pop();
+      if (targetReached) return;
       if (!modoDeterminista && Date.now() - t0 > limiteMs) { marcarTimeout(); return; }
       if (modoDeterminista && watchdogMs!==null && Date.now() - t0 > watchdogMs) { marcarWatchdog(); return; }
     }
@@ -127,7 +135,7 @@ function resolverCobertura(patrones, demanda, areaPlaca, incumbente, limiteMs = 
         step0.wallMsTotal+=ms;
         step0.wallMsMax=Math.max(step0.wallMsMax,ms);
       }
-      return { placas: mejor, plan: mejorPlan, nodos, agotado };
+      return { placas: mejor, plan: mejorPlan, nodos, agotado, targetReached };
     }
   };
 }

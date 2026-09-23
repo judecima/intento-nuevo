@@ -1,0 +1,86 @@
+name: Optimizer Auto Effort Controller Gate
+
+concurrency:
+  group: optimizer-auto-effort-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - motor-beta-v2
+    paths:
+      - "src/lib/optimizer/**"
+      - "tests/optimizer/auto-effort-controller.test.ts"
+      - "tests/optimizer/motor-beta-v2-runtime.test.ts"
+      - "research/optimizer/auto-effort/**"
+      - ".github/workflows/optimizer-auto-effort-controller.yml"
+  workflow_dispatch:
+
+jobs:
+  runtime-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Typecheck runtime integration
+        run: npm run typecheck
+      - name: V2 rollback + Auto runtime contract
+        run: npx vitest run tests/optimizer/motor-beta-v2-runtime.test.ts tests/optimizer/auto-effort-controller.test.ts
+
+  parity-shard:
+    needs: runtime-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+    env:
+      SHARD_INDEX: ${{ matrix.shard }}
+      SHARD_TOTAL: 32
+      AUTO_EFFORT_MAX_BOARDS: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Auto vs Advanced furniture-cohort shard
+        run: node research/optimizer/auto-effort/auto-effort-production-gate.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auto-effort-shard-${{ matrix.shard }}
+          path: research/optimizer/auto-effort/auto-effort-shard-${{ matrix.shard }}.json
+          retention-days: 7
+
+  parity-report:
+    needs: parity-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHARD_TOTAL: 32
+      AUTO_EFFORT_MAX_BOARDS: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: auto-effort-shard-*
+          path: research/optimizer/auto-effort
+          merge-multiple: true
+      - name: Aggregate Auto vs Advanced gate
+        run: node research/optimizer/auto-effort/auto-effort-production-gate.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auto-effort-gate-result
+          path: research/optimizer/auto-effort/AUTO_EFFORT_GATE_RESULT.json
+          retention-days: 30

@@ -161,6 +161,7 @@ export interface OptimizationMetrics {
   engineMs?: number;
   cacheHit?: boolean;
   patternGenerator?: "js" | "rust" | "rust-fallback-js";
+  effortMode?: "fixed" | "auto" | "advanced";
 }
 
 export interface OptimizationValidation {

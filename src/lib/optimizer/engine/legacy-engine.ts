@@ -92,11 +92,22 @@ export const LEGACY_OPTIMIZER_VERSION = "legacy-guillotine-v10-lepton-remnants-2
 export const RUST_LEGACY_PATTERN_GENERATOR_VERSION = `${LEGACY_OPTIMIZER_VERSION}+rust-pattern-v1`;
 export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION}+hybrid-staged-v17`;
 export const MOTOR_BETA_V2_VERSION = `${LEGACY_OPTIMIZER_VERSION}+master-structural-v2`;
+export const OPTIMIZER_AUTO_EFFORT_VERSION = `${MOTOR_BETA_V2_VERSION}+auto-effort-v1`;
+export const OPTIMIZER_ADVANCED_REFERENCE_VERSION = `${MOTOR_BETA_V2_VERSION}+advanced-reference-v1`;
 
 export type OptimizerMotorVersion = "v1" | "v2";
+export type OptimizerEffortMode = "fixed" | "auto" | "advanced";
 
 export interface OptimizeProjectRuntimeOptions {
   patternGenerator?: OptimizerPatternGenerator;
+  /**
+   * fixed preserves the certified V2 runtime exactly.
+   * auto progressively deepens one shared Master session and may stop only
+   * when a safe lower bound (or an already-certified industrial rule) proves
+   * additional work cannot improve board count.
+   * advanced is the maximum-effort reference used to certify Auto.
+   */
+  effortMode?: OptimizerEffortMode;
   /**
    * V1 is the frozen universal fallback. V2 adds the certified structural
    * short-circuit inside Master only; all misses continue through V1 unchanged.
@@ -120,6 +131,13 @@ function resolveMotorVersion(explicit?: OptimizerMotorVersion): OptimizerMotorVe
   if (explicit) return explicit;
   const raw = process.env.OPTIMIZER_MOTOR_VERSION?.trim().toLowerCase();
   return raw === "v2" ? "v2" : "v1";
+}
+
+function resolveEffortMode(explicit?: OptimizerEffortMode): OptimizerEffortMode {
+  if (explicit) return explicit;
+  const raw = process.env.OPTIMIZER_EFFORT_MODE?.trim().toLowerCase();
+  if (raw === "auto" || raw === "advanced") return raw;
+  return "fixed";
 }
 
 function parseEnvPositiveInt(name: string, defaultValue: number): number {
@@ -227,10 +245,15 @@ export function optimizeProject(
   const stagedConfig = resolveExperimentalStagedConfig(strategy);
   const deterministicBudgets = resolveDeterministicBudgetConfig();
   const requestedMotorVersion = resolveMotorVersion(runtimeOptions.motorVersion);
+  const requestedEffortMode = resolveEffortMode(runtimeOptions.effortMode);
   // The staged research pipeline is versioned independently; do not combine it
   // implicitly with the production V2 Master short-circuit.
   const motorVersion: OptimizerMotorVersion =
     strategy === "v10" && !stagedConfig ? requestedMotorVersion : "v1";
+  const effortMode: OptimizerEffortMode =
+    strategy === "v10" && !stagedConfig && motorVersion === "v2"
+      ? requestedEffortMode
+      : "fixed";
   const patternGenerator: OptimizerPatternGenerator =
     strategy === "v10"
       ? (runtimeOptions.patternGenerator ?? (motorVersion === "v2" ? "rust" : "js"))
@@ -240,6 +263,7 @@ export function optimizeProject(
     deterministicBudgets.cacheDiscriminator,
     stagedConfig?.cacheDiscriminator,
     `motor-version=${motorVersion}`,
+    `effort-mode=${effortMode}`,
     `pattern-generator=${patternGenerator}`,
   ]
     .filter(Boolean)
@@ -253,7 +277,7 @@ export function optimizeProject(
   }
 
   const lineas = toLegacyLines(parsed);
-  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator, motorVersion);
+  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator, motorVersion, effortMode);
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
@@ -288,9 +312,17 @@ export function optimizeProject(
     stagedConfig
       ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
       : motorVersion === "v2"
-        ? (patternGeneratorUsed === "rust"
-            ? `${MOTOR_BETA_V2_VERSION}+rust-pattern-v1`
-            : MOTOR_BETA_V2_VERSION)
+        ? effortMode === "auto"
+          ? (patternGeneratorUsed === "rust"
+              ? `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`
+              : OPTIMIZER_AUTO_EFFORT_VERSION)
+          : effortMode === "advanced"
+            ? (patternGeneratorUsed === "rust"
+                ? `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}+rust-pattern-v1`
+                : OPTIMIZER_ADVANCED_REFERENCE_VERSION)
+            : (patternGeneratorUsed === "rust"
+                ? `${MOTOR_BETA_V2_VERSION}+rust-pattern-v1`
+                : MOTOR_BETA_V2_VERSION)
         : patternGeneratorUsed === "rust"
           ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
           : LEGACY_OPTIMIZER_VERSION;
@@ -308,6 +340,7 @@ export function optimizeProject(
       cacheHit: false,
       engineMs: Date.now() - startedAt,
       patternGenerator: patternGeneratorUsed,
+      effortMode,
     },
     validation: {
       ok: industrial.ok && independentSlices.ok,
@@ -350,6 +383,7 @@ function toLegacyOptions(
   deterministicBudgets: DeterministicBudgetConfig,
   patternGenerator: OptimizerPatternGenerator,
   motorVersion: OptimizerMotorVersion,
+  effortMode: OptimizerEffortMode,
 ): LegacyOptimizerOptions {
   const minLongSide = input.constraints.minCommercialRemnantLongSide;
   const totalPieces = input.pieces.reduce((total, piece) => total + piece.quantity, 0);
@@ -372,6 +406,8 @@ function toLegacyOptions(
     usarCompactacion: strategy === "v10" ? input.constraints.allowDeadStripCompaction !== false : false,
     usarRustPatternGenerator: strategy === "v10" && patternGenerator === "rust",
     masterStructuralV2: strategy === "v10" && motorVersion === "v2",
+    autoEffortController: strategy === "v10" && motorVersion === "v2" && effortMode === "auto",
+    masterForceFull40: strategy === "v10" && motorVersion === "v2" && effortMode === "advanced",
     instrumentarStep0: strategy === "v10" && parseEnvFlag("OPTIMIZER_STEP0_TELEMETRY", false)
   };
 

@@ -65,6 +65,17 @@ function nuevasMetricas() {
       skipped: 0,
       ms: 0,
     },
+    effortController: {
+      mode: "fixed",
+      enteredMaster: false,
+      preMasterBoards: null,
+      safeLowerBound: null,
+      roundsExecuted: 0,
+      blocks: [],
+      stopReason: null,
+      finalBoards: null,
+      generationCpuMs: 0,
+    },
     total: { casos: 0, ms: 0 }
   };
 }
@@ -542,10 +553,13 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
         process.env.OPTIMIZER_MASTER_INDUSTRIAL_RULES_V3_EXPERIMENTAL === '1';
       const typeCount = lineas.length;
       const piecesPerType = typeCount > 0 ? piezasEsperadas / typeCount : 0;
+      const forceFull40 = config.masterForceFull40 === true;
       const highTypesP3 =
+        !forceFull40 &&
         (highTypesP3Experimental || industrialRulesV3Experimental) &&
         typeCount > 40;
       const midTypesHighRepeatP3 =
+        !forceFull40 &&
         industrialRulesV3Experimental &&
         typeCount >= 20 &&
         typeCount <= 40 &&
@@ -556,27 +570,192 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           ? Math.min(3, configuredMasterRounds)
           : configuredMasterRounds;
 
-      let masterPatterns;
-      if (industrialRulesV3Experimental && configuredMasterRounds === 40) {
+      const autoEnabled =
+        config.autoEffortController === true &&
+        industrialRulesV3Experimental &&
+        configuredMasterRounds === 40;
+
+      metricas.effortController.mode = autoEnabled
+        ? "auto"
+        : forceFull40
+          ? "advanced"
+          : "fixed";
+      metricas.effortController.enteredMaster = true;
+      metricas.effortController.preMasterBoards = mejor.resumen.placas;
+      metricas.effortController.safeLowerBound = cota;
+
+      if (autoEnabled) {
         const { createIncrementalRustMasterGenerator } = require('./rust/incremental-master.cjs');
         const incremental = createIncrementalRustMasterGenerator(lineas, config, configuredMasterRounds, 7);
-        const rounds = Array.from({ length: masterRounds }, (_, i) => i);
-        incremental.execute(rounds);
-        masterPatterns = incremental.patterns(rounds);
+        const mono = patronesMonotipo(lineas, config);
+        const preMasterBoards = mejor.resumen.placas;
+        const blocks = industrialP3
+          ? [Array.from({ length: Math.min(3, configuredMasterRounds) }, (_, i) => i)]
+          : [
+              Array.from({ length: 16 }, (_, i) => i),
+              Array.from({ length: Math.max(0, configuredMasterRounds - 16) }, (_, i) => i + 16),
+            ];
+
+        let previousGenerationCpuMs = 0;
+        for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+          const rounds = blocks[blockIndex].filter(r => r < configuredMasterRounds);
+          if (!rounds.length) continue;
+
+          const tb = Date.now();
+          const exec = incremental.execute(rounds);
+          const generationCpuMs = incremental.generationCpuMs;
+          const generationDeltaCpuMs = Math.max(0, generationCpuMs - previousGenerationCpuMs);
+          previousGenerationCpuMs = generationCpuMs;
+
+          // Auto has only two Master checkpoints:
+          //   P16 = tiny feasibility probe against safeLB
+          //   P40 = exact/reference solve over the complete generated pool
+          // The certified 50-case Master cohort produced every early closure
+          // at structural rescue or P16; none closed at 20/24/28/32/36.
+          // Intermediate solves also cannot improve the final P40 search bound:
+          // the final solver deliberately uses preMasterBoards. Therefore the
+          // remaining rounds are generated in one cumulative batch and solved
+          // once, preserving Full40 quality while removing redundant work.
+          const isFirstCheckpoint = blockIndex === 0;
+          const isFinalCheckpoint = blockIndex === blocks.length - 1;
+          const structuralShortCircuit = incremental.structuralShortCircuit === true;
+          const shouldSolve =
+            isFirstCheckpoint ||
+            isFinalCheckpoint ||
+            industrialP3 ||
+            structuralShortCircuit;
+
+          let pool = null;
+          let sol = null;
+          let cand = null;
+          if (shouldSolve) {
+            const masterPatterns = incremental.patterns();
+            pool = masterPatterns.concat(mono);
+            const fullNodeCapRaw = Number(config.maxNodosMaster);
+            const fullNodeCap =
+              Number.isFinite(fullNodeCapRaw) && fullNodeCapRaw > 0
+                ? Math.floor(fullNodeCapRaw)
+                : null;
+            const checkpointNodeCapRaw = Number(config.autoCheckpointMaxNodes);
+            const checkpointNodeCap =
+              Number.isFinite(checkpointNodeCapRaw) && checkpointNodeCapRaw > 0
+                ? Math.floor(checkpointNodeCapRaw)
+                : 128;
+            const solveNodeCap = isFinalCheckpoint
+              ? fullNodeCap
+              : fullNodeCap === null
+                ? checkpointNodeCap
+                : Math.min(fullNodeCap, checkpointNodeCap);
+            const s = resolverCobertura(
+              pool,
+              lineas.map(l => l.cant),
+              areaPlaca,
+              preMasterBoards,
+              config.msMaster || 8000,
+              {
+                telemetry: config._step0Telemetry || null,
+                maxNodos: solveNodeCap,
+                watchdogMs: config.watchdogMasterMs,
+                targetBoards: isFinalCheckpoint ? null : cota
+              }
+            );
+            sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
+            cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
+          }
+
+          const blockMs = Date.now() - tb;
+          if (shouldSolve) {
+            if (cand) probar('master', cand, blockMs, true);
+            else registrar(metricas.master, blockMs, false, 0, false);
+          } else {
+            // Preserve generation cost in the controller telemetry without
+            // pretending an additional Master solve/activation occurred.
+            metricas.master.ms += blockMs;
+            metricas.master.peorMs = Math.max(metricas.master.peorMs, blockMs);
+          }
+
+          const executedRounds = incremental.executedRounds();
+          metricas.effortController.roundsExecuted = executedRounds.length;
+          metricas.effortController.generationCpuMs = generationCpuMs;
+          metricas.effortController.blocks.push({
+            blockIndex,
+            requestedRounds: rounds,
+            newlyExecuted: exec?.newlyExecuted || [],
+            executedRounds: executedRounds.length,
+            solved: shouldSolve,
+            poolSize: pool?.length ?? null,
+            candidateCount: incremental.candidateCount,
+            generationDeltaCpuMs,
+            generationCpuMs,
+            solverNodes: sol?.nodos || 0,
+            solverExhausted: !!sol?.agotado,
+            solverTargetReached: !!sol?.targetReached,
+            solverNodeCap: shouldSolve
+              ? (isFinalCheckpoint
+                  ? (Number.isFinite(Number(config.maxNodosMaster)) ? Number(config.maxNodosMaster) : null)
+                  : (Number.isFinite(Number(config.autoCheckpointMaxNodes))
+                      ? Number(config.autoCheckpointMaxNodes)
+                      : 128))
+              : null,
+            candidateBoards: cand?.resumen?.placas ?? null,
+            incumbentBoards: mejor?.resumen?.placas ?? null,
+            safeLowerBound: cota,
+            wallMs: blockMs,
+            structuralShortCircuit,
+          });
+
+          if (mejor?.resumen?.placas <= cota) {
+            metricas.effortController.stopReason =
+              structuralShortCircuit
+                ? "structural-safe-lb"
+                : "safe-lb";
+            break;
+          }
+
+          // A/B are already externally certified P3 rules. Auto must not
+          // spend Full40 after those rules decide the Master budget.
+          if (industrialP3) {
+            metricas.effortController.stopReason = "certified-industrial-p3";
+            break;
+          }
+        }
+
+        if (!metricas.effortController.stopReason) {
+          metricas.effortController.stopReason =
+            metricas.effortController.roundsExecuted >= configuredMasterRounds
+              ? "advanced-exhausted"
+              : "schedule-exhausted";
+        }
+        metricas.effortController.finalBoards = mejor?.resumen?.placas ?? null;
       } else {
-        masterPatterns = generarPatrones(lineas, config, masterRounds);
+        let masterPatterns;
+        if (industrialRulesV3Experimental && configuredMasterRounds === 40) {
+          const { createIncrementalRustMasterGenerator } = require('./rust/incremental-master.cjs');
+          const incremental = createIncrementalRustMasterGenerator(lineas, config, configuredMasterRounds, 7);
+          const rounds = Array.from({ length: masterRounds }, (_, i) => i);
+          incremental.execute(rounds);
+          masterPatterns = incremental.patterns(rounds);
+          metricas.effortController.roundsExecuted = incremental.executedRounds().length;
+          metricas.effortController.generationCpuMs = incremental.generationCpuMs;
+        } else {
+          masterPatterns = generarPatrones(lineas, config, masterRounds);
+          metricas.effortController.roundsExecuted = masterRounds;
+        }
+        const pool = masterPatterns.concat(patronesMonotipo(lineas, config));
+        const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
+                                    mejor.resumen.placas, config.msMaster || 8000,
+                                    { telemetry: config._step0Telemetry || null,
+                                      maxNodos: config.maxNodosMaster,
+                                      watchdogMs: config.watchdogMasterMs });
+        const sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
+        const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
+        if (cand) probar('master', cand, Date.now() - t);
+        else registrar(metricas.master, Date.now() - t, false,0,false);
+        metricas.effortController.stopReason = industrialP3 ? "certified-industrial-p3" : "fixed-budget";
+        metricas.effortController.finalBoards = mejor?.resumen?.placas ?? null;
       }
-      const pool = masterPatterns.concat(patronesMonotipo(lineas, config));
-      const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
-                                  mejor.resumen.placas, config.msMaster || 8000,
-                                  { telemetry: config._step0Telemetry || null,
-                                    maxNodos: config.maxNodosMaster,
-                                    watchdogMs: config.watchdogMasterMs });
-      const sol = s ? s.resolver(lineas.map(l => l.base * l.altura)) : null;
-      const cand = sol && sol.plan ? materializar(sol.plan, lineas, baseline.opts) : null;
-      if (cand) probar('master', cand, Date.now() - t);
-      else registrar(metricas.master, Date.now() - t, false,0,false);
     } catch (e) {
+      metricas.effortController.stopReason = "master-error";
       registrar(metricas.master, Date.now() - t, false, 0, false);
     }
   }
