@@ -88,7 +88,7 @@ if(MODE==="shard"){
    const attempted=Boolean(baseValid&&baseBoards>preLb);
 
    const a=attempted
-     ? timed(()=>runStructuralRepetitionRescue(L,C,{maxProbeTests:8,maxTotalTests:24}))
+     ? timed(()=>runStructuralRepetitionRescue(L,C,{maxProbeTests:8,maxTotalTests:8}))
      : {ok:true,value:{attempted:false,certified:false,lb:preLb,reason:"BASELINE_AT_LB",tests:0,validMixed:0,probeValid:0},ms:0,error:null};
 
    const b=timed(()=>optimizarV10(L,C,nuevasMetricas()));
