@@ -27,6 +27,7 @@ export {
   OPTIMIZER_ADVANCED_REFERENCE_VERSION,
   OPTIMIZER_AUTO_EFFORT_VERSION,
   RUST_LEGACY_PATTERN_GENERATOR_VERSION,
+  optimizerAlgorithmVersionForRuntime,
   optimizeProject,
 } from "./engine/legacy-engine";
 export type { OptimizeProjectRuntimeOptions, OptimizerEffortMode, OptimizerMotorVersion } from "./engine/legacy-engine";
