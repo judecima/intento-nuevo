@@ -7,7 +7,8 @@ import {runStructuralRepetitionRescue,repetitionGate,compararCalidad} from "./st
 const require=createRequire(import.meta.url);
 const ROOT=path.resolve(new URL("../../../",import.meta.url).pathname);
 const {optimizarV10,nuevasMetricas,validarPlanIndustrial}=require(path.join(ROOT,"src/lib/optimizer/legacy/v10.cjs"));
-const {calidadPlanPlacas}=require(path.join(ROOT,"src/lib/optimizer/legacy/motor.cjs"));
+const {calidadPlanPlacas,optimizar}=require(path.join(ROOT,"src/lib/optimizer/legacy/motor.cjs"));
+const {computeHybridLowerBound}=require(path.join(ROOT,"src/lib/optimizer/experimental/hybrid-lower-bound.cjs"));
 
 process.env.OPTIMIZER_RUST_BEAM_RANK_CACHE_EXPERIMENTAL="1";
 process.env.OPTIMIZER_RUST_LEAN_BEAM_EXPERIMENTAL="1";
@@ -50,11 +51,11 @@ function cmp(a,b){return a<b?-1:a>b?1:0;}
 function q(p,c){return calidadPlanPlacas(p?.placas||[],p?.opts||c);}
 function quant(a,x){if(!a.length)return null;const s=a.slice().sort((a,b)=>a-b),i=(s.length-1)*x,l=Math.floor(i),h=Math.ceil(i);return l===h?s[l]:s[l]+(s[h]-s[l])*(i-l);}
 function summarize(rows){
- const cert=rows.filter(r=>r.certified),fb=rows.filter(r=>!r.certified);
+ const cert=rows.filter(r=>r.certified),fb=rows.filter(r=>!r.certified),attempted=rows.filter(r=>r.attempted);
  const sum=a=>a.reduce((s,x)=>s+x,0);
  const cand=sum(rows.map(r=>r.rescueMs)),v3=sum(rows.map(r=>r.v3Ms)),route=sum(rows.map(r=>r.routeMs));
  return {
-  cases:rows.length,certified:cert.length,fallback:fb.length,
+  cases:rows.length,attempted:attempted.length,certified:cert.length,fallback:fb.length,
   invalidCandidate:rows.filter(r=>r.certified&&!r.validCandidate).length,
   boardLoss:rows.filter(r=>r.boardCmp>0).length,boardWin:rows.filter(r=>r.boardCmp<0).length,
   remnantWorse:rows.filter(r=>r.boardCmp===0&&r.qcmp<0).length,
@@ -76,10 +77,26 @@ if(MODE==="shard"){
  const rows=[];
  for(const c of cases){
    const L=lines(c),C=config(c),expected=L.reduce((s,x)=>s+x.cant,0);
-   const a=timed(()=>runStructuralRepetitionRescue(L,C,{maxProbeTests:8,maxTotalTests:24}));
+   // Production placement: exact frozen baseline first. The structural rescue
+   // is admitted only if the incumbent is still above the safe lower bound.
+   const lbRaw=computeHybridLowerBound(L,C,null,{useRaster:false,claude:{usarRaster:false,usarDffFs0:true}});
+   const preLb=Math.max(1,Math.floor(Number(lbRaw?.cheapLowerBound??0)),Math.floor(Number(lbRaw?.lowerBound??0)));
+   const base=timed(()=>optimizar(L,C));
+   const basePlan=base.value;
+   const baseValid=Boolean(base.ok&&basePlan&&validarPlanIndustrial(basePlan,expected)?.ok);
+   const baseBoards=basePlan?.resumen?.placas??Infinity;
+   const attempted=Boolean(baseValid&&baseBoards>preLb);
+
+   const a=attempted
+     ? timed(()=>runStructuralRepetitionRescue(L,C,{maxProbeTests:8,maxTotalTests:24}))
+     : {ok:true,value:{attempted:false,certified:false,lb:preLb,reason:"BASELINE_AT_LB",tests:0,validMixed:0,probeValid:0},ms:0,error:null};
+
    const b=timed(()=>optimizarV10(L,C,nuevasMetricas()));
    const rescue=a.value||{},pb=b.value?.plan;
-   const certified=Boolean(a.ok&&rescue.certified&&rescue.plan);
+   const certified=Boolean(
+     attempted&&a.ok&&rescue.certified&&rescue.plan&&
+     rescue.boards<baseBoards&&rescue.boards<=preLb
+   );
    const routePlan=certified?rescue.plan:pb;
    const validCandidate=certified?Boolean(validarPlanIndustrial(rescue.plan,expected)?.ok):true;
    const validV3=Boolean(b.ok&&pb&&validarPlanIndustrial(pb,expected)?.ok);
@@ -87,15 +104,21 @@ if(MODE==="shard"){
    const rb=routePlan?.resumen?.placas??Infinity,vb=pb?.resumen?.placas??Infinity;
    const boardCmp=cmp(rb,vb);
    const qcmp=validRoute&&validV3&&boardCmp===0?compararCalidad(q(routePlan,C),q(pb,C)):null;
+   const routeMs=!attempted
+     ? b.ms
+     : certified
+       ? base.ms+a.ms
+       : b.ms+a.ms;
    rows.push({
      id:c.id,types:c.types.length,pieces:expected,gcd:repetitionGate(L).gcd,leptonBoards:c.leptonBoards,
+     attempted,baselineValid:baseValid,baselineBoards:Number.isFinite(baseBoards)?baseBoards:null,baselineMs:base.ms,
      certified,validCandidate,validV3,validRoute,
      rescueBoards:rescue.boards??null,v3Boards:Number.isFinite(vb)?vb:null,routeBoards:Number.isFinite(rb)?rb:null,
-     lb:rescue.lb??null,tests:rescue.tests??0,validMixed:rescue.validMixed??0,probeValid:rescue.probeValid??0,
+     lb:preLb,tests:rescue.tests??0,validMixed:rescue.validMixed??0,probeValid:rescue.probeValid??0,
      stopReason:rescue.stopReason??rescue.reason??null,boardCmp,qcmp,
      routeVsLepton:Number.isFinite(rb)?cmp(rb,c.leptonBoards):null,
-     rescueMs:a.ms,v3Ms:b.ms,routeMs:a.ms+(certified?0:b.ms),
-     errorRescue:a.error,errorV3:b.error
+     rescueMs:a.ms,v3Ms:b.ms,routeMs,
+     errorBaseline:base.error,errorRescue:a.error,errorV3:b.error
    });
  }
  const file=path.join(HERE,`structural-repetition-v2-shard-${SI}.json`);
