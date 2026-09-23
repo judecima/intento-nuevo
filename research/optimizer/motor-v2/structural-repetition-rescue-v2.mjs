@@ -188,7 +188,13 @@ export function runStructuralRepetitionRescue(lines,config,{maxProbeTests=1,maxT
     ...gate,attempted:true,certified,valid,plan,quality,lb,lbReason:lbR?.reason||null,
     boards:valid&&sol?.plan?sol.placas:null,tests,validMixed,probeValid,probeSolved,
     poolSize:pool.size,portfolioSize:portfolio.length,solverNodes:sol?.nodos??null,
-    solverExhausted:sol?.agotado??null,stopReason,ms:performance.now()-t0
+    solverExhausted:sol?.agotado??null,stopReason,
+    // Preserve the original physical pattern objects selected by the coverage
+    // solver. Their placed pieces use numeric logical type refs, which is the
+    // contract materializar() requires. Do not reconstruct these from the
+    // final materialized plan, where refs have already been restored to XML.
+    patternPlan:sol?.plan||null,
+    ms:performance.now()-t0
   };
 }
 
