@@ -9,6 +9,12 @@ Frozen production reference:
 Research branch:
 - `research/motor-v2-structural-20260922`
 
+Reproducible CI:
+- workflow: `.github/workflows/optimizer-motor-v2-repeated-mixed-milestone.yml`
+- run: **35804554388**
+- check: **SUCCESS**
+- head: `add3db3992108a0a683a6e2a9cc935e9dc449618`
+
 ## Goal
 
 Recover repeated-batch board-count gaps without:
@@ -55,6 +61,9 @@ Cases: **8**
 - total boards saved: **17**
 - Lepton gaps closed: **3**
 - accepted candidates reaching safe LB: **3**
+
+The remote CI artifact reproduced exactly:
+`cases=8, accepted=3, unchanged=5, invalidAccepted=0, boardRegressions=0, boardsSaved=17, closedLeptonGaps=3, reachedSafeLB=3`.
 
 ### Closed gaps
 
