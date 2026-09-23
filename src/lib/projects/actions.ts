@@ -23,6 +23,7 @@ import { optimizationExecutionPolicy } from "@/lib/optimizations/execution-polic
 import { enqueueOptimizationJob } from "@/lib/optimizations/queue";
 import { runAndStoreOptimization } from "@/lib/optimizations/run";
 import { resolveOptimizerRuntimeForExecution } from "@/lib/optimizations/runtime-policy";
+import { createOptimizerTimingTrace } from "@/lib/optimizations/timing";
 import { getProjectEditorData } from "@/lib/projects/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
@@ -112,7 +113,12 @@ async function persistProjectDraftAction(
   optimizeAfterSave: boolean
 ): Promise<SaveProjectDraftOutcome> {
   const parsed = projectDraftSchema.parse(draft);
+  const timing = createOptimizerTimingTrace("save-project", {
+    projectId: parsed.projectId,
+    optimizeAfterSave,
+  });
   const context = await getCurrentUserContext();
+  timing.mark("auth");
 
   if (!context.user) {
     return { ok: false, error: "Sesion no iniciada." };
@@ -122,6 +128,7 @@ async function persistProjectDraftAction(
   // guardado usa escrituras en lote y reusa lo que ya trajo de la base.
   const supabase = createSupabaseServerClient();
   const data = await getProjectEditorData(parsed.projectId);
+  timing.mark("loadProject");
 
   if (!data) {
     return { ok: false, error: "No se encontro el proyecto." };
@@ -142,6 +149,7 @@ async function persistProjectDraftAction(
   }
 
   const selectedMaterial = await getMaterialForOrganization(project.organization_id, parsed.materialId);
+  timing.mark("loadMaterial");
   if (!selectedMaterial || selectedMaterial.type !== "board") {
     return { ok: false, error: "El tablero seleccionado no esta disponible." };
   }
@@ -182,6 +190,7 @@ async function persistProjectDraftAction(
 
     if (error) return { ok: false, error: `PROJECT_UPDATE_FAILED: ${error.message}` };
   }
+  timing.mark("saveSettings");
 
   const existingIds = new Set(data.items.map((item) => item.id));
   const rows = parsed.items.map((item, index) => ({
@@ -221,6 +230,7 @@ async function persistProjectDraftAction(
   if (deleteResult.error) {
     return { ok: false, error: `PROJECT_ITEM_DELETE_FAILED: ${deleteResult.error.message}` };
   }
+  timing.mark("saveItems");
 
   // Los triggers de project_items suben la version una vez por fila escrita.
   const { data: refreshed, error: versionError } = await supabase
@@ -232,6 +242,7 @@ async function persistProjectDraftAction(
   if (versionError) {
     return { ok: false, error: `PROJECT_VERSION_QUERY_FAILED: ${versionError.message}` };
   }
+  timing.mark("loadVersion");
 
   const version = Number(refreshed?.version ?? project.version);
   const preloaded = {
@@ -265,8 +276,10 @@ async function persistProjectDraftAction(
     error: optimizeAfterSave ? "OPTIMIZATION_NO_ITEMS" : "NOT_REQUESTED"
   };
 
+  let executionMode: "inline" | "queued-worker" | null = null;
   if (optimizeAfterSave && rows.length > 0) {
     const policy = optimizationExecutionPolicy(rows);
+    executionMode = policy.mode;
 
     if (policy.mode === "inline") {
       const runtime = resolveOptimizerRuntimeForExecution({
@@ -301,9 +314,17 @@ async function persistProjectDraftAction(
         algorithmVersion: runtime.algorithmVersion
       });
     }
+    timing.mark(executionMode === "inline" ? "optimizationInline" : "enqueueOptimization");
   }
 
   revalidateProject(parsed.projectId);
+  timing.mark("revalidate");
+  timing.log({
+    ok: true,
+    executionMode,
+    optimizationOk: optimization.ok,
+    itemRows: rows.length,
+  });
 
   return {
     ok: true,
