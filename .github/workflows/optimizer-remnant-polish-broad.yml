@@ -29,7 +29,7 @@ jobs:
     env:
       SHARD_INDEX: ${{ matrix.shard }}
       SHARD_TOTAL: 8
-      SAMPLE_MOD: 2
+      SAMPLE_MOD: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
