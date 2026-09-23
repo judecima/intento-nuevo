@@ -45,9 +45,11 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
   let attemptedBoards = 0;
   let improvedBoards = 0;
   let rejectedBoards = 0;
-  const globalDeltas = Array.isArray(options.deltasEstructurales)
-    ? options.deltasEstructurales
-    : detectarDeltasEstructurales(lineasDesdePlan(plan), configLimpia(opts));
+  const globalDeltas = options.useStructuralDeltas === false
+    ? []
+    : Array.isArray(options.deltasEstructurales)
+      ? options.deltasEstructurales
+      : detectarDeltasEstructurales(lineasDesdePlan(plan), configLimpia(opts));
 
   const maxBoardsRaw = Number(options.maxBoards);
   const maxBoards = Number.isFinite(maxBoardsRaw) && maxBoardsRaw > 0
