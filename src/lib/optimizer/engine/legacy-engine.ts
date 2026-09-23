@@ -344,10 +344,19 @@ function prepareOptimizationExecution(
     strategy === "v10"
       ? (runtimeOptions.patternGenerator ?? (motorVersion === "v2" ? "rust" : "js"))
       : "js";
+  const requestedAlgorithmVersion = stagedConfig
+    ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
+    : optimizerAlgorithmVersionForRuntime({
+        strategy,
+        patternGenerator,
+        motorVersion,
+        effortMode,
+      });
   const cacheKey = [
     inputHash,
     deterministicBudgets.cacheDiscriminator,
     stagedConfig?.cacheDiscriminator,
+    `algorithm-version=${requestedAlgorithmVersion}`,
     `motor-version=${motorVersion}`,
     `effort-mode=${effortMode}`,
     `pattern-generator=${patternGenerator}`,
