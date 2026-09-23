@@ -3,6 +3,10 @@
 const path = require("node:path");
 const { optimizarLegacyHybrid } = require("./rust-hybrid.cjs");
 const { legacyRoundSubsets } = require("./rust-patrones.cjs");
+const {
+  repetitionGate,
+  runStructuralRepetitionRescue,
+} = require("../../experimental/structural-repetition-rescue-v2.cjs");
 
 const addonPath = path.join(__dirname,"../../../../../native/optimizer-pattern-generator/optimizer_pattern_generator.node");
 let addon;
@@ -31,6 +35,22 @@ function patternFromSelected(entry,boards,meta){
     area:entry.area,placa:boards[entry.payloadIndex],
     _round:m?.round??null,_boardOrdinal:m?.boardOrdinal??null};
 }
+function usageKey(pattern){
+  return [...(pattern?.uso??new Map()).entries()]
+    .filter(([,count])=>count>0)
+    .sort((a,b)=>a[0]-b[0])
+    .map(([index,count])=>index+":"+count)
+    .join("|");
+}
+function dedupStructuralPatterns(patterns){
+  const out=[],seen=new Set();
+  for(const pattern of patterns??[]){
+    const key=usageKey(pattern);
+    if(!key||seen.has(key)||!pattern?.placa)continue;
+    seen.add(key);out.push(pattern);
+  }
+  return out;
+}
 function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
   if(!Array.isArray(lineas)||!lineas.length)throw new TypeError("incremental Master requires nonempty lines");
   const schedule=legacyRoundSubsets(lineas.length,rondas,semilla);
@@ -54,8 +74,67 @@ function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
       if (schedule[round]?.length) allowedRounds.add(round);
     }
   }
+
   let generationCpuMs=0;
+  let structuralChecked=false;
+  let structuralShortCircuit=false;
+  let structuralPatterns=[];
+  let structuralTelemetry={enabled:O?.masterStructuralV2===true,attempted:false,shortCircuit:false};
+
+  function maybeRunStructural(){
+    if(structuralChecked)return;
+    structuralChecked=true;
+    if(O?.masterStructuralV2!==true)return;
+
+    const gate=repetitionGate(conRef);
+    structuralTelemetry={...structuralTelemetry,gate};
+    if(!gate.eligible)return;
+
+    const started=process.hrtime.bigint();
+    let result=null,error=null;
+    try{
+      result=runStructuralRepetitionRescue(
+        conRef,
+        {...O,masterStructuralV2:false},
+        {maxProbeTests:1,maxTotalTests:1}
+      );
+    }catch(e){
+      error=String(e?.stack||e?.message||e);
+    }
+    const ms=Number(process.hrtime.bigint()-started)/1e6;
+    structuralPatterns=dedupStructuralPatterns(
+      result?.certified&&result?.valid ? result?.patternPlan : []
+    );
+    structuralShortCircuit=Boolean(
+      result?.certified&&result?.valid&&
+      Number.isFinite(result?.boards)&&Number.isFinite(result?.lb)&&
+      result.boards<=result.lb&&structuralPatterns.length
+    );
+    structuralTelemetry={
+      enabled:true,attempted:true,shortCircuit:structuralShortCircuit,
+      ms,gate,certified:Boolean(result?.certified),valid:Boolean(result?.valid),
+      boards:result?.boards??null,lb:result?.lb??null,tests:result?.tests??0,
+      validMixed:result?.validMixed??0,stopReason:result?.stopReason??result?.reason??null,
+      patterns:structuralPatterns.length,error
+    };
+    if(O?._structuralMasterV2Telemetry&&typeof O._structuralMasterV2Telemetry==="object"){
+      Object.assign(O._structuralMasterV2Telemetry,structuralTelemetry);
+    }
+  }
+
   function execute(rounds){
+    maybeRunStructural();
+    if(structuralShortCircuit){
+      return {
+        newlyExecuted:[],
+        executedRounds:[],
+        missingRounds:missingRounds(),
+        generationCpuMs,
+        structuralShortCircuit:true,
+        structuralTelemetry
+      };
+    }
+
     const selected=normalizeRounds(rounds,schedule.length),newlyExecuted=[];
     for(const round of selected){
       if(executed.has(round))continue;
@@ -79,13 +158,15 @@ function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
         if(process.env.RUST_LEGACY_DEBUG_ERRORS==="1")throw error;
       }
     }
-    return {newlyExecuted,executedRounds:executedRounds(),missingRounds:missingRounds(),generationCpuMs};
+    return {newlyExecuted,executedRounds:executedRounds(),missingRounds:missingRounds(),generationCpuMs,structuralTelemetry};
   }
   function orderedCandidates(roundFilter=null){
     const allowed=roundFilter==null?executed:new Set(normalizeRounds(roundFilter,schedule.length));
     return candidates.filter(c=>allowed.has(c.round)).slice().sort((a,b)=>a.round-b.round||a.boardOrdinal-b.boardOrdinal);
   }
   function patterns(roundFilter=null){
+    maybeRunStructural();
+    if(structuralShortCircuit)return structuralPatterns.slice();
     const ordered=orderedCandidates(roundFilter);if(!ordered.length)return [];
     const nativeCandidates=ordered.map(c=>({payloadIndex:c.payloadIndex,placements:c.placements}));
     const selected=JSON.parse(native().legacyDedupBoards(JSON.stringify(nativeCandidates),lineas.length));
@@ -97,7 +178,9 @@ function createIncrementalRustMasterGenerator(lineas,O,rondas=40,semilla=7){
     uniqueMaskPolicy,
     allowedRounds:[...allowedRounds].sort((a,b)=>a-b),
     get generationCpuMs(){return generationCpuMs;},
-    get candidateCount(){return candidates.length;}
+    get candidateCount(){return structuralShortCircuit?structuralPatterns.length:candidates.length;},
+    get structuralShortCircuit(){maybeRunStructural();return structuralShortCircuit;},
+    get structuralTelemetry(){maybeRunStructural();return structuralTelemetry;}
   };
 }
 module.exports={createIncrementalRustMasterGenerator,normalizeRounds};
