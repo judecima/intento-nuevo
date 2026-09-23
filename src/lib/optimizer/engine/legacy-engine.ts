@@ -25,6 +25,7 @@ import type {
   OptimizerStrategy
 } from "../types";
 import { validateIndependentSlices } from "../validators/independent-slices";
+import { runIsolatedLegacyKernel, type IsolatedKernelOptions } from "./isolated-kernel";
 
 const require = createRequire(import.meta.url);
 
@@ -259,20 +260,76 @@ function runExperimentalStagedV10(
   return { plan: result.plan, metricas: result.metrics, cota: result.cota };
 }
 
+type PreparedOptimizationExecution = {
+  parsed: OptimizationInput;
+  inputHash: string;
+  strategy: OptimizerStrategy;
+  stagedConfig: ExperimentalStagedConfig | null;
+  motorVersion: OptimizerMotorVersion;
+  effortMode: OptimizerEffortMode;
+  patternGenerator: OptimizerPatternGenerator;
+  cacheKey: string;
+  cached: OptimizationResult | null;
+  lineas: LegacyLineInput[];
+  options: LegacyOptimizerOptions;
+  profile: NonNullable<OptimizationInput["constraints"]["profile"]>;
+  expectedPieceCount: number;
+};
+
 export function optimizeProject(
   input: OptimizationInput,
   runtimeOptions: OptimizeProjectRuntimeOptions = {},
 ): OptimizationResult {
   const startedAt = Date.now();
-  const parsed = optimizationInputSchema.parse(input);
+  const prepared = prepareOptimizationExecution(input, runtimeOptions);
+  if (prepared.cached) return cachedOptimizationResult(prepared.cached, startedAt);
+
+  const kernel = runLegacyKernelSync(prepared);
+  return finalizeOptimizationExecution(prepared, kernel.result, kernel.rustFallback, startedAt);
+}
+
+export async function optimizeProjectIsolated(
+  input: OptimizationInput,
+  runtimeOptions: OptimizeProjectRuntimeOptions = {},
+  isolationOptions: IsolatedKernelOptions = {},
+): Promise<OptimizationResult> {
+  const startedAt = Date.now();
+  const prepared = prepareOptimizationExecution(input, runtimeOptions);
+  if (prepared.cached) return cachedOptimizationResult(prepared.cached, startedAt);
+
+  const kernel = await runIsolatedLegacyKernel(
+    {
+      strategy: prepared.strategy,
+      lineas: prepared.lineas,
+      options: prepared.options,
+      stagedConfig: prepared.stagedConfig,
+    },
+    isolationOptions,
+  );
+
+  if (prepared.strategy !== "v10" && kernel.result.cota == null) {
+    kernel.result.cota = areaLowerBound(prepared.lineas, prepared.options);
+  }
+
+  return finalizeOptimizationExecution(
+    prepared,
+    kernel.result,
+    kernel.rustFallback,
+    startedAt,
+  );
+}
+
+function prepareOptimizationExecution(
+  input: OptimizationInput,
+  runtimeOptions: OptimizeProjectRuntimeOptions,
+): PreparedOptimizationExecution {
+  const parsed = optimizationInputSchema.parse(input) as OptimizationInput;
   const inputHash = optimizationInputHash(parsed);
   const strategy = parsed.strategy ?? "baseline";
   const stagedConfig = resolveExperimentalStagedConfig(strategy);
   const deterministicBudgets = resolveDeterministicBudgetConfig();
   const requestedMotorVersion = resolveMotorVersion(runtimeOptions.motorVersion);
   const requestedEffortMode = resolveEffortMode(runtimeOptions.effortMode);
-  // The staged research pipeline is versioned independently; do not combine it
-  // implicitly with the production V2 Master short-circuit.
   const motorVersion: OptimizerMotorVersion =
     strategy === "v10" && !stagedConfig ? requestedMotorVersion : "v1";
   const effortMode: OptimizerEffortMode =
@@ -293,42 +350,91 @@ export function optimizeProject(
   ]
     .filter(Boolean)
     .join("|");
-  const cached = optimizationCache.get(cacheKey);
-
-  if (cached) {
-    const result = cloneOptimizationResult(cached);
-    result.metrics = { ...result.metrics, cacheHit: true, engineMs: Date.now() - startedAt };
-    return result;
-  }
 
   const lineas = toLegacyLines(parsed);
-  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator, motorVersion, effortMode);
+  const options = toLegacyOptions(
+    parsed,
+    strategy,
+    deterministicBudgets,
+    patternGenerator,
+    motorVersion,
+    effortMode,
+  );
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
-  const raw =
-    strategy === "v10"
-      ? completeLegacyPlan(
-          stagedConfig
-            ? runExperimentalStagedV10(lineas, options, stagedConfig)
-            : legacyV10.optimizarV10(lineas, options, legacyV10.nuevasMetricas()),
-          lineas,
-          "v10",
-        )
-      : completeLegacyPlan(
-          {
-            plan: legacyMotor.optimizar(lineas, { ...options, multiVariantes: false }),
-            metricas: legacyV10.nuevasMetricas(),
-            cota: areaLowerBound(lineas, options)
-          },
-          lineas,
-          "baseline",
-        );
+  return {
+    parsed,
+    inputHash,
+    strategy,
+    stagedConfig,
+    motorVersion,
+    effortMode,
+    patternGenerator,
+    cacheKey,
+    cached: optimizationCache.get(cacheKey) ?? null,
+    lineas,
+    options,
+    profile,
+    expectedPieceCount,
+  };
+}
 
+function runLegacyKernelSync(
+  prepared: PreparedOptimizationExecution,
+): { result: LegacyOptimizerReturn; rustFallback: boolean } {
+  const {
+    strategy,
+    stagedConfig,
+    lineas,
+    options,
+  } = prepared;
+
+  const result: LegacyOptimizerReturn =
+    strategy === "v10"
+      ? stagedConfig
+        ? runExperimentalStagedV10(lineas, options, stagedConfig)
+        : legacyV10.optimizarV10(lineas, options, legacyV10.nuevasMetricas())
+      : {
+          plan: legacyMotor.optimizar(lineas, { ...options, multiVariantes: false }),
+          metricas: legacyV10.nuevasMetricas(),
+          cota: areaLowerBound(lineas, options),
+        };
+
+  return {
+    result,
+    rustFallback: options._rustPatternGeneratorFallback === true,
+  };
+}
+
+function finalizeOptimizationExecution(
+  prepared: PreparedOptimizationExecution,
+  kernelResult: LegacyOptimizerReturn,
+  rustFallback: boolean,
+  startedAt: number,
+): OptimizationResult {
+  const {
+    parsed,
+    inputHash,
+    strategy,
+    stagedConfig,
+    motorVersion,
+    effortMode,
+    patternGenerator,
+    cacheKey,
+    lineas,
+    profile,
+    expectedPieceCount,
+  } = prepared;
+
+  const raw = completeLegacyPlan(
+    kernelResult,
+    lineas,
+    strategy === "v10" ? "v10" : "baseline",
+  );
   const industrial = legacyV10.validarPlanIndustrial(raw, expectedPieceCount);
   const independentSlices = validateIndependentSlices(raw);
   const normalized = normalizeLegacyPlan(raw, expectedPieceCount, parsed.pieces);
-  const rustFallback = options._rustPatternGeneratorFallback === true;
   const patternGeneratorUsed =
     patternGenerator === "rust"
       ? (rustFallback ? "rust-fallback-js" : "rust")
@@ -361,12 +467,25 @@ export function optimizeProject(
     validation: {
       ok: industrial.ok && independentSlices.ok,
       industrial,
-      independentSlices
+      independentSlices,
     },
-    raw
+    raw,
   };
 
   if (!rustFallback) rememberOptimizationResult(cacheKey, result);
+  return result;
+}
+
+function cachedOptimizationResult(
+  cached: OptimizationResult,
+  startedAt: number,
+): OptimizationResult {
+  const result = cloneOptimizationResult(cached);
+  result.metrics = {
+    ...result.metrics,
+    cacheHit: true,
+    engineMs: Date.now() - startedAt,
+  };
   return result;
 }
 
