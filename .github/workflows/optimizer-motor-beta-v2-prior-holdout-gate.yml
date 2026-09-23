@@ -1,0 +1,70 @@
+name: Optimizer Motor Beta V2 Prior Holdout Gate
+
+on:
+  push:
+    branches:
+      - validation/motor-beta-v2-historical-20260923
+    paths:
+      - "research/optimizer/motor-v2/motor-beta-v2-prior-holdout-gate.cjs"
+      - "research/optimizer/motor-v2/fixtures/HOLDOUT1_V2_ELIGIBLE.json.gz.b64"
+      - ".github/workflows/optimizer-motor-beta-v2-prior-holdout-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Prior holdout V1 vs V2 shard
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 16
+        run: node research/optimizer/motor-v2/motor-beta-v2-prior-holdout-gate.cjs shard
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motor-beta-v2-prior-holdout-shard-${{ matrix.shard }}
+          path: research/optimizer/motor-v2/motor-beta-v2-prior-holdout-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: motor-beta-v2-prior-holdout-shard-*
+          path: research/optimizer/motor-v2
+          merge-multiple: true
+      - name: Build prior holdout report
+        env:
+          SHARD_TOTAL: 16
+        run: node research/optimizer/motor-v2/motor-beta-v2-prior-holdout-gate.cjs report
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motor-beta-v2-prior-holdout-result
+          path: research/optimizer/motor-v2/MOTOR_BETA_V2_PRIOR_HOLDOUT_RESULT.json
+          if-no-files-found: error
+          retention-days: 14
