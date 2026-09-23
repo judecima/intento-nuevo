@@ -23,8 +23,17 @@ await build({
 
 const optimizer = await import(pathToFileURL(bundlePath).href + "?v=" + Date.now());
 const require = createRequire(import.meta.url);
-const { defragmentarPlanPorPlaca } = require("../src/lib/optimizer/experimental/per-board-remnant-defrag.cjs");
-const { calidadPlanPlacas } = require("../src/lib/optimizer/legacy/motor.cjs");
+const {
+  defragmentarPlanPorPlaca,
+  lineasDesdePlaca,
+} = require("../src/lib/optimizer/experimental/per-board-remnant-defrag.cjs");
+const {
+  optimizar,
+  calidadRestos,
+  compararCalidad,
+  calidadPlanPlacas,
+} = require("../src/lib/optimizer/legacy/motor.cjs");
+const { validarPlanIndustrial } = require("../src/lib/optimizer/legacy/validador_industrial_v3.cjs");
 
 const rows = [
 [4,882,600],[1,1554,600],[2,1518,70],[1,1518,600],[2,516,880],[2,1550,100],[2,550,100],[2,480,70],
@@ -100,6 +109,60 @@ const defragP8 = (defragBoard5?.colocadas || []).filter(c=>c.pieza?.ref==="P8").
 const defragRemnants = (defragBoard5?.restos || []).map(r=>({x:r.x,y:r.y,w:r.w,h:r.h,area:r.w*r.h}))
   .sort((a,b)=>b.area-a.area).slice(0,10);
 
+const board5Lines = lineasDesdePlaca(board5);
+const localSweeps = [];
+const baseCfg = Object.fromEntries(
+  Object.entries(raw.opts || {}).filter(([key]) => !key.startsWith("_"))
+);
+const variants = [
+  { name:"mv", multiVariantes:true },
+  { name:"r28", restartsPorPlaca:28 },
+  { name:"r56", restartsPorPlaca:56 },
+  { name:"r28-mv", restartsPorPlaca:28, multiVariantes:true },
+  { name:"r56-mv", restartsPorPlaca:56, multiVariantes:true },
+  { name:"noise50-r28-mv", ruido:0.5, restartsPorPlaca:28, multiVariantes:true },
+  { name:"noise80-r56-mv", ruido:0.8, restartsPorPlaca:56, multiVariantes:true },
+  { name:"tol05-r28-mv", tolerancia:0.05, restartsPorPlaca:28, multiVariantes:true },
+  { name:"tol10-r56-mv", tolerancia:0.10, restartsPorPlaca:56, multiVariantes:true },
+  { name:"depth-off-r28-mv", preferirMenorProfundidad:false, restartsPorPlaca:28, multiVariantes:true },
+];
+
+for (const variant of variants) {
+  let best = null;
+  const started = process.hrtime.bigint();
+  for (let seedOffset=0; seedOffset<8; seedOffset++) {
+    try {
+      const candidate = optimizar(board5Lines, {
+        ...baseCfg,
+        ...variant,
+        penalizarFranjaMuerta:true,
+        semilla:(Number(baseCfg.semilla)||20260812) + 900000 + seedOffset,
+      });
+      if (!candidate?.placas || candidate.placas.length !== 1) continue;
+      const validation = validarPlanIndustrial(candidate, board5Lines.reduce((s,l)=>s+l.cant,0));
+      if (!validation?.ok) continue;
+      const q = calidadRestos(candidate.placas[0].restos || [], candidate.opts || raw.opts);
+      if (!best || compararCalidad(q, best.q) > 0) best = { candidate, q, seedOffset };
+    } catch (_) {}
+  }
+  const ms = Number(process.hrtime.bigint()-started)/1e6;
+  if (!best) {
+    localSweeps.push({name:variant.name, valid:false, ms:+ms.toFixed(3)});
+    continue;
+  }
+  const b=best.candidate.placas[0];
+  localSweeps.push({
+    name:variant.name,
+    valid:true,
+    ms:+ms.toFixed(3),
+    improved:compararCalidad(best.q, calidadRestos(board5.restos||[], raw.opts))>0,
+    quality:best.q,
+    seedOffset:best.seedOffset,
+    p8:(b.colocadas||[]).filter(x=>x.pieza?.ref==="P8").map(x=>({x:x.x,y:x.y,w:x.base,h:x.altura})),
+    remnants:(b.restos||[]).map(r=>({x:r.x,y:r.y,w:r.w,h:r.h,area:r.w*r.h})).sort((a,b)=>b.area-a.area).slice(0,8),
+  });
+}
+
 console.log("REMNANT95 " + JSON.stringify({
   totalMs:+totalMs.toFixed(3),
   valid:result.validation.ok,
@@ -124,5 +187,6 @@ console.log("REMNANT95 " + JSON.stringify({
     qualityAfter:qAfter,
     board5P8:defragP8,
     board5Remnants:defragRemnants,
-  }
+  },
+  localSweeps,
 }));
