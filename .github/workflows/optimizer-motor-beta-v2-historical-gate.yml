@@ -1,0 +1,72 @@
+name: Optimizer Motor Beta V2 Historical Promotion Gate
+
+on:
+  push:
+    branches:
+      - validation/motor-beta-v2-historical-20260923
+    paths:
+      - "research/optimizer/motor-v2/motor-beta-v2-historical-gate.cjs"
+      - "research/optimizer/motor-v2/master-structural-shortcircuit-v2.mjs"
+      - "research/optimizer/motor-v2/structural-repetition-rescue-v2.mjs"
+      - "experiencia/canonical_cases.json"
+      - ".github/workflows/optimizer-motor-beta-v2-historical-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Historical V1 vs V2 shard
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 32
+        run: node research/optimizer/motor-v2/motor-beta-v2-historical-gate.cjs shard
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motor-beta-v2-historical-shard-${{ matrix.shard }}
+          path: research/optimizer/motor-v2/motor-beta-v2-historical-shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: motor-beta-v2-historical-shard-*
+          path: research/optimizer/motor-v2
+          merge-multiple: true
+      - name: Build historical promotion report
+        env:
+          SHARD_TOTAL: 32
+        run: node research/optimizer/motor-v2/motor-beta-v2-historical-gate.cjs report
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motor-beta-v2-historical-result
+          path: research/optimizer/motor-v2/MOTOR_BETA_V2_HISTORICAL_RESULT.json
+          if-no-files-found: error
+          retention-days: 14
