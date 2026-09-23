@@ -11,23 +11,14 @@ import { previewProjectOptimizationAction } from "@/lib/optimizations/actions";
 import type { CutPlanView } from "@/lib/optimizations/plan-view";
 import { saveProjectDraftAction, saveProjectDraftOnlyAction } from "@/lib/projects/actions";
 
-type Strategy = "baseline" | "v10";
-type OptimizerProfile = "fast" | "balanced" | "deep";
-type OptimizerModeId = "baseline-fast" | "v10-fast" | "v10-balanced" | "v10-deep";
-
 type EditorRow = ProjectDraftItem & { uid: string };
 
-const OPTIMIZER_MODES: Array<{
-  id: OptimizerModeId;
-  label: string;
-  strategy: Strategy;
-  profile: OptimizerProfile;
-}> = [
-  { id: "baseline-fast", label: "Baseline rapido", strategy: "baseline", profile: "fast" },
-  { id: "v10-fast", label: "V10 rapido", strategy: "v10", profile: "fast" },
-  { id: "v10-balanced", label: "V10 balanceado / Lepton", strategy: "v10", profile: "balanced" },
-  { id: "v10-deep", label: "V10 profundo", strategy: "v10", profile: "deep" }
-];
+// Product contract: users do not choose optimizer internals. V10 balanced is
+// the stable quality envelope; runtime-policy selects fixed/Auto/Advanced.
+const PRODUCT_OPTIMIZER = {
+  strategy: "v10" as const,
+  profile: "balanced" as const,
+};
 
 export type { BoardMaterialOption };
 
@@ -63,7 +54,6 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   const [version, setVersion] = useState(props.version);
   const [settings, setSettings] = useState(props.settings);
   const [rows, setRows] = useState<EditorRow[]>(() => props.items.map(withUid));
-  const [optimizerModeId, setOptimizerModeId] = useState<OptimizerModeId>("baseline-fast");
   const [preview, setPreview] = useState<CutPlanView | null>(null);
   const [busy, setBusy] = useState<"preview" | "save" | "reoptimize" | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
@@ -100,7 +90,6 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     () => props.boardMaterials.find((material) => material.id === settings.materialId) ?? null,
     [props.boardMaterials, settings.materialId]
   );
-  const optimizerMode = OPTIMIZER_MODES.find((mode) => mode.id === optimizerModeId) ?? OPTIMIZER_MODES[0];
   const selectedMaterialHasGrain = Boolean(selectedMaterial?.hasGrain);
   const draft = () => ({
     projectId: props.projectId,
@@ -113,8 +102,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     trimY: Number(settings.trimY),
     minRemnant: Number(settings.minRemnant),
     minCutSize: Number(settings.minCutSize),
-    strategy: optimizerMode.strategy,
-    profile: optimizerMode.profile,
+    strategy: PRODUCT_OPTIMIZER.strategy,
+    profile: PRODUCT_OPTIMIZER.profile,
     items: rows.map(({ uid: _uid, ...item }) => ({
       ...item,
       quantity: Number(item.quantity),
@@ -318,23 +307,12 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
             {plan ? <PrintButton label="Imprimir plano" /> : null}
             {props.editable ? (
               <>
-                <label className="block">
+                <div className="block">
                   <span className="field-label">Motor</span>
-                  <select
-                    value={optimizerModeId}
-                    onChange={(event) => {
-                      setOptimizerModeId(event.target.value as OptimizerModeId);
-                      setPreview(null);
-                    }}
-                    className="select mt-1.5 w-[210px]"
-                  >
-                    {OPTIMIZER_MODES.map((mode) => (
-                      <option key={mode.id} value={mode.id}>
-                        {mode.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <div className="mt-1.5 flex h-[38px] min-w-[170px] items-center rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] px-3 text-sm font-semibold">
+                    Automatico
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={runPreview}
