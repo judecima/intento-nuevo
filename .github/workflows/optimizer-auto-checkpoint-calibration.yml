@@ -1,0 +1,66 @@
+name: Optimizer Auto Checkpoint Calibration
+
+concurrency:
+  group: optimizer-auto-checkpoint-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - motor-beta-v2
+    paths:
+      - "src/lib/optimizer/**"
+      - "research/optimizer/auto-effort/auto-checkpoint-calibration.cjs"
+      - ".github/workflows/optimizer-auto-checkpoint-calibration.yml"
+  workflow_dispatch:
+
+jobs:
+  calibration-shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4]
+    env:
+      SHARD_INDEX: ${{ matrix.shard }}
+      SHARD_TOTAL: 5
+      AUTO_CHECKPOINT_CAPS: 500,1000,2000,4000,8000,12000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Calibrate P16 solver cap
+        run: node research/optimizer/auto-effort/auto-checkpoint-calibration.cjs shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auto-checkpoint-calibration-${{ matrix.shard }}
+          path: research/optimizer/auto-effort/checkpoint-calibration-shard-${{ matrix.shard }}.json
+          retention-days: 7
+
+  calibration-report:
+    needs: calibration-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHARD_TOTAL: 5
+      AUTO_CHECKPOINT_CAPS: 500,1000,2000,4000,8000,12000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: auto-checkpoint-calibration-*
+          path: research/optimizer/auto-effort
+          merge-multiple: true
+      - name: Aggregate calibration
+        run: node research/optimizer/auto-effort/auto-checkpoint-calibration.cjs report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auto-checkpoint-calibration-result
+          path: research/optimizer/auto-effort/AUTO_CHECKPOINT_CALIBRATION_RESULT.json
+          retention-days: 30
