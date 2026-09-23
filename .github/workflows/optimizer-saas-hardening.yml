@@ -1,0 +1,42 @@
+name: Optimizer SaaS Hardening
+
+on:
+  pull_request:
+    branches:
+      - motor-auto-v1
+    paths:
+      - "src/lib/optimizer/**"
+      - "src/lib/optimizations/**"
+      - "src/lib/projects/actions.ts"
+      - "tests/optimizer/runtime-policy.test.ts"
+      - "tests/optimizer-telemetry.test.ts"
+      - ".github/workflows/optimizer-saas-hardening.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hardening-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Runtime identity + telemetry contracts
+        run: >
+          npx vitest run
+          tests/optimizer/runtime-policy.test.ts
+          tests/optimizer-telemetry.test.ts
+          tests/optimizer/motor-beta-v2-runtime.test.ts
+          tests/optimizer/auto-effort-controller.test.ts
+      - name: Next production build
+        run: npm run build
