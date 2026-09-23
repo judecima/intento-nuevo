@@ -53,11 +53,16 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
   const maxBoards = Number.isFinite(maxBoardsRaw) && maxBoardsRaw > 0
     ? Math.min(plan.placas.length, Math.floor(maxBoardsRaw))
     : plan.placas.length;
+  const requireRelocationOpportunity = options.requireRelocationOpportunity === true;
   const rankedBoardIndexes = plan.placas
     .map((board, index) => ({
       index,
+      board,
       quality: calidadRestos((board && board.restos) || [], opts),
     }))
+    .filter((entry) =>
+      !requireRelocationOpportunity || tieneOportunidadConsolidacionBorde(entry.board, opts)
+    )
     .sort((a, b) => {
       const quality = compararCalidad(b.quality, a.quality);
       return quality || a.index - b.index;
@@ -166,6 +171,120 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
     validation: validacion,
     ms,
   };
+}
+
+/**
+ * Cheap gate for the V2 equal-board polish.
+ *
+ * We only spend a one-board repack when the current layout already exposes a
+ * concrete consolidation opportunity: a large commercial edge remnant, at
+ * least two thin pieces immediately adjacent to it, and distinct internal
+ * non-commercial holes that can hold those pieces. This is the geometry of the
+ * 95-piece furniture sentinel (two 480x70 strips above a large bottom remnant
+ * plus several 564x92.5 internal holes).
+ */
+function tieneOportunidadConsolidacionBorde(placa, opts) {
+  if (!placa || !Array.isArray(placa.colocadas) || !Array.isArray(placa.restos)) return false;
+
+  const saw = Math.max(0, +opts.sierra || 0);
+  const tol = Math.max(1, saw + 0.75);
+  const boardW = +placa.ancho || +opts.anchoUtil || 0;
+  const boardH = +placa.alto || +opts.altoUtil || 0;
+  const restoMin = Math.max(0, +opts.restoMin || 0);
+  const restoMax = Math.max(0, +opts.restoMax || 0);
+  const thinLimit = Math.max(80, Math.min(160, restoMin > 0 ? restoMin * 0.5 : 120));
+
+  const commercial = (placa.restos || []).filter((r) =>
+    Math.min(+r.w || 0, +r.h || 0) >= restoMin &&
+    Math.max(+r.w || 0, +r.h || 0) >= restoMax
+  );
+  const holes = (placa.restos || []).filter((r) => !commercial.includes(r));
+
+  const overlap = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0) > 1e-6;
+  const near = (a, b) => Math.abs(a - b) <= tol;
+
+  for (const rem of commercial) {
+    const horizontalEdge = boardW > 0 && rem.w >= boardW * 0.70;
+    const verticalEdge = boardH > 0 && rem.h >= boardH * 0.70;
+    if (!horizontalEdge && !verticalEdge) continue;
+
+    const candidates = [];
+    let side = null;
+
+    if (horizontalEdge && rem.y > tol) {
+      side = "top";
+      for (const p of placa.colocadas) {
+        if (
+          p.altura <= thinLimit &&
+          near(p.y + p.altura + saw, rem.y) &&
+          overlap(p.x, p.x + p.base, rem.x, rem.x + rem.w)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2 && horizontalEdge && rem.y + rem.h < boardH - tol) {
+      candidates.length = 0;
+      side = "bottom";
+      for (const p of placa.colocadas) {
+        if (
+          p.altura <= thinLimit &&
+          near(rem.y + rem.h + saw, p.y) &&
+          overlap(p.x, p.x + p.base, rem.x, rem.x + rem.w)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2 && verticalEdge && rem.x > tol) {
+      candidates.length = 0;
+      side = "left";
+      for (const p of placa.colocadas) {
+        if (
+          p.base <= thinLimit &&
+          near(p.x + p.base + saw, rem.x) &&
+          overlap(p.y, p.y + p.altura, rem.y, rem.y + rem.h)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2 && verticalEdge && rem.x + rem.w < boardW - tol) {
+      candidates.length = 0;
+      side = "right";
+      for (const p of placa.colocadas) {
+        if (
+          p.base <= thinLimit &&
+          near(rem.x + rem.w + saw, p.x) &&
+          overlap(p.y, p.y + p.altura, rem.y, rem.y + rem.h)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2) continue;
+
+    // Holes belonging to the same removable boundary band do not count as a
+    // destination. We need internal waste elsewhere on the board.
+    const internalHoles = holes.filter((h) => {
+      if (side === "top") return !near(h.y + h.h + saw, rem.y);
+      if (side === "bottom") return !near(rem.y + rem.h + saw, h.y);
+      if (side === "left") return !near(h.x + h.w + saw, rem.x);
+      if (side === "right") return !near(rem.x + rem.w + saw, h.x);
+      return true;
+    });
+
+    const used = new Set();
+    let matched = 0;
+    for (const p of candidates.slice().sort((a,b) => b.base*b.altura - a.base*a.altura)) {
+      const rotatable = !(opts.materialConVeta || (p.pieza && p.pieza.veta));
+      const holeIndex = internalHoles.findIndex((h, index) => {
+        if (used.has(index)) return false;
+        const direct = h.w + 1e-9 >= p.base && h.h + 1e-9 >= p.altura;
+        const rotated = rotatable && h.w + 1e-9 >= p.altura && h.h + 1e-9 >= p.base;
+        return direct || rotated;
+      });
+      if (holeIndex >= 0) {
+        used.add(holeIndex);
+        matched++;
+        if (matched >= 2) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /** Reference implementation of the compactation pass currently skipped by V20. */
@@ -307,4 +426,5 @@ module.exports = {
   lineasDesdePlaca,
   lineasDesdePlan,
   detectarDeltasEstructurales,
+  tieneOportunidadConsolidacionBorde,
 };
