@@ -95,6 +95,7 @@ export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION
 export const MOTOR_BETA_V2_VERSION = `${LEGACY_OPTIMIZER_VERSION}+master-structural-v2`;
 export const OPTIMIZER_AUTO_EFFORT_VERSION = `${MOTOR_BETA_V2_VERSION}+auto-effort-v1`;
 export const OPTIMIZER_ADVANCED_REFERENCE_VERSION = `${MOTOR_BETA_V2_VERSION}+advanced-reference-v1`;
+export const V2_REMNANT_POLISH_SUFFIX = "+remnant-polish-v1";
 
 export type OptimizerMotorVersion = "v1" | "v2";
 export type OptimizerEffortMode = "fixed" | "auto" | "advanced";
@@ -136,9 +137,9 @@ export function optimizerAlgorithmVersionForRuntime({
       : LEGACY_OPTIMIZER_VERSION;
   }
 
-  if (effortMode === "auto") return `${OPTIMIZER_AUTO_EFFORT_VERSION}${rustSuffix}`;
-  if (effortMode === "advanced") return `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}${rustSuffix}`;
-  return `${MOTOR_BETA_V2_VERSION}${rustSuffix}`;
+  if (effortMode === "auto") return `${OPTIMIZER_AUTO_EFFORT_VERSION}${V2_REMNANT_POLISH_SUFFIX}${rustSuffix}`;
+  if (effortMode === "advanced") return `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}${V2_REMNANT_POLISH_SUFFIX}${rustSuffix}`;
+  return `${MOTOR_BETA_V2_VERSION}${V2_REMNANT_POLISH_SUFFIX}${rustSuffix}`;
 }
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
@@ -555,6 +556,8 @@ function toLegacyOptions(
           usarCotaBarataPostCompactacion: true,
           usarDffFs0PostCompactacion: true,
           usarMascarasUnicasMasterLe4: true,
+          usarPolishRemanentePorPlacaV2: true,
+          polishRemanenteMaxPlacas: 2,
           minPiezasMultiSliceExperimental: 200,
           maxPiezasMultiSliceExperimental: 500,
           rondasPatrones: 40,
