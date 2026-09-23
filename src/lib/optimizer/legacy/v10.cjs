@@ -492,6 +492,7 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
       {
         multiVariantes: true,
         maxBoards: Number(config.polishRemanenteMaxPlacas) || 2,
+        requireRelocationOpportunity: true,
         seedOffsets: [0],
         seedBaseOffset: 900000,
       },
