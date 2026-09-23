@@ -20,6 +20,7 @@ on:
       - "scripts/optimizer-kernel-child.cjs"
       - "scripts/diagnose-tail-case-30.mjs"
       - "scripts/diagnose-remnant-case-95.mjs"
+      - "scripts/validate-production-runtime-full.mjs"
       - ".github/workflows/optimizer-saas-hardening.yml"
   workflow_dispatch:
 
@@ -53,5 +54,12 @@ jobs:
         run: node scripts/diagnose-tail-case-30.mjs
       - name: Diagnose 95-piece remnant case
         run: node scripts/diagnose-remnant-case-95.mjs
+      - name: Full local validator smoke
+        run: >
+          node scripts/validate-production-runtime-full.mjs
+          --input tests/fixtures/optimizer/xml
+          --output /tmp/full-runtime-validation-smoke
+          --limit 2
+          --progress-every 1
       - name: Next production build
         run: npm run build
