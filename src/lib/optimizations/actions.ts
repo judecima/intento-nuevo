@@ -51,6 +51,7 @@ export async function previewProjectOptimizationAction(draft: ProjectDraft): Pro
     const runtime = resolveOptimizerRuntimeForExecution({
       strategy: parsed.strategy,
       queuedWorker: false,
+      rolloutKey: parsed.projectId,
     });
     const result = optimizeProject(input, {
       patternGenerator: runtime.patternGenerator,
