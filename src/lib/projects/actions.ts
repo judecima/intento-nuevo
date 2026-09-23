@@ -272,6 +272,7 @@ async function persistProjectDraftAction(
       const runtime = resolveOptimizerRuntimeForExecution({
         strategy: parsed.strategy,
         queuedWorker: false,
+        rolloutKey: parsed.projectId,
       });
       optimization = await runAndStoreOptimization({
         projectId: parsed.projectId,
@@ -287,6 +288,7 @@ async function persistProjectDraftAction(
       const runtime = resolveOptimizerRuntimeForExecution({
         strategy: parsed.strategy,
         queuedWorker: true,
+        rolloutKey: parsed.projectId,
       });
       optimization = await enqueueOptimizationJob({
         supabase,
