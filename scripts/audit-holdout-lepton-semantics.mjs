@@ -23,6 +23,9 @@ const ambiguousIdsPath = path.join(args.output, "IDS_TRIM_AMBIGUOUS.txt");
 const zeroIdsPath = path.join(args.output, "IDS_TRIM_ZERO.txt");
 const unknownIdsPath = path.join(args.output, "IDS_UNKNOWN.txt");
 const rotationReviewIdsPath = path.join(args.output, "IDS_ROTATION_REVIEW.txt");
+const furnitureLe75IdsPath = path.join(args.output, "IDS_FURNITURE_LE75.txt");
+const over75IdsPath = path.join(args.output, "IDS_OVER75.txt");
+const zeroPieceIdsPath = path.join(args.output, "IDS_ZERO_PIECES.txt");
 
 const files = collectXml(args.inputs);
 const runtimeRows = args.runtimeRows ? loadJsonl(args.runtimeRows) : [];
@@ -103,6 +106,12 @@ const unknownRows = project.filter(
 );
 const unknownRuntimeMissing = unknownRows.filter((row) => row.runtime == null);
 const unknownRuntimePresent = unknownRows.filter((row) => row.runtime != null);
+
+const furnitureLe75 = project.filter(
+  (row) => row.physicalBoards <= 75 && row.physicalPieces > 0,
+);
+const over75 = project.filter((row) => row.physicalBoards > 75);
+const zeroPiece = project.filter((row) => row.physicalPieces === 0);
 
 const noRotationAtLeast5 = project.filter(
   (row) => row.physicalPieces >= 5 && !row.rotation?.rotationObserved,
@@ -185,6 +194,11 @@ const summary = {
       trim: row.inferredRefilado,
     })),
   },
+  productCohorts: {
+    furnitureLe75: furnitureLe75.length,
+    over75: over75.length,
+    zeroPiece: zeroPiece.length,
+  },
   noRotationAtLeast5: {
     cases: noRotationAtLeast5.length,
     better: noRotationBetter.length,
@@ -202,6 +216,9 @@ const summary = {
     ambiguousIds: ambiguousIdsPath,
     unknownIds: unknownIdsPath,
     rotationReviewIds: rotationReviewIdsPath,
+    furnitureLe75Ids: furnitureLe75IdsPath,
+    over75Ids: over75IdsPath,
+    zeroPieceIds: zeroPieceIdsPath,
   },
   errorsPreview: errors.slice(0, 20).map((row) => ({
     caseId: row.caseId,
@@ -216,6 +233,9 @@ writeIds(zeroIdsPath, trimZero);
 writeIds(ambiguousIdsPath, trimAmbiguous);
 writeIds(unknownIdsPath, unknownRows);
 writeIds(rotationReviewIdsPath, noRotationBetter);
+writeIds(furnitureLe75IdsPath, furnitureLe75);
+writeIds(over75IdsPath, over75);
+writeIds(zeroPieceIdsPath, zeroPiece);
 
 console.log("SUMMARY " + JSON.stringify({
   xmlFiles: summary.xmlFiles,
@@ -228,6 +248,7 @@ console.log("SUMMARY " + JSON.stringify({
   trimDistribution: summary.trim.distribution,
   qualityCohorts: summary.qualityCohorts,
   unknown: summary.unknown,
+  productCohorts: summary.productCohorts,
   noRotationAtLeast5: summary.noRotationAtLeast5,
   output: summaryPath,
 }));
