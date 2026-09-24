@@ -296,6 +296,8 @@ const twoStagePricingMaxStates = envInt("SERIAL_2STAGE_MAX_STATES", 500000);
 const twoStageMasterEnabled = process.env.SERIAL_2STAGE_MASTER === "1";
 const twoStageMasterWatchdogMs = envInt("SERIAL_2STAGE_MASTER_WATCHDOG_MS", 3000);
 const twoStageMasterNodes = envInt("SERIAL_2STAGE_MASTER_NODES", 1600000);
+const twoStageResidualWatchdogMs = envInt("SERIAL_2STAGE_RESIDUAL_WATCHDOG_MS", 1000);
+const twoStageResidualNodes = envInt("SERIAL_2STAGE_RESIDUAL_NODES", 250000);
 
 const rows = [];
 for (const c of cases) {
@@ -449,6 +451,118 @@ for (const c of cases) {
       }
     }
 
+    let lpFloorResidualAudit = null;
+    if (
+      twoStageMasterEnabled &&
+      currentLp?.status === "OPTIMAL" &&
+      Array.isArray(currentLp.primal) &&
+      currentLp.primal.length === pricingPool.length
+    ) {
+      const areaPlaca =
+        (c.width - (config.refiladoX || 0)) *
+        (c.height - (config.refiladoY || 0));
+      const floorCounts = currentLp.primal.map((value) =>
+        Math.max(0, Math.floor(Number(value) + 1e-9)),
+      );
+      const residual = lines.map((line) => Number(line.cant));
+      let floorBoards = 0;
+      for (let patternIndex = 0; patternIndex < pricingPool.length; patternIndex++) {
+        const count = floorCounts[patternIndex];
+        if (!count) continue;
+        floorBoards += count;
+        for (const [typeIndex, usage] of pricingPool[patternIndex].uso || []) {
+          residual[typeIndex] -= usage * count;
+        }
+      }
+      const residualPieces = residual.reduce((sum, value) => sum + Math.max(0, value), 0);
+      const residualStarted = nowMs();
+      let residualResult = null;
+      let residualError = null;
+      try {
+        if (residual.every((value) => value === 0)) {
+          residualResult = {
+            placas: 0,
+            counts: [],
+            nodos: 0,
+            ramasMultiplicidad: 0,
+            agotado: false,
+            targetReached: true,
+          };
+        } else if (residual.every((value) => value >= 0)) {
+          const residualSolver = resolverCoberturaContada(
+            pricingPool,
+            residual,
+            areaPlaca,
+            residualPieces + 1,
+            twoStageResidualWatchdogMs,
+            {
+              maxNodos: twoStageResidualNodes,
+              watchdogMs: twoStageResidualWatchdogMs,
+              expandPlan: false,
+            },
+          );
+          residualResult = residualSolver?.resolver(
+            lines.map((line) => line.base * line.altura),
+          ) || null;
+        } else {
+          residualError = "LP floor produced negative residual";
+        }
+      } catch (error) {
+        residualError = String(error?.stack || error);
+      }
+
+      let combinedValidation = null;
+      let combinedBoards = null;
+      if (Number.isFinite(residualResult?.placas)) {
+        const planPatterns = [];
+        for (let patternIndex = 0; patternIndex < pricingPool.length; patternIndex++) {
+          for (let copy = 0; copy < floorCounts[patternIndex]; copy++) {
+            planPatterns.push(pricingPool[patternIndex]);
+          }
+        }
+        for (const entry of residualResult?.counts || []) {
+          for (let copy = 0; copy < entry.count; copy++) {
+            planPatterns.push(entry.pattern);
+          }
+        }
+        combinedBoards = planPatterns.length;
+        try {
+          const combinedPlan = materializar(
+            planPatterns,
+            lines,
+            {
+              ...config,
+              anchoUtil: c.width - (config.refiladoX || 0),
+              altoUtil: c.height - (config.refiladoY || 0),
+            },
+          );
+          combinedValidation = combinedPlan
+            ? validarPlanIndustrial(combinedPlan, pieces)
+            : null;
+        } catch (error) {
+          residualError = String(error?.stack || error);
+        }
+      }
+
+      lpFloorResidualAudit = {
+        lpObjective: currentLp.objective,
+        floorBoards,
+        residualPieces,
+        residualDemand: residual,
+        residualBoards: Number.isFinite(residualResult?.placas)
+          ? residualResult.placas
+          : null,
+        combinedBoards,
+        combinedValid: Boolean(combinedValidation?.ok),
+        residualNodes: residualResult?.nodos ?? null,
+        residualMultiplicityBranches: residualResult?.ramasMultiplicidad ?? null,
+        residualExhausted: residualResult?.agotado ?? null,
+        residualTargetReached: residualResult?.targetReached ?? null,
+        elapsedMs: +(nowMs() - residualStarted).toFixed(3),
+        error: residualError,
+      };
+    }
+
     let masterAudit = null;
     if (twoStageMasterEnabled) {
       const areaPlaca =
@@ -512,6 +626,7 @@ for (const c of cases) {
       allAddedPatternsValid: rounds
         .filter((entry) => entry.added)
         .every((entry) => entry.patternValid === true),
+      lpFloorResidualAudit,
       masterAudit,
     };
   }
@@ -610,6 +725,12 @@ for (const c of cases) {
     twoStageMasterBoards: row.twoStagePricing?.masterAudit?.boards ?? null,
     twoStageMasterReached: row.twoStagePricing?.masterAudit?.targetReached ?? null,
     twoStageMasterMs: row.twoStagePricing?.masterAudit?.elapsedMs ?? null,
+    lpFloorBoards: row.twoStagePricing?.lpFloorResidualAudit?.floorBoards ?? null,
+    lpResidualPieces: row.twoStagePricing?.lpFloorResidualAudit?.residualPieces ?? null,
+    lpResidualBoards: row.twoStagePricing?.lpFloorResidualAudit?.residualBoards ?? null,
+    lpFloorCombinedBoards: row.twoStagePricing?.lpFloorResidualAudit?.combinedBoards ?? null,
+    lpFloorCombinedValid: row.twoStagePricing?.lpFloorResidualAudit?.combinedValid ?? null,
+    lpFloorResidualMs: row.twoStagePricing?.lpFloorResidualAudit?.elapsedMs ?? null,
     dualTop: row.generatorTelemetry?.finalDualPrices
       ? row.generatorTelemetry.finalDualPrices
           .map((price, index) => ({ index, price }))
@@ -633,6 +754,7 @@ const summary = {
   limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces, poolOnly,
   twoStagePricingEnabled, twoStagePricingRounds, twoStagePricingMaxStates,
   twoStageMasterEnabled, twoStageMasterWatchdogMs, twoStageMasterNodes,
+  twoStageResidualWatchdogMs, twoStageResidualNodes,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
