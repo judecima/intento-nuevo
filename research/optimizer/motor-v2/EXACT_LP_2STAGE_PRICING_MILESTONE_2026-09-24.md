@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE — SERIAL PIPELINE REPRODUCED AND INDEPENDENTLY VALIDATED; LEPTON FAIRNESS AUDIT PENDING**
+Status: **RESEARCH MILESTONE — SERIAL PIPELINE REPRODUCED; ROTATION FAIRNESS PASSED; MATCHED-REFILADO RERUN PENDING**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -244,4 +244,17 @@ Before calling the -3 / -5 / -10 board deltas a like-for-like advantage, audit t
 
 The standalone script `audit-lepton-layout-fairness.mjs` performs this audit without calling the optimizer. It also records the caveat that an external machine-level trim not encoded geometrically in the XML cannot be ruled out from XML alone.
 
-Final serial closure now requires this fairness audit to show no material geometric refilado mismatch and positive evidence that Lepton permits rotation in these jobs, or else a rerun under matched constraints.
+The first fairness audit produced mixed results:
+
+- **Rotation fairness passes strongly.** Lepton rotates pieces in all three Ignacio jobs and places the same piece codes in both orientations. Observed portrait rates are about 50.0%, 42.4%, and 52.9%, with 14 / 13 / 13 codes used in both orientations.
+- **Refilado fairness does not yet pass.** Every job exports root `trim=10`. The root layout frame still matches the physical panel dimensions exactly, but that does not prove zero trim in this XML format: node dimensions can include the trim reference while the usable geometry is smaller. The observed piece margins are also consistent with a roughly 10 mm terminal allowance: minimum right/bottom margins are about 10/12.4, 10/10.6, and 11.8/10.2 mm.
+
+Therefore the -3 / -5 / -10 comparison must **not** yet be called like-for-like. A research-only matched-refilado rerun is required.
+
+The fairness auditor has been extended to infer trim by global cut axis from all level-1/2 nodes. Once it reports an unambiguous `inferredRefilado.x/y`, rerun the three Ignacio cases with `SERIAL_FORCE_TRIM_X/Y` set to those values. Keep rotation enabled because Lepton demonstrably uses it.
+
+Final closure requires:
+1. trim-by-axis inference unambiguous;
+2. serial rerun under the same trim;
+3. independent combined-plan verification;
+4. compare matched results against physical Lepton 591 / 621 / 588.
