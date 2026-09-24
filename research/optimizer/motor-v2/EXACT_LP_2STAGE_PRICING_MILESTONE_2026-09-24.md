@@ -203,7 +203,7 @@ Therefore do **not** claim "integer optimum proven within the 2-stage family". T
 
 > An exact restricted master over the existing mixed-stage pool, augmented until no negative-reduced-cost 2-stage column remains, yields LP values 587.757 / 615.042 / 577.360. A fully materialized mixed-stage integer pipeline independently validates plans of 588 / 616 / 578 boards, beating the physical Lepton outputs by 3 / 5 / 10 boards.
 
-These LP values are valid lower bounds for the integer problem over the **current restricted mixed pool**, not for the unrestricted <=4-stage problem. Missing 3/4-stage columns could still lower the unrestricted LP/integer optimum.
+These LP values are valid lower bounds for the integer problem over the **current restricted mixed pool**, not for the unrestricted <=4-stage problem. The finalizer may introduce physical patterns that were not columns of that RMP, so the numerical equality `combinedBoards = ceil(RMP LP)` is not by itself an optimality proof for the combined plan. Missing 3/4-stage columns could still lower the unrestricted LP/integer optimum.
 
 Final closure now requires only Run B:
 1. independent verification valid again;
