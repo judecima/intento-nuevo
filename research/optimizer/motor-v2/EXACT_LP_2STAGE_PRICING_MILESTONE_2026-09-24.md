@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE CLOSED — MATCHED-REFILADO SERIAL GATE PASSED; COMPONENTS RETAINED FOR FURNITURE**
+Status: **RESEARCH MILESTONE — IGNACIO MATCHED-REFILADO CLOSED AT LEPTON PARITY; 5456195 FAIRNESS CHECK PENDING HOLDOUT AUDIT**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -252,6 +252,8 @@ Aggregate across the three matched jobs:
 - pipeline: **1797 boards**;
 - net: **3 boards fewer**.
 
+This is best interpreted as **Lepton-level parity with mixed per-case results**, not broad superiority: one case is worse by 1 board and two are better by 3 and 1. The net delta is only 0.17% of the 1800-board aggregate.
+
 The original Lepton+2 serial gate still passes in all three cases under matched trim:
 - 5445701: 592 <= 593;
 - 5445716: 618 <= 623;
@@ -276,7 +278,7 @@ As before, numerical equality `combinedBoards = ceil(RMP LP)` is **not** a globa
 
 ## Serial closure
 
-Serial research closes here.
+The three Ignacio cases are closed as an architectural proof at Lepton-level quality under matched trim. Case `5456195` was not included in the matched-refilado rerun; its fairness/trim semantics must be picked up by the holdout-wide audit before the overall serial chapter is called completely closed.
 
 Retain for transfer to furniture:
 1. exact restricted-master LP;
@@ -297,3 +299,10 @@ Next product milestone remains furniture / Lepton <=75 boards:
 - first audit real Lepton quality gaps;
 - then advanced-exhausted LB+1/root-certification opportunities;
 - measure quality vs Lepton, p50/p95/p99 CPU, and percent of AE cases avoided before Master separately.
+
+
+## Holdout-baseline consequence
+
+The matched-refilado rerun shows that a 10 x 10 mm trim materially changes board counts (by 4 / 2 / 9 boards in the three Ignacio cases relative to the earlier zero-trim runs). Therefore historical holdout quality claims measured with project XML trim forced to zero must be treated as provisional until the holdout-wide trim audit and corrected runtime comparison are complete.
+
+Do not start furniture LP/pricing experiments against the old holdout baseline. First establish the corrected Lepton-matched baseline from frozen runtime commit `d72d6f5729c4a65b15c168553b5815a760185f72`.
