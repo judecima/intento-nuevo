@@ -992,16 +992,16 @@ function baselineReviewReasons(row) {
     return reasons;
   }
 
-  const candidateBoards = Number(row.candidate?.boards);
-  const lowerBound = Number(row.candidate?.lowerBound);
-  const leptonBoards = Number(row.leptonBoards);
+  const candidateBoards = row.candidate?.boards;
+  const lowerBound = row.candidate?.lowerBound;
+  const leptonBoards = row.leptonBoards;
 
-  if (Number.isFinite(leptonBoards) && candidateBoards > leptonBoards) {
+  if (Number.isFinite(leptonBoards) && Number.isFinite(candidateBoards) && candidateBoards > leptonBoards) {
     reasons.push("worse_than_lepton");
   }
   if (!Number.isFinite(lowerBound)) {
     reasons.push("no_safe_lower_bound");
-  } else if (candidateBoards > lowerBound) {
+  } else if (Number.isFinite(candidateBoards) && candidateBoards > lowerBound) {
     reasons.push("above_safe_lower_bound");
   }
   return reasons;
