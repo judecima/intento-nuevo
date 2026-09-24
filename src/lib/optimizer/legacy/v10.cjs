@@ -592,13 +592,12 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
         !forceFull40 &&
         (highTypesP3Experimental || industrialRulesV3Experimental) &&
         typeCount > 40;
-      const midTypesHighRepeatP3 =
-        !forceFull40 &&
-        industrialRulesV3Experimental &&
-        typeCount >= 20 &&
-        typeCount <= 40 &&
-        piecesPerType >= 4;
-      const industrialP3 = highTypesP3 || midTypesHighRepeatP3;
+      // P3-B (20-40 types with >=4 pieces/type) was retired after the
+      // sealed full-runtime validation found a real board-count regression:
+      // case 5431340 produced 39 boards in Auto/P3-B versus 38 in both V1 and
+      // Advanced/Full40. Keep only the independently safer high-type P3-A gate
+      // while the full holdout is re-certified.
+      const industrialP3 = highTypesP3;
       const masterRounds =
         industrialP3
           ? Math.min(3, configuredMasterRounds)
