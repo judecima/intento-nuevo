@@ -207,6 +207,7 @@ function buildStripOptions(lines, config, dualPrices, rootAxis, options) {
 
   const byStrip = new Map();
   for (let i = 0; i < lines.length; i++) {
+    if (Number(lines[i].cant) <= 0) continue;
     const price = Number(dualPrices[i] || 0);
     if (price <= EPS) continue;
     for (const orientation of orientations(lines[i], config)) {
