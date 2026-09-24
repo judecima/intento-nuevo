@@ -293,6 +293,9 @@ const poolOnly = process.env.SERIAL_POOL_ONLY === "1";
 const twoStagePricingEnabled = process.env.SERIAL_2STAGE_PRICING === "1";
 const twoStagePricingRounds = envInt("SERIAL_2STAGE_ROUNDS", 20);
 const twoStagePricingMaxStates = envInt("SERIAL_2STAGE_MAX_STATES", 500000);
+const twoStageMasterEnabled = process.env.SERIAL_2STAGE_MASTER === "1";
+const twoStageMasterWatchdogMs = envInt("SERIAL_2STAGE_MASTER_WATCHDOG_MS", 3000);
+const twoStageMasterNodes = envInt("SERIAL_2STAGE_MASTER_NODES", 1600000);
 
 const rows = [];
 for (const c of cases) {
@@ -394,16 +397,39 @@ for (const c of cases) {
         break;
       }
 
-      const uso = new Map();
-      best.usage.forEach((count, index) => {
-        if (count > 0) uso.set(index, count);
-      });
-      pricingPool.push({
-        uso,
-        area: best.area,
-        _twoStagePricing: true,
-        _rootAxis: best.rootAxis,
-      });
+      const pricingPattern = best.pattern;
+      const expectedPricingPieces = best.usage.reduce((sum, count) => sum + count, 0);
+      const pricingValidation = pricingPattern?.placa
+        ? validarPlanIndustrial(
+            {
+              placas: [pricingPattern.placa],
+              opts: config,
+              resumen: { piezas: expectedPricingPieces },
+            },
+            expectedPricingPieces,
+          )
+        : null;
+      roundTelemetry.patternValid = Boolean(pricingValidation?.ok);
+      roundTelemetry.patternValidation = pricingValidation
+        ? {
+            ok: pricingValidation.ok,
+            geometriaValida: pricingValidation.geometriaValida,
+            secuenciaCompleta: pricingValidation.secuenciaCompleta,
+            coberturaCompleta: pricingValidation.coberturaCompleta,
+            cortesTerminales: pricingValidation.cortesTerminales,
+            errores: pricingValidation.detallePlacas?.flatMap((entry) => entry.errores || []) ?? [],
+          }
+        : null;
+
+      if (!pricingValidation?.ok) {
+        stopReason = "invalid-pricing-column";
+        rounds.push(roundTelemetry);
+        break;
+      }
+
+      pricingPattern._twoStagePricing = true;
+      pricingPattern._rootAxis = best.rootAxis;
+      pricingPool.push(pricingPattern);
       seenUsage.add(signature);
 
       const nextLp = solveRestrictedMasterLp(
@@ -423,6 +449,53 @@ for (const c of cases) {
       }
     }
 
+    let masterAudit = null;
+    if (twoStageMasterEnabled) {
+      const areaPlaca =
+        (c.width - (config.refiladoX || 0)) *
+        (c.height - (config.refiladoY || 0));
+      const masterStarted = nowMs();
+      try {
+        const master = resolverCoberturaContada(
+          pricingPool,
+          lines.map((line) => line.cant),
+          areaPlaca,
+          pieces + 1,
+          twoStageMasterWatchdogMs,
+          {
+            maxNodos: twoStageMasterNodes,
+            watchdogMs: twoStageMasterWatchdogMs,
+            targetBoards: c.leptonBoards,
+            expandPlan: false,
+          },
+        );
+        const masterResult = master?.resolver(
+          lines.map((line) => line.base * line.altura),
+        ) || null;
+        masterAudit = {
+          boards: Number.isFinite(masterResult?.placas) ? masterResult.placas : null,
+          nodes: masterResult?.nodos ?? null,
+          multiplicityBranches: masterResult?.ramasMultiplicidad ?? null,
+          depthMax: masterResult?.profundidadMax ?? null,
+          targetReached: masterResult?.targetReached ?? null,
+          exhausted: masterResult?.agotado ?? null,
+          timeout: masterResult?.timeout ?? null,
+          budgetHit: masterResult?.budgetHit ?? null,
+          watchdogHit: masterResult?.watchdogHit ?? null,
+          seededIncumbent: masterResult?.seededIncumbent ?? null,
+          elapsedMs: +(nowMs() - masterStarted).toFixed(3),
+          patterns: pricingPool.length,
+        };
+      } catch (error) {
+        masterAudit = {
+          boards: null,
+          error: String(error?.stack || error),
+          elapsedMs: +(nowMs() - masterStarted).toFixed(3),
+          patterns: pricingPool.length,
+        };
+      }
+    }
+
     twoStagePricing = {
       initialObjective,
       finalObjective: currentLp.objective,
@@ -436,6 +509,10 @@ for (const c of cases) {
       finalDualPrices: currentLp.dualPrices,
       finalMaxConstraintError: currentLp.maxConstraintError,
       finalMaxDualViolation: currentLp.maxDualViolation,
+      allAddedPatternsValid: rounds
+        .filter((entry) => entry.added)
+        .every((entry) => entry.patternValid === true),
+      masterAudit,
     };
   }
 
@@ -529,6 +606,10 @@ for (const c of cases) {
     twoStageStop: row.twoStagePricing?.stopReason ?? null,
     twoStageExact: row.twoStagePricing?.oracleExact ?? null,
     twoStagePricingMs: row.twoStagePricing?.totalPricingMs ?? null,
+    twoStagePhysicalValid: row.twoStagePricing?.allAddedPatternsValid ?? null,
+    twoStageMasterBoards: row.twoStagePricing?.masterAudit?.boards ?? null,
+    twoStageMasterReached: row.twoStagePricing?.masterAudit?.targetReached ?? null,
+    twoStageMasterMs: row.twoStagePricing?.masterAudit?.elapsedMs ?? null,
     dualTop: row.generatorTelemetry?.finalDualPrices
       ? row.generatorTelemetry.finalDualPrices
           .map((price, index) => ({ index, price }))
@@ -551,6 +632,7 @@ const summary = {
   targets: targetIds.size, fixtureCases: fixtureCases.length, xmlRecoveredCases: xmlRecovery.cases.length, unresolvedIds: missing,
   limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces, poolOnly,
   twoStagePricingEnabled, twoStagePricingRounds, twoStagePricingMaxStates,
+  twoStageMasterEnabled, twoStageMasterWatchdogMs, twoStageMasterNodes,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
