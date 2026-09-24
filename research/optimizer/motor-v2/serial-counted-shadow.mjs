@@ -4,7 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { build } from "esbuild";
 
 import { createContext } from "../pattern-generators/context.mjs";
 import { generatePatternsRust } from "../pattern-generators/rust/adapter.mjs";
@@ -13,6 +14,7 @@ const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../../..");
 const FIX = path.resolve(HERE, "../holdout-v2-fixture");
+const DEFAULT_XML_STAGE = path.resolve(ROOT, "validation-full/serial-production-audit/_extracted");
 
 const { resolverCoberturaContada } = require(path.join(
   ROOT,
@@ -80,17 +82,130 @@ function decodeFixture(targetIds) {
   return out;
 }
 
+
+function walkXml(root) {
+  if (!fs.existsSync(root)) return [];
+  const out = [];
+  const stack = [root];
+  while (stack.length) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      if (entry.name === ".extracted-ok") continue;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".xml") out.push(full);
+    }
+  }
+  return out;
+}
+
+function physicalLeptonBoards(xml) {
+  let total = 0, found = 0;
+  for (const match of xml.matchAll(/<panel\d+\b([^>]*)>/gi)) {
+    found++;
+    const attrs = match[1] || "";
+    const n = /\bnum\s*=\s*["']([^"']+)["']/i.exec(attrs);
+    const quantity = n ? Number(n[1]) : 1;
+    total += Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  }
+  return found ? total : null;
+}
+
+async function loadCanonicalParser() {
+  const bundlePath = path.join(
+    ROOT,
+    "node_modules/.cache/serial-counted-shadow/canonical-xml.mjs",
+  );
+  fs.mkdirSync(path.dirname(bundlePath), { recursive: true });
+  await build({
+    entryPoints: [path.join(ROOT, "src/lib/optimizer/canonical-xml.ts")],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node22",
+    outfile: bundlePath,
+    logLevel: "warning",
+  });
+  return import(pathToFileURL(bundlePath).href + "?v=" + Date.now());
+}
+
+async function loadMissingFromXml(targetIds, alreadyFound) {
+  const missing = [...targetIds].filter((id) => !alreadyFound.some((c) => c.id === id));
+  if (!missing.length) return { cases: [], unresolved: [], sourceDir: null };
+
+  const sourceDir = path.resolve(process.env.SERIAL_SOURCE_DIR || DEFAULT_XML_STAGE);
+  if (!fs.existsSync(sourceDir)) {
+    return { cases: [], unresolved: missing, sourceDir };
+  }
+
+  const parser = await loadCanonicalParser();
+  const byId = new Map();
+  for (const xmlPath of walkXml(sourceDir)) {
+    const name = path.basename(xmlPath);
+    for (const id of missing) {
+      if (!byId.has(id) && name.includes(String(id))) byId.set(id, xmlPath);
+    }
+    if (byId.size === missing.length) break;
+  }
+
+  const cases = [];
+  for (const id of missing) {
+    const xmlPath = byId.get(id);
+    if (!xmlPath) continue;
+    const xml = fs.readFileSync(xmlPath, "utf8");
+    const parsed = parser.parseCanonicalXml(xml, {
+      fileName: path.basename(xmlPath),
+      defaultKerf: 4.5,
+      defaultMinRemnant: 250,
+      defaultMinCommercialRemnantLongSide: 400,
+    });
+    const canonical = parsed.case;
+    const leptonBoards = physicalLeptonBoards(xml);
+    if (!Number.isFinite(leptonBoards)) {
+      throw new Error("No pude leer placas Lepton para " + id + " desde " + xmlPath);
+    }
+    cases.push({
+      id,
+      width: canonical.panel.width,
+      height: canonical.panel.height,
+      saw: canonical.kerf,
+      leptonBoards,
+      materialHasGrain: canonical.material.hasGrain ?? false,
+      types: canonical.pieces.map((piece) => ({
+        w: piece.width,
+        h: piece.height,
+        q: piece.quantity,
+        grain: piece.grain ?? false,
+        canRotate: piece.rotationAllowed ?? true,
+        reference: piece.reference,
+      })),
+      source: "xml",
+      sourcePath: xmlPath,
+    });
+  }
+
+  return {
+    cases,
+    unresolved: missing.filter((id) => !cases.some((c) => c.id === id)),
+    sourceDir,
+  };
+}
+
 function linesFromCase(c) {
   return c.types.map((t, i) => ({
-    base: t.w, altura: t.h, cant: t.q, veta: false, canRotate: true,
-    ref: String(i), detalle: `SERIAL-${c.id}-${i}`, cantos: null,
+    base: t.w, altura: t.h, cant: t.q,
+    veta: Boolean(t.grain),
+    canRotate: t.canRotate !== false,
+    ref: String(i),
+    detalle: t.reference || `SERIAL-${c.id}-${i}`,
+    cantos: null,
   }));
 }
 
 function configFromCase(c) {
   return {
     placaBase: c.width, placaAltura: c.height, refiladoX: 0, refiladoY: 0, sierra: c.saw,
-    etapas: 4, materialConVeta: false, descontarCanto: false, cantoEspesor: 0,
+    etapas: 4, materialConVeta: Boolean(c.materialHasGrain), descontarCanto: false, cantoEspesor: 0,
     restoMin: 250, restoMax: 400, material: "SERIAL-SHADOW", thickness: 18,
   };
 }
@@ -109,9 +224,19 @@ function safeLowerBound(lines, config, incumbent) {
 function nowMs() { return Number(process.hrtime.bigint()) / 1e6; }
 
 const targetIds = parseIds();
-const cases = decodeFixture(targetIds).sort((a, b) => a.id - b.id);
-const missing = [...targetIds].filter((id) => !cases.some((c) => c.id === id));
-if (missing.length) console.warn(`Fixture no contiene ${missing.length} IDs: ${missing.join(", ")}`);
+const fixtureCases = decodeFixture(targetIds).map((c) => ({ ...c, source: "holdout-v2-fixture" }));
+const xmlRecovery = await loadMissingFromXml(targetIds, fixtureCases);
+const cases = fixtureCases.concat(xmlRecovery.cases).sort((a, b) => a.id - b.id);
+const missing = xmlRecovery.unresolved;
+if (xmlRecovery.cases.length) {
+  console.log(`Recuperados desde XML reales: ${xmlRecovery.cases.map((c) => c.id).join(", ")}`);
+}
+if (missing.length) {
+  console.warn(
+    `No pude resolver ${missing.length} IDs: ${missing.join(", ")}. ` +
+    `Staging XML buscado: ${xmlRecovery.sourceDir || "n/a"}`,
+  );
+}
 
 const limits = {
   maxExpansions: envInt("SERIAL_MAX_EXPANSIONS", 250000),
@@ -162,7 +287,7 @@ for (const c of cases) {
 
   const boards = validation?.ok && plan?.resumen ? plan.resumen.placas : null;
   const row = {
-    id: c.id, types: lines.length, pieces, quantityGcd, leptonBoards: c.leptonBoards,
+    id: c.id, source: c.source ?? null, sourcePath: c.sourcePath ?? null, types: lines.length, pieces, quantityGcd, leptonBoards: c.leptonBoards,
     safeLowerBound: lb.value, lowerBoundReason: lb.reason,
     generatorStatus: generator?.status ?? null, generatorRestricted: generator?.searchRestricted ?? null,
     generatorPatterns: patterns.length, generatorRoots: generator?.roots?.length ?? 0,
@@ -190,7 +315,7 @@ for (const c of cases) {
 const valid = rows.filter((r) => r.valid);
 const summary = {
   schema: "optimizer-serial-counted-shadow-v1", generatedAt: new Date().toISOString(),
-  targets: targetIds.size, fixtureCases: cases.length, missingFixtureIds: missing,
+  targets: targetIds.size, fixtureCases: fixtureCases.length, xmlRecoveredCases: xmlRecovery.cases.length, unresolvedIds: missing,
   limits, maxVariants, solverNodes, solverWatchdogMs,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
