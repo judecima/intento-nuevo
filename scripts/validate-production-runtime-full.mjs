@@ -117,6 +117,14 @@ const meta = {
     cpuCount: cpus().length,
     totalMemoryBytes: totalmem(),
     rustAddon,
+    searchBudgets: {
+      maxBeamExpansions: process.env.OPTIMIZER_MAX_BEAM_EXPANSIONS ?? null,
+      beamWatchdogMs: process.env.OPTIMIZER_BEAM_WATCHDOG_MS ?? null,
+      maxMasterNodes: process.env.OPTIMIZER_MAX_MASTER_NODES ?? null,
+      masterWatchdogMs: process.env.OPTIMIZER_MASTER_WATCHDOG_MS ?? null,
+      maxRescueAttempts: process.env.OPTIMIZER_MAX_RESCUE_ATTEMPTS ?? null,
+      rescueWatchdogMs: process.env.OPTIMIZER_RESCUE_WATCHDOG_MS ?? null,
+    },
   },
   runtime: {
     baseline: args.candidateOnly
