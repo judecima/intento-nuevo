@@ -309,6 +309,7 @@ function auditCase(id, xmlPath) {
   const codes = new Map();
   const kerfValues = new Set();
   const rootTrimValues = new Set();
+  const trimByAxis = { x: new Set(), y: new Set() };
   const panelReports = [];
 
   for (const shape of shapes) {
@@ -318,6 +319,15 @@ function auditCase(id, xmlPath) {
     const frame = globalDims(shape.root, shape.rootDirection);
     const rootTrim = n(attr(shape.root, "trim", "Trim"));
     if (Number.isFinite(rootTrim)) rootTrimValues.add(rootTrim);
+
+    for (const node of shape.nodes) {
+      const layer = integer(attr(node, "layer", "Layer"), 1);
+      if (layer > 2) continue;
+      const trim = n(attr(node, "trim", "Trim"));
+      if (!Number.isFinite(trim)) continue;
+      const dir = nodeDirection(shape.rootDirection, layer);
+      trimByAxis[dir].add(trim);
+    }
 
     const [panelShort, panelLong] = sortedRect(shape.declared.l, shape.declared.w);
     const [rootShort, rootLong] = sortedRect(frame.width, frame.height);
@@ -414,6 +424,21 @@ function auditCase(id, xmlPath) {
     physicalPieces,
     kerfValues: [...kerfValues].sort((a, b) => a - b),
     rootTrimValues: [...rootTrimValues].sort((a, b) => a - b),
+    trimByAxis: {
+      x: [...trimByAxis.x].sort((a, b) => a - b),
+      y: [...trimByAxis.y].sort((a, b) => a - b),
+    },
+    inferredRefilado: {
+      x:
+        trimByAxis.x.size === 1
+          ? [...trimByAxis.x][0]
+          : null,
+      y:
+        trimByAxis.y.size === 1
+          ? [...trimByAxis.y][0]
+          : null,
+      unambiguous: trimByAxis.x.size === 1 && trimByAxis.y.size === 1,
+    },
     samePhysicalFrame,
     rootFrameMismatchBoards,
     frameDeltaSorted: {
@@ -486,6 +511,8 @@ const summary = {
   allNoPositiveRootTrim:
     valid.length > 0 &&
     valid.every((r) => r.fairnessEvidence.noPositiveRootTrimAttribute),
+  allTrimAxesUnambiguous:
+    valid.length > 0 && valid.every((r) => r.inferredRefilado.unambiguous),
   allRotationObserved:
     valid.length > 0 && valid.every((r) => r.fairnessEvidence.leptonRotationObserved),
   allSameCodeBothOrientations:
@@ -516,6 +543,8 @@ for (const report of reports) {
     samePhysicalFrame: report.samePhysicalFrame,
     frameDelta: report.frameDeltaSorted,
     rootTrim: report.rootTrimValues,
+    trimByAxis: report.trimByAxis,
+    inferredRefilado: report.inferredRefilado,
     margins: report.minObservedPieceMargins,
     touches: report.touchesPhysicalRootEdge,
     portraitRate: report.rotation.portraitRate,
@@ -528,6 +557,7 @@ console.log("LEPTON_FAIRNESS_SUMMARY " + JSON.stringify({
   invalidCases: summary.invalidCases,
   allSamePhysicalFrame: summary.allSamePhysicalFrame,
   allNoPositiveRootTrim: summary.allNoPositiveRootTrim,
+  allTrimAxesUnambiguous: summary.allTrimAxesUnambiguous,
   allRotationObserved: summary.allRotationObserved,
   allSameCodeBothOrientations: summary.allSameCodeBothOrientations,
   output,
