@@ -326,6 +326,8 @@ for (const file of selected) {
       },
       auto: {
         enteredMaster: effort?.enteredMaster === true,
+        preMasterBoards: finiteOrNull(effort?.preMasterBoards),
+        finalBoards: finiteOrNull(effort?.finalBoards),
         roundsExecuted: finiteOrNull(effort?.roundsExecuted),
         stopReason: effort?.stopReason ?? null,
         safeLowerBound: finiteOrNull(effort?.safeLowerBound),
@@ -1003,6 +1005,20 @@ function baselineReviewReasons(row) {
     reasons.push("no_safe_lower_bound");
   } else if (Number.isFinite(candidateBoards) && candidateBoards > lowerBound) {
     reasons.push("above_safe_lower_bound");
+  }
+
+  // A global safeLB certifies board count, not remnant quality. If Master
+  // reduced the pre-Master incumbent, V1 can in principle reach the same board
+  // count through a different physical plan. Review those cases with V1 so the
+  // equal-board remnant contract is still tested without running V1 everywhere.
+  const preMasterBoards = row.auto?.preMasterBoards;
+  if (
+    row.auto?.enteredMaster === true &&
+    Number.isFinite(preMasterBoards) &&
+    Number.isFinite(candidateBoards) &&
+    candidateBoards < preMasterBoards
+  ) {
+    reasons.push("master_reduced_boards_remnant_review");
   }
   return reasons;
 }
