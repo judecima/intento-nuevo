@@ -308,7 +308,9 @@ for (const c of cases) {
     const areaPlaca =
       (c.width - (config.refiladoX || 0)) *
       (c.height - (config.refiladoY || 0));
-    const incumbent = generator?.telemetry?.upperBound ?? pieces;
+    // Safe research incumbent independent of Lepton. Unit patterns guarantee
+    // an exact fallback of at most one board per physical piece.
+    const incumbent = pieces + 1;
     const ts = nowMs();
     try {
       const solver = resolverCoberturaContada(patterns, lines.map((line) => line.cant), areaPlaca, incumbent, solverWatchdogMs, {
