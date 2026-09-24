@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_Row
+  type MRT_ColumnDef
 } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
 import Button from "@mui/material/Button";
@@ -24,6 +23,9 @@ import { orderStatusLabels, getOrderSnapshotSummary } from "@/lib/domain/orders"
 import { formatDateTimeEsAr } from "@/lib/format/dates";
 import { approveOrderAction } from "@/lib/orders/actions";
 import type { OrderRow } from "@/lib/orders/queries";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
+import { Modal } from "@/components/ui/modal";
 
 type PendingOrdersTableProps = {
   orders: OrderRow[];
@@ -50,6 +52,7 @@ type PendingOrderRow = {
 };
 
 export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
+  const [detail, setDetail] = useState<PendingOrderRow | null>(null);
   const rows = useMemo<PendingOrderRow[]>(
     () =>
       orders.map((order) => {
@@ -173,7 +176,6 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableDensityToggle: true,
-    enableExpanding: true,
     enableFullScreenToggle: true,
     enableRowActions: true,
     enableStickyHeader: true,
@@ -190,11 +192,10 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
     muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
     muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
-      <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
-        {row.getIsExpanded() ? "Cerrar" : "Acciones"}
+      <Button size="small" variant="outlined" onClick={() => setDetail(row.original)}>
+        Acciones
       </Button>
     ),
-    renderDetailPanel: ({ row }) => <PendingOrderActions row={row} />,
     renderTopToolbarCustomActions: () => (
       <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {orders.length} pedidos pendientes
@@ -204,40 +205,48 @@ export function PendingOrdersTable({ orders }: PendingOrdersTableProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="rounded-[var(--r)] border border-dashed border-[var(--linea-fuerte)] bg-[rgba(255,255,255,.45)] p-8 text-center text-sm text-[var(--muted)]">
-        No hay pedidos pendientes.
-      </div>
+      <EmptyState title="No hay pedidos esperando revision">
+        Los pedidos aparecen aca apenas un cliente envia un proyecto optimizado. No hace falta que hagas nada.
+      </EmptyState>
     );
   }
 
   return (
     <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal eyebrow="Revision" title={`Pedido ${detail.shortId}`} size="xl" onClose={() => setDetail(null)}>
+          <PendingOrderActions row={detail} />
+        </Modal>
+      ) : null}
     </BrandedMuiThemeProvider>
   );
 }
 
-function PendingOrderActions({ row }: { row: MRT_Row<PendingOrderRow> }) {
-  const order = row.original.order;
+function PendingOrderActions({ row }: { row: PendingOrderRow }) {
+  const order = row.order;
 
   return (
-    <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] p-3 text-sm">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Nota cliente</div>
-        <div className="mt-2 text-[var(--ink)]">{row.original.notesCustomer || "Sin nota"}</div>
-      </div>
+    <div className="p-4">
+      <PipelineStepper orderStatus={order.status} className="mb-4" />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container)] p-3 text-sm">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Nota cliente</div>
+          <div className="mt-2 text-[var(--ink)]">{row.notesCustomer || "Sin nota"}</div>
+        </div>
 
-      <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3">
-        <input type="hidden" name="orderId" value={order.id} />
-        <input type="hidden" name="expectedOrderVersion" value={order.version} />
-        <TextArea label="Comentario de validacion" name="comment" />
-        <PendingSubmitButton
-          pendingLabel="Aprobando pedido..."
-          className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
-        >
-          Aprobar pedido
-        </PendingSubmitButton>
-      </form>
+        <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3">
+          <input type="hidden" name="orderId" value={order.id} />
+          <input type="hidden" name="expectedOrderVersion" value={order.version} />
+          <TextArea label="Comentario de validacion" name="comment" />
+          <PendingSubmitButton
+            pendingLabel="Aprobando pedido..."
+            className="focus-ring w-full rounded bg-[var(--teal)] px-4 py-3 text-sm font-semibold text-white"
+          >
+            Aprobar pedido
+          </PendingSubmitButton>
+        </form>
+      </div>
     </div>
   );
 }

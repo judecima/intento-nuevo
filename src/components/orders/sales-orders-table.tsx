@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_Row
+  type MRT_ColumnDef
 } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
 import Button from "@mui/material/Button";
@@ -24,6 +23,9 @@ import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders"
 import { formatDateTimeEsAr } from "@/lib/format/dates";
 import { approveOrderAction, requestOrderChangesAction } from "@/lib/orders/actions";
 import type { OrderRow } from "@/lib/orders/queries";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
+import { Modal } from "@/components/ui/modal";
 
 type SalesOrdersTableMode = "review" | "approved";
 
@@ -56,18 +58,21 @@ type SalesOrderTableRow = {
   order: OrderRow;
 };
 
-const modeLabels: Record<SalesOrdersTableMode, { count: string; empty: string }> = {
+const modeLabels: Record<SalesOrdersTableMode, { count: string; emptyTitle: string; emptyBody: string }> = {
   review: {
     count: "pedidos en revision",
-    empty: "No hay pedidos en revision."
+    emptyTitle: "No hay pedidos en revision",
+    emptyBody: "Cuando un cliente envie un proyecto optimizado va a aparecer aca para que lo apruebes o pidas cambios."
   },
   approved: {
     count: "pedidos aprobados",
-    empty: "No hay pedidos aprobados."
+    emptyTitle: "Todavia no aprobaste ningun pedido",
+    emptyBody: "Los pedidos que apruebes desde la revision quedan listados aca y pasan a la cola de produccion."
   }
 };
 
 export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
+  const [detail, setDetail] = useState<SalesOrderTableRow | null>(null);
   const rows = useMemo<SalesOrderTableRow[]>(
     () =>
       orders.map((order) => {
@@ -208,7 +213,6 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableDensityToggle: true,
-    enableExpanding: true,
     enableFullScreenToggle: true,
     enableRowActions: true,
     enableStickyHeader: true,
@@ -225,11 +229,10 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
     muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
     muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
-      <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
-        {row.getIsExpanded() ? "Cerrar" : "Detalle"}
+      <Button size="small" variant="outlined" onClick={() => setDetail(row.original)}>
+        Detalle
       </Button>
     ),
-    renderDetailPanel: ({ row }) => <SalesOrderDetail row={row} mode={mode} />,
     renderTopToolbarCustomActions: () => (
       <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {orders.length} {modeLabels[mode].count}
@@ -239,31 +242,42 @@ export function SalesOrdersTable({ orders, mode }: SalesOrdersTableProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="rounded-[var(--r)] border border-dashed border-[var(--linea-fuerte)] bg-[rgba(255,255,255,.45)] p-8 text-center text-sm text-[var(--muted)]">
-        {modeLabels[mode].empty}
-      </div>
+      <EmptyState title={modeLabels[mode].emptyTitle}>{modeLabels[mode].emptyBody}</EmptyState>
     );
   }
 
   return (
     <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal
+          eyebrow={mode === "approved" ? "Aprobado" : "Revision"}
+          title={`Pedido ${detail.shortId}`}
+          size="xl"
+          onClose={() => setDetail(null)}
+        >
+          <SalesOrderDetail row={detail} mode={mode} />
+        </Modal>
+      ) : null}
     </BrandedMuiThemeProvider>
   );
 }
 
-function SalesOrderDetail({ row, mode }: { row: MRT_Row<SalesOrderTableRow>; mode: SalesOrdersTableMode }) {
-  const order = row.original.order;
+function SalesOrderDetail({ row, mode }: { row: SalesOrderTableRow; mode: SalesOrdersTableMode }) {
+  const order = row.order;
 
   if (mode === "approved") {
     return (
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <OrderNotes row={row.original} />
-        <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3 text-sm">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Validacion</div>
-          <div className="mt-2 font-semibold text-[var(--ink)]">Listo para produccion</div>
-          <div className="mt-1 text-[var(--muted)]">
-            Aprobado {formatDateTimeEsAr(order.approved_at)}. El pedido ya es visible para operarios.
+      <div className="p-4">
+        <PipelineStepper orderStatus={order.status} className="mb-4" />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <OrderNotes row={row} />
+          <div className="rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3 text-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Validacion</div>
+            <div className="mt-2 font-semibold text-[var(--ink)]">Listo para produccion</div>
+            <div className="mt-1 text-[var(--muted)]">
+              Aprobado {formatDateTimeEsAr(order.approved_at)}. El pedido ya es visible para operarios.
+            </div>
           </div>
         </div>
       </div>
@@ -272,7 +286,7 @@ function SalesOrderDetail({ row, mode }: { row: MRT_Row<SalesOrderTableRow>; mod
 
   return (
     <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px_320px]">
-      <OrderNotes row={row.original} />
+      <OrderNotes row={row} />
 
       <form action={approveOrderAction} className="space-y-3 rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)] p-3">
         <input type="hidden" name="orderId" value={order.id} />

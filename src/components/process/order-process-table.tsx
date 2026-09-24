@@ -17,10 +17,10 @@ import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { SxProps, Theme } from "@mui/material/styles";
 import {
   BrandedMuiThemeProvider,
   brandedTableBodyCellSx,
+  deliveryAlertRowSx,
   brandedTableContainerSx,
   brandedTableHeadCellSx,
   brandedTablePaperSx
@@ -39,6 +39,8 @@ import {
   saveOrderProcessEntryAction
 } from "@/lib/process/actions";
 import type { ProcessOrderRow } from "@/lib/process/queries";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
+import { Modal } from "@/components/ui/modal";
 
 type OrderProcessTableProps = {
   rows: ProcessOrderRow[];
@@ -54,6 +56,7 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
   const router = useRouter();
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ProcessOrderRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const columns = useMemo<MRT_ColumnDef<ProcessOrderRow>[]>(
@@ -75,6 +78,14 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
         size: 150,
         enableEditing: false,
         Cell: ({ row }) => <StatusChip row={row.original} />
+      },
+      {
+        id: "pipeline",
+        header: "Recorrido",
+        size: 120,
+        enableEditing: false,
+        enableSorting: false,
+        Cell: ({ row }) => <PipelineStepper compact showLabel={false} orderStatus={row.original.status} />
       },
       {
         accessorKey: "deliveryOn",
@@ -349,6 +360,7 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
         role={role}
         pending={isPending || pendingAction !== null}
         pendingAction={pendingAction}
+        onDetail={() => setDetail(row.original)}
         onEdit={() => tableInstance.setEditingRow(row)}
         onRunAction={(action) => {
           const key = `${row.original.orderId}:${action}`;
@@ -369,7 +381,6 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
         }}
       />
     ),
-    renderDetailPanel: ({ row }) => <DetailPanel row={row.original} />,
     renderTopToolbarCustomActions: () => (
       <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {rows.length} pedidos en proceso
@@ -380,6 +391,16 @@ export function OrderProcessTable({ rows, role }: OrderProcessTableProps) {
   return (
     <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal
+          eyebrow="Seguimiento"
+          title={`Pedido ${detail.shortId}`}
+          size="xl"
+          onClose={() => setDetail(null)}
+        >
+          <DetailPanel row={detail} />
+        </Modal>
+      ) : null}
       <Snackbar
         open={Boolean(notice)}
         autoHideDuration={4200}
@@ -401,6 +422,7 @@ function RowActions({
   role,
   pending,
   pendingAction,
+  onDetail,
   onEdit,
   onRunAction
 }: {
@@ -408,13 +430,17 @@ function RowActions({
   role: OrganizationRole | null;
   pending: boolean;
   pendingAction: string | null;
+  onDetail: () => void;
   onEdit: () => void;
   onRunAction: (action: ProcessActionId) => void;
 }) {
   const actions = listAvailableProcessActions(role, row.original.status);
 
   return (
-    <Stack direction="row" spacing={0.75} sx={{ minWidth: 250 }}>
+    <Stack direction="row" spacing={0.75} sx={{ minWidth: 320 }}>
+      <Button size="small" variant="outlined" onClick={onDetail}>
+        Detalle
+      </Button>
       <Button size="small" variant="outlined" onClick={onEdit} disabled={pending}>
         Editar
       </Button>
@@ -437,6 +463,9 @@ function RowActions({
 function DetailPanel({ row }: { row: ProcessOrderRow }) {
   return (
     <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, p: 2 }}>
+      <Box sx={{ gridColumn: "1 / -1" }}>
+        <PipelineStepper orderStatus={row.status} />
+      </Box>
       <Detail label="Proyecto" value={row.projectName} />
       <Detail label="Cliente" value={row.customerEmail ? `${row.customerName} - ${row.customerEmail}` : row.customerName} />
       <Detail label="Piezas" value={`${row.totalPieces} piezas en ${row.itemRows} filas`} />
@@ -462,24 +491,6 @@ function Detail({ label, value }: { label: string; value: string }) {
       <Typography sx={{ color: "var(--md-on-surface)", fontSize: 14, fontWeight: 700, mt: 0.5 }}>{value}</Typography>
     </Box>
   );
-}
-
-function deliveryAlertRowSx(alert: ProcessOrderRow["deliveryAlert"]): SxProps<Theme> | undefined {
-  if (alert === "overdue") {
-    return {
-      "& > td": { backgroundColor: "#ef4444", color: "#ffffff" },
-      "&:hover > td": { backgroundColor: "#dc2626", color: "#ffffff" }
-    };
-  }
-
-  if (alert === "due_soon") {
-    return {
-      "& > td": { backgroundColor: "#facc15", color: "#1f2937" },
-      "&:hover > td": { backgroundColor: "#eab308", color: "#111827" }
-    };
-  }
-
-  return undefined;
 }
 
 function DeliveryStatusChip({ status }: { status: ProcessOrderRow["deliveryStatus"] }) {

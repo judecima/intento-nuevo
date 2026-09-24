@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { OrganizationScopePicker } from "@/components/projects/organization-scope-picker";
 import { ProjectTable } from "@/components/projects/project-table";
-import { SurfaceCard, SurfaceTitle } from "@/components/ui/material";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
 import { listPlatformOrganizations } from "@/lib/admin/platform";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
@@ -38,11 +39,9 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
   if (!organizationId) {
     return (
-      <section className="max-w-6xl">
-        <SurfaceTitle eyebrow="Cliente" title="Mis proyectos" />
-        <SurfaceCard className="mt-5" bodyClassName="p-5 text-sm text-[var(--muted)]">
-          El usuario no tiene una organizacion activa.
-        </SurfaceCard>
+      <section className="page">
+        <PageHeader eyebrow="Cliente" title="Mis proyectos" />
+        <Notice kind="error">El usuario no tiene una organizacion activa.</Notice>
       </section>
     );
   }
@@ -51,17 +50,17 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   const scopedOrganization = organizations.find((organization) => organization.id === organizationId) ?? null;
 
   return (
-    <section className="max-w-7xl space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <SurfaceTitle
-          eyebrow="Cliente"
-          title="Mis proyectos"
-          description="Proyectos editables con material, parametros de corte y piezas persistidas."
-        />
-        <Link href={toScopedPath(basePath, "/projects/new")} className="btn btn-primary focus-ring">
-          Nuevo proyecto
-        </Link>
-      </div>
+    <section className="page">
+      <PageHeader
+        eyebrow="Cliente"
+        title="Mis proyectos"
+        description="Cada proyecto guarda su tablero, sus piezas y su plano de corte. Abri uno para seguir editandolo o enviarlo como pedido."
+        actions={
+          <Link href={toScopedPath(basePath, "/projects/new")} className="btn btn-primary focus-ring">
+            Nuevo proyecto
+          </Link>
+        }
+      />
 
       {platformAdmin ? (
         <OrganizationScopePicker

@@ -1,21 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_Row
+  type MRT_ColumnDef
 } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { SxProps, Theme } from "@mui/material/styles";
 import {
   BrandedMuiThemeProvider,
   brandedTableBodyCellSx,
+  deliveryAlertRowSx,
   brandedTableContainerSx,
   brandedTableHeadCellSx,
   brandedTablePaperSx
@@ -37,6 +36,9 @@ import { getOrderSnapshotSummary, orderStatusLabels, type OrderStatus } from "@/
 import { processDeliveryStatusLabels } from "@/lib/domain/process";
 import { generatedFileTypeLabels, productionJobStatusLabels } from "@/lib/domain/production";
 import { formatDateOnlyEsAr, formatDateTimeEsAr } from "@/lib/format/dates";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
+import { Modal } from "@/components/ui/modal";
 
 type ProductionMode = "queue" | "approved" | "active" | "edgebanding" | "completed";
 
@@ -55,7 +57,33 @@ const modeCountLabels: Record<ProductionMode, string> = {
   completed: "pedidos finalizados"
 };
 
+// Un operario que abre una cola vacia tiene que saber si le toca esperar o si
+// algo no llego: el texto dice de donde vienen los trabajos de esta cola.
+const modeEmptyStates: Record<ProductionMode, { title: string; body: string }> = {
+  queue: {
+    title: "No hay trabajos en la maquina",
+    body: "Aca aparecen los pedidos que ya arrancaron el corte o estan en pegado de canto. Para iniciar uno, entra a Listos para cortar."
+  },
+  approved: {
+    title: "No hay pedidos listos para cortar",
+    body: "Los pedidos llegan aca cuando ventas los aprueba. Desde esta pantalla generas el XML e inicias la produccion."
+  },
+  active: {
+    title: "No hay nada en produccion",
+    body: "Los trabajos aparecen aca despues de que inicias el corte desde Listos para cortar."
+  },
+  edgebanding: {
+    title: "No hay nada esperando tapacanto",
+    body: "Los trabajos llegan aca cuando marcas el corte como terminado y todavia les falta el pegado de canto."
+  },
+  completed: {
+    title: "Todavia no hay trabajos finalizados",
+    body: "Los pedidos cerrados quedan archivados aca con su XML y su plano."
+  }
+};
+
 export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: ProductionOrderListProps) {
+  const [detail, setDetail] = useState<ProductionOrderItem | null>(null);
   const columns = useMemo<MRT_ColumnDef<ProductionOrderItem>[]>(
     () => [
       {
@@ -152,7 +180,6 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableDensityToggle: true,
-    enableExpanding: true,
     enableFullScreenToggle: true,
     enableRowActions: true,
     enableStickyHeader: true,
@@ -171,20 +198,31 @@ export function ProductionOrderList({ items, machineProfiles, mode, returnTo }: 
     muiTableBodyRowProps: ({ row }) => ({
       sx: deliveryAlertRowSx(row.original.deliveryAlert)
     }),
-    renderRowActions: ({ row }) => <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>{row.getIsExpanded() ? "Cerrar" : "Detalle"}</Button>,
-    renderDetailPanel: ({ row }) => <ProductionOrderCard row={row} machineProfiles={machineProfiles} mode={mode} returnTo={returnTo} />,
+    renderRowActions: ({ row }) => <Button size="small" variant="outlined" onClick={() => setDetail(row.original)}>Detalle</Button>,
     renderTopToolbarCustomActions: () => <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>{items.length} {modeCountLabels[mode]}</Typography>
   });
 
   if (items.length === 0) {
     return (
-      <div className="rounded-[var(--r)] border border-dashed border-[var(--linea-fuerte)] bg-[rgba(255,255,255,.45)] p-8 text-center text-sm text-[var(--muted)]">
-        No hay pedidos en esta cola.
-      </div>
+      <EmptyState title={modeEmptyStates[mode].title}>{modeEmptyStates[mode].body}</EmptyState>
     );
   }
 
-  return <BrandedMuiThemeProvider><MaterialReactTable table={table} /></BrandedMuiThemeProvider>;
+  return (
+    <BrandedMuiThemeProvider>
+      <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal
+          eyebrow="Produccion"
+          title={`Trabajo ${detail.order.id.slice(0, 8)}`}
+          size="xl"
+          onClose={() => setDetail(null)}
+        >
+          <ProductionOrderCard row={detail} machineProfiles={machineProfiles} mode={mode} returnTo={returnTo} />
+        </Modal>
+      ) : null}
+    </BrandedMuiThemeProvider>
+  );
 }
 
 function ProductionOrderCard({
@@ -193,16 +231,19 @@ function ProductionOrderCard({
   mode,
   returnTo
 }: {
-  row: MRT_Row<ProductionOrderItem>;
+  row: ProductionOrderItem;
   machineProfiles: MachineProfileRow[];
   mode: ProductionMode;
   returnTo: string;
 }) {
-  const item = row.original;
+  const item = row;
   const summary = getOrderSnapshotSummary(item.order.snapshot);
 
   return (
     <article className="overflow-hidden rounded-[var(--r)] border border-[var(--line)] bg-[var(--md-surface-container-lowest)]">
+      <div className="border-b border-[var(--line)] px-4 py-3">
+        <PipelineStepper orderStatus={item.order.status} />
+      </div>
       <div className="flex flex-col gap-3 border-b border-[var(--line)] px-4 py-3 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="font-mono text-xs text-[var(--muted)]">{item.order.id.slice(0, 8)}</div>
@@ -459,24 +500,6 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 font-semibold">{value}</dd>
     </div>
   );
-}
-
-function deliveryAlertRowSx(alert: ProductionOrderItem["deliveryAlert"]): SxProps<Theme> | undefined {
-  if (alert === "overdue") {
-    return {
-      "& > td": { backgroundColor: "#ef4444", color: "#ffffff" },
-      "&:hover > td": { backgroundColor: "#dc2626", color: "#ffffff" }
-    };
-  }
-
-  if (alert === "due_soon") {
-    return {
-      "& > td": { backgroundColor: "#facc15", color: "#1f2937" },
-      "&:hover > td": { backgroundColor: "#eab308", color: "#111827" }
-    };
-  }
-
-  return undefined;
 }
 
 function DeliveryStatusChip({ status }: { status: ProductionOrderItem["deliveryStatus"] }) {

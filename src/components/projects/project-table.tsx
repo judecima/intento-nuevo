@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MaterialReactTable, useMaterialReactTable, type MRT_ColumnDef } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
@@ -18,6 +19,7 @@ import { projectStatusLabels } from "@/lib/domain/projects";
 import { formatDateOnlyEsAr } from "@/lib/format/dates";
 import { toScopedPath } from "@/lib/routing/routes";
 import type { ProjectListItem } from "@/lib/projects/queries";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type ProjectTableProps = {
   projects: ProjectListItem[];
@@ -119,9 +121,16 @@ export function ProjectTable({ projects, basePath }: ProjectTableProps) {
 
   if (projects.length === 0) {
     return (
-      <div className="border border-[var(--line)] bg-white p-6 text-sm text-[var(--muted)]">
-        Todavia no hay proyectos. Crea uno seleccionando un tablero del catalogo.
-      </div>
+      <EmptyState
+        title="Todavia no hay proyectos"
+        action={
+          <Link href={toScopedPath(basePath, "/projects/new")} className="btn btn-primary focus-ring">
+            Crear el primero
+          </Link>
+        }
+      >
+        Un proyecto es un tablero mas la lista de piezas a cortar. Al crearlo elegis el material y despues cargas las medidas.
+      </EmptyState>
     );
   }
 

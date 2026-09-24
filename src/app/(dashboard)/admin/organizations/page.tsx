@@ -14,6 +14,8 @@ import { listPlatformOrganizations, type PlatformOrganization } from "@/lib/admi
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform, platformNoticeMessages } from "@/lib/domain/platform";
 import { organizationRoles, roleLabels } from "@/lib/domain/roles";
+import { PageHeader } from "@/components/ui/page-header";
+import { Notice } from "@/components/ui/notice";
 
 type AdminOrganizationsPageProps = {
   searchParams?: {
@@ -27,7 +29,7 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
 
   if (!canManagePlatform(context)) {
     return (
-      <section className="mx-auto max-w-[900px] space-y-4">
+      <section className="page max-w-[900px]">
         <Header />
         <div className="card p-5 text-sm text-[var(--muted)]">
           Esta seccion es exclusiva de la administracion de plataforma.
@@ -40,10 +42,10 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
   const totalMembers = organizations.reduce((total, organization) => total + organization.members.length, 0);
 
   return (
-    <section className="mx-auto max-w-[1200px] space-y-5">
+    <section className="page">
       <Header />
 
-      {notice ? <div className="operation-banner">{notice}</div> : null}
+      {notice ? <Notice kind="ok">{notice}</Notice> : null}
 
       <div className="metric-grid max-w-[560px]">
         <div className="metric">
@@ -307,8 +309,11 @@ function OrganizationCard({
 function Header() {
   return (
     <header>
-      <div className="eyebrow">Plataforma</div>
-      <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">Organizaciones</h1>
+      <PageHeader
+        eyebrow="Plataforma"
+        title="Organizaciones"
+          description="Empresas dadas de alta en la plataforma."
+        />
       <p className="hint mt-2 max-w-3xl text-[13px]">
         Alta, edicion y baja de organizaciones, y que usuarios pertenecen a cada una.
       </p>

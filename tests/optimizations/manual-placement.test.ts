@@ -18,6 +18,7 @@ function piece(id: string, x: number, y: number, width: number, height: number):
     sourceHeight: height,
     edges: { top: false, bottom: false, left: false, right: false },
     edgeType: "none",
+    edgeTypes: { top: "none", bottom: "none", left: "none", right: "none" },
     trace: []
   };
 }

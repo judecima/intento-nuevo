@@ -93,11 +93,10 @@ export const projectItemSchema = z.object({
   height: z.coerce.number().positive().max(10000),
   grain: z.coerce.boolean().optional().default(false),
   canRotate: z.coerce.boolean().optional().default(true),
-  edgeTop: z.coerce.boolean().optional().default(false),
-  edgeBottom: z.coerce.boolean().optional().default(false),
-  edgeLeft: z.coerce.boolean().optional().default(false),
-  edgeRight: z.coerce.boolean().optional().default(false),
-  edgeType: z.enum(edgeBandTypes).optional().default("none")
+  edgeTopType: z.enum(edgeBandTypes).optional().default("none"),
+  edgeBottomType: z.enum(edgeBandTypes).optional().default("none"),
+  edgeLeftType: z.enum(edgeBandTypes).optional().default("none"),
+  edgeRightType: z.enum(edgeBandTypes).optional().default("none")
 });
 
 export const projectItemCommandSchema = z.object({
@@ -124,11 +123,10 @@ export const projectDraftItemSchema = z.object({
   height: z.coerce.number().positive().max(10000),
   grain: z.boolean().default(false),
   canRotate: z.boolean().default(true),
-  edgeTop: z.boolean().default(false),
-  edgeBottom: z.boolean().default(false),
-  edgeLeft: z.boolean().default(false),
-  edgeRight: z.boolean().default(false),
-  edgeType: z.enum(edgeBandTypes).default("none")
+  edgeTopType: z.enum(edgeBandTypes).default("none"),
+  edgeBottomType: z.enum(edgeBandTypes).default("none"),
+  edgeLeftType: z.enum(edgeBandTypes).default("none"),
+  edgeRightType: z.enum(edgeBandTypes).default("none")
 });
 
 export const projectDraftSchema = z.object({

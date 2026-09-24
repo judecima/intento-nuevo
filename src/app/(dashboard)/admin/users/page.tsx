@@ -5,6 +5,8 @@ import { listOrganizationMembers } from "@/lib/admin/queries";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { adminDomainErrors, canAdminister, staffMemberRoles } from "@/lib/domain/admin";
 import { roleLabels } from "@/lib/domain/roles";
+import { PageHeader } from "@/components/ui/page-header";
+import { Notice } from "@/components/ui/notice";
 
 type AdminUsersPageProps = {
   searchParams?: {
@@ -19,11 +21,9 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 
   if (!organizationId || !canAdminister(context.role)) {
     return (
-      <section className="max-w-6xl">
+      <section className="page">
         <Header />
-        <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
-          No tenes permisos de administrador para gestionar usuarios.
-        </div>
+        <Notice kind="error">No tenes permisos de administrador para gestionar usuarios.</Notice>
       </section>
     );
   }
@@ -31,13 +31,13 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
   const members = await listOrganizationMembers(context, organizationId);
 
   return (
-    <section className="max-w-7xl space-y-5">
+    <section className="page">
       <Header />
       {notice ? (
-        <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
+        <Notice kind="ok">{notice}</Notice>
       ) : null}
 
-      <form action={createOrganizationMemberAction} className="border border-[var(--line)] bg-white p-4">
+      <form action={createOrganizationMemberAction} className="card p-4">
         <input type="hidden" name="organizationId" value={organizationId} />
         <input type="hidden" name="returnTo" value="/admin/users" />
         <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_minmax(220px,1fr)_150px_140px_auto] lg:items-end">
@@ -107,11 +107,11 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 function Header() {
   return (
     <div>
-      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Administrador</div>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Usuarios</h1>
-      <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">
-        Gestion de roles y membresias activas dentro de la organizacion actual.
-      </p>
+      <PageHeader
+        eyebrow="Administrador"
+        title="Usuarios"
+          description="Altas, roles y acceso de las personas de la organizacion."
+        />
     </div>
   );
 }

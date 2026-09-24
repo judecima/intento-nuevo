@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CutMetricsPanel } from "@/components/dashboard/cut-metrics-panel";
-import { SurfaceTitle } from "@/components/ui/material";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { getCutDashboardMetrics } from "@/lib/dashboard/cut-metrics";
 import { canManagePlatform } from "@/lib/domain/platform";
@@ -19,8 +19,8 @@ export default async function DashboardPage() {
   const basePath = context.routeBasePath;
 
   return (
-    <section className="max-w-7xl space-y-5">
-      <SurfaceTitle
+    <section className="page">
+      <PageHeader
         eyebrow="Resumen"
         title="Dashboard"
         description="Cortes contabilizados cuando el pedido sale de produccion hacia pegado de canto o finalizado."

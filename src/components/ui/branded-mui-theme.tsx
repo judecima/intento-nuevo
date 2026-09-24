@@ -132,3 +132,45 @@ export const brandedTableBodyCellSx: SxProps<Theme> = {
 export const mutedTextSx: SxProps<Theme> = {
   color: "var(--md-on-surface-variant)"
 };
+
+export type DeliveryRowAlert = "overdue" | "due_soon" | null | undefined;
+
+/**
+ * Resalta una fila entera, columnas fijas incluidas.
+ *
+ * MRT pinta las celdas fijas con un `::before` en z-index -1 y opacidad 0.97
+ * sobre el color base de la tabla. Ese pseudo-elemento tapa el `background` que
+ * la fila pone en el `td`, pero no al texto: las columnas fijas se quedaban
+ * blancas con letra blanca. Hay que pintar tambien el `::before`.
+ *
+ * Los colores salen de los roles "container" del sistema, no de hexadecimales
+ * sueltos: sobre un fondo tenue con texto oscuro los Chip de MUI que viven
+ * dentro de la fila siguen siendo legibles, cosa que no pasaba sobre el rojo
+ * saturado con texto forzado a blanco.
+ */
+export function deliveryAlertRowSx(alert: DeliveryRowAlert): SxProps<Theme> | undefined {
+  if (alert === "overdue") {
+    return alertRowSx("var(--fila-vencida)", "var(--fila-vencida-hover)", "var(--md-on-error-container)", "var(--md-error)");
+  }
+
+  if (alert === "due_soon") {
+    return alertRowSx("var(--fila-por-vencer)", "var(--fila-por-vencer-hover)", "var(--md-on-tertiary-container)", "var(--md-tertiary)");
+  }
+
+  return undefined;
+}
+
+function alertRowSx(background: string, hover: string, text: string, accent: string): SxProps<Theme> {
+  const accentBar = `inset 4px 0 0 0 ${accent}`;
+
+  return {
+    "& > td": { backgroundColor: background, color: text },
+    '& > td[data-pinned="true"]::before': { backgroundColor: background },
+    "&:hover > td": { backgroundColor: hover, color: text },
+    '&:hover > td[data-pinned="true"]::before': { backgroundColor: hover },
+    // La barra va en el pseudo-elemento cuando la celda esta fija, porque ese
+    // se dibuja por encima del fondo y del borde del propio `td`.
+    "& > td:first-of-type": { boxShadow: accentBar },
+    '& > td:first-of-type[data-pinned="true"]::before': { boxShadow: accentBar }
+  };
+}

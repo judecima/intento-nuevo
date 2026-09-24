@@ -1,6 +1,7 @@
 import { NewProjectForm } from "@/components/projects/new-project-form";
 import { OrganizationScopePicker } from "@/components/projects/organization-scope-picker";
-import { SurfaceCard, SurfaceTitle } from "@/components/ui/material";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
 import { listPlatformOrganizations } from "@/lib/admin/platform";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { canManagePlatform } from "@/lib/domain/platform";
@@ -36,11 +37,9 @@ export default async function NewProjectPage({ searchParams }: NewProjectPagePro
 
   if (!targetOrganizationId) {
     return (
-      <section className="max-w-6xl">
-        <SurfaceTitle eyebrow="Cliente" title="Nuevo proyecto" />
-        <SurfaceCard className="mt-5" bodyClassName="p-5 text-sm text-[var(--muted)]">
-          El usuario no tiene una organizacion activa.
-        </SurfaceCard>
+      <section className="page">
+        <PageHeader eyebrow="Cliente" title="Nuevo proyecto" />
+        <Notice kind="error">El usuario no tiene una organizacion activa.</Notice>
       </section>
     );
   }
@@ -52,8 +51,8 @@ export default async function NewProjectPage({ searchParams }: NewProjectPagePro
   const customers = salesUser ? await listOrganizationCustomers(targetOrganizationId) : [];
 
   return (
-    <section className="mx-auto max-w-[1200px] space-y-5">
-      <SurfaceTitle
+    <section className="page">
+      <PageHeader
         eyebrow="Cliente"
         title="Nuevo proyecto"
         description={`Elegi el tablero del catalogo y crea un proyecto editable con sus piezas${

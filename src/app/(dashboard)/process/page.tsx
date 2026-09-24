@@ -1,4 +1,6 @@
 import { OrderProcessTable } from "@/components/process/order-process-table";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { orderDomainErrors, orderStatusLabels, type OrderStatus } from "@/lib/domain/orders";
 import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
@@ -17,12 +19,9 @@ export default async function ProcessPage({ searchParams }: ProcessPageProps) {
 
   if (!organizationId || !canAccessOrderProcess(context.role)) {
     return (
-      <section className="max-w-6xl">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Proceso</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Proceso de pedidos</h1>
-        <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
-          No tenes permisos para acceder al proceso de pedidos.
-        </div>
+      <section className="page">
+        <PageHeader eyebrow="Proceso" title="Seguimiento de pedidos" />
+        <Notice kind="error">No tenes permisos para acceder al proceso de pedidos.</Notice>
       </section>
     );
   }
@@ -36,24 +35,25 @@ export default async function ProcessPage({ searchParams }: ProcessPageProps) {
   const counts = countByStatus(rows.map((row) => row.status));
 
   return (
-    <section className="max-w-[1680px] space-y-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Proceso</div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Proceso de pedidos</h1>
-        </div>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-6 xl:min-w-[820px]">
-          <Metric label="Pendientes" value={((counts.pending ?? 0) + (counts.submitted ?? 0) + (counts.under_review ?? 0)).toString()} />
-          <Metric label="Aprobados" value={(counts.approved ?? 0).toString()} />
-          <Metric label="Produccion" value={(counts.production ?? 0).toString()} />
-          <Metric label="Pegado" value={(counts.edgebanding ?? 0).toString()} />
-          <Metric label="Finalizados" value={(counts.completed ?? 0).toString()} />
-          <Metric label="Entregados" value={(counts.delivered ?? 0).toString()} />
-        </div>
-      </div>
+    <section className="page page-wide">
+      <PageHeader
+        eyebrow="Proceso"
+        title="Seguimiento de pedidos"
+        description="Todos los pedidos de la organizacion y en que etapa esta cada uno."
+        aside={
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-6 xl:min-w-[820px]">
+            <Metric label="Pendientes" value={((counts.pending ?? 0) + (counts.submitted ?? 0) + (counts.under_review ?? 0)).toString()} />
+            <Metric label="Aprobados" value={(counts.approved ?? 0).toString()} />
+            <Metric label="Produccion" value={(counts.production ?? 0).toString()} />
+            <Metric label="Pegado" value={(counts.edgebanding ?? 0).toString()} />
+            <Metric label="Finalizados" value={(counts.completed ?? 0).toString()} />
+            <Metric label="Entregados" value={(counts.delivered ?? 0).toString()} />
+          </div>
+        }
+      />
 
       {notice ? (
-        <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
+        <Notice kind="ok">{notice}</Notice>
       ) : null}
 
       <OrderProcessTable rows={rows} role={context.role} />

@@ -1,4 +1,6 @@
 import { OrderList } from "@/components/orders/order-list";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { listCustomerOrders } from "@/lib/orders/queries";
 
@@ -17,14 +19,15 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const notice = noticeMessage(first(searchParams?.notice));
 
   return (
-    <section className="max-w-7xl space-y-5">
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Cliente</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Mis pedidos</h1>
-      </div>
+    <section className="page">
+      <PageHeader
+        eyebrow="Cliente"
+        title="Mis pedidos"
+          description="Pedidos que enviaste al vendedor, con la etapa en la que esta cada uno."
+        />
 
       {notice ? (
-        <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
+        <Notice kind="ok">{notice}</Notice>
       ) : null}
 
       <OrderList orders={orders} />

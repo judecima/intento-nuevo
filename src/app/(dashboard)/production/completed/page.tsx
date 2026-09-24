@@ -1,4 +1,6 @@
 import { ProductionOrderList } from "@/components/production/production-order-list";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import { canAccessProduction, productionDomainErrors } from "@/lib/domain/production";
@@ -16,12 +18,9 @@ export default async function ProductionCompletedPage({ searchParams }: Producti
 
   if (!organizationId || !canAccessProduction(context.role)) {
     return (
-      <section className="max-w-6xl">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Operario</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Finalizados</h1>
-        <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
-          No tenes permisos para acceder a produccion.
-        </div>
+      <section className="page">
+        <PageHeader eyebrow="Operario" title="Finalizados" />
+        <Notice kind="error">No tenes permisos para acceder a produccion.</Notice>
       </section>
     );
   }
@@ -39,13 +38,14 @@ export default async function ProductionCompletedPage({ searchParams }: Producti
   const notice = noticeMessage(first(searchParams?.notice));
 
   return (
-    <section className="max-w-7xl space-y-5">
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Operario</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Finalizados</h1>
-      </div>
+    <section className="page">
+      <PageHeader
+        eyebrow="Operario"
+        title="Finalizados"
+          description="Trabajos cerrados y listos para entregar."
+        />
       {notice ? (
-        <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
+        <Notice kind="ok">{notice}</Notice>
       ) : null}
       <ProductionOrderList items={items} machineProfiles={profiles} mode="completed" returnTo="/production/completed" />
     </section>

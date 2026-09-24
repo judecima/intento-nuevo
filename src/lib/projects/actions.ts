@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { edgeFlags, summaryEdgeType } from "@/lib/domain/edge-bands";
 import { positiveThicknessOrUndefined } from "@/lib/domain/materials";
 import {
   canCreateProject,
@@ -203,11 +204,17 @@ async function persistProjectDraftAction(
     height: item.height,
     grain: item.grain,
     can_rotate: item.canRotate,
-    edge_top: item.edgeTop,
-    edge_bottom: item.edgeBottom,
-    edge_left: item.edgeLeft,
-    edge_right: item.edgeRight,
-    edge_type: item.edgeType,
+    // Los booleanos y edge_type son derivados: la fuente de verdad es el tipo
+    // de cada lado. Se guardan igual para los lectores que todavia los usan.
+    edge_top: edgeFlags(item).edgeTop,
+    edge_bottom: edgeFlags(item).edgeBottom,
+    edge_left: edgeFlags(item).edgeLeft,
+    edge_right: edgeFlags(item).edgeRight,
+    edge_type: summaryEdgeType(item),
+    edge_top_type: item.edgeTopType,
+    edge_bottom_type: item.edgeBottomType,
+    edge_left_type: item.edgeLeftType,
+    edge_right_type: item.edgeRightType,
     sort_order: (index + 1) * 10
   }));
 

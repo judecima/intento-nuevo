@@ -52,6 +52,10 @@ describe("project optimization input mapper", () => {
         edge_left: true,
         edge_right: true,
         edge_type: "thin",
+        edge_top_type: "thick",
+        edge_bottom_type: "none",
+        edge_left_type: "thin",
+        edge_right_type: "both",
         metadata: {},
         sort_order: 10,
         created_at: "2026-08-13T00:00:00.000Z",
@@ -88,7 +92,8 @@ describe("project optimization input mapper", () => {
       height: 1800,
       grain: true,
       canRotate: false,
-      edgeType: "thin"
+      edgeType: "thin",
+      edgeTypes: { top: "thick", bottom: "none", left: "thin", right: "both" }
     });
   });
 
@@ -145,11 +150,10 @@ describe("project optimization input mapper", () => {
           height: 900,
           grain: false,
           canRotate: true,
-          edgeTop: false,
-          edgeBottom: false,
-          edgeLeft: false,
-          edgeRight: false,
-          edgeType: "none"
+          edgeTopType: "none",
+          edgeBottomType: "none",
+          edgeLeftType: "none",
+          edgeRightType: "none"
         },
         {
           reference: "P2",
@@ -159,11 +163,10 @@ describe("project optimization input mapper", () => {
           height: 1400,
           grain: false,
           canRotate: true,
-          edgeTop: false,
-          edgeBottom: false,
-          edgeLeft: false,
-          edgeRight: false,
-          edgeType: "none"
+          edgeTopType: "none",
+          edgeBottomType: "none",
+          edgeLeftType: "none",
+          edgeRightType: "none"
         }
       ]
     };
@@ -177,11 +180,15 @@ describe("project optimization input mapper", () => {
       height: item.height,
       grain: item.grain,
       can_rotate: item.canRotate,
-      edge_top: item.edgeTop,
-      edge_bottom: item.edgeBottom,
-      edge_left: item.edgeLeft,
-      edge_right: item.edgeRight,
-      edge_type: item.edgeType,
+      edge_top: item.edgeTopType !== "none",
+      edge_bottom: item.edgeBottomType !== "none",
+      edge_left: item.edgeLeftType !== "none",
+      edge_right: item.edgeRightType !== "none",
+      edge_type: "none",
+      edge_top_type: item.edgeTopType,
+      edge_bottom_type: item.edgeBottomType,
+      edge_left_type: item.edgeLeftType,
+      edge_right_type: item.edgeRightType,
       metadata: {},
       sort_order: (index + 1) * 10,
       created_at: "2026-08-13T00:00:00.000Z",
@@ -261,11 +268,10 @@ describe("project optimization input mapper", () => {
           height: 400,
           grain: false,
           canRotate: true,
-          edgeTop: false,
-          edgeBottom: false,
-          edgeLeft: false,
-          edgeRight: false,
-          edgeType: "none"
+          edgeTopType: "none",
+          edgeBottomType: "none",
+          edgeLeftType: "none",
+          edgeRightType: "none"
         }
       ]
     };

@@ -593,7 +593,8 @@ function pieceGroupKey(piece: CanonicalOptimizationPiece): string {
     piece.edges.bottom ? "B" : "",
     piece.edges.left ? "L" : "",
     piece.edges.right ? "R" : "",
-    piece.edgeType ?? ""
+    piece.edgeType ?? "",
+    piece.edgeTypes ? `${piece.edgeTypes.top}${piece.edgeTypes.bottom}${piece.edgeTypes.left}${piece.edgeTypes.right}` : ""
   ].join("|");
 }
 

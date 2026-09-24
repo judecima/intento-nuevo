@@ -1,4 +1,9 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
+import { AlertRowsDemo } from "./alert-rows-demo";
+import { BoardPickerDemo, PipelineDemo, WorkspaceDemo } from "./workspace-demo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,18 +18,30 @@ const context = {
 export default function UiPreviewPage() {
   return (
     <AppShell context={context}>
-      <section className="mx-auto max-w-[1200px] space-y-5">
-        <header>
-          <div className="eyebrow">Cliente</div>
-          <h1 className="mt-1.5 text-[30px] font-bold tracking-[-0.025em]">Proyecto demo cocina</h1>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="badge badge-ok">Optimizado</span>
-            <span className="badge chip-mono">v6</span>
-            <span className="badge chip-mono">2750 × 1830 mm</span>
-            <span className="badge badge-accent">con veta</span>
-            <span className="badge">Solo lectura</span>
-          </div>
-        </header>
+      <section className="page">
+        <PageHeader
+          eyebrow="Cliente"
+          title="Proyecto demo cocina"
+          description="Referencia viva del sistema de diseno: los mismos componentes que usan las secciones reales."
+          aside={
+            <div className="flex flex-wrap gap-2">
+              <span className="badge badge-ok">Optimizado</span>
+              <span className="badge chip-mono">v6</span>
+              <span className="badge chip-mono">2750 × 1830 mm</span>
+              <span className="badge badge-accent">con veta</span>
+              <span className="badge">Solo lectura</span>
+            </div>
+          }
+        />
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Notice kind="info">Vista previa generada con los datos de pantalla. Todavia no se guardo nada.</Notice>
+          <Notice kind="ok">Cambios guardados y plano reoptimizado.</Notice>
+          <Notice kind="warn">Hay cambios sin guardar.</Notice>
+          <Notice kind="error" title="La ultima optimizacion no se pudo guardar">
+            El motor no devolvio un plan valido.
+          </Notice>
+        </div>
 
         <div className="metric-grid">
           <div className="metric metric-strong">
@@ -44,6 +61,14 @@ export default function UiPreviewPage() {
             <div className="metric-label">m de sierra</div>
           </div>
         </div>
+
+        <AlertRowsDemo />
+
+        <BoardPickerDemo />
+
+        <PipelineDemo />
+
+        <WorkspaceDemo />
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="card">
@@ -115,10 +140,12 @@ export default function UiPreviewPage() {
                 </table>
               </div>
 
-              <div className="empty-state">
-                <strong>Todavia no hay plan</strong>
-                Carga las piezas y proba la optimizacion.
-              </div>
+              <EmptyState
+                title="Todavia no hay plan"
+                action={<button className="btn btn-accent">Probar sin guardar</button>}
+              >
+                Carga las piezas y proba la optimizacion para ver el plano, la secuencia de sierra y los sobrantes.
+              </EmptyState>
             </div>
           </section>
 

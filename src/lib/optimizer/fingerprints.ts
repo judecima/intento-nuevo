@@ -23,6 +23,7 @@ interface ExactPiece {
   rotationAllowed: TriState;
   edges: { top: boolean; bottom: boolean; left: boolean; right: boolean };
   edgeType: string | null;
+  edgeTypes: { top: string; bottom: string; left: string; right: string };
 }
 
 interface ExactProblem {
@@ -137,7 +138,13 @@ function toExactPiece(piece: CanonicalOptimizationPiece): ExactPiece {
       left: Boolean(piece.edges.left),
       right: Boolean(piece.edges.right)
     },
-    edgeType: piece.edgeType ?? null
+    edgeType: piece.edgeType ?? null,
+    edgeTypes: {
+      top: piece.edgeTypes?.top ?? (piece.edges?.top ? (piece.edgeType ?? "thin") : "none"),
+      bottom: piece.edgeTypes?.bottom ?? (piece.edges?.bottom ? (piece.edgeType ?? "thin") : "none"),
+      left: piece.edgeTypes?.left ?? (piece.edges?.left ? (piece.edgeType ?? "thin") : "none"),
+      right: piece.edgeTypes?.right ?? (piece.edges?.right ? (piece.edgeType ?? "thin") : "none")
+    }
   };
 }
 

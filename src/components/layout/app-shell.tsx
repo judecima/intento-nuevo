@@ -5,6 +5,8 @@ import { brandThemeCssText, brandThemeStyle } from "@/lib/branding/theme";
 import { getNavigationForRole } from "@/lib/domain/navigation";
 import { roleLabels } from "@/lib/domain/roles";
 import { toScopedPath } from "@/lib/routing/routes";
+import { Breadcrumbs } from "./breadcrumbs";
+import { MobileNav } from "./mobile-nav";
 import { RailNav } from "./rail-nav";
 
 type AppShellProps = {
@@ -55,7 +57,7 @@ export function AppShell({ context, children }: AppShellProps) {
       <div style={brandStyle} className="min-h-screen bg-[var(--md-surface)] text-[var(--ink)] lg:grid lg:grid-cols-[276px_1fr]">
         {/* Drawer sobre superficie oscura: los tokens `rail-*` son el esquema
             oscuro del sistema, para que el texto claro tenga siempre contraste. */}
-        <aside className="no-print border-r border-[var(--rail-outline)] bg-[var(--rail)] px-3 py-5 text-[var(--rail-on)] lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+        <aside className="no-print hidden border-r border-[var(--rail-outline)] bg-[var(--rail)] px-3 py-5 text-[var(--rail-on)] lg:sticky lg:top-0 lg:block lg:h-screen lg:overflow-y-auto">
         <Link href={toScopedPath(basePath, "/dashboard")} className="focus-ring block rounded-[var(--r-lg)] px-4 py-1">
           <div className="flex items-center gap-3">
             {appBranding.logoUrl ? (
@@ -77,15 +79,21 @@ export function AppShell({ context, children }: AppShellProps) {
       <div className="min-w-0">
         <header className="no-print sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--md-surface-container-low)]/95 px-5 py-3 shadow-sm backdrop-blur md:px-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="eyebrow-muted">Organizacion</div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                <span className="truncate text-[15px] font-semibold">{organizationName}</span>
-                {platformMode ? (
-                  <Link href={toScopedPath(basePath, "/admin/organizations")} className="badge badge-accent focus-ring">
-                    {appBranding.name}
-                  </Link>
-                ) : null}
+            <div className="flex min-w-0 items-center gap-2">
+              <MobileNav items={nav} title={appBranding.name} />
+              <div className="min-w-0">
+                {/* La ruta responde "donde estoy"; la organizacion, "de quien
+                    son estos datos". Antes solo se mostraba lo segundo. */}
+                <Breadcrumbs items={nav} basePath={basePath} />
+                <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                  <span className="eyebrow-muted">Organizacion</span>
+                  <span className="truncate text-[13px] font-semibold">{organizationName}</span>
+                  {platformMode ? (
+                    <Link href={toScopedPath(basePath, "/admin/organizations")} className="badge badge-accent focus-ring">
+                      {appBranding.name}
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -119,7 +127,7 @@ export function AppShell({ context, children }: AppShellProps) {
           ) : null}
         </header>
 
-        <main className="px-5 py-6 md:px-7">{children}</main>
+        <main className="px-4 py-6 sm:px-5 md:px-7">{children}</main>
       </div>
       </div>
     </>

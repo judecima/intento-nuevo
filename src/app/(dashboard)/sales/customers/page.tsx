@@ -5,6 +5,8 @@ import { createCustomerAction } from "@/lib/customers/actions";
 import { listOrganizationCustomers } from "@/lib/customers/queries";
 import { toScopedPath } from "@/lib/routing/routes";
 import Link from "next/link";
+import { PageHeader } from "@/components/ui/page-header";
+import { Notice } from "@/components/ui/notice";
 
 type Props = { searchParams?: { notice?: string } };
 
@@ -25,16 +27,19 @@ export default async function SalesCustomersPage({ searchParams }: Props) {
   const notice = searchParams?.notice ? notices[searchParams.notice] : null;
 
   return (
-    <section className="mx-auto max-w-6xl space-y-5">
+    <section className="page">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="eyebrow">Ventas</div>
-          <h1 className="mt-1.5 text-[30px] font-semibold">Clientes</h1>
+          <PageHeader
+            eyebrow="Ventas"
+            title="Clientes"
+          description="Cuentas de cliente a las que podes asociar proyectos y pedidos."
+        />
           <p className="hint mt-2">Selecciona un cliente existente o da de alta uno nuevo para cargar un pedido.</p>
         </div>
         <Link href={toScopedPath(context.routeBasePath, "/projects/new")} className="btn btn-primary focus-ring">Cargar pedido</Link>
       </header>
-      {notice ? <div className="operation-banner">{notice}</div> : null}
+      {notice ? <Notice kind="ok">{notice}</Notice> : null}
 
       <section className="card p-5">
         <h2 className="text-[19px] font-semibold">Nuevo cliente</h2>

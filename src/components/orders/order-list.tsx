@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_Row
+  type MRT_ColumnDef
 } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
 import Button from "@mui/material/Button";
@@ -22,6 +21,9 @@ import {
 import { getOrderSnapshotSummary, orderStatusLabels } from "@/lib/domain/orders";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
 import type { OrderRow } from "@/lib/orders/queries";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
+import { Modal } from "@/components/ui/modal";
 
 type OrderListProps = {
   orders: OrderRow[];
@@ -50,6 +52,7 @@ type CustomerOrderTableRow = {
 };
 
 export function OrderList({ orders }: OrderListProps) {
+  const [detail, setDetail] = useState<CustomerOrderTableRow | null>(null);
   const rows = useMemo<CustomerOrderTableRow[]>(
     () =>
       orders.map((order) => {
@@ -172,7 +175,6 @@ export function OrderList({ orders }: OrderListProps) {
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableDensityToggle: true,
-    enableExpanding: true,
     enableFullScreenToggle: true,
     enableRowActions: true,
     enableStickyHeader: true,
@@ -189,11 +191,10 @@ export function OrderList({ orders }: OrderListProps) {
     muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
     muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
-      <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
-        {row.getIsExpanded() ? "Cerrar" : "Detalle"}
+      <Button size="small" variant="outlined" onClick={() => setDetail(row.original)}>
+        Detalle
       </Button>
     ),
-    renderDetailPanel: ({ row }) => <CustomerOrderDetail row={row} />,
     renderTopToolbarCustomActions: () => (
       <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {orders.length} pedidos
@@ -203,34 +204,42 @@ export function OrderList({ orders }: OrderListProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="rounded-[var(--r)] border border-dashed border-[var(--linea-fuerte)] bg-[rgba(255,255,255,.45)] p-8 text-center text-sm text-[var(--muted)]">
-        No hay pedidos para mostrar.
-      </div>
+      <EmptyState title="Todavia no enviaste ningun pedido">
+        Cuando un proyecto tenga su plano optimizado vas a poder enviarlo al vendedor desde la pantalla del proyecto.
+      </EmptyState>
     );
   }
 
   return (
     <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal eyebrow="Pedido" title={`Pedido ${detail.shortId}`} size="xl" onClose={() => setDetail(null)}>
+          <CustomerOrderDetail row={detail} />
+        </Modal>
+      ) : null}
     </BrandedMuiThemeProvider>
   );
 }
 
-function CustomerOrderDetail({ row }: { row: MRT_Row<CustomerOrderTableRow> }) {
+function CustomerOrderDetail({ row }: { row: CustomerOrderTableRow }) {
   return (
-    <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <dl className="grid gap-3 text-sm md:grid-cols-2">
-        <Detail label="Material" value={row.original.materialDescription} />
-        <Detail label="Filas" value={`${row.original.itemRows}`} />
-        <Detail label="Canto 0,45" value={`${row.original.edgeBand045Meters.toFixed(2)} m`} />
-        <Detail label="Canto 2 mm" value={`${row.original.edgeBand2mmMeters.toFixed(2)} m`} />
-        <Detail label="Enviado" value={formatDateTimeEsAr(row.original.submittedAt)} />
-        <Detail label="Pedido" value={row.original.id} mono />
-      </dl>
+    <div className="p-4">
+      <PipelineStepper orderStatus={row.order.status} className="mb-4" />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <dl className="grid gap-3 text-sm md:grid-cols-2">
+          <Detail label="Material" value={row.materialDescription} />
+          <Detail label="Filas" value={`${row.itemRows}`} />
+          <Detail label="Canto 0,45" value={`${row.edgeBand045Meters.toFixed(2)} m`} />
+          <Detail label="Canto 2 mm" value={`${row.edgeBand2mmMeters.toFixed(2)} m`} />
+          <Detail label="Enviado" value={formatDateTimeEsAr(row.submittedAt)} />
+          <Detail label="Pedido" value={row.id} mono />
+        </dl>
 
-      <div className="space-y-3">
-        <Note label="Nota cliente" value={row.original.notesCustomer || "Sin nota"} />
-        <Note label="Nota vendedor" value={row.original.notesSeller || "Sin nota"} />
+        <div className="space-y-3">
+          <Note label="Nota cliente" value={row.notesCustomer || "Sin nota"} />
+          <Note label="Nota vendedor" value={row.notesSeller || "Sin nota"} />
+        </div>
       </div>
     </div>
   );

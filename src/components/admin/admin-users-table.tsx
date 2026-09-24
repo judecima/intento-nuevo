@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -23,12 +23,14 @@ import { updateOrganizationMemberAction } from "@/lib/admin/actions";
 import type { AdminOrganizationMember } from "@/lib/admin/queries";
 import { organizationRoles, roleLabels } from "@/lib/domain/roles";
 import { formatDateOnlyEsAr } from "@/lib/format/dates";
+import { Modal } from "@/components/ui/modal";
 
 type AdminUsersTableProps = {
   members: AdminOrganizationMember[];
 };
 
 export function AdminUsersTable({ members }: AdminUsersTableProps) {
+  const [detail, setDetail] = useState<AdminOrganizationMember | null>(null);
   const columns = useMemo<MRT_ColumnDef<AdminOrganizationMember>[]>(
     () => [
       {
@@ -85,7 +87,6 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableDensityToggle: true,
-    enableExpanding: true,
     enableFullScreenToggle: true,
     enableRowActions: true,
     enableStickyHeader: true,
@@ -99,11 +100,10 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
     muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
     muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
-      <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
-        {row.getIsExpanded() ? "Cerrar" : "Actualizar"}
+      <Button size="small" variant="outlined" onClick={() => setDetail(row.original)}>
+        Actualizar
       </Button>
     ),
-    renderDetailPanel: ({ row }) => <MemberUpdateForm row={row} />,
     renderTopToolbarCustomActions: () => (
       <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {members.length} usuarios
@@ -114,12 +114,17 @@ export function AdminUsersTable({ members }: AdminUsersTableProps) {
   return (
     <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal eyebrow="Usuario" title={detail.profile?.full_name ?? detail.profile?.email ?? "Actualizar usuario"} size="md" onClose={() => setDetail(null)}>
+          <MemberUpdateForm row={detail} />
+        </Modal>
+      ) : null}
     </BrandedMuiThemeProvider>
   );
 }
 
-function MemberUpdateForm({ row }: { row: MRT_Row<AdminOrganizationMember> }) {
-  const member = row.original;
+function MemberUpdateForm({ row }: { row: AdminOrganizationMember }) {
+  const member = row;
 
   return (
     <form action={updateOrganizationMemberAction} className="grid gap-3 p-4 text-sm md:grid-cols-[180px_150px_minmax(0,1fr)_auto] md:items-end">

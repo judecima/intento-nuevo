@@ -11,6 +11,7 @@ import { materialFiltersFromSearchParams, getMaterialByIdForOrganization, listMa
 import { canAdminister } from "@/lib/domain/admin";
 import { canManagePlatform } from "@/lib/domain/platform";
 import { toScopedPath } from "@/lib/routing/routes";
+import { PageHeader } from "@/components/ui/page-header";
 
 type AdminMaterialsPageProps = {
   searchParams?: MaterialSearchParams;
@@ -30,9 +31,12 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
 
   if (!organization || (!platformAdmin && !canAdminister(context.role))) {
     return (
-      <section className="max-w-6xl">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Administrador</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Materiales</h1>
+      <section className="page">
+        <PageHeader
+          eyebrow="Administrador"
+          title="Materiales"
+          description="Catalogo de tableros disponibles para armar proyectos."
+        />
         <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
           El usuario no tiene una organizacion activa. Si administras la plataforma, entra desde{" "}
           <Link href={toScopedPath(basePath, "/admin/organizations")} className="text-[var(--teal)] hover:underline">
@@ -51,11 +55,14 @@ export default async function AdminMaterialsPage({ searchParams }: AdminMaterial
   const notice = first(searchParams?.notice);
 
   return (
-    <section className="max-w-7xl space-y-6">
+    <section className="page">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Administrador</div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Materiales</h1>
+          <PageHeader
+            eyebrow="Administrador"
+            title="Materiales"
+          description="Catalogo de tableros disponibles para armar proyectos."
+        />
           <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">
             Catalogo habilitado para seleccionar tableros, texturas, espesores y dimensiones de corte.
           </p>

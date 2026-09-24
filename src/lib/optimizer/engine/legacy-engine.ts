@@ -15,6 +15,7 @@ import type {
   OptimizationBoardResult,
   OptimizationCut,
   OptimizationEdgeBandType,
+  OptimizationPieceEdgeTypes,
   OptimizationInput,
   OptimizationMetrics,
   OptimizationPlacement,
@@ -521,7 +522,8 @@ function toLegacyLines(input: OptimizationInput): LegacyLineInput[] {
           izq: Boolean(piece.edges.left),
           der: Boolean(piece.edges.right)
         }
-      : null
+      : null,
+    cantosTipo: resolveEdgeTypes(piece)
   }));
 }
 
@@ -660,13 +662,17 @@ function completeLegacyPlan(
   let edgeBandSides = 0;
   for (const line of lineas) {
     const edges = line.cantos ?? {};
-    const edgeType = line.edgeType ?? "none";
+    const fallback = line.edgeType ?? "none";
     for (const [side, enabled] of Object.entries(edges)) {
       if (!enabled) continue;
+      // Cada lado cobra su propio espesor; "both" cobra los dos sobre el mismo
+      // lado, que es la semantica que ya tenia el tipo por pieza.
+      const sideType = line.cantosTipo?.[side as "arr" | "aba" | "izq" | "der"] ?? fallback;
+      if (sideType === "none") continue;
       edgeBandSides += line.cant;
       const meters = line.cant * ((side === "izq" || side === "der" ? line.altura : line.base) / 1000);
-      if (edgeType === "thin" || edgeType === "both") edgeBand045Meters += meters;
-      if (edgeType === "thick" || edgeType === "both") edgeBand2mmMeters += meters;
+      if (sideType === "thin" || sideType === "both") edgeBand045Meters += meters;
+      if (sideType === "thick" || sideType === "both") edgeBand2mmMeters += meters;
     }
   }
 
@@ -725,6 +731,7 @@ function normalizeLegacyPlan(
   const cuts: OptimizationCut[] = [];
   const remnants: OptimizationRemnant[] = [];
   const edgeTypesByLegacyId = expandedEdgeTypes(sourcePieces);
+  const edgeSideTypesByLegacyId = expandedEdgeSideTypes(sourcePieces);
 
   for (let boardIndex = 0; boardIndex < plan.placas.length; boardIndex++) {
     const legacyBoard = plan.placas[boardIndex];
@@ -751,6 +758,7 @@ function normalizeLegacyPlan(
           right: Boolean(edges?.der)
         },
         edgeType: edgeTypeForPlacement(placement.pieza?.id, edgeTypesByLegacyId, edges),
+        edgeTypes: edgeSideTypesForPlacement(placement.pieza?.id, edgeSideTypesByLegacyId, edges),
         trace: normalizeTrace(
           placement._diagPath ?? legacyMotor.resolverDiagPath?.(placement._diagLink)
         )
@@ -836,6 +844,61 @@ function expandedEdgeTypes(pieces: OptimizationInput["pieces"]): Map<number, Opt
   }
 
   return result;
+}
+
+/**
+ * El motor legacy expande las piezas con una lista fija de campos, asi que
+ * `cantosTipo` no llega hasta la colocacion: se recupera por el id expandido,
+ * igual que ya se hacia con el tipo unico de la pieza.
+ */
+function expandedEdgeSideTypes(pieces: OptimizationInput["pieces"]): Map<number, OptimizationPieceEdgeTypes> {
+  const result = new Map<number, OptimizationPieceEdgeTypes>();
+  let legacyId = 0;
+
+  for (const piece of pieces) {
+    const types = resolveEdgeTypes(piece);
+    for (let quantity = 0; quantity < piece.quantity; quantity += 1) {
+      result.set(legacyId, { top: types.arr, bottom: types.aba, left: types.izq, right: types.der });
+      legacyId += 1;
+    }
+  }
+
+  return result;
+}
+
+function edgeSideTypesForPlacement(
+  legacyId: unknown,
+  typesByLegacyId: Map<number, OptimizationPieceEdgeTypes>,
+  edges: { arr?: boolean; aba?: boolean; izq?: boolean; der?: boolean } | null,
+): OptimizationPieceEdgeTypes {
+  const id = Number(legacyId);
+  const fromInput = Number.isInteger(id) ? typesByLegacyId.get(id) : undefined;
+  if (fromInput) return fromInput;
+
+  const fallback: OptimizationEdgeBandType = edges && Object.values(edges).some(Boolean) ? "thin" : "none";
+  return {
+    top: edges?.arr ? fallback : "none",
+    bottom: edges?.aba ? fallback : "none",
+    left: edges?.izq ? fallback : "none",
+    right: edges?.der ? fallback : "none"
+  };
+}
+
+/** Tipo de cada lado de una pieza de entrada, tolerando el formato viejo. */
+function resolveEdgeTypes(piece: OptimizationInput["pieces"][number]): {
+  arr: OptimizationEdgeBandType;
+  aba: OptimizationEdgeBandType;
+  izq: OptimizationEdgeBandType;
+  der: OptimizationEdgeBandType;
+} {
+  const fallback = resolveEdgeType(piece.edgeType, piece.edges);
+
+  return {
+    arr: piece.edgeTypes?.top ?? (piece.edges?.top ? fallback : "none"),
+    aba: piece.edgeTypes?.bottom ?? (piece.edges?.bottom ? fallback : "none"),
+    izq: piece.edgeTypes?.left ?? (piece.edges?.left ? fallback : "none"),
+    der: piece.edgeTypes?.right ?? (piece.edges?.right ? fallback : "none")
+  };
 }
 
 function edgeTypeForPlacement(

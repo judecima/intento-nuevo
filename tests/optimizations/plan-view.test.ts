@@ -309,3 +309,109 @@ describe("cut sequence diagnostics", () => {
     expect(neighbors.below).toBeNull();
   });
 });
+
+describe("tapacanto por lado", () => {
+  function edgeInput(
+    rawEdges: Record<string, unknown>,
+    extra: Record<string, unknown> = {}
+  ): BuildCutPlanViewInput {
+    const input = baseInput();
+    return {
+      ...input,
+      pieces: [
+        pieceRow({
+          raw_json: { sourceWidth: 600, sourceHeight: 400, edges: rawEdges, trace: [], ...extra }
+        })
+      ]
+    };
+  }
+
+  it("cobra cada lado con su propio espesor", () => {
+    // Arriba (600 mm) en 2 mm, izquierda (400 mm) en 0,45.
+    const plan = buildCutPlanView(
+      edgeInput(
+        { top: true, bottom: false, left: true, right: false },
+        { edgeTypes: { top: "thick", bottom: "none", left: "thin", right: "none" } }
+      )
+    );
+
+    expect(plan.metrics.edgeBand045Meters).toBeCloseTo(0.4, 5);
+    expect(plan.metrics.edgeBand2mmMeters).toBeCloseTo(0.6, 5);
+    expect(plan.metrics.edgeSides).toBe(2);
+  });
+
+  it("un lado en 0,45 + 2 mm suma en los dos contadores", () => {
+    const plan = buildCutPlanView(
+      edgeInput(
+        { top: true, bottom: false, left: false, right: false },
+        { edgeTypes: { top: "both", bottom: "none", left: "none", right: "none" } }
+      )
+    );
+
+    expect(plan.metrics.edgeBand045Meters).toBeCloseTo(0.6, 5);
+    expect(plan.metrics.edgeBand2mmMeters).toBeCloseTo(0.6, 5);
+    expect(plan.metrics.edgeSides).toBe(1);
+  });
+
+  it("no cuenta un lado marcado cuyo tipo quedo en none", () => {
+    const plan = buildCutPlanView(
+      edgeInput(
+        { top: true, bottom: true, left: false, right: false },
+        { edgeTypes: { top: "thin", bottom: "none", left: "none", right: "none" } }
+      )
+    );
+
+    expect(plan.metrics.edgeSides).toBe(1);
+    expect(plan.metrics.edgeBand045Meters).toBeCloseTo(0.6, 5);
+  });
+
+  it("lee los resultados guardados con el formato viejo", () => {
+    // Sin edgeTypes: cada lado marcado hereda el tipo de la pieza.
+    const plan = buildCutPlanView(
+      edgeInput({ top: true, bottom: false, left: true, right: false }, { edgeType: "thick" })
+    );
+
+    expect(plan.metrics.edgeBand2mmMeters).toBeCloseTo(1.0, 5);
+    expect(plan.metrics.edgeBand045Meters).toBe(0);
+    expect(plan.metrics.edgeSides).toBe(2);
+  });
+
+  it("asume 0,45 cuando el formato viejo no traia tipo", () => {
+    const plan = buildCutPlanView(edgeInput({ top: true, bottom: false, left: false, right: false }));
+
+    expect(plan.metrics.edgeBand045Meters).toBeCloseTo(0.6, 5);
+    expect(plan.metrics.edgeBand2mmMeters).toBe(0);
+  });
+
+  it("separa en grupos distintos dos piezas iguales con distinto tapacanto", () => {
+    const input = baseInput();
+    const plan = buildCutPlanView({
+      ...input,
+      pieces: [
+        pieceRow({
+          raw_json: {
+            sourceWidth: 600,
+            sourceHeight: 400,
+            edges: { top: true, bottom: false, left: false, right: false },
+            edgeTypes: { top: "thin", bottom: "none", left: "none", right: "none" },
+            trace: []
+          }
+        }),
+        pieceRow({
+          id: "piece-2",
+          piece_id: "2",
+          x: 610,
+          raw_json: {
+            sourceWidth: 600,
+            sourceHeight: 400,
+            edges: { top: true, bottom: false, left: false, right: false },
+            edgeTypes: { top: "thick", bottom: "none", left: "none", right: "none" },
+            trace: []
+          }
+        })
+      ]
+    });
+
+    expect(plan.groups).toHaveLength(2);
+  });
+});
