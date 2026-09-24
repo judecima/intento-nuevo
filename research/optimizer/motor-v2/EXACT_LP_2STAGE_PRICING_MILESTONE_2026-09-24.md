@@ -26,7 +26,14 @@ The earlier 20-round audit did **not** converge, but the final bounded rerun did
 - 5445716: 22 added columns, LP 615.042270;
 - 5447573: 25 added columns, LP 577.359733.
 
-The restricted-master LP is converged **with respect to the exact 2-stage pricing oracle** for the initial demand in these three cases. The RMP itself is not a pure 2-stage model: it starts from the existing physical pool, which contains higher-stage patterns, and is then augmented with exact 2-stage columns. Therefore this result means "no missing negative-reduced-cost 2-stage column for the current duals", not "exact LP optimum of the pure 2-stage family", and it is not a global <=4-stage certificate.
+The restricted-master LP is converged **with respect to the exact 2-stage pricing oracle** for the initial demand in these three cases. The RMP itself is not a pure 2-stage model: it starts from the existing physical pool, which contains higher-stage patterns, and is then augmented with exact 2-stage columns.
+
+Because the initial-demand oracle is exact for the modeled 2-stage family and terminates with no negative-reduced-cost 2-stage column, the final LP is the optimum over the union **existing admitted pool ∪ all modeled 2-stage columns**. Therefore any integer solution composed only from that union needs at least:
+- 5445701: `ceil(587.757045) = 588` boards;
+- 5445716: `ceil(615.042270) = 616` boards;
+- 5447573: `ceil(577.359733) = 578` boards.
+
+To beat those numbers, a solution must use at least one useful 3/4-stage pattern that is not already represented in the admitted starting pool (or otherwise fall outside the modeled constraints). This is still not a global <=4-stage certificate.
 
 ## Physical validity
 
