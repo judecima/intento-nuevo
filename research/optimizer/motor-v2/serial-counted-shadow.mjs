@@ -499,6 +499,7 @@ for (const c of cases) {
               maxNodos: twoStageResidualNodes,
               watchdogMs: twoStageResidualWatchdogMs,
               expandPlan: false,
+              lowerBoundDual: currentLp.dualPrices,
             },
           );
           residualResult = residualSolver?.resolver(
@@ -558,6 +559,7 @@ for (const c of cases) {
         residualMultiplicityBranches: residualResult?.ramasMultiplicidad ?? null,
         residualExhausted: residualResult?.agotado ?? null,
         residualTargetReached: residualResult?.targetReached ?? null,
+        residualDualBoundEnabled: residualResult?.dualBoundEnabled ?? null,
         elapsedMs: +(nowMs() - residualStarted).toFixed(3),
         error: residualError,
       };
@@ -581,6 +583,7 @@ for (const c of cases) {
             watchdogMs: twoStageMasterWatchdogMs,
             targetBoards: c.leptonBoards,
             expandPlan: false,
+            lowerBoundDual: currentLp.dualPrices,
           },
         );
         const masterResult = master?.resolver(
@@ -597,6 +600,7 @@ for (const c of cases) {
           budgetHit: masterResult?.budgetHit ?? null,
           watchdogHit: masterResult?.watchdogHit ?? null,
           seededIncumbent: masterResult?.seededIncumbent ?? null,
+          dualBoundEnabled: masterResult?.dualBoundEnabled ?? null,
           elapsedMs: +(nowMs() - masterStarted).toFixed(3),
           patterns: pricingPool.length,
         };
