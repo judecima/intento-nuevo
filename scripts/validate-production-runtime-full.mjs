@@ -39,6 +39,7 @@ const metadataPath = join(outputDir, "FULL_RUNTIME_VALIDATION_META.json");
 const rowsPath = join(outputDir, "FULL_RUNTIME_VALIDATION_ROWS.jsonl");
 const rowsGzipPath = join(outputDir, "FULL_RUNTIME_VALIDATION_ROWS.jsonl.gz");
 const failuresPath = join(outputDir, "FULL_RUNTIME_VALIDATION_FAILURES.jsonl");
+const reviewPath = join(outputDir, "FULL_RUNTIME_VALIDATION_REVIEW.jsonl");
 const summaryPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SUMMARY.json");
 const summaryMdPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SUMMARY.md");
 
@@ -118,7 +119,9 @@ const meta = {
     rustAddon,
   },
   runtime: {
-    baseline: { motorVersion: "v1", effortMode: "fixed", patternGenerator: "rust" },
+    baseline: args.candidateOnly
+      ? null
+      : { motorVersion: "v1", effortMode: "fixed", patternGenerator: "rust" },
     candidate: { motorVersion: "v2", effortMode: "auto", patternGenerator: "rust", remnantPolish: true },
     advanced: args.advanced
       ? { motorVersion: "v2", effortMode: "advanced", patternGenerator: "rust", remnantPolish: true }
@@ -132,6 +135,7 @@ const meta = {
   })),
   xmlFiles: files.length,
   options: {
+    candidateOnly: args.candidateOnly,
     advanced: args.advanced,
     limit: args.limit,
     progressEvery: args.progressEvery,
@@ -188,7 +192,15 @@ for (const file of selected) {
     let candidate;
     let advanced;
 
-    if (hashParity(xmlSha256) === 0) {
+    if (args.candidateOnly) {
+      candidate = timed(() =>
+        optimizer.optimizeProject(input, {
+          motorVersion: "v2",
+          effortMode: "auto",
+          patternGenerator: "rust",
+        })
+      );
+    } else if (hashParity(xmlSha256) === 0) {
       baseline = timed(() =>
         optimizer.optimizeProject(input, {
           motorVersion: "v1",
@@ -220,7 +232,7 @@ for (const file of selected) {
       );
     }
 
-    if (args.advanced) {
+    if (args.advanced && !args.candidateOnly) {
       advanced = timed(() =>
         optimizer.optimizeProject(input, {
           motorVersion: "v2",
@@ -230,18 +242,19 @@ for (const file of selected) {
       );
     }
 
-    assertRust("baseline", baseline);
+    if (baseline) assertRust("baseline", baseline);
     assertRust("candidate", candidate);
     if (advanced) assertRust("advanced", advanced);
 
-    const baselineBoards = baseline.result.metrics.boardCount;
+    const baselineBoards = baseline?.result?.metrics?.boardCount ?? null;
     const candidateBoards = candidate.result.metrics.boardCount;
     const advancedBoards = advanced?.result.metrics.boardCount ?? null;
-    const baselineValid = baseline.result.validation.ok === true;
+    const baselineValid = baseline ? baseline.result.validation.ok === true : null;
     const candidateValid = candidate.result.validation.ok === true;
     const advancedValid = advanced ? advanced.result.validation.ok === true : null;
 
-    const candidateVsBaselineBoards = cmp(candidateBoards, baselineBoards);
+    const candidateVsBaselineBoards =
+      baselineValid && candidateValid ? cmp(candidateBoards, baselineBoards) : null;
     const candidateVsBaselineRemnant =
       baselineValid && candidateValid && candidateVsBaselineBoards === 0
         ? compareRemnant(candidate.result, baseline.result)
@@ -260,7 +273,7 @@ for (const file of selected) {
         : null;
 
     const failures = [];
-    if (!baseline.ok || !baselineValid) failures.push("baseline_invalid");
+    if (baseline && (!baseline.ok || !baselineValid)) failures.push("baseline_invalid");
     if (!candidate.ok || !candidateValid) failures.push("candidate_invalid");
     if (candidateVsBaselineBoards > 0) failures.push("candidate_board_regression");
     if (candidateVsBaselineBoards === 0 && candidateVsBaselineRemnant < 0) {
@@ -294,7 +307,7 @@ for (const file of selected) {
       panel: parsed.case.panel,
       kerf: parsed.case.kerf,
       leptonBoards,
-      baseline: armRow(baseline),
+      baseline: baseline ? armRow(baseline) : null,
       candidate: armRow(candidate),
       advanced: advanced ? armRow(advanced) : null,
       comparisons: {
@@ -303,7 +316,7 @@ for (const file of selected) {
         candidateVsLepton:
           Number.isFinite(leptonBoards) ? cmp(candidateBoards, leptonBoards) : null,
         baselineVsLepton:
-          Number.isFinite(leptonBoards) ? cmp(baselineBoards, leptonBoards) : null,
+          baseline && Number.isFinite(leptonBoards) ? cmp(baselineBoards, leptonBoards) : null,
         advancedVsLepton:
           advanced && Number.isFinite(leptonBoards)
             ? cmp(advancedBoards, leptonBoards)
@@ -371,6 +384,7 @@ for (const file of selected) {
     const etaMs = rate * remaining;
     const currentSummary = summarize(allRows);
     writeJson(summaryPath, buildSummary(meta, allRows, files.length, false));
+    writeReviewFile(reviewPath, allRows);
     console.log(
       `[${completedKeys.size}/${files.length}] ` +
       `sesion ${sessionDone}/${selected.length} | ` +
@@ -379,6 +393,7 @@ for (const file of selected) {
       `${currentSummary.candidateVsBaseline.equal}/${currentSummary.candidateVsBaseline.worse} | ` +
       `vs Lepton M/E/P=${currentSummary.candidateVsLepton.better}/` +
       `${currentSummary.candidateVsLepton.equal}/${currentSummary.candidateVsLepton.worse} | ` +
+      `reviewV1=${allRows.filter((r) => baselineReviewReasons(r).length > 0).length} | ` +
       `ETA ${formatDuration(etaMs)}`
     );
   }
@@ -390,6 +405,7 @@ const finalSummary = buildSummary(meta, allRows, files.length, !stopRequested &&
 writeJson(summaryPath, finalSummary);
 writeFileSync(summaryMdPath, renderSummaryMarkdown(finalSummary));
 writeFailureFile(failuresPath, allRows);
+writeReviewFile(reviewPath, allRows);
 writeFileSync(rowsGzipPath, gzipSync(readFileSync(rowsPath), { level: 9 }));
 
 meta.completedAt = new Date().toISOString();
@@ -402,6 +418,7 @@ console.log("\nResultado:");
 console.log(summaryPath);
 console.log(rowsGzipPath);
 console.log(failuresPath);
+console.log(reviewPath);
 console.log(summaryMdPath);
 
 if (fatalRustError) {
@@ -426,6 +443,7 @@ function parseArgs(argv) {
   const out = {
     inputs: [],
     output: join(REPO, "validation-full"),
+    candidateOnly: false,
     advanced: true,
     forceResume: false,
     limit: Infinity,
@@ -436,6 +454,10 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === "--input") out.inputs.push(argv[++i]);
     else if (arg === "--output") out.output = argv[++i];
+    else if (arg === "--candidate-only") {
+      out.candidateOnly = true;
+      out.advanced = false;
+    }
     else if (arg === "--no-advanced") out.advanced = false;
     else if (arg === "--force-resume") out.forceResume = true;
     else if (arg === "--limit") out.limit = Number(argv[++i]);
@@ -461,6 +483,8 @@ Tambien acepta carpetas ya extraidas:
   node scripts/validate-production-runtime-full.mjs --input "D:\\validacion_v2" --output ".\\validation-full"
 
 Opciones:
+  --candidate-only    ejecuta solo V2 Auto; genera FULL_RUNTIME_VALIDATION_REVIEW.jsonl
+                      con los casos que requieren contraste selectivo contra V1
   --no-advanced       no ejecuta V2 Advanced/Full40
   --limit N           procesa como maximo N casos pendientes (util para smoke)
   --progress-every N  imprime progreso cada N casos (default 10)
@@ -825,6 +849,10 @@ function buildSummary(meta, rows, discoveredXml, complete) {
       .sort((a, b) => b.candidate.wallMs - a.candidate.wallMs)
       .slice(0, 25)
       .map(compactRow),
+    baselineReview: {
+      cases: rows.filter((r) => baselineReviewReasons(r).length > 0).length,
+      reasons: countReviewReasons(rows),
+    },
     failuresPreview: rows.filter((r) => r.status === "FAIL").slice(0, 50).map(compactRow),
   };
 }
@@ -928,6 +956,9 @@ function renderSummaryMarkdown(summary) {
 - Better / equal / worse boards: **${summary.autoVsAdvanced.better} / ${summary.autoVsAdvanced.equal} / ${summary.autoVsAdvanced.worse}**
 - Remnant better / equal / worse: **${summary.autoVsAdvanced.remnant.better} / ${summary.autoVsAdvanced.remnant.equal} / ${summary.autoVsAdvanced.remnant.worse}**
 
+## V1 selective review
+- Cases requiring V1 review: **${summary.baselineReview?.cases ?? 0}**
+
 ## Candidate timing
 - total: **${formatNumber(p.candidate.totalWallMs)} ms**
 - p50: **${formatNumber(p.candidate.p50WallMs)} ms**
@@ -951,6 +982,61 @@ function renderSummaryMarkdown(summary) {
 - invalid final: **${summary.remnantPolish.invalidFinal}**
 - total ms: **${formatNumber(summary.remnantPolish.totalMs)}**
 `;
+}
+
+function baselineReviewReasons(row) {
+  const reasons = [];
+  if (row.status === "SKIP") return reasons;
+  if (!row.candidate?.valid) {
+    reasons.push("candidate_invalid_or_exception");
+    return reasons;
+  }
+
+  const candidateBoards = Number(row.candidate?.boards);
+  const lowerBound = Number(row.candidate?.lowerBound);
+  const leptonBoards = Number(row.leptonBoards);
+
+  if (Number.isFinite(leptonBoards) && candidateBoards > leptonBoards) {
+    reasons.push("worse_than_lepton");
+  }
+  if (!Number.isFinite(lowerBound)) {
+    reasons.push("no_safe_lower_bound");
+  } else if (candidateBoards > lowerBound) {
+    reasons.push("above_safe_lower_bound");
+  }
+  return reasons;
+}
+
+function countReviewReasons(rows) {
+  const out = {};
+  for (const row of rows) {
+    for (const reason of baselineReviewReasons(row)) {
+      out[reason] = (out[reason] || 0) + 1;
+    }
+  }
+  return out;
+}
+
+function writeReviewFile(path, rows) {
+  const selected = rows
+    .map((row) => ({ row, reasons: baselineReviewReasons(row) }))
+    .filter((entry) => entry.reasons.length > 0)
+    .map(({ row, reasons }) => JSON.stringify({
+      caseKey: row.caseKey,
+      caseId: row.caseId,
+      fileName: row.fileName,
+      source: row.source,
+      relativePath: row.relativePath,
+      typeCount: row.typeCount,
+      pieceCount: row.pieceCount,
+      leptonBoards: row.leptonBoards,
+      candidateBoards: row.candidate?.boards ?? null,
+      safeLowerBound: row.candidate?.lowerBound ?? null,
+      candidateRemnant: row.candidate?.remnant ?? null,
+      auto: row.auto ?? null,
+      reasons,
+    }));
+  writeFileSync(path, selected.join("\n") + (selected.length ? "\n" : ""));
 }
 
 function writeFailureFile(path, rows) {
