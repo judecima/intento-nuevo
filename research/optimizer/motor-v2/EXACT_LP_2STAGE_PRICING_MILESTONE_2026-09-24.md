@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE — FINAL SERIAL GATE PENDING; COUNTED-DFS TUNING CLOSED**
+Status: **RESEARCH MILESTONE CLOSED — FINAL SERIAL GATE PASSED; COMPONENTS RETAINED FOR FURNITURE**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -112,7 +112,34 @@ Gate:
 - 5447573 <= 590 boards;
 - all three combined plans industrial-valid.
 
-If this gate fails after the finalizer actually runs, close serial. Optional future work after a real gate failure would be residual diving / a small integer master, not more pricing rounds and not more counted-DFS tuning.
+## Final serial gate result
+
+The finalizer was allowed to run for stalled residuals up to 300 pieces. The original Lepton+2 gate passed in all three Ignacio cases, and every combined plan passed industrial validation.
+
+| Case | Lepton | Fixed boards | Residual pieces | Finalizer boards | Final combined | Delta vs Lepton | Finalizer time |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 5445701 | 591 | 580 | 198 | 8 | **588** | **-3** | 0.784 s |
+| 5445716 | 621 | 609 | 148 | 7 | **616** | **-5** | 2.756 s |
+| 5447573 | 588 | 570 | 230 | 8 | **578** | **-10** | 7.587 s |
+| 5456195 | 7680 | 7680 | 0 | 0 | **7680** | 0 | 0 s |
+
+All four combined plans are industrial-valid and all four report `gateLeptonPlus2=true`.
+
+This demonstrates a complete serial pipeline:
+1. exact restricted-master LP;
+2. converged exact 2-stage pricing on the initial demand;
+3. floor the LP solution;
+4. optionally inspect/reprice the residual;
+5. finish the stalled furniture-sized residual with the normal engine;
+6. materialize the mixed plan and validate it industrially.
+
+For the three Ignacio cases, the pipeline does not merely reach Lepton+2: it beats Lepton by 3, 5 and 10 boards respectively.
+
+Important caveat: residual pricing is exact for 5445701 but demand caps bind in the residual pricing audit for 5445716 and 5447573. The **final plans are still valid**; this only limits what can be claimed about residual-pricing optimality.
+
+The remaining concern is latency of the normal-engine residual finalizer. The 230-piece residual took ~7.6 s despite a nominal 3 s finalizer budget, so timeout/budget enforcement must be audited before this route is considered production-ready.
+
+Serial research closes here as a successful architectural proof. Do not continue tuning counted DFS.
 
 Next product milestone:
 - return to furniture / Lepton <= 75 boards;
