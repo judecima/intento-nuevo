@@ -11,6 +11,7 @@ type XmlFormat = "project" | "order";
 type XmlDirection = "x" | "y";
 type KerfSource = "xml" | "default";
 type PieceOrientationSource = "normalized-from-placement" | "xml-declared";
+export type ProjectTrimMode = "zero" | "infer";
 
 interface XmlNode {
   name: string;
@@ -23,6 +24,12 @@ export interface CanonicalXmlParseOptions {
   defaultKerf?: number;
   defaultMinRemnant?: number;
   defaultMinCommercialRemnantLongSide?: number;
+  /**
+   * "zero" conserva la semántica histórica y deja trim 0x0.
+   * "infer" reconstruye refilado X/Y desde los atributos trim de los nodos
+   * project de niveles 1-2, usando la dirección global resuelta de cada panel.
+   */
+  projectTrimMode?: ProjectTrimMode;
 }
 
 export interface CanonicalXmlParseStats {
@@ -43,8 +50,16 @@ export interface CanonicalXmlParseStats {
   pieceOrientation: PieceOrientationSource;
   /** Direccion de corte del nodo raiz por panel (solo project). */
   rootDirections?: XmlDirection[];
-  /** Atributo trim del nodo raiz, conservado solo como referencia (solo project). */
+  /** Atributo trim del nodo raiz, conservado como referencia (solo project). */
   trimReference?: number[];
+  /** Política aplicada al refilado de XML project. */
+  projectTrimMode?: ProjectTrimMode;
+  /** Refilado X/Y inferido desde el layout Lepton; independiente de si se aplica. */
+  inferredProjectTrim?: {
+    x: number | null;
+    y: number | null;
+    unambiguous: boolean;
+  };
 }
 
 export interface CanonicalXmlParseResult {
@@ -102,6 +117,23 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
   for (const shape of shapes) {
     shape.direction = shape.direction ?? resolveProjectRootDirection(shape, referenceFrame, warnings, options.fileName);
   }
+
+  const projectTrimMode: ProjectTrimMode = options.projectTrimMode ?? "zero";
+  const inferredProjectTrim = inferProjectTrim(shapes, options.fileName);
+  if (projectTrimMode === "infer" && !inferredProjectTrim.unambiguous) {
+    throw parseError(
+      `project trim is ambiguous: x=${JSON.stringify(inferredProjectTrim.valuesX)} y=${JSON.stringify(inferredProjectTrim.valuesY)}`,
+      "project-trim-ambiguous",
+      options.fileName
+    );
+  }
+  const effectiveProjectTrim =
+    projectTrimMode === "infer"
+      ? {
+          x: inferredProjectTrim.x as number,
+          y: inferredProjectTrim.y as number
+        }
+      : { x: 0, y: 0 };
 
   const rootDirections: XmlDirection[] = [];
   const trimReference: number[] = [];
@@ -193,6 +225,12 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
     pieceOrientation: "normalized-from-placement",
     rootDirections,
     trimReference,
+    projectTrimMode,
+    inferredProjectTrim: {
+      x: inferredProjectTrim.x,
+      y: inferredProjectTrim.y,
+      unambiguous: inferredProjectTrim.unambiguous
+    },
     canonicalCase: {
       source: "xml-project",
       panel: {
@@ -200,7 +238,7 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
         height: panelFrame.height,
         thickness: first.info.material.thickness
       },
-      trim: { x: 0, y: 0 },
+      trim: effectiveProjectTrim,
       kerf: first.info.kerf,
       material: first.info.material,
       constraints: defaultConstraints(options),
@@ -275,6 +313,43 @@ function landscape(value: { width: number; height: number }): { width: number; h
 
 function sameFrame(a: { width: number; height: number }, b: { width: number; height: number }): boolean {
   return sameNumber(a.width, b.width) && sameNumber(a.height, b.height);
+}
+
+function inferProjectTrim(
+  shapes: ProjectPanelShape[],
+  fileName?: string
+): {
+  x: number | null;
+  y: number | null;
+  unambiguous: boolean;
+  valuesX: number[];
+  valuesY: number[];
+} {
+  const byAxis: Record<XmlDirection, Set<number>> = {
+    x: new Set<number>(),
+    y: new Set<number>()
+  };
+
+  for (const shape of shapes) {
+    const rootDirection = shape.direction as XmlDirection;
+    for (const node of shape.nodes) {
+      const layer = positiveIntegerAttr(node, ["layer"], undefined, fileName);
+      if (layer > 2) continue;
+      const trim = numberAttr(node, ["trim", "Trim"]);
+      if (trim == null) continue;
+      byAxis[nodeDirection(rootDirection, layer)].add(trim);
+    }
+  }
+
+  const valuesX = [...byAxis.x].sort((a, b) => a - b);
+  const valuesY = [...byAxis.y].sort((a, b) => a - b);
+  return {
+    x: valuesX.length === 1 ? valuesX[0] as number : null,
+    y: valuesY.length === 1 ? valuesY[0] as number : null,
+    unambiguous: valuesX.length === 1 && valuesY.length === 1,
+    valuesX,
+    valuesY
+  };
 }
 
 function parseOrderXml(root: XmlNode, options: CanonicalXmlParseOptions): CanonicalXmlParseResult {
@@ -364,6 +439,12 @@ function buildResult(input: {
   pieceOrientation: PieceOrientationSource;
   rootDirections?: XmlDirection[];
   trimReference?: number[];
+  projectTrimMode?: ProjectTrimMode;
+  inferredProjectTrim?: {
+    x: number | null;
+    y: number | null;
+    unambiguous: boolean;
+  };
   canonicalCase: CanonicalOptimizationCase;
 }): CanonicalXmlParseResult {
   const canonicalCase = normalizeCanonicalOptimizationCase(input.canonicalCase);
@@ -382,7 +463,9 @@ function buildResult(input: {
       warnings: input.warnings.length,
       pieceOrientation: input.pieceOrientation,
       ...(input.rootDirections ? { rootDirections: input.rootDirections } : {}),
-      ...(input.trimReference ? { trimReference: input.trimReference } : {})
+      ...(input.trimReference ? { trimReference: input.trimReference } : {}),
+      ...(input.projectTrimMode ? { projectTrimMode: input.projectTrimMode } : {}),
+      ...(input.inferredProjectTrim ? { inferredProjectTrim: input.inferredProjectTrim } : {})
     }
   };
 }
