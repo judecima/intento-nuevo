@@ -705,10 +705,12 @@ function physicalLeptonBoards(xml) {
 }
 
 function summarize(rows) {
-  const okRows = rows.filter((row) => row.status === "OK" && row.candidate?.valid);
-  const comparable = okRows.filter((row) => row.baseline?.valid);
-  const lepton = okRows.filter((row) => Number.isFinite(row.leptonBoards));
-  const advanced = okRows.filter((row) => row.advanced?.valid);
+  // A safety FAIL is still a valid comparison row. Excluding FAIL rows here
+  // hid exactly the regressions this report exists to surface.
+  const candidateRows = rows.filter((row) => row.candidate?.valid);
+  const comparable = candidateRows.filter((row) => row.baseline?.valid);
+  const lepton = candidateRows.filter((row) => Number.isFinite(row.leptonBoards));
+  const advanced = candidateRows.filter((row) => row.advanced?.valid);
 
   const candidateVsBaseline = triplet(
     comparable.map((row) => row.comparisons.candidateVsBaselineBoards)
