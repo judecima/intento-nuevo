@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE — SERIAL PIPELINE REPRODUCED; ROTATION FAIRNESS PASSED; MATCHED-REFILADO RERUN PENDING**
+Status: **RESEARCH MILESTONE CLOSED — MATCHED-REFILADO SERIAL GATE PASSED; COMPONENTS RETAINED FOR FURNITURE**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -225,36 +225,75 @@ Run B independently validates the same four board counts and reproduces the exac
 
 Therefore this sample is reproducible not only in board count and validity but in the canonical physical layout itself.
 
-### Remaining fairness control against Lepton
+### Fairness closure against Lepton
 
-Before calling the -3 / -5 / -10 board deltas a like-for-like advantage, audit the original Lepton XML layout for two conditions that may be configured outside the canonical demand fields:
-
-1. **Refilado / usable frame**
-   - compare each exported root layout frame against the physical panel dimensions;
-   - report any positive root `trim` attribute;
-   - inspect minimum observed piece margins to all four root edges.
-   - A smaller root frame or mandatory positive inset means our zero-refilado run is not directly comparable.
-
-2. **Rotation**
-   - reconstruct each Lepton terminal placement in global coordinates;
-   - normalize each code to long-side x short-side dimensions;
-   - measure landscape vs portrait placements weighted by panel multiplicity;
-   - record codes that Lepton places in both orientations.
-   - If Lepton itself rotates the same piece code, rotation freedom is directly evidenced by the exported layout.
-
-The standalone script `audit-lepton-layout-fairness.mjs` performs this audit without calling the optimizer. It also records the caveat that an external machine-level trim not encoded geometrically in the XML cannot be ruled out from XML alone.
-
-The first fairness audit produced mixed results:
+The fairness audit resolved both comparison conditions:
 
 - **Rotation fairness passes strongly.** Lepton rotates pieces in all three Ignacio jobs and places the same piece codes in both orientations. Observed portrait rates are about 50.0%, 42.4%, and 52.9%, with 14 / 13 / 13 codes used in both orientations.
-- **Refilado fairness does not yet pass.** Every job exports root `trim=10`. The root layout frame still matches the physical panel dimensions exactly, but that does not prove zero trim in this XML format: node dimensions can include the trim reference while the usable geometry is smaller. The observed piece margins are also consistent with a roughly 10 mm terminal allowance: minimum right/bottom margins are about 10/12.4, 10/10.6, and 11.8/10.2 mm.
+- **Refilado is unambiguous and non-zero.** The extended auditor infers `refiladoX=10` and `refiladoY=10` for all three Ignacio XMLs from level-1/2 node trim values. This explains why the earlier zero-trim run was not a fair like-for-like comparison.
 
-Therefore the -3 / -5 / -10 comparison must **not** yet be called like-for-like. A research-only matched-refilado rerun is required.
+A research-only rerun was then executed with:
+- `SERIAL_FORCE_TRIM_X=10`;
+- `SERIAL_FORCE_TRIM_Y=10`;
+- the same 4.4 mm kerf;
+- the same rotation freedom evidenced in Lepton;
+- the same exact LP + 2-stage pricing + floor + normal-engine finalizer pipeline.
 
-The fairness auditor has been extended to infer trim by global cut axis from all level-1/2 nodes. Once it reports an unambiguous `inferredRefilado.x/y`, rerun the three Ignacio cases with `SERIAL_FORCE_TRIM_X/Y` set to those values. Keep rotation enabled because Lepton demonstrably uses it.
+### Matched-refilado result
 
-Final closure requires:
-1. trim-by-axis inference unambiguous;
-2. serial rerun under the same trim;
-3. independent combined-plan verification;
-4. compare matched results against physical Lepton 591 / 621 / 588.
+| Case | Lepton | Matched RMP LP | ceil(LP) | Final combined | Delta vs Lepton | Residual pieces | Finalizer |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 5445701 | 591 | 591.557356 | 592 | **592** | **+1** | 178 | 0.548 s |
+| 5445716 | 621 | 617.414331 | 618 | **618** | **-3** | 178 | 3.073 s |
+| 5447573 | 588 | 586.467029 | 587 | **587** | **-1** | 190 | 0.502 s |
+
+Aggregate across the three matched jobs:
+- Lepton: **1800 boards**;
+- pipeline: **1797 boards**;
+- net: **3 boards fewer**.
+
+The original Lepton+2 serial gate still passes in all three cases under matched trim:
+- 5445701: 592 <= 593;
+- 5445716: 618 <= 623;
+- 5447573: 587 <= 590.
+
+The matched plans were independently rechecked from the exported combined-plan bundles:
+- 13,600 / 13,600 pieces in every case;
+- exact demand count by type;
+- unique piece IDs;
+- no overlaps;
+- no out-of-bounds placements;
+- correct piece dimensions/orientations;
+- full kerf-aware guillotine cut sequence;
+- max cut level 3;
+- no validation errors.
+
+This changes the product claim from the earlier zero-trim result. Do **not** claim a uniform -3 / -5 / -10 advantage. The fair conclusion is:
+
+> Under the same 10 x 10 mm refilado, 4.4 mm kerf, and rotation freedom evidenced in Lepton, the serial pipeline produces valid plans of 592 / 618 / 587 boards versus Lepton 591 / 621 / 588. It is +1 / -3 / -1 by case, for a net 3-board aggregate improvement, while passing the predefined Lepton+2 gate in all three cases.
+
+As before, numerical equality `combinedBoards = ceil(RMP LP)` is **not** a global <=4-stage optimality proof. The RMP is mixed-stage and only the added 2-stage pricing family is exhausted exactly; missing useful 3/4-stage columns could still improve the unrestricted problem.
+
+## Serial closure
+
+Serial research closes here.
+
+Retain for transfer to furniture:
+1. exact restricted-master LP;
+2. exact physically validated 2-stage pricing oracle;
+3. exact-LP dual lower bound;
+4. LP-floor + normal-engine residual finalization architecture;
+5. independent combined-plan verifier;
+6. global deadline as a production requirement.
+
+Do not continue:
+- counted-DFS tuning for Ignacio;
+- extra pricing rounds after `no-negative-reduced-cost`;
+- serial-specific heuristics unless a future product requirement reopens this path.
+
+Next product milestone remains furniture / Lepton <=75 boards:
+- start from frozen full-runtime baseline `d72d6f5729c4a65b15c168553b5815a760185f72`;
+- port only the demonstrated LP/pricing components;
+- first audit real Lepton quality gaps;
+- then advanced-exhausted LB+1/root-certification opportunities;
+- measure quality vs Lepton, p50/p95/p99 CPU, and percent of AE cases avoided before Master separately.
