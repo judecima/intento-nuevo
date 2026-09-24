@@ -7,8 +7,6 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
-import { createContext } from "../pattern-generators/context.mjs";
-import { generatePatternsRust } from "../pattern-generators/rust/adapter.mjs";
 
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -19,6 +17,10 @@ const DEFAULT_XML_STAGE = path.resolve(ROOT, "validation-full/serial-production-
 const { resolverCoberturaContada } = require(path.join(
   ROOT,
   "src/lib/optimizer/experimental/counted-coverage.cjs",
+));
+const { generateSerialDirectedPatterns } = require(path.join(
+  ROOT,
+  "src/lib/optimizer/experimental/serial-directed-pattern-generator.cjs",
 ));
 const { materializar } = require(path.join(ROOT, "src/lib/optimizer/legacy/materializar.cjs"));
 const { validarPlanIndustrial } = require(path.join(
@@ -171,13 +173,23 @@ async function loadMissingFromXml(targetIds, alreadyFound) {
       saw: canonical.kerf,
       leptonBoards,
       materialHasGrain: canonical.material.hasGrain ?? false,
+      trimX: canonical.trim.x,
+      trimY: canonical.trim.y,
+      stages: canonical.constraints.stages ?? 4,
+      minRemnant: canonical.constraints.minRemnant,
+      minCommercialRemnantLongSide:
+        canonical.constraints.minCommercialRemnantLongSide ??
+        Math.max(canonical.constraints.minRemnant, 400),
+      thickness: canonical.material.thickness ?? canonical.panel.thickness ?? 18,
       types: canonical.pieces.map((piece) => ({
         w: piece.width,
         h: piece.height,
         q: piece.quantity,
         grain: piece.grain ?? false,
-        canRotate: piece.rotationAllowed ?? true,
+        canRotate: piece.rotationAllowed,
         reference: piece.reference,
+        description: piece.description,
+        edges: piece.edges,
       })),
       source: "xml",
       sourcePath: xmlPath,
@@ -193,20 +205,39 @@ async function loadMissingFromXml(targetIds, alreadyFound) {
 
 function linesFromCase(c) {
   return c.types.map((t, i) => ({
-    base: t.w, altura: t.h, cant: t.q,
-    veta: Boolean(t.grain),
-    canRotate: t.canRotate !== false,
-    ref: String(i),
-    detalle: t.reference || `SERIAL-${c.id}-${i}`,
-    cantos: null,
+    base: t.w,
+    altura: t.h,
+    cant: t.q,
+    veta: t.canRotate == null ? Boolean(t.grain) : t.canRotate === false,
+    ref: i,
+    detalle: t.description || t.reference || `SERIAL-${c.id}-${i}`,
+    cantos: t.edges
+      ? {
+          arr: Boolean(t.edges.top),
+          aba: Boolean(t.edges.bottom),
+          izq: Boolean(t.edges.left),
+          der: Boolean(t.edges.right),
+        }
+      : null,
   }));
 }
 
 function configFromCase(c) {
+  const hasForcedNoRotate = c.types.some((t) => t.canRotate === false);
   return {
-    placaBase: c.width, placaAltura: c.height, refiladoX: 0, refiladoY: 0, sierra: c.saw,
-    etapas: 4, materialConVeta: Boolean(c.materialHasGrain), descontarCanto: false, cantoEspesor: 0,
-    restoMin: 250, restoMax: 400, material: "SERIAL-SHADOW", thickness: 18,
+    placaBase: c.width,
+    placaAltura: c.height,
+    refiladoX: c.trimX ?? 0,
+    refiladoY: c.trimY ?? 0,
+    sierra: c.saw,
+    etapas: c.stages ?? 4,
+    materialConVeta: Boolean(c.materialHasGrain) || hasForcedNoRotate,
+    descontarCanto: false,
+    cantoEspesor: 0,
+    restoMin: c.minRemnant ?? 250,
+    restoMax: c.minCommercialRemnantLongSide ?? Math.max(c.minRemnant ?? 250, 400),
+    material: "SERIAL-SHADOW",
+    thickness: c.thickness ?? 18,
   };
 }
 
@@ -247,6 +278,8 @@ const limits = {
 const maxVariants = envInt("SERIAL_MAX_VARIANTS", 1);
 const solverNodes = envInt("SERIAL_SOLVER_NODES", 1600000);
 const solverWatchdogMs = envInt("SERIAL_SOLVER_WATCHDOG_MS", 12000);
+const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 96);
+const maxBatchPieces = envInt("SERIAL_MAX_BATCH_PIECES", 96);
 
 const rows = [];
 for (const c of cases) {
@@ -259,8 +292,11 @@ for (const c of cases) {
   let generator = null, generatorError = null;
   const tg = nowMs();
   try {
-    const context = createContext(lines, config);
-    generator = generatePatternsRust(context, limits, { maxVariantsPerUsageVector: maxVariants, rootAxes: ["x", "y"] });
+    generator = generateSerialDirectedPatterns(lines, config, {
+      targetBoards: lb.value,
+      maxPhysicalTests,
+      maxBatchPieces,
+    });
   } catch (error) { generatorError = String(error?.stack || error); }
   const generationMs = nowMs() - tg;
   const patterns = generator?.patterns || [];
@@ -269,12 +305,14 @@ for (const c of cases) {
 
   let solution = null, solverError = null, solveMs = null, plan = null, validation = null;
   if (!generatorError && patterns.length && !missingTypes.length) {
-    const areaPlaca = c.width * c.height;
-    const incumbent = c.leptonBoards + 1;
+    const areaPlaca =
+      (c.width - (config.refiladoX || 0)) *
+      (c.height - (config.refiladoY || 0));
+    const incumbent = generator?.telemetry?.upperBound ?? pieces;
     const ts = nowMs();
     try {
       const solver = resolverCoberturaContada(patterns, lines.map((line) => line.cant), areaPlaca, incumbent, solverWatchdogMs, {
-        maxNodos: solverNodes, watchdogMs: solverWatchdogMs, targetBoards: c.leptonBoards, expandPlan: true,
+        maxNodos: solverNodes, watchdogMs: solverWatchdogMs, targetBoards: lb.value, expandPlan: true,
       });
       solution = solver?.resolver(lines.map((line) => line.base * line.altura)) || null;
       solveMs = nowMs() - ts;
@@ -289,9 +327,14 @@ for (const c of cases) {
   const row = {
     id: c.id, source: c.source ?? null, sourcePath: c.sourcePath ?? null, types: lines.length, pieces, quantityGcd, leptonBoards: c.leptonBoards,
     safeLowerBound: lb.value, lowerBoundReason: lb.reason,
-    generatorStatus: generator?.status ?? null, generatorRestricted: generator?.searchRestricted ?? null,
-    generatorPatterns: patterns.length, generatorRoots: generator?.roots?.length ?? 0,
-    generatorFailures: generator?.failures?.length ?? 0, generationMs: +generationMs.toFixed(3), missingTypes,
+    generatorStatus: generatorError ? "ERROR" : "DIRECTED",
+    generatorRestricted: true,
+    generatorPatterns: patterns.length,
+    generatorRoots: null,
+    generatorFailures: generator?.telemetry?.failedTests ?? 0,
+    generatorTelemetry: generator?.telemetry ?? null,
+    generationMs: +generationMs.toFixed(3),
+    missingTypes,
     solverBoards: Number.isFinite(solution?.placas) ? solution.placas : null,
     solverNodes: solution?.nodos ?? null, multiplicityBranches: solution?.ramasMultiplicidad ?? null,
     solverExhausted: solution?.agotado ?? null, solverTargetReached: solution?.targetReached ?? null,
@@ -305,7 +348,10 @@ for (const c of cases) {
   rows.push(row);
   console.log("CASE " + JSON.stringify({
     id: row.id, types: row.types, pieces: row.pieces, gcd: row.quantityGcd, lepton: row.leptonBoards,
-    lb: row.safeLowerBound, patterns: row.generatorPatterns, genMs: row.generationMs,
+    lb: row.safeLowerBound, patterns: row.generatorPatterns,
+    tests: row.generatorTelemetry?.tests ?? null,
+    upperBound: row.generatorTelemetry?.upperBound ?? null,
+    genMs: row.generationMs,
     boards: row.materializedBoards, valid: row.valid, delta: row.deltaVsLepton,
     nodes: row.solverNodes, multBranches: row.multiplicityBranches, solveMs: row.solveMs,
     generatorStatus: row.generatorStatus, missingTypes: row.missingTypes,
@@ -316,7 +362,7 @@ const valid = rows.filter((r) => r.valid);
 const summary = {
   schema: "optimizer-serial-counted-shadow-v1", generatedAt: new Date().toISOString(),
   targets: targetIds.size, fixtureCases: fixtureCases.length, xmlRecoveredCases: xmlRecovery.cases.length, unresolvedIds: missing,
-  limits, maxVariants, solverNodes, solverWatchdogMs,
+  limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, maxBatchPieces,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
