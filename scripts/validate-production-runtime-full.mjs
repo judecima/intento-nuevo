@@ -52,6 +52,7 @@ const reviewPath = join(outputDir, "FULL_RUNTIME_VALIDATION_REVIEW.jsonl");
 const summaryPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SUMMARY.json");
 const summaryMdPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SUMMARY.md");
 const retryHistoryPath = join(outputDir, "FULL_RUNTIME_VALIDATION_RETRY_HISTORY.jsonl");
+const activeCasePath = join(outputDir, "FULL_RUNTIME_VALIDATION_ACTIVE_CASE.json");
 
 const existingMeta = existsSync(metadataPath)
   ? JSON.parse(readFileSync(metadataPath, "utf8"))
@@ -221,6 +222,12 @@ console.log(
   `XML detectados: ${files.length}. Ya procesados: ${completedKeys.size}. ` +
   `A ejecutar ahora: ${selected.length}.`
 );
+if (args.retryFailures && selected.length > 0) {
+  console.log(
+    "FAIL pendientes: " +
+    selected.map((file) => idFromFileName(file.displayName) ?? file.displayName).join(", ")
+  );
+}
 
 let stopRequested = false;
 process.on("SIGINT", () => {
@@ -260,6 +267,34 @@ for (const file of selected) {
     const leptonBoards = parsed.format === "project" ? physicalLeptonBoards(xml) : null;
     const typeCount = parsed.stats.pieceTypes;
     const pieceCount = parsed.stats.pieceQuantity;
+
+    if (args.retryFailures || args.progressEvery === 1) {
+      const caseId = idFromFileName(file.displayName);
+      const activeCase = {
+        schema: "optimizer-full-runtime-validation-active-case-v1",
+        state: "running",
+        startedAt: new Date().toISOString(),
+        sessionOrdinal: sessionDone + 1,
+        sessionTotal: selected.length,
+        caseKey: file.caseKey,
+        caseId,
+        fileName: file.displayName,
+        source: file.source,
+        relativePath: file.relativePath,
+        xmlSha256,
+        typeCount,
+        pieceCount,
+        panel: parsed.case.panel,
+        kerf: parsed.case.kerf,
+        leptonBoards,
+      };
+      writeJson(activeCasePath, activeCase);
+      console.log(
+        `[START ${activeCase.sessionOrdinal}/${activeCase.sessionTotal}] ` +
+        `caseId=${caseId ?? "n/a"} | types=${typeCount} | pieces=${pieceCount} | ` +
+        `Lepton=${leptonBoards ?? "n/a"} | ${file.displayName}`
+      );
+    }
 
     if (args.candidateOnly) {
       candidate = timed(() =>
@@ -475,6 +510,25 @@ for (const file of selected) {
       error: message,
       rowWallMs: +(performance.now() - rowStarted).toFixed(3),
     };
+  }
+
+  if (args.retryFailures || args.progressEvery === 1) {
+    writeJson(activeCasePath, {
+      schema: "optimizer-full-runtime-validation-active-case-v1",
+      state: "finished",
+      finishedAt: new Date().toISOString(),
+      sessionOrdinal: sessionDone + 1,
+      sessionTotal: selected.length,
+      caseKey: file.caseKey,
+      caseId: row.caseId ?? idFromFileName(file.displayName),
+      fileName: file.displayName,
+      status: row.status,
+      failures: row.failures ?? [],
+      rowWallMs: row.rowWallMs ?? null,
+      candidateWallMs: row.candidate?.wallMs ?? null,
+      candidateCpuMs: row.candidate?.cpuMs ?? null,
+      error: row.error ?? row.candidate?.error ?? null,
+    });
   }
 
   appendFileSync(rowsPath, JSON.stringify(row) + "\n");
