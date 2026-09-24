@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE CLOSED — FINAL SERIAL GATE PASSED; COMPONENTS RETAINED FOR FURNITURE**
+Status: **RESEARCH MILESTONE — FINAL SERIAL GATE PASSED INTERNALLY; INDEPENDENT REVALIDATION PENDING**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -139,7 +139,7 @@ Important caveat: residual pricing is exact for 5445701 but demand caps bind in 
 
 The remaining concern is latency of the normal-engine residual finalizer. The 230-piece residual took ~7.6 s despite a nominal 3 s finalizer budget, so timeout/budget enforcement must be audited before this route is considered production-ready.
 
-Serial research closes here as a successful architectural proof. Do not continue tuning counted DFS.
+The serial architecture has passed the internal gate, but final closure requires the independent exported-plan audit and one reproducibility rerun. Do not continue tuning counted DFS while those controls are pending.
 
 Next product milestone:
 - return to furniture / Lepton <= 75 boards;
@@ -155,3 +155,27 @@ Next product milestone:
 - In furniture, 2-stage pricing should be additive to P16/P40 pattern generation, not a replacement.
 - A future global certificate needs an upper bound on pricing value for the full allowed family (for example a Farley-style bound using a valid upper bound on per-board dual value).
 - Measure three axes separately: quality vs Lepton, p95/p99 CPU, and percentage of advanced-exhausted cases certified before entering expensive Master generation.
+
+
+## Independent closure controls
+
+Before treating the Lepton wins as product evidence, export the complete combined plans and verify them with `verify-combined-plan-independent.mjs`, which does not import the optimizer or `validador_industrial_v3`.
+
+Required checks:
+- exact demand count by type and exact total physical pieces;
+- unique piece identities, no duplication across fixed and finalizer boards;
+- board bounds and overlap;
+- source dimensions and rotation/grain semantics as declared by the canonical case;
+- kerf through independent cut-sequence simulation;
+- usable board dimensions / refilado;
+- raw XML physical Lepton board count, panel dimensions and kerf;
+- maximum cut level and number of boards above 2 stages;
+- canonical physical-plan digest.
+
+Run the four cases twice in separate export directories. Final closure requires:
+1. independent verification valid in both runs;
+2. 591 / 621 / 588 confirmed as physical XML panel quantities;
+3. identical board counts in both runs;
+4. record whether the canonical plan digests are identical or only quality-equivalent.
+
+Only if every board in the integer plan is <=2 stages may the stronger statement "integer optimum proven within the 2-stage family" be made. If the finalizer uses 3/4-stage boards, the correct statement remains: the converged 2-stage pricing LP supplies the lower bound and the mixed-stage final plan reaches its ceiling.
