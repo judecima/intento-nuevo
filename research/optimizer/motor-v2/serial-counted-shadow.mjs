@@ -294,6 +294,8 @@ function rawXmlSourceAudit(xml) {
   const rootTrimReferences = roots
     .map((attrs) => Number(attrs.trim))
     .filter(Number.isFinite);
+  const grainAttributes = [...String(xml).matchAll(/\bgrain\s*=\s*["']([^"']+)["']/gi)]
+    .map((match) => match[1]);
   return {
     panelTags: panels.length,
     physicalBoards,
@@ -301,6 +303,7 @@ function rawXmlSourceAudit(xml) {
     kerfValues: [...new Set(kerfValues)],
     materials: [...new Set(panelRectangles.map((entry) => entry.material).filter(Boolean))],
     rootTrimReferences: [...new Set(rootTrimReferences)],
+    grainAttributes: [...new Set(grainAttributes)],
   };
 }
 
