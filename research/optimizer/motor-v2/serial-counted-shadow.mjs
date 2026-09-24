@@ -274,8 +274,8 @@ function rawAttrs(text) {
 }
 
 function rawXmlSourceAudit(xml) {
-  const panels = [...String(xml).matchAll(/<panel\\d+\\b([^>]*)>/gi)].map((match) => rawAttrs(match[1]));
-  const roots = [...String(xml).matchAll(/<no\\.0\\b([^>]*)>/gi)].map((match) => rawAttrs(match[1]));
+  const panels = [...String(xml).matchAll(/<panel\d+\b([^>]*)>/gi)].map((match) => rawAttrs(match[1]));
+  const roots = [...String(xml).matchAll(/<no\.0\b([^>]*)>/gi)].map((match) => rawAttrs(match[1]));
   const quantities = panels.map((attrs) => {
     const n = Number(attrs.num ?? 1);
     return Number.isFinite(n) && n > 0 ? n : 1;
@@ -1080,6 +1080,8 @@ for (const c of cases) {
         fixedBoards: row.twoStagePricing?.residualCgAudit?.fixedBoards ?? null,
         finalizerBoards: row.twoStagePricing?.residualCgAudit?.finalizerBoards ?? null,
         combinedBoards: row.twoStagePricing?.residualCgAudit?.combinedBoards ?? null,
+        residualPieces: row.twoStagePricing?.residualCgAudit?.residualPieces ?? null,
+        finalizerMs: row.twoStagePricing?.residualCgAudit?.finalizerMs ?? null,
       },
       plan: combinedPlanForExternalAudit,
     };
