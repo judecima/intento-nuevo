@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE — FINAL SERIAL GATE PASSED INTERNALLY; INDEPENDENT REVALIDATION PENDING**
+Status: **RESEARCH MILESTONE — SERIAL PIPELINE REPRODUCED AND INDEPENDENTLY VALIDATED; LEPTON FAIRNESS AUDIT PENDING**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -139,7 +139,7 @@ Important caveat: residual pricing is exact for 5445701 but demand caps bind in 
 
 The remaining concern is latency of the normal-engine residual finalizer. The 230-piece residual took ~7.6 s despite a nominal 3 s finalizer budget, so timeout/budget enforcement must be audited before this route is considered production-ready.
 
-The serial architecture has passed the internal gate. Independent Run A has also passed completely; only the reproducibility Run B remains before final closure. Do not continue tuning counted DFS while that control is pending.
+The serial architecture has passed the internal gate. Independent Runs A and B both pass completely and are physically reproducible at the canonical-layout level. The only remaining closure control is fairness against Lepton's own exported layout: refilado and rotation. Do not continue tuning counted DFS while that fairness audit is pending.
 
 Next product milestone:
 - return to furniture / Lepton <= 75 boards;
@@ -205,7 +205,36 @@ Therefore do **not** claim "integer optimum proven within the 2-stage family". T
 
 These LP values are valid lower bounds for the integer problem over the **current restricted mixed pool**, not for the unrestricted <=4-stage problem. The finalizer may introduce physical patterns that were not columns of that RMP, so the numerical equality `combinedBoards = ceil(RMP LP)` is not by itself an optimality proof for the combined plan. Missing 3/4-stage columns could still lower the unrestricted LP/integer optimum.
 
-Final closure now requires only Run B:
-1. independent verification valid again;
-2. same board counts;
-3. compare plan digests to distinguish physical determinism from quality-only reproducibility.
+### Independent Run B result
+
+Run B independently validates the same four board counts and reproduces the exact same canonical plan digests as Run A:
+
+| Case | Run A boards | Run B boards | Digest A = B |
+|---|---:|---:|---|
+| 5445701 | 588 | 588 | yes |
+| 5445716 | 616 | 616 | yes |
+| 5447573 | 578 | 578 | yes |
+| 5456195 | 7680 | 7680 | yes |
+
+Therefore this sample is reproducible not only in board count and validity but in the canonical physical layout itself.
+
+### Remaining fairness control against Lepton
+
+Before calling the -3 / -5 / -10 board deltas a like-for-like advantage, audit the original Lepton XML layout for two conditions that may be configured outside the canonical demand fields:
+
+1. **Refilado / usable frame**
+   - compare each exported root layout frame against the physical panel dimensions;
+   - report any positive root `trim` attribute;
+   - inspect minimum observed piece margins to all four root edges.
+   - A smaller root frame or mandatory positive inset means our zero-refilado run is not directly comparable.
+
+2. **Rotation**
+   - reconstruct each Lepton terminal placement in global coordinates;
+   - normalize each code to long-side x short-side dimensions;
+   - measure landscape vs portrait placements weighted by panel multiplicity;
+   - record codes that Lepton places in both orientations.
+   - If Lepton itself rotates the same piece code, rotation freedom is directly evidenced by the exported layout.
+
+The standalone script `audit-lepton-layout-fairness.mjs` performs this audit without calling the optimizer. It also records the caveat that an external machine-level trim not encoded geometrically in the XML cannot be ruled out from XML alone.
+
+Final serial closure now requires this fairness audit to show no material geometric refilado mismatch and positive evidence that Lepton permits rotation in these jobs, or else a rerun under matched constraints.
