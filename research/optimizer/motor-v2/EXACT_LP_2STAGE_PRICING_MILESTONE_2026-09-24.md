@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE CLOSED — SERIAL ROUNDING AUDIT FAILED GATE; COMPONENTS RETAINED FOR FURNITURE**
+Status: **RESEARCH MILESTONE — FINAL SERIAL GATE PENDING; COUNTED-DFS TUNING CLOSED**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -91,7 +91,7 @@ Do not:
 
 ## Final iterative residual-repricing audit
 
-The final serial experiment was run and **failed the Lepton+2 gate**. This failure is informative: residual repricing did not reveal another pool-density gap.
+The iterative residual-repricing experiment ran, but **the Lepton+2 gate was not evaluated** because the normal-engine finalizer was gated by an arbitrary <=100-piece threshold. The three Ignacio residuals stopped at 148-230 pieces with `finalizerMs=0` and no combined plan, so the prior "failed gate" wording was incorrect. Residual repricing still did not reveal another pool-density gap.
 
 | Case | Converged global 2-stage LP | First floor boards | Residual pieces | Residual LP | Second floor progress | Residual pricing status |
 |---|---:|---:|---:|---:|---|---|
@@ -104,7 +104,15 @@ For 5445701 the residual pricing problem is exact for the modeled 2-stage family
 
 For 5445716 and 5447573, small per-type residual demands make demand caps bind. The current oracle correctly reports residual pricing as non-certified rather than claiming convergence. Even there, no additional admissible column was added and floor made no progress.
 
-The residuals remained above the <=100-piece finalizer threshold, so no final combined plan was emitted and the gate failed. Per the predefined rule, **serial research closes here**. If reopened in the future, the next algorithmic question is a small residual integer master / diving / branch-and-price strategy, not more pricing rounds and not more counted-DFS tuning.
+The residuals remained above the <=100-piece loop threshold, so the finalizer never ran even though 148-230 pieces is within the normal furniture-size regime already handled elsewhere by the engine. One final minimal audit is therefore justified: if floor makes no progress, run the normal engine anyway for residuals up to 300 pieces, materialize the combined plan, validate it industrially, and evaluate the original Lepton+2 gate.
+
+Gate:
+- 5445701 <= 593 boards;
+- 5445716 <= 623 boards;
+- 5447573 <= 590 boards;
+- all three combined plans industrial-valid.
+
+If this gate fails after the finalizer actually runs, close serial. Optional future work after a real gate failure would be residual diving / a small integer master, not more pricing rounds and not more counted-DFS tuning.
 
 Next product milestone:
 - return to furniture / Lepton <= 75 boards;
