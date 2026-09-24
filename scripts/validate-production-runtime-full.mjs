@@ -211,6 +211,7 @@ for (const file of selected) {
       defaultKerf: 4.5,
       defaultMinRemnant: 250,
       defaultMinCommercialRemnantLongSide: 400,
+      projectTrimMode: args.respectProjectTrim ? "infer" : "zero",
     });
 
     const leptonSemantics =
@@ -220,21 +221,6 @@ for (const file of selected) {
             fileName: file.displayName,
           })
         : null;
-
-    if (args.respectProjectTrim && parsed.format === "project") {
-      if (!leptonSemantics?.inferredRefilado?.unambiguous) {
-        throw new Error(
-          "Lepton project trim is ambiguous for " +
-          file.displayName +
-          ": " +
-          JSON.stringify(leptonSemantics?.trimByAxis ?? null)
-        );
-      }
-      parsed.case.trim = {
-        x: leptonSemantics.inferredRefilado.x,
-        y: leptonSemantics.inferredRefilado.y,
-      };
-    }
 
     const input = optimizer.benchmarkInputFromCanonicalCase(parsed.case, {
       strategy: "v10",
