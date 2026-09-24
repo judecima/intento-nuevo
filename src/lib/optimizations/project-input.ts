@@ -1,4 +1,11 @@
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  edgeFlags,
+  edgeTypesBySide,
+  readSideEdgeType,
+  summaryEdgeType,
+  type EdgeSideSelection
+} from "@/lib/domain/edge-bands";
 import { positiveThicknessOrUndefined } from "@/lib/domain/materials";
 import type { ProjectDraft } from "@/lib/domain/projects";
 import type { OptimizationInput, OptimizerProfile, OptimizerStrategy } from "@/lib/optimizer";
@@ -83,6 +90,12 @@ export function buildOptimizationInputFromProject({
         right: Boolean(item.edge_right)
       },
       edgeType: item.edge_type,
+      edgeTypes: {
+        top: readSideEdgeType(item.edge_top_type ?? item.edge_top, item.edge_type),
+        bottom: readSideEdgeType(item.edge_bottom_type ?? item.edge_bottom, item.edge_type),
+        left: readSideEdgeType(item.edge_left_type ?? item.edge_left, item.edge_type),
+        right: readSideEdgeType(item.edge_right_type ?? item.edge_right, item.edge_type)
+      },
       metadata: {
         sortOrder: Number(item.sort_order)
       }
@@ -141,13 +154,9 @@ export function buildOptimizationInputFromDraft({
       height: item.height,
       grain: item.grain,
       canRotate: item.canRotate,
-      edges: {
-        top: item.edgeTop,
-        bottom: item.edgeBottom,
-        left: item.edgeLeft,
-        right: item.edgeRight
-      },
-      edgeType: item.edgeType,
+      edges: edgeSidesToBooleans(item),
+      edgeType: summaryEdgeType(item),
+      edgeTypes: edgeTypesBySide(item),
       metadata: {
         sortOrder: (index + 1) * 10
       }
@@ -168,4 +177,10 @@ function optimizationConstraints({
     minRemnant,
     minCommercialRemnantLongSide: Math.max(minRemnant, 400)
   };
+}
+
+/** Los cuatro booleanos que espera el motor, derivados del tipo de cada lado. */
+function edgeSidesToBooleans(item: EdgeSideSelection) {
+  const flags = edgeFlags(item);
+  return { top: flags.edgeTop, bottom: flags.edgeBottom, left: flags.edgeLeft, right: flags.edgeRight };
 }

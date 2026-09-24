@@ -1,45 +1,117 @@
 import { describe, expect, it } from "vitest";
-import { countSelectedEdges, cycleEdgeCount, setEdgeBandType } from "@/lib/domain/edge-bands";
+import {
+  countSelectedEdges,
+  cycleEdgeSide,
+  edgeBandLabels,
+  edgeFlags,
+  edgeTypeCounts,
+  edgeTypesBySide,
+  emptyEdgeSelection,
+  readSideEdgeType,
+  summaryEdgeType
+} from "@/lib/domain/edge-bands";
 
-const empty = {
-  edgeType: "none" as const,
-  edgeTop: false,
-  edgeBottom: false,
-  edgeLeft: false,
-  edgeRight: false
-};
+describe("cycleEdgeSide", () => {
+  it("recorre 0,45, 2 mm, los dos espesores y vuelve a sin canto", () => {
+    let item = emptyEdgeSelection();
 
-describe("edge band selection", () => {
-  it("cycles a band from zero to one, two and back to zero sides", () => {
-    const one = cycleEdgeCount(empty);
-    const two = cycleEdgeCount(one);
-    const zero = cycleEdgeCount(two);
+    item = cycleEdgeSide(item, "edgeTopType");
+    expect(item.edgeTopType).toBe("thin");
 
-    expect(one.edgeType).toBe("thin");
-    expect(countSelectedEdges(one)).toBe(1);
-    expect(countSelectedEdges(two)).toBe(2);
-    expect(zero.edgeType).toBe("none");
-    expect(countSelectedEdges(zero)).toBe(0);
+    item = cycleEdgeSide(item, "edgeTopType");
+    expect(item.edgeTopType).toBe("thick");
+
+    item = cycleEdgeSide(item, "edgeTopType");
+    expect(item.edgeTopType).toBe("both");
+
+    item = cycleEdgeSide(item, "edgeTopType");
+    expect(item.edgeTopType).toBe("none");
   });
 
-  it("keeps manually selected sides when increasing the count", () => {
-    const one = { ...empty, edgeType: "thick" as const, edgeLeft: true };
-    const two = cycleEdgeCount(one);
+  it("no toca los otros lados", () => {
+    const item = cycleEdgeSide({ ...emptyEdgeSelection(), edgeLeftType: "thick" }, "edgeTopType");
 
-    expect(two.edgeLeft).toBe(true);
-    expect(countSelectedEdges(two)).toBe(2);
+    expect(item.edgeTopType).toBe("thin");
+    expect(item.edgeLeftType).toBe("thick");
+    expect(item.edgeBottomType).toBe("none");
+    expect(item.edgeRightType).toBe("none");
+  });
+});
+
+describe("resumen de la seleccion", () => {
+  const mixed = {
+    edgeTopType: "thick",
+    edgeBottomType: "thin",
+    edgeLeftType: "thin",
+    edgeRightType: "none"
+  } as const;
+
+  it("cuenta solo los lados con canto", () => {
+    expect(countSelectedEdges(mixed)).toBe(3);
+    expect(countSelectedEdges(emptyEdgeSelection())).toBe(0);
   });
 
-  it("allows selecting one type, both types or no type", () => {
-    const thin = setEdgeBandType(empty, "thin");
-    const thick = setEdgeBandType(thin, "thick");
-    const both = setEdgeBandType(thick, "both");
-    const none = setEdgeBandType({ ...both, edgeTop: true, edgeLeft: true }, "none");
+  it("agrupa los lados por tipo y omite los que no se usan", () => {
+    expect(edgeTypeCounts(mixed)).toEqual([
+      { type: "thin", sides: 2 },
+      { type: "thick", sides: 1 }
+    ]);
+    expect(edgeTypeCounts(emptyEdgeSelection())).toEqual([]);
+  });
 
-    expect(thin.edgeType).toBe("thin");
-    expect(thick.edgeType).toBe("thick");
-    expect(both.edgeType).toBe("both");
-    expect(none.edgeType).toBe("none");
-    expect(countSelectedEdges(none)).toBe(0);
+  it("deriva los booleanos que siguen guardandose en la base", () => {
+    expect(edgeFlags(mixed)).toEqual({
+      edgeTop: true,
+      edgeBottom: true,
+      edgeLeft: true,
+      edgeRight: false
+    });
+  });
+
+  it("indexa los tipos por lado para el optimizador", () => {
+    expect(edgeTypesBySide(mixed)).toEqual({ top: "thick", bottom: "thin", left: "thin", right: "none" });
+  });
+});
+
+describe("summaryEdgeType", () => {
+  it("devuelve el tipo comun cuando todos los lados coinciden", () => {
+    expect(summaryEdgeType({ ...emptyEdgeSelection(), edgeTopType: "thick", edgeLeftType: "thick" })).toBe("thick");
+  });
+
+  it("devuelve none cuando la pieza no lleva canto", () => {
+    expect(summaryEdgeType(emptyEdgeSelection())).toBe("none");
+  });
+
+  it("marca la mezcla como both, que es lo que entendian los lectores viejos", () => {
+    expect(summaryEdgeType({ ...emptyEdgeSelection(), edgeTopType: "thin", edgeLeftType: "thick" })).toBe("both");
+  });
+});
+
+describe("readSideEdgeType", () => {
+  it("acepta el formato nuevo tal cual", () => {
+    expect(readSideEdgeType("thick", "thin")).toBe("thick");
+    expect(readSideEdgeType("none", "thin")).toBe("none");
+  });
+
+  it("traduce el booleano viejo usando el tipo de la pieza", () => {
+    expect(readSideEdgeType(true, "thick")).toBe("thick");
+    expect(readSideEdgeType(false, "thick")).toBe("none");
+  });
+
+  it("asume 0,45 cuando el lado estaba marcado sin tipo", () => {
+    expect(readSideEdgeType(true, "none")).toBe("thin");
+  });
+
+  it("trata lo desconocido como sin canto", () => {
+    expect(readSideEdgeType(undefined, "thin")).toBe("none");
+    expect(readSideEdgeType(null, "thin")).toBe("none");
+  });
+});
+
+describe("edgeBandLabels", () => {
+  it("nombra el espesor en lugar de decir ambos", () => {
+    expect(edgeBandLabels.thin).toBe("0,45 mm");
+    expect(edgeBandLabels.thick).toBe("2 mm");
+    expect(edgeBandLabels.both).toBe("0,45 + 2 mm");
   });
 });

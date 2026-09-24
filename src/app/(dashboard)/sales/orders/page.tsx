@@ -1,4 +1,6 @@
 import { PendingOrdersTable } from "@/components/orders/pending-orders-table";
+import { Notice } from "@/components/ui/notice";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { orderDomainErrors } from "@/lib/domain/orders";
 import { listSalesOrders } from "@/lib/orders/queries";
@@ -15,14 +17,15 @@ export default async function SalesOrdersPage({ searchParams }: SalesOrdersPageP
   const notice = noticeMessage(first(searchParams?.notice));
 
   return (
-    <section className="max-w-7xl space-y-5">
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Vendedor</div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Pedidos pendientes</h1>
-      </div>
+    <section className="page">
+      <PageHeader
+        eyebrow="Vendedor"
+        title="Pedidos pendientes"
+          description="Pedidos que esperan tu revision antes de pasar a produccion."
+        />
 
       {notice ? (
-        <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
+        <Notice kind="ok">{notice}</Notice>
       ) : null}
 
       <PendingOrdersTable orders={orders} />

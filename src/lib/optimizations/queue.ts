@@ -28,7 +28,8 @@ export async function enqueueOptimizationJob({
   projectVersion,
   strategy,
   profile,
-  requestedBy
+  requestedBy,
+  algorithmVersion = LEGACY_OPTIMIZER_VERSION
 }: {
   supabase: Supabase;
   organizationId: string;
@@ -37,6 +38,8 @@ export async function enqueueOptimizationJob({
   strategy: OptimizerStrategy;
   profile?: OptimizerProfile;
   requestedBy: string;
+  /** Complete immutable runtime identity for this queued execution. */
+  algorithmVersion?: string;
 }): Promise<QueueOutcome> {
   const jobs = supabase.from("optimization_jobs") as unknown as {
     select(columns: string): any;
@@ -64,7 +67,7 @@ export async function enqueueOptimizationJob({
   if (active) {
     const row = active as Pick<JobRowWithProfile, "id" | "profile" | "algorithm_version" | "strategy">;
     const sameVariant =
-      row.algorithm_version === LEGACY_OPTIMIZER_VERSION &&
+      row.algorithm_version === algorithmVersion &&
       row.strategy === strategy &&
       (row.profile ?? null) === (profile ?? null);
 
@@ -86,7 +89,7 @@ export async function enqueueOptimizationJob({
       project_id: projectId,
       project_version: projectVersion,
       status: "queued",
-      algorithm_version: LEGACY_OPTIMIZER_VERSION,
+      algorithm_version: algorithmVersion,
       strategy,
       profile: profile ?? null,
       requested_by: requestedBy,

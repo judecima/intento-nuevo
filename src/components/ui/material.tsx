@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentType, ReactNode } from "react";
+import { PageHeader } from "./page-header";
 import {
   Alert as RawAlert,
   Card as RawCard,
@@ -45,6 +46,13 @@ export function SurfaceCard({ children, className = "", bodyClassName = "" }: Su
   );
 }
 
+/**
+ * Alias historico de PageHeader.
+ *
+ * Se mantiene para no tocar cada call site, pero delega: antes renderizaba un
+ * titulo con la escala de Material Tailwind y el resto de la app usaba otra,
+ * asi que el mismo titulo cambiaba de tamano al navegar.
+ */
 export function SurfaceTitle({
   eyebrow,
   title,
@@ -54,21 +62,7 @@ export function SurfaceTitle({
   title: string;
   description?: string;
 }) {
-  return (
-    <div>
-      <MtTypography as="div" variant="small" className="font-semibold uppercase tracking-[0.14em] text-[var(--teal)]">
-        {eyebrow}
-      </MtTypography>
-      <MtTypography as="h1" variant="h3" className="mt-2 font-medium tracking-normal text-[var(--ink)]">
-        {title}
-      </MtTypography>
-      {description ? (
-        <MtTypography as="p" variant="small" className="mt-2 max-w-3xl font-normal leading-6 text-[var(--muted)]">
-          {description}
-        </MtTypography>
-      ) : null}
-    </div>
-  );
+  return <PageHeader eyebrow={eyebrow} title={title} description={description} />;
 }
 
 export function StatusChip({

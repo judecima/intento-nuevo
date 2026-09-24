@@ -6,6 +6,16 @@ const positiveMm = z.number().finite().positive();
 const nonNegativeMm = z.number().finite().min(0);
 const edgeBandTypeSchema = z.enum(["none", "thin", "thick", "both"]);
 
+const pieceEdgeTypesSchema = z
+  .object({
+    top: edgeBandTypeSchema,
+    bottom: edgeBandTypeSchema,
+    left: edgeBandTypeSchema,
+    right: edgeBandTypeSchema
+  })
+  .strict()
+  .optional();
+
 const pieceEdgesSchema = z
   .object({
     top: z.boolean().optional(),
@@ -67,6 +77,7 @@ export const optimizationInputSchema: z.ZodType<OptimizationInput> = z
             canRotate: z.boolean().optional(),
             edges: pieceEdgesSchema,
             edgeType: edgeBandTypeSchema.optional(),
+            edgeTypes: pieceEdgeTypesSchema,
             metadata: z.record(z.unknown()).optional()
           })
           .strict(),

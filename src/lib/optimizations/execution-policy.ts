@@ -27,6 +27,14 @@ type RoutablePiece = {
   edgeRight?: boolean | null;
   edge_type?: string | null;
   edgeType?: string | null;
+  edge_top_type?: string | null;
+  edge_bottom_type?: string | null;
+  edge_left_type?: string | null;
+  edge_right_type?: string | null;
+  edgeTopType?: string | null;
+  edgeBottomType?: string | null;
+  edgeLeftType?: string | null;
+  edgeRightType?: string | null;
 };
 
 /**
@@ -68,6 +76,10 @@ function logicalTypeKey(item: RoutablePiece): string {
     Boolean(item.edge_bottom ?? item.edgeBottom) ? 1 : 0,
     Boolean(item.edge_left ?? item.edgeLeft) ? 1 : 0,
     Boolean(item.edge_right ?? item.edgeRight) ? 1 : 0,
-    item.edge_type ?? item.edgeType ?? "none"
+    item.edge_type ?? item.edgeType ?? "none",
+    item.edge_top_type ?? item.edgeTopType ?? "",
+    item.edge_bottom_type ?? item.edgeBottomType ?? "",
+    item.edge_left_type ?? item.edgeLeftType ?? "",
+    item.edge_right_type ?? item.edgeRightType ?? ""
   ].join("|");
 }

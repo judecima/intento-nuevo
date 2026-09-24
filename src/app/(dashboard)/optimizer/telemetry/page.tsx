@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { getOptimizationTelemetrySummary } from "@/lib/optimizations/telemetry";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function OptimizerTelemetryPage() {
   const context = await getCurrentUserContext();
@@ -13,10 +14,13 @@ export default async function OptimizerTelemetryPage() {
   const summary = await getOptimizationTelemetrySummary(organization.id, 250);
 
   return (
-    <section className="mx-auto max-w-[1200px] space-y-5">
+    <section className="page">
       <header>
-        <div className="eyebrow">Operacion</div>
-        <h1 className="mt-1 text-[30px] font-bold tracking-[-0.025em]">Telemetria del optimizador</h1>
+        <PageHeader
+          eyebrow="Operacion"
+          title="Telemetria del optimizador"
+          description="Tiempos y resultados de las ultimas corridas del motor de corte."
+        />
         <p className="hint mt-2">
           Ultimas {summary.sampleCount} ejecuciones visibles de {organization.name}. Los tiempos usan los timestamps del job y
           `metrics.engineMs` del resultado; no modifican el kernel.

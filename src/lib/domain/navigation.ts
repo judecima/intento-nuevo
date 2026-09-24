@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/ui/icons";
 import type { OrganizationRole } from "./roles";
 
 export const navigationGroups = ["general", "projects", "sales", "production", "admin"] as const;
@@ -15,6 +16,9 @@ export const navigationGroupLabels: Record<NavigationGroup, string> = {
 export type NavigationItem = {
   href: string;
   label: string;
+  /** Una linea que explica que se hace aca. Se muestra en el menu movil. */
+  hint: string;
+  icon: IconName;
   group: NavigationGroup;
   roles: readonly OrganizationRole[];
   /** Solo para el super usuario de plataforma, sin importar su rol en la organizacion. */
@@ -27,6 +31,8 @@ export const navigationItems: readonly NavigationItem[] = [
   {
     href: "/admin/organizations",
     label: "Organizaciones",
+    hint: "Alta y configuracion de cada empresa de la plataforma",
+    icon: "organizations",
     group: "admin",
     roles: [],
     platformOnly: true
@@ -34,14 +40,27 @@ export const navigationItems: readonly NavigationItem[] = [
   {
     href: "/dashboard",
     label: "Dashboard",
+    hint: "Resumen de cortes y estado general",
+    icon: "dashboard",
     group: "general",
     roles: ["customer", "seller", "operator", "admin"],
     platformAccessible: true
   },
-  { href: "/process", label: "Proceso pedidos", group: "general", roles: ["seller", "operator", "admin"] },
+  {
+    href: "/process",
+    // Antes "Proceso pedidos": se confundia con "Mis pedidos" y "Pedidos
+    // pendientes". Esta pantalla no procesa nada, muestra el pipeline completo.
+    label: "Seguimiento de pedidos",
+    hint: "Todos los pedidos y en que etapa esta cada uno",
+    icon: "process",
+    group: "general",
+    roles: ["seller", "operator", "admin"]
+  },
   {
     href: "/projects",
     label: "Mis proyectos",
+    hint: "Proyectos con sus piezas y su plano de corte",
+    icon: "projects",
     group: "projects",
     roles: ["customer", "seller", "admin"],
     platformAccessible: true
@@ -49,24 +68,127 @@ export const navigationItems: readonly NavigationItem[] = [
   {
     href: "/projects/new",
     label: "Nuevo proyecto",
+    hint: "Elegi tablero y arranca una carga de piezas",
+    icon: "newProject",
     group: "projects",
     roles: ["customer", "admin"],
     platformAccessible: true
   },
-  { href: "/orders", label: "Mis pedidos", group: "projects", roles: ["customer", "admin"] },
-  { href: "/sales/orders", label: "Pedidos pendientes", group: "sales", roles: ["seller", "admin"] },
-  { href: "/sales/approved", label: "Aprobados", group: "sales", roles: ["seller", "admin"] },
-  { href: "/sales/customers", label: "Clientes", group: "sales", roles: ["seller", "admin"] },
-  { href: "/production", label: "Cola de produccion", group: "production", roles: ["operator", "admin"] },
-  { href: "/production/approved", label: "Aprobados", group: "production", roles: ["operator", "admin"] },
-  { href: "/production/active", label: "En produccion", group: "production", roles: ["operator", "admin"] },
-  { href: "/production/edgebanding", label: "Pegado de canto", group: "production", roles: ["operator", "admin"] },
-  { href: "/production/completed", label: "Finalizados", group: "production", roles: ["operator", "admin"] },
-  { href: "/admin/users", label: "Usuarios", group: "admin", roles: ["admin"] },
-  { href: "/admin/materials", label: "Materiales", group: "admin", roles: ["admin"] },
-  { href: "/admin/machines", label: "Maquinas", group: "admin", roles: ["admin"] },
-  { href: "/admin/settings", label: "Configuracion", group: "admin", roles: ["admin"], platformAccessible: true },
-  { href: "/admin/audit", label: "Auditoria", group: "admin", roles: ["admin"] }
+  {
+    href: "/orders",
+    label: "Mis pedidos",
+    hint: "Pedidos que enviaste y su estado",
+    icon: "orders",
+    group: "projects",
+    roles: ["customer", "admin"]
+  },
+  {
+    href: "/sales/orders",
+    label: "Pedidos pendientes",
+    hint: "Pedidos esperando tu revision",
+    icon: "salesOrders",
+    group: "sales",
+    roles: ["seller", "admin"]
+  },
+  {
+    href: "/sales/approved",
+    // Antes "Aprobados", igual que el item de Produccion.
+    label: "Pedidos aprobados",
+    hint: "Pedidos que ya aprobaste y pasaron a produccion",
+    icon: "salesApproved",
+    group: "sales",
+    roles: ["seller", "admin"]
+  },
+  {
+    href: "/sales/customers",
+    label: "Clientes",
+    hint: "Cuentas de cliente de la organizacion",
+    icon: "customers",
+    group: "sales",
+    roles: ["seller", "admin"]
+  },
+  {
+    href: "/production",
+    label: "Cola de produccion",
+    hint: "Trabajos en la maquina ahora mismo",
+    icon: "queue",
+    group: "production",
+    roles: ["operator", "admin"]
+  },
+  {
+    href: "/production/approved",
+    // Antes "Aprobados", igual que el item de Ventas.
+    label: "Listos para cortar",
+    hint: "Aprobados por ventas, todavia sin arrancar",
+    icon: "approved",
+    group: "production",
+    roles: ["operator", "admin"]
+  },
+  {
+    href: "/production/active",
+    label: "En produccion",
+    hint: "Trabajos con el corte ya iniciado",
+    icon: "cutting",
+    group: "production",
+    roles: ["operator", "admin"]
+  },
+  {
+    href: "/production/edgebanding",
+    label: "Pegado de canto",
+    hint: "Cortados, esperando tapacanto",
+    icon: "edgebanding",
+    group: "production",
+    roles: ["operator", "admin"]
+  },
+  {
+    href: "/production/completed",
+    label: "Finalizados",
+    hint: "Trabajos cerrados y listos para entregar",
+    icon: "completed",
+    group: "production",
+    roles: ["operator", "admin"]
+  },
+  {
+    href: "/admin/users",
+    label: "Usuarios",
+    hint: "Altas, roles y permisos",
+    icon: "users",
+    group: "admin",
+    roles: ["admin"]
+  },
+  {
+    href: "/admin/materials",
+    label: "Materiales",
+    hint: "Catalogo de tableros y sus medidas",
+    icon: "materials",
+    group: "admin",
+    roles: ["admin"]
+  },
+  {
+    href: "/admin/machines",
+    label: "Maquinas",
+    hint: "Perfiles de seccionadora y parametros de corte",
+    icon: "machines",
+    group: "admin",
+    roles: ["admin"]
+  },
+  {
+    href: "/admin/settings",
+    label: "Configuracion",
+    hint: "Marca, tiempos de entrega y preferencias",
+    icon: "settings",
+    group: "admin",
+    roles: ["admin"],
+    platformAccessible: true
+  },
+  {
+    href: "/admin/audit",
+    label: "Auditoria",
+    hint: "Registro de quien hizo que y cuando",
+    icon: "audit",
+    group: "admin",
+    roles: ["admin"]
+  }
 ];
 
 export function getNavigationForRole(

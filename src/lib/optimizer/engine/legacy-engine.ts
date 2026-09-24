@@ -15,6 +15,7 @@ import type {
   OptimizationBoardResult,
   OptimizationCut,
   OptimizationEdgeBandType,
+  OptimizationPieceEdgeTypes,
   OptimizationInput,
   OptimizationMetrics,
   OptimizationPlacement,
@@ -25,6 +26,7 @@ import type {
   OptimizerStrategy
 } from "../types";
 import { validateIndependentSlices } from "../validators/independent-slices";
+import { runIsolatedLegacyKernel, type IsolatedKernelOptions } from "./isolated-kernel";
 
 const require = createRequire(import.meta.url);
 
@@ -94,6 +96,7 @@ export const EXPERIMENTAL_STAGED_OPTIMIZER_VERSION = `${LEGACY_OPTIMIZER_VERSION
 export const MOTOR_BETA_V2_VERSION = `${LEGACY_OPTIMIZER_VERSION}+master-structural-v2`;
 export const OPTIMIZER_AUTO_EFFORT_VERSION = `${MOTOR_BETA_V2_VERSION}+auto-effort-v1`;
 export const OPTIMIZER_ADVANCED_REFERENCE_VERSION = `${MOTOR_BETA_V2_VERSION}+advanced-reference-v1`;
+export const V2_REMNANT_POLISH_SUFFIX = "+remnant-polish-v1";
 
 export type OptimizerMotorVersion = "v1" | "v2";
 export type OptimizerEffortMode = "fixed" | "auto" | "advanced";
@@ -113,6 +116,34 @@ export interface OptimizeProjectRuntimeOptions {
    * short-circuit inside Master only; all misses continue through V1 unchanged.
    */
   motorVersion?: OptimizerMotorVersion;
+}
+
+export function optimizerAlgorithmVersionForRuntime({
+  strategy,
+  patternGenerator = "js",
+  motorVersion = "v1",
+  effortMode = "fixed",
+}: {
+  strategy: OptimizerStrategy;
+  patternGenerator?: OptimizerPatternGenerator;
+  motorVersion?: OptimizerMotorVersion;
+  effortMode?: OptimizerEffortMode;
+}): string {
+  if (strategy !== "v10") return LEGACY_OPTIMIZER_VERSION;
+
+  const rustSuffix = patternGenerator === "rust" ? "+rust-pattern-v1" : "";
+  if (motorVersion !== "v2") {
+    return patternGenerator === "rust"
+      ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
+      : LEGACY_OPTIMIZER_VERSION;
+  }
+
+  const polishSuffix = parseEnvFlag("OPTIMIZER_V2_REMNANT_POLISH", true)
+    ? V2_REMNANT_POLISH_SUFFIX
+    : "";
+  if (effortMode === "auto") return `${OPTIMIZER_AUTO_EFFORT_VERSION}${polishSuffix}${rustSuffix}`;
+  if (effortMode === "advanced") return `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}${polishSuffix}${rustSuffix}`;
+  return `${MOTOR_BETA_V2_VERSION}${polishSuffix}${rustSuffix}`;
 }
 const MAX_OPTIMIZATION_CACHE_ENTRIES = 50;
 const optimizationCache = new Map<string, OptimizationResult>();
@@ -234,20 +265,76 @@ function runExperimentalStagedV10(
   return { plan: result.plan, metricas: result.metrics, cota: result.cota };
 }
 
+type PreparedOptimizationExecution = {
+  parsed: OptimizationInput;
+  inputHash: string;
+  strategy: OptimizerStrategy;
+  stagedConfig: ExperimentalStagedConfig | null;
+  motorVersion: OptimizerMotorVersion;
+  effortMode: OptimizerEffortMode;
+  patternGenerator: OptimizerPatternGenerator;
+  cacheKey: string;
+  cached: OptimizationResult | null;
+  lineas: LegacyLineInput[];
+  options: LegacyOptimizerOptions;
+  profile: NonNullable<OptimizationInput["constraints"]["profile"]>;
+  expectedPieceCount: number;
+};
+
 export function optimizeProject(
   input: OptimizationInput,
   runtimeOptions: OptimizeProjectRuntimeOptions = {},
 ): OptimizationResult {
   const startedAt = Date.now();
-  const parsed = optimizationInputSchema.parse(input);
+  const prepared = prepareOptimizationExecution(input, runtimeOptions);
+  if (prepared.cached) return cachedOptimizationResult(prepared.cached, startedAt);
+
+  const kernel = runLegacyKernelSync(prepared);
+  return finalizeOptimizationExecution(prepared, kernel.result, kernel.rustFallback, startedAt);
+}
+
+export async function optimizeProjectIsolated(
+  input: OptimizationInput,
+  runtimeOptions: OptimizeProjectRuntimeOptions = {},
+  isolationOptions: IsolatedKernelOptions = {},
+): Promise<OptimizationResult> {
+  const startedAt = Date.now();
+  const prepared = prepareOptimizationExecution(input, runtimeOptions);
+  if (prepared.cached) return cachedOptimizationResult(prepared.cached, startedAt);
+
+  const kernel = await runIsolatedLegacyKernel(
+    {
+      strategy: prepared.strategy,
+      lineas: prepared.lineas,
+      options: prepared.options,
+      stagedConfig: prepared.stagedConfig,
+    },
+    isolationOptions,
+  );
+
+  if (prepared.strategy !== "v10" && kernel.result.cota == null) {
+    kernel.result.cota = areaLowerBound(prepared.lineas, prepared.options);
+  }
+
+  return finalizeOptimizationExecution(
+    prepared,
+    kernel.result,
+    kernel.rustFallback,
+    startedAt,
+  );
+}
+
+function prepareOptimizationExecution(
+  input: OptimizationInput,
+  runtimeOptions: OptimizeProjectRuntimeOptions,
+): PreparedOptimizationExecution {
+  const parsed = optimizationInputSchema.parse(input) as OptimizationInput;
   const inputHash = optimizationInputHash(parsed);
   const strategy = parsed.strategy ?? "baseline";
   const stagedConfig = resolveExperimentalStagedConfig(strategy);
   const deterministicBudgets = resolveDeterministicBudgetConfig();
   const requestedMotorVersion = resolveMotorVersion(runtimeOptions.motorVersion);
   const requestedEffortMode = resolveEffortMode(runtimeOptions.effortMode);
-  // The staged research pipeline is versioned independently; do not combine it
-  // implicitly with the production V2 Master short-circuit.
   const motorVersion: OptimizerMotorVersion =
     strategy === "v10" && !stagedConfig ? requestedMotorVersion : "v1";
   const effortMode: OptimizerEffortMode =
@@ -258,52 +345,110 @@ export function optimizeProject(
     strategy === "v10"
       ? (runtimeOptions.patternGenerator ?? (motorVersion === "v2" ? "rust" : "js"))
       : "js";
+  const requestedAlgorithmVersion = stagedConfig
+    ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
+    : optimizerAlgorithmVersionForRuntime({
+        strategy,
+        patternGenerator,
+        motorVersion,
+        effortMode,
+      });
   const cacheKey = [
     inputHash,
     deterministicBudgets.cacheDiscriminator,
     stagedConfig?.cacheDiscriminator,
+    `algorithm-version=${requestedAlgorithmVersion}`,
     `motor-version=${motorVersion}`,
     `effort-mode=${effortMode}`,
     `pattern-generator=${patternGenerator}`,
   ]
     .filter(Boolean)
     .join("|");
-  const cached = optimizationCache.get(cacheKey);
-
-  if (cached) {
-    const result = cloneOptimizationResult(cached);
-    result.metrics = { ...result.metrics, cacheHit: true, engineMs: Date.now() - startedAt };
-    return result;
-  }
 
   const lineas = toLegacyLines(parsed);
-  const options = toLegacyOptions(parsed, strategy, deterministicBudgets, patternGenerator, motorVersion, effortMode);
+  const options = toLegacyOptions(
+    parsed,
+    strategy,
+    deterministicBudgets,
+    patternGenerator,
+    motorVersion,
+    effortMode,
+  );
   const profile = parsed.constraints.profile ?? "balanced";
   const expectedPieceCount = lineas.reduce((total, line) => total + line.cant, 0);
 
-  const raw =
-    strategy === "v10"
-      ? completeLegacyPlan(
-          stagedConfig
-            ? runExperimentalStagedV10(lineas, options, stagedConfig)
-            : legacyV10.optimizarV10(lineas, options, legacyV10.nuevasMetricas()),
-          lineas,
-          "v10",
-        )
-      : completeLegacyPlan(
-          {
-            plan: legacyMotor.optimizar(lineas, { ...options, multiVariantes: false }),
-            metricas: legacyV10.nuevasMetricas(),
-            cota: areaLowerBound(lineas, options)
-          },
-          lineas,
-          "baseline",
-        );
+  return {
+    parsed,
+    inputHash,
+    strategy,
+    stagedConfig,
+    motorVersion,
+    effortMode,
+    patternGenerator,
+    cacheKey,
+    cached: optimizationCache.get(cacheKey) ?? null,
+    lineas,
+    options,
+    profile,
+    expectedPieceCount,
+  };
+}
 
+function runLegacyKernelSync(
+  prepared: PreparedOptimizationExecution,
+): { result: LegacyOptimizerReturn; rustFallback: boolean } {
+  const {
+    strategy,
+    stagedConfig,
+    lineas,
+    options,
+  } = prepared;
+
+  const result: LegacyOptimizerReturn =
+    strategy === "v10"
+      ? stagedConfig
+        ? runExperimentalStagedV10(lineas, options, stagedConfig)
+        : legacyV10.optimizarV10(lineas, options, legacyV10.nuevasMetricas())
+      : {
+          plan: legacyMotor.optimizar(lineas, { ...options, multiVariantes: false }),
+          metricas: legacyV10.nuevasMetricas(),
+          cota: areaLowerBound(lineas, options),
+        };
+
+  return {
+    result,
+    rustFallback: options._rustPatternGeneratorFallback === true,
+  };
+}
+
+function finalizeOptimizationExecution(
+  prepared: PreparedOptimizationExecution,
+  kernelResult: LegacyOptimizerReturn,
+  rustFallback: boolean,
+  startedAt: number,
+): OptimizationResult {
+  const {
+    parsed,
+    inputHash,
+    strategy,
+    stagedConfig,
+    motorVersion,
+    effortMode,
+    patternGenerator,
+    cacheKey,
+    lineas,
+    profile,
+    expectedPieceCount,
+  } = prepared;
+
+  const raw = completeLegacyPlan(
+    kernelResult,
+    lineas,
+    strategy === "v10" ? "v10" : "baseline",
+  );
   const industrial = legacyV10.validarPlanIndustrial(raw, expectedPieceCount);
   const independentSlices = validateIndependentSlices(raw);
   const normalized = normalizeLegacyPlan(raw, expectedPieceCount, parsed.pieces);
-  const rustFallback = options._rustPatternGeneratorFallback === true;
   const patternGeneratorUsed =
     patternGenerator === "rust"
       ? (rustFallback ? "rust-fallback-js" : "rust")
@@ -311,21 +456,12 @@ export function optimizeProject(
   const algorithmVersion =
     stagedConfig
       ? EXPERIMENTAL_STAGED_OPTIMIZER_VERSION
-      : motorVersion === "v2"
-        ? effortMode === "auto"
-          ? (patternGeneratorUsed === "rust"
-              ? `${OPTIMIZER_AUTO_EFFORT_VERSION}+rust-pattern-v1`
-              : OPTIMIZER_AUTO_EFFORT_VERSION)
-          : effortMode === "advanced"
-            ? (patternGeneratorUsed === "rust"
-                ? `${OPTIMIZER_ADVANCED_REFERENCE_VERSION}+rust-pattern-v1`
-                : OPTIMIZER_ADVANCED_REFERENCE_VERSION)
-            : (patternGeneratorUsed === "rust"
-                ? `${MOTOR_BETA_V2_VERSION}+rust-pattern-v1`
-                : MOTOR_BETA_V2_VERSION)
-        : patternGeneratorUsed === "rust"
-          ? RUST_LEGACY_PATTERN_GENERATOR_VERSION
-          : LEGACY_OPTIMIZER_VERSION;
+      : optimizerAlgorithmVersionForRuntime({
+          strategy,
+          patternGenerator: patternGeneratorUsed === "rust" ? "rust" : "js",
+          motorVersion,
+          effortMode,
+        });
 
   const result: OptimizationResult = {
     algorithmVersion,
@@ -345,12 +481,25 @@ export function optimizeProject(
     validation: {
       ok: industrial.ok && independentSlices.ok,
       industrial,
-      independentSlices
+      independentSlices,
     },
-    raw
+    raw,
   };
 
   if (!rustFallback) rememberOptimizationResult(cacheKey, result);
+  return result;
+}
+
+function cachedOptimizationResult(
+  cached: OptimizationResult,
+  startedAt: number,
+): OptimizationResult {
+  const result = cloneOptimizationResult(cached);
+  result.metrics = {
+    ...result.metrics,
+    cacheHit: true,
+    engineMs: Date.now() - startedAt,
+  };
   return result;
 }
 
@@ -373,7 +522,8 @@ function toLegacyLines(input: OptimizationInput): LegacyLineInput[] {
           izq: Boolean(piece.edges.left),
           der: Boolean(piece.edges.right)
         }
-      : null
+      : null,
+    cantosTipo: resolveEdgeTypes(piece)
   }));
 }
 
@@ -420,6 +570,8 @@ function toLegacyOptions(
           usarCotaBarataPostCompactacion: true,
           usarDffFs0PostCompactacion: true,
           usarMascarasUnicasMasterLe4: true,
+          usarPolishRemanentePorPlacaV2: parseEnvFlag("OPTIMIZER_V2_REMNANT_POLISH", true),
+          polishRemanenteMaxPlacas: 2,
           minPiezasMultiSliceExperimental: 200,
           maxPiezasMultiSliceExperimental: 500,
           rondasPatrones: 40,
@@ -510,13 +662,17 @@ function completeLegacyPlan(
   let edgeBandSides = 0;
   for (const line of lineas) {
     const edges = line.cantos ?? {};
-    const edgeType = line.edgeType ?? "none";
+    const fallback = line.edgeType ?? "none";
     for (const [side, enabled] of Object.entries(edges)) {
       if (!enabled) continue;
+      // Cada lado cobra su propio espesor; "both" cobra los dos sobre el mismo
+      // lado, que es la semantica que ya tenia el tipo por pieza.
+      const sideType = line.cantosTipo?.[side as "arr" | "aba" | "izq" | "der"] ?? fallback;
+      if (sideType === "none") continue;
       edgeBandSides += line.cant;
       const meters = line.cant * ((side === "izq" || side === "der" ? line.altura : line.base) / 1000);
-      if (edgeType === "thin" || edgeType === "both") edgeBand045Meters += meters;
-      if (edgeType === "thick" || edgeType === "both") edgeBand2mmMeters += meters;
+      if (sideType === "thin" || sideType === "both") edgeBand045Meters += meters;
+      if (sideType === "thick" || sideType === "both") edgeBand2mmMeters += meters;
     }
   }
 
@@ -575,6 +731,7 @@ function normalizeLegacyPlan(
   const cuts: OptimizationCut[] = [];
   const remnants: OptimizationRemnant[] = [];
   const edgeTypesByLegacyId = expandedEdgeTypes(sourcePieces);
+  const edgeSideTypesByLegacyId = expandedEdgeSideTypes(sourcePieces);
 
   for (let boardIndex = 0; boardIndex < plan.placas.length; boardIndex++) {
     const legacyBoard = plan.placas[boardIndex];
@@ -601,6 +758,7 @@ function normalizeLegacyPlan(
           right: Boolean(edges?.der)
         },
         edgeType: edgeTypeForPlacement(placement.pieza?.id, edgeTypesByLegacyId, edges),
+        edgeTypes: edgeSideTypesForPlacement(placement.pieza?.id, edgeSideTypesByLegacyId, edges),
         trace: normalizeTrace(
           placement._diagPath ?? legacyMotor.resolverDiagPath?.(placement._diagLink)
         )
@@ -686,6 +844,61 @@ function expandedEdgeTypes(pieces: OptimizationInput["pieces"]): Map<number, Opt
   }
 
   return result;
+}
+
+/**
+ * El motor legacy expande las piezas con una lista fija de campos, asi que
+ * `cantosTipo` no llega hasta la colocacion: se recupera por el id expandido,
+ * igual que ya se hacia con el tipo unico de la pieza.
+ */
+function expandedEdgeSideTypes(pieces: OptimizationInput["pieces"]): Map<number, OptimizationPieceEdgeTypes> {
+  const result = new Map<number, OptimizationPieceEdgeTypes>();
+  let legacyId = 0;
+
+  for (const piece of pieces) {
+    const types = resolveEdgeTypes(piece);
+    for (let quantity = 0; quantity < piece.quantity; quantity += 1) {
+      result.set(legacyId, { top: types.arr, bottom: types.aba, left: types.izq, right: types.der });
+      legacyId += 1;
+    }
+  }
+
+  return result;
+}
+
+function edgeSideTypesForPlacement(
+  legacyId: unknown,
+  typesByLegacyId: Map<number, OptimizationPieceEdgeTypes>,
+  edges: { arr?: boolean; aba?: boolean; izq?: boolean; der?: boolean } | null,
+): OptimizationPieceEdgeTypes {
+  const id = Number(legacyId);
+  const fromInput = Number.isInteger(id) ? typesByLegacyId.get(id) : undefined;
+  if (fromInput) return fromInput;
+
+  const fallback: OptimizationEdgeBandType = edges && Object.values(edges).some(Boolean) ? "thin" : "none";
+  return {
+    top: edges?.arr ? fallback : "none",
+    bottom: edges?.aba ? fallback : "none",
+    left: edges?.izq ? fallback : "none",
+    right: edges?.der ? fallback : "none"
+  };
+}
+
+/** Tipo de cada lado de una pieza de entrada, tolerando el formato viejo. */
+function resolveEdgeTypes(piece: OptimizationInput["pieces"][number]): {
+  arr: OptimizationEdgeBandType;
+  aba: OptimizationEdgeBandType;
+  izq: OptimizationEdgeBandType;
+  der: OptimizationEdgeBandType;
+} {
+  const fallback = resolveEdgeType(piece.edgeType, piece.edges);
+
+  return {
+    arr: piece.edgeTypes?.top ?? (piece.edges?.top ? fallback : "none"),
+    aba: piece.edgeTypes?.bottom ?? (piece.edges?.bottom ? fallback : "none"),
+    izq: piece.edgeTypes?.left ?? (piece.edges?.left ? fallback : "none"),
+    der: piece.edgeTypes?.right ?? (piece.edges?.right ? fallback : "none")
+  };
 }
 
 function edgeTypeForPlacement(

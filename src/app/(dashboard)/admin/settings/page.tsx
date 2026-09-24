@@ -5,6 +5,8 @@ import { getCurrentUserContext } from "@/lib/auth/context";
 import { canAdminister } from "@/lib/domain/admin";
 import { canManagePlatform, DEFAULT_ORGANIZATION_DELIVERY_TIME_DAYS } from "@/lib/domain/platform";
 import { toScopedPath } from "@/lib/routing/routes";
+import { PageHeader } from "@/components/ui/page-header";
+import { Notice } from "@/components/ui/notice";
 
 type Props = { searchParams?: { notice?: string } };
 
@@ -15,10 +17,13 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
   if (canManagePlatform(context)) {
     const notice = searchParams?.notice ? noticeMessages[searchParams.notice] : null;
     return (
-      <section className="mx-auto max-w-[900px] space-y-5">
+      <section className="page max-w-[900px]">
         <header>
-          <div className="eyebrow">Plataforma</div>
-          <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">Configuracion</h1>
+          <PageHeader
+            eyebrow="Plataforma"
+            title="Configuracion"
+          description="Marca, tiempos de entrega y preferencias de la organizacion."
+        />
           <p className="hint mt-2">
             {context.platformBranding.legalName} configura la identidad visual global y la de cada organizacion.
           </p>
@@ -29,7 +34,7 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           <div className="mt-4">
             <PlatformBrandingForm {...context.platformBranding} />
           </div>
-          {notice ? <div className="operation-banner mt-4">{notice}</div> : null}
+          {notice ? <Notice kind="ok" className="mt-4">{notice}</Notice> : null}
           <div className="mt-6 border-t border-[var(--line)] pt-5">
             <h2 className="text-[19px] font-semibold">Configuracion por organizacion</h2>
             <p className="hint mt-2">Selecciona una organizacion en el ABM para editar sus colores, logo y tiempo de entrega.</p>
@@ -44,10 +49,13 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
 
   if (!context.activeOrganization || !canAdminister(context.role)) {
     return (
-      <section className="mx-auto max-w-[900px] space-y-4">
+      <section className="page max-w-[900px]">
         <header>
-          <div className="eyebrow">Administrador</div>
-          <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">Configuracion</h1>
+          <PageHeader
+            eyebrow="Administrador"
+            title="Configuracion"
+          description="Marca, tiempos de entrega y preferencias de la organizacion."
+        />
         </header>
         <div className="card p-5 text-sm text-[var(--muted)]">
           Tu usuario no tiene permisos para editar la configuracion de esta organizacion.
@@ -58,13 +66,16 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
 
   const notice = searchParams?.notice ? noticeMessages[searchParams.notice] : null;
   return (
-    <section className="mx-auto max-w-[900px] space-y-5">
+    <section className="page max-w-[900px]">
       <header>
-        <div className="eyebrow">Administrador</div>
-        <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.02em]">Configuracion</h1>
+        <PageHeader
+          eyebrow="Administrador"
+          title="Configuracion"
+          description="Marca, tiempos de entrega y preferencias de la organizacion."
+        />
         <p className="hint mt-2">Personaliza la configuracion de {context.activeOrganization.name}.</p>
       </header>
-      {notice ? <div className="operation-banner">{notice}</div> : null}
+      {notice ? <Notice kind="ok">{notice}</Notice> : null}
       <section className="card">
         <div className="card-head">
           <div>

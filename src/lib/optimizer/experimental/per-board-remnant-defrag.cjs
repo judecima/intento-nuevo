@@ -45,48 +45,99 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
   let attemptedBoards = 0;
   let improvedBoards = 0;
   let rejectedBoards = 0;
-  const globalDeltas = Array.isArray(options.deltasEstructurales)
-    ? options.deltasEstructurales
-    : detectarDeltasEstructurales(lineasDesdePlan(plan), configLimpia(opts));
+  const globalDeltas = options.useStructuralDeltas === false
+    ? []
+    : Array.isArray(options.deltasEstructurales)
+      ? options.deltasEstructurales
+      : detectarDeltasEstructurales(lineasDesdePlan(plan), configLimpia(opts));
+
+  const maxBoardsRaw = Number(options.maxBoards);
+  const maxBoards = Number.isFinite(maxBoardsRaw) && maxBoardsRaw > 0
+    ? Math.min(plan.placas.length, Math.floor(maxBoardsRaw))
+    : plan.placas.length;
+  const requireRelocationOpportunity = options.requireRelocationOpportunity === true;
+  const rankedBoardIndexes = plan.placas
+    .map((board, index) => ({
+      index,
+      board,
+      quality: calidadRestos((board && board.restos) || [], opts),
+    }))
+    .filter((entry) =>
+      !requireRelocationOpportunity || tieneOportunidadConsolidacionBorde(entry.board, opts)
+    )
+    .sort((a, b) => {
+      const quality = compararCalidad(b.quality, a.quality);
+      return quality || a.index - b.index;
+    })
+    .slice(0, maxBoards)
+    .map((entry) => entry.index);
+  const selectedBoardIndexes = new Set(rankedBoardIndexes);
+  const seedOffsets = Array.isArray(options.seedOffsets) && options.seedOffsets.length
+    ? options.seedOffsets.map((value) => Number(value)).filter(Number.isFinite)
+    : [0];
+  const seedBaseOffset = Number.isFinite(+options.seedBaseOffset)
+    ? +options.seedBaseOffset
+    : 900000;
 
   for (let i = 0; i < plan.placas.length; i++) {
     const original = plan.placas[i];
     const lineas = lineasDesdePlaca(original);
 
-    if (!lineas.length) {
+    if (!lineas.length || !selectedBoardIndexes.has(i)) {
       nuevas.push(original);
       continue;
     }
 
     attemptedBoards++;
-    let candidato = null;
-    try {
-      const cfg = configLimpia(opts);
-      candidato = optimizar(lineas, {
-        ...cfg,
-        multiVariantes: false,
-        penalizarFranjaMuerta: true,
-        deltasEstructurales: globalDeltas,
-        // Deterministic but plate-specific seed. This avoids coupling the result
-        // of one plate with how many plates preceded it in the order.
-        semilla: (Number(cfg.semilla) || 20260812) + 700001 + i,
-      });
-    } catch (_) {
-      candidato = null;
+    const cfg = configLimpia(opts);
+    let mejorCandidato = null;
+    let mejorCalidad = null;
+
+    for (const seedOffset of seedOffsets) {
+      let candidato = null;
+      try {
+        candidato = optimizar(lineas, {
+          ...cfg,
+          multiVariantes: options.multiVariantes === true,
+          penalizarFranjaMuerta: true,
+          deltasEstructurales: globalDeltas,
+          semilla: (Number(cfg.semilla) || 20260812) + seedBaseOffset + seedOffset,
+        });
+      } catch (_) {
+        candidato = null;
+      }
+
+      if (!candidato || !Array.isArray(candidato.placas) || candidato.placas.length !== 1) {
+        continue;
+      }
+
+      const nuevaPlaca = candidato.placas[0];
+      const calidad = calidadRestos(nuevaPlaca.restos || [], opts);
+      if (!mejorCandidato || compararCalidad(calidad, mejorCalidad) > 0) {
+        mejorCandidato = nuevaPlaca;
+        mejorCalidad = calidad;
+      }
     }
 
-    if (!candidato || !Array.isArray(candidato.placas) || candidato.placas.length !== 1) {
+    if (!mejorCandidato) {
       nuevas.push(original);
       rejectedBoards++;
       continue;
     }
 
-    const nuevaPlaca = candidato.placas[0];
-    const qOriginal = calidadRestos(original.restos || [], opts);
-    const qCandidato = calidadRestos(nuevaPlaca.restos || [], opts);
+    // optimizar() rebuilds a one-board subproblem with local ids 0..N-1.
+    // Before reinserting it into the order, restore the original physical
+    // piece objects/ids; otherwise ids collide with pieces on other boards and
+    // the industrial validator correctly rejects the whole plan as duplicate.
+    if (!reasignarIdentidadesOriginales(mejorCandidato, original)) {
+      nuevas.push(original);
+      rejectedBoards++;
+      continue;
+    }
 
-    if (compararCalidad(qCandidato, qOriginal) > 0) {
-      nuevas.push(nuevaPlaca);
+    const qOriginal = calidadRestos(original.restos || [], opts);
+    if (compararCalidad(mejorCalidad, qOriginal) > 0) {
+      nuevas.push(mejorCandidato);
       improvedBoards++;
     } else {
       nuevas.push(original);
@@ -132,6 +183,177 @@ function defragmentarPlanPorPlaca(plan, options = {}) {
     validation: validacion,
     ms,
   };
+}
+
+function reasignarIdentidadesOriginales(candidata, original) {
+  const originales = new Map();
+  for (const colocada of (original && original.colocadas) || []) {
+    const pieza = colocada && colocada.pieza;
+    if (!pieza) return false;
+    const key = claveIdentidadPieza(pieza);
+    if (!originales.has(key)) originales.set(key, []);
+    originales.get(key).push(pieza);
+  }
+
+  for (const pool of originales.values()) {
+    pool.sort((a, b) => (+a.id || 0) - (+b.id || 0));
+  }
+
+  const porIdLocal = new Map();
+  for (const colocada of (candidata && candidata.colocadas) || []) {
+    const local = colocada && colocada.pieza;
+    if (!local) return false;
+    const pool = originales.get(claveIdentidadPieza(local));
+    if (!pool || !pool.length) return false;
+    const originalPieza = pool.shift();
+    porIdLocal.set(local.id, originalPieza);
+    colocada.pieza = originalPieza;
+  }
+
+  for (const pool of originales.values()) if (pool.length) return false;
+
+  const visitar = (nodo) => {
+    if (!nodo) return true;
+    for (const parte of nodo.partes || []) {
+      if (parte && parte.pieza) {
+        const mapped = porIdLocal.get(parte.pieza.id);
+        if (!mapped) return false;
+        parte.pieza = mapped;
+      }
+      if (parte && parte.hijo && !visitar(parte.hijo)) return false;
+    }
+    return true;
+  };
+
+  return visitar(candidata && candidata.arbol);
+}
+
+function claveIdentidadPieza(p) {
+  const c = p && p.cantos;
+  return JSON.stringify([
+    p && (p.ref ?? p._codigoXml ?? null),
+    +(p && p.base),
+    +(p && p.altura),
+    !!(p && p.veta),
+    c ? !!c.arr : false,
+    c ? !!c.aba : false,
+    c ? !!c.izq : false,
+    c ? !!c.der : false,
+  ]);
+}
+
+/**
+ * Cheap gate for the V2 equal-board polish.
+ *
+ * We only spend a one-board repack when the current layout already exposes a
+ * concrete consolidation opportunity: a large commercial edge remnant, at
+ * least two thin pieces immediately adjacent to it, and distinct internal
+ * non-commercial holes that can hold those pieces. This is the geometry of the
+ * 95-piece furniture sentinel (two 480x70 strips above a large bottom remnant
+ * plus several 564x92.5 internal holes).
+ */
+function tieneOportunidadConsolidacionBorde(placa, opts) {
+  if (!placa || !Array.isArray(placa.colocadas) || !Array.isArray(placa.restos)) return false;
+
+  const saw = Math.max(0, +opts.sierra || 0);
+  const tol = Math.max(1, saw + 0.75);
+  const boardW = +placa.ancho || +opts.anchoUtil || 0;
+  const boardH = +placa.alto || +opts.altoUtil || 0;
+  const restoMin = Math.max(0, +opts.restoMin || 0);
+  const restoMax = Math.max(0, +opts.restoMax || 0);
+  const thinLimit = Math.max(80, Math.min(160, restoMin > 0 ? restoMin * 0.5 : 120));
+
+  const commercial = (placa.restos || []).filter((r) =>
+    Math.min(+r.w || 0, +r.h || 0) >= restoMin &&
+    Math.max(+r.w || 0, +r.h || 0) >= restoMax
+  );
+  const holes = (placa.restos || []).filter((r) => !commercial.includes(r));
+
+  const overlap = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0) > 1e-6;
+  const near = (a, b) => Math.abs(a - b) <= tol;
+
+  for (const rem of commercial) {
+    const horizontalEdge = boardW > 0 && rem.w >= boardW * 0.70;
+    const verticalEdge = boardH > 0 && rem.h >= boardH * 0.70;
+    if (!horizontalEdge && !verticalEdge) continue;
+
+    const candidates = [];
+    let side = null;
+
+    if (horizontalEdge && rem.y > tol) {
+      side = "top";
+      for (const p of placa.colocadas) {
+        if (
+          p.altura <= thinLimit &&
+          near(p.y + p.altura + saw, rem.y) &&
+          overlap(p.x, p.x + p.base, rem.x, rem.x + rem.w)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2 && horizontalEdge && rem.y + rem.h < boardH - tol) {
+      candidates.length = 0;
+      side = "bottom";
+      for (const p of placa.colocadas) {
+        if (
+          p.altura <= thinLimit &&
+          near(rem.y + rem.h + saw, p.y) &&
+          overlap(p.x, p.x + p.base, rem.x, rem.x + rem.w)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2 && verticalEdge && rem.x > tol) {
+      candidates.length = 0;
+      side = "left";
+      for (const p of placa.colocadas) {
+        if (
+          p.base <= thinLimit &&
+          near(p.x + p.base + saw, rem.x) &&
+          overlap(p.y, p.y + p.altura, rem.y, rem.y + rem.h)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2 && verticalEdge && rem.x + rem.w < boardW - tol) {
+      candidates.length = 0;
+      side = "right";
+      for (const p of placa.colocadas) {
+        if (
+          p.base <= thinLimit &&
+          near(rem.x + rem.w + saw, p.x) &&
+          overlap(p.y, p.y + p.altura, rem.y, rem.y + rem.h)
+        ) candidates.push(p);
+      }
+    }
+    if (candidates.length < 2) continue;
+
+    // Holes belonging to the same removable boundary band do not count as a
+    // destination. We need internal waste elsewhere on the board.
+    const internalHoles = holes.filter((h) => {
+      if (side === "top") return !near(h.y + h.h + saw, rem.y);
+      if (side === "bottom") return !near(rem.y + rem.h + saw, h.y);
+      if (side === "left") return !near(h.x + h.w + saw, rem.x);
+      if (side === "right") return !near(rem.x + rem.w + saw, h.x);
+      return true;
+    });
+
+    const used = new Set();
+    let matched = 0;
+    for (const p of candidates.slice().sort((a,b) => b.base*b.altura - a.base*a.altura)) {
+      const rotatable = !(opts.materialConVeta || (p.pieza && p.pieza.veta));
+      const holeIndex = internalHoles.findIndex((h, index) => {
+        if (used.has(index)) return false;
+        const direct = h.w + 1e-9 >= p.base && h.h + 1e-9 >= p.altura;
+        const rotated = rotatable && h.w + 1e-9 >= p.altura && h.h + 1e-9 >= p.base;
+        return direct || rotated;
+      });
+      if (holeIndex >= 0) {
+        used.add(holeIndex);
+        matched++;
+        if (matched >= 2) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /** Reference implementation of the compactation pass currently skipped by V20. */
@@ -273,4 +495,5 @@ module.exports = {
   lineasDesdePlaca,
   lineasDesdePlan,
   detectarDeltasEstructurales,
+  tieneOportunidadConsolidacionBorde,
 };

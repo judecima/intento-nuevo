@@ -1,0 +1,74 @@
+name: Optimizer SaaS Hardening
+
+concurrency:
+  group: optimizer-saas-hardening-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - motor-auto-v1
+    paths:
+      - "src/lib/optimizer/**"
+      - "src/lib/optimizations/**"
+      - "src/lib/projects/actions.ts"
+      - "src/components/optimizer/optimization-job-watcher.tsx"
+      - "src/app/(dashboard)/projects/[projectId]/layout.tsx"
+      - "tests/optimizer/runtime-policy.test.ts"
+      - "tests/optimizer/isolated-execution.test.ts"
+      - "tests/optimizer-telemetry.test.ts"
+      - "scripts/optimizer-kernel-child.cjs"
+      - "scripts/diagnose-tail-case-30.mjs"
+      - "scripts/diagnose-remnant-case-95.mjs"
+      - "scripts/validate-production-runtime-full.mjs"
+      - "scripts/prepare-production-runtime-v1-selection.mjs"
+      - "scripts/validate-production-runtime-v1-review.mjs"
+      - ".github/workflows/optimizer-saas-hardening.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hardening-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Runtime identity + telemetry contracts
+        run: >
+          npx vitest run
+          tests/optimizer/runtime-policy.test.ts
+          tests/optimizer/isolated-execution.test.ts
+          tests/optimizer-telemetry.test.ts
+          tests/optimizer/motor-beta-v2-runtime.test.ts
+          tests/optimizer/auto-effort-controller.test.ts
+      - name: Diagnose 30-piece local tail
+        run: node scripts/diagnose-tail-case-30.mjs
+      - name: Diagnose 95-piece remnant case
+        run: node scripts/diagnose-remnant-case-95.mjs
+      - name: Full local validator smoke
+        run: >
+          node scripts/validate-production-runtime-full.mjs
+          --candidate-only
+          --input tests/fixtures/optimizer/xml
+          --output /tmp/full-runtime-validation-smoke
+          --progress-every 1
+      - name: Selective V1 evidence smoke
+        run: >
+          node scripts/validate-production-runtime-v1-review.mjs
+          --output /tmp/full-runtime-validation-smoke
+          --control-size 2
+          --tail-size 1
+          --progress-every 1
+      - name: Next production build
+        run: npm run build

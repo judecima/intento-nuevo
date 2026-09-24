@@ -12,7 +12,8 @@ import {
   brandedTableBodyCellSx,
   brandedTableHeadCellSx
 } from "@/components/ui/branded-mui-theme";
-import { edgeLabel, type CutPlanView } from "@/lib/optimizations/plan-view";
+import { edgeBandLabels } from "@/lib/domain/edge-bands";
+import { edgeLabel, type CutPlanEdgeTypes, type CutPlanView } from "@/lib/optimizations/plan-view";
 import type { ManualPiecePosition } from "@/lib/optimizations/manual-placement";
 import { BoardPlan } from "./board-plan";
 import { DiagPanel } from "./diag-panel";
@@ -52,9 +53,14 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
   const [manualFamily, setManualFamily] = useState("");
   const [manualClass, setManualClass] = useState<ManualRemnantClass>("auto");
   const [piecePositionOverrides, setPiecePositionOverrides] = useState<Record<string, ManualPiecePosition>>({});
+  const [deletedCutIds, setDeletedCutIds] = useState<Set<string>>(new Set());
   const [manualPlacementNotice, setManualPlacementNotice] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setDeletedCutIds(new Set());
+  }, [plan.meta.resultId]);
 
   const familyByPieceId = useMemo(() => {
     const result = new Map<string, string>();
@@ -85,9 +91,10 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
           commercial:
             (remnantOverrides[remnant.id] ?? "auto") === "usable" ||
             ((remnantOverrides[remnant.id] ?? "auto") === "auto" && remnant.commercial)
-        }))
+        })),
+        cuts: boardItem.cuts.filter((cut) => !deletedCutIds.has(cut.id))
       })),
-    [piecePositionOverrides, plan.boards, remnantOverrides]
+    [deletedCutIds, piecePositionOverrides, plan.boards, remnantOverrides]
   );
 
   const visualStock = useMemo(
@@ -112,13 +119,14 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
     const areas = visualStock.map((item) => item.areaM2).sort((a, b) => b - a);
     return {
       ...plan.metrics,
+      cuts: visualBoards.reduce((total, item) => total + item.cuts.length, 0),
       remnantCount: visualStock.length,
       remnantAreaM2: areas.reduce((total, area) => total + area, 0),
       largestRemnantM2: areas[0] ?? 0,
       secondLargestRemnantM2: areas[1] ?? 0,
       remnantFragments: areas.length
     };
-  }, [plan.metrics, visualStock]);
+  }, [plan.metrics, visualBoards, visualStock]);
 
   const visualGroups = useMemo<VisualGroup[]>(() => {
     const families = new Map<string, string>();
@@ -313,6 +321,8 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
               <span>{board.cuts.length} cortes</span>
               <span>·</span>
               <span>{(board.usedArea / 1e6).toFixed(2)} m²</span>
+              <span>·</span>
+              <span>{guillotineOrientation(board)}</span>
             </div>
           </div>
 
@@ -478,6 +488,35 @@ export function CutPlanViewer({ plan, actions }: CutPlanViewerProps) {
             <button type="button" className="btn btn-sm" onClick={() => goTo(totalCuts)}>
               Ver completo
             </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={!board || totalCuts === 0}
+              onClick={() => {
+                const cut = board?.cuts[Math.min(Math.max(currentStep - 1, 0), totalCuts - 1)];
+                if (!cut) return;
+                setDeletedCutIds((current) => new Set(current).add(cut.id));
+                setStep(null);
+              }}
+            >
+              Eliminar corte
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={!board || totalCuts === 0}
+              onClick={() => {
+                if (!board) return;
+                setDeletedCutIds((current) => {
+                  const next = new Set(current);
+                  board.cuts.forEach((cut) => next.add(cut.id));
+                  return next;
+                });
+                setStep(null);
+              }}
+            >
+              Eliminar todos los cortes
+            </button>
           </div>
         </div>
       </section>
@@ -633,6 +672,7 @@ function PrintBoardSheet({
         <div className="print-board-heading-meta">
           <div>{board.pieces.length} piezas · {board.cuts.length} cortes</div>
           <div>{board.utilization.toFixed(2)}% aprovechamiento</div>
+          <div>{guillotineOrientation(board)}</div>
         </div>
       </div>
 
@@ -702,7 +742,7 @@ function PrintPiecesTable({ board }: { board: CutPlanView["boards"][number] }) {
               <td>{formatMillimeters(piece.x)}, {formatMillimeters(piece.y)}</td>
               <td>{piece.rotated ? "Sí" : "No"}</td>
               <td>{edgeLabel(piece.edges) || "-"}</td>
-              <td>{edgeTypeLabel(piece.edgeType)}</td>
+              <td>{edgeTypeLabel(piece.edgeTypes)}</td>
             </tr>
           ))}
         </tbody>
@@ -751,6 +791,16 @@ function PrintRemnantsTable({
   );
 }
 
+function guillotineOrientation(board: CutPlanView["boards"][number]): string {
+  if (board.cuts.length === 0) return "Guillotina: sin cortes";
+
+  const first = [...board.cuts].sort((a, b) => a.level - b.level || a.index - b.index)[0];
+  const horizontal = board.cuts.filter((cut) => cut.direction === "x").length;
+  const vertical = board.cuts.length - horizontal;
+  const primary = first.direction === "x" ? "horizontal" : "vertical";
+  return `Guillotina inicial: ${primary} · ${horizontal} H / ${vertical} V`;
+}
+
 function summarizeBoardEdges(board: CutPlanView["boards"][number]) {
   let edgeBand045Meters = 0;
   let edgeBand2mmMeters = 0;
@@ -758,11 +808,12 @@ function summarizeBoardEdges(board: CutPlanView["boards"][number]) {
 
   for (const piece of board.pieces) {
     for (const side of ["top", "bottom", "left", "right"] as const) {
-      if (!piece.edges[side]) continue;
+      const sideType = piece.edgeTypes[side];
+      if (sideType === "none") continue;
       sides += 1;
       const meters = (side === "left" || side === "right" ? piece.sourceHeight : piece.sourceWidth) / 1000;
-      if (piece.edgeType === "thin" || piece.edgeType === "both") edgeBand045Meters += meters;
-      if (piece.edgeType === "thick" || piece.edgeType === "both") edgeBand2mmMeters += meters;
+      if (sideType === "thin" || sideType === "both") edgeBand045Meters += meters;
+      if (sideType === "thick" || sideType === "both") edgeBand2mmMeters += meters;
     }
   }
 
@@ -782,12 +833,21 @@ function isUsableRemnant(
   return manualClass === "usable" || (manualClass === "auto" && remnant.commercial);
 }
 
-function edgeTypeLabel(edgeType: CutPlanView["groups"][number]["edgeType"]) {
-  if (edgeType === "thin") return "0,45 mm";
-  if (edgeType === "thick") return "2 mm";
-  if (edgeType === "both") return "Ambos";
-  return "Sin canto";
+/** Detalle del tapacanto lado por lado, para el reporte imprimible. */
+function edgeTypeLabel(edgeTypes: CutPlanEdgeTypes) {
+  const parts = PRINT_EDGE_SIDES.filter(([side]) => edgeTypes[side] !== "none").map(
+    ([side, short]) => `${short} ${edgeBandLabels[edgeTypes[side]]}`
+  );
+
+  return parts.length > 0 ? parts.join(" · ") : "Sin canto";
 }
+
+const PRINT_EDGE_SIDES = [
+  ["top", "A"],
+  ["bottom", "B"],
+  ["left", "I"],
+  ["right", "D"]
+] as const satisfies ReadonlyArray<readonly [keyof CutPlanEdgeTypes, string]>;
 
 function formatMillimeters(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.00$/, "");
@@ -950,6 +1010,12 @@ function CutGroupsTable({
         header: "Cantos",
         size: 120,
         accessorFn: (group) => edgeLabel(group.edges)
+      },
+      {
+        id: "edgeTypes",
+        header: "Tapacanto",
+        size: 180,
+        accessorFn: (group) => edgeTypeLabel(group.edgeTypes)
       },
       {
         id: "boards",

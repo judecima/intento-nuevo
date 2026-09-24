@@ -831,6 +831,10 @@ export type Database = {
           edge_left: boolean;
           edge_right: boolean;
           edge_type: "none" | "thin" | "thick" | "both";
+          edge_top_type: "none" | "thin" | "thick" | "both";
+          edge_bottom_type: "none" | "thin" | "thick" | "both";
+          edge_left_type: "none" | "thin" | "thick" | "both";
+          edge_right_type: "none" | "thin" | "thick" | "both";
           metadata: Json;
           sort_order: number;
           created_at: string;
@@ -851,6 +855,10 @@ export type Database = {
           edge_left?: boolean;
           edge_right?: boolean;
           edge_type?: "none" | "thin" | "thick" | "both";
+          edge_top_type?: "none" | "thin" | "thick" | "both";
+          edge_bottom_type?: "none" | "thin" | "thick" | "both";
+          edge_left_type?: "none" | "thin" | "thick" | "both";
+          edge_right_type?: "none" | "thin" | "thick" | "both";
           metadata?: Json;
           sort_order?: number;
           created_at?: string;
@@ -869,6 +877,10 @@ export type Database = {
           edge_left?: boolean;
           edge_right?: boolean;
           edge_type?: "none" | "thin" | "thick" | "both";
+          edge_top_type?: "none" | "thin" | "thick" | "both";
+          edge_bottom_type?: "none" | "thin" | "thick" | "both";
+          edge_left_type?: "none" | "thin" | "thick" | "both";
+          edge_right_type?: "none" | "thin" | "thick" | "both";
           metadata?: Json;
           sort_order?: number;
           updated_at?: string;

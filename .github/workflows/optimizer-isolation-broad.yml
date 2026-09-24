@@ -1,0 +1,68 @@
+name: Optimizer Isolation Broad Gate
+
+concurrency:
+  group: optimizer-isolation-broad-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - motor-auto-v1
+    paths:
+      - "tests/optimizer/isolated-broad-gate.test.ts"
+      - "research/optimizer/saas-hardening/isolation-broad-report.cjs"
+      - ".github/workflows/optimizer-isolation-broad.yml"
+      - "src/lib/optimizer/**"
+      - "scripts/optimizer-kernel-child.cjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity-shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    env:
+      SHARD_INDEX: ${{ matrix.shard }}
+      SHARD_TOTAL: 8
+      SAMPLE_MOD: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Sync vs isolated Auto parity
+        run: npx vitest run tests/optimizer/isolated-broad-gate.test.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: isolation-broad-shard-${{ matrix.shard }}
+          path: research/optimizer/saas-hardening/isolation-broad-shard-${{ matrix.shard }}.json
+          retention-days: 7
+
+  report:
+    needs: parity-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: isolation-broad-shard-*
+          path: research/optimizer/saas-hardening
+          merge-multiple: true
+      - name: Aggregate broad parity
+        run: node research/optimizer/saas-hardening/isolation-broad-report.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-isolation-broad-result
+          path: research/optimizer/saas-hardening/ISOLATION_BROAD_RESULT.json
+          retention-days: 30

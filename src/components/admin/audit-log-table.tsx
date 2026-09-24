@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_Row
+  type MRT_ColumnDef
 } from "material-react-table";
 import { MRT_Localization_ES } from "material-react-table/locales/es";
 import Button from "@mui/material/Button";
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/branded-mui-theme";
 import type { AuditLogRow } from "@/lib/admin/queries";
 import { formatDateTimeEsAr } from "@/lib/format/dates";
+import { Modal } from "@/components/ui/modal";
 
 type AuditLogTableProps = {
   rows: AuditLogRow[];
@@ -38,6 +38,7 @@ type AuditTableRow = {
 };
 
 export function AuditLogTable({ rows }: AuditLogTableProps) {
+  const [detail, setDetail] = useState<AuditTableRow | null>(null);
   const tableRows = useMemo<AuditTableRow[]>(
     () =>
       rows.map((row) => ({
@@ -112,7 +113,6 @@ export function AuditLogTable({ rows }: AuditLogTableProps) {
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableDensityToggle: true,
-    enableExpanding: true,
     enableFullScreenToggle: true,
     enableRowActions: true,
     enableStickyHeader: true,
@@ -129,11 +129,10 @@ export function AuditLogTable({ rows }: AuditLogTableProps) {
     muiTableHeadCellProps: { sx: brandedTableHeadCellSx },
     muiTableBodyCellProps: { sx: brandedTableBodyCellSx },
     renderRowActions: ({ row }) => (
-      <Button size="small" variant="outlined" onClick={() => row.toggleExpanded()}>
-        {row.getIsExpanded() ? "Cerrar" : "Datos"}
+      <Button size="small" variant="outlined" onClick={() => setDetail(row.original)}>
+        Datos
       </Button>
     ),
-    renderDetailPanel: ({ row }) => <AuditDetail row={row} />,
     renderTopToolbarCustomActions: () => (
       <Typography sx={{ color: "var(--md-on-surface-variant)", fontSize: 13, fontWeight: 700 }}>
         {rows.length} eventos
@@ -152,16 +151,21 @@ export function AuditLogTable({ rows }: AuditLogTableProps) {
   return (
     <BrandedMuiThemeProvider>
       <MaterialReactTable table={table} />
+      {detail ? (
+        <Modal eyebrow="Auditoria" title={detail.actionLabel} size="xl" onClose={() => setDetail(null)}>
+          <AuditDetail row={detail} />
+        </Modal>
+      ) : null}
     </BrandedMuiThemeProvider>
   );
 }
 
-function AuditDetail({ row }: { row: MRT_Row<AuditTableRow> }) {
+function AuditDetail({ row }: { row: AuditTableRow }) {
   return (
     <div className="grid gap-3 p-4 text-xs lg:grid-cols-3">
-      <JsonBlock label="Metadata" value={row.original.row.metadata} />
-      <JsonBlock label="Anterior" value={row.original.row.old_data} />
-      <JsonBlock label="Nuevo" value={row.original.row.new_data} />
+      <JsonBlock label="Metadata" value={row.row.metadata} />
+      <JsonBlock label="Anterior" value={row.row.old_data} />
+      <JsonBlock label="Nuevo" value={row.row.new_data} />
     </div>
   );
 }

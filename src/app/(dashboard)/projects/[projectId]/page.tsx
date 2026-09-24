@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PendingSubmitButton } from "@/components/forms/pending-submit-button";
+import { Notice } from "@/components/ui/notice";
+import { readSideEdgeType } from "@/lib/domain/edge-bands";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
 import { MaterialImage } from "@/components/materials/material-image";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { getCurrentUserContext } from "@/lib/auth/context";
@@ -89,14 +92,11 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
     : null;
 
   return (
-    <section className="mx-auto max-w-[1500px] space-y-5">
+    <section className="page page-wide">
       <header className="no-print flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <Link href={toScopedPath(basePath, "/projects")} className="focus-ring text-[12px] text-[var(--teal)] hover:underline">
-            ← Volver a proyectos
-          </Link>
-          <div className="mt-3 eyebrow">Proyecto</div>
-          <h1 className="mt-1.5 truncate text-[30px] font-bold tracking-[-0.025em]">{data.project.name}</h1>
+          <p className="eyebrow">Proyecto</p>
+          <h1 className="page-title truncate">{data.project.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className={`badge ${statusBadgeClass(data.project.status)}`}>
               {projectStatusLabels[data.project.status]}
@@ -118,11 +118,13 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
         </div>
       </header>
 
-      {notice ? (
-        <div className="no-print rounded-[var(--r-md)] border border-[var(--line)] border-l-4 border-l-[var(--teal)] bg-white px-4 py-3 text-sm shadow-panel">
-          {notice}
-        </div>
-      ) : null}
+      {/* El recorrido completo arriba de todo: el cliente entra por aca y lo
+          primero que necesita saber es en que etapa quedo su trabajo. */}
+      <section className="card no-print p-4 md:p-5">
+        <PipelineStepper projectStatus={data.project.status} orderStatus={activeOrder?.status ?? null} />
+      </section>
+
+      {notice ? <Notice kind="ok" className="no-print">{notice}</Notice> : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
@@ -164,15 +166,12 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
               height: Number(item.height),
               grain: Boolean(item.grain),
               canRotate: Boolean(item.can_rotate),
-              edgeTop: Boolean(item.edge_top),
-              edgeBottom: Boolean(item.edge_bottom),
-              edgeLeft: Boolean(item.edge_left),
-              edgeRight: Boolean(item.edge_right),
-              edgeType:
-                item.edge_type === "none" &&
-                (Boolean(item.edge_top) || Boolean(item.edge_bottom) || Boolean(item.edge_left) || Boolean(item.edge_right))
-                  ? "thin"
-                  : item.edge_type
+              // Los proyectos guardados antes del tapacanto por lado traen un
+              // unico tipo y cuatro booleanos: cada lado marcado hereda ese tipo.
+              edgeTopType: readSideEdgeType(item.edge_top_type ?? item.edge_top, item.edge_type),
+              edgeBottomType: readSideEdgeType(item.edge_bottom_type ?? item.edge_bottom, item.edge_type),
+              edgeLeftType: readSideEdgeType(item.edge_left_type ?? item.edge_left, item.edge_type),
+              edgeRightType: readSideEdgeType(item.edge_right_type ?? item.edge_right, item.edge_type)
             }))}
             storedPlan={storedPlan}
             storedPlanSavedAt={storedPlan ? formatDateTimeEsAr(storedPlan.meta.createdAt) : null}

@@ -27,7 +27,10 @@ export {
   OPTIMIZER_ADVANCED_REFERENCE_VERSION,
   OPTIMIZER_AUTO_EFFORT_VERSION,
   RUST_LEGACY_PATTERN_GENERATOR_VERSION,
+  V2_REMNANT_POLISH_SUFFIX,
+  optimizerAlgorithmVersionForRuntime,
   optimizeProject,
+  optimizeProjectIsolated,
 } from "./engine/legacy-engine";
 export type { OptimizeProjectRuntimeOptions, OptimizerEffortMode, OptimizerMotorVersion } from "./engine/legacy-engine";
 export { validateIndependentSlices } from "./validators/independent-slices";

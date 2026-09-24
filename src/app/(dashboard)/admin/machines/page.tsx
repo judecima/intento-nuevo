@@ -4,6 +4,8 @@ import { listAdminMachineProfiles } from "@/lib/admin/queries";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { adminDomainErrors, canAdminister } from "@/lib/domain/admin";
 import { machineProfileCutSettings } from "@/lib/production/queries";
+import { PageHeader } from "@/components/ui/page-header";
+import { Notice } from "@/components/ui/notice";
 
 type AdminMachinesPageProps = {
   searchParams?: {
@@ -18,11 +20,9 @@ export default async function AdminMachinesPage({ searchParams }: AdminMachinesP
 
   if (!organizationId || !canAdminister(context.role)) {
     return (
-      <section className="max-w-6xl">
+      <section className="page">
         <Header />
-        <div className="mt-5 border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)]">
-          No tenes permisos de administrador para gestionar maquinas.
-        </div>
+        <Notice kind="error">No tenes permisos de administrador para gestionar maquinas.</Notice>
       </section>
     );
   }
@@ -30,13 +30,13 @@ export default async function AdminMachinesPage({ searchParams }: AdminMachinesP
   const profiles = await listAdminMachineProfiles(context, organizationId);
 
   return (
-    <section className="max-w-7xl space-y-5">
+    <section className="page">
       <Header />
       {notice ? (
-        <div className="border-l-4 border-[var(--teal)] bg-white px-4 py-3 text-sm text-[var(--ink)]">{notice}</div>
+        <Notice kind="ok">{notice}</Notice>
       ) : null}
 
-      <section className="border border-[var(--line)] bg-white p-4">
+      <section className="card p-4">
         <h2 className="text-lg font-semibold">Nuevo perfil</h2>
         <MachineProfileForm action={createMachineProfileAction} organizationId={organizationId} submitLabel="Crear perfil" />
       </section>
@@ -53,7 +53,7 @@ export default async function AdminMachinesPage({ searchParams }: AdminMachinesP
               (() => {
                 const cutSettings = machineProfileCutSettings(profile);
                 return (
-              <article key={profile.id} className="border border-[var(--line)] bg-white p-4">
+              <article key={profile.id} className="card p-4">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <div className="font-mono text-xs text-[var(--muted)]">{profile.id.slice(0, 8)}</div>
@@ -175,8 +175,11 @@ function MachineProfileForm({ action, organizationId, profile, submitLabel }: Ma
 function Header() {
   return (
     <div>
-      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--teal)]">Administrador</div>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Maquinas</h1>
+      <PageHeader
+        eyebrow="Administrador"
+        title="Maquinas"
+          description="Perfiles de seccionadora y los parametros de corte que aplican por defecto."
+        />
       <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">
         Perfiles de seccionadora usados para parametrizar la generacion de XML de produccion.
       </p>

@@ -4,6 +4,8 @@ out/
 coverage/
 test-results/
 playwright-report/
+validation-full/
+validation-full-smoke/
 backups/
 .vercel/
 

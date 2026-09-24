@@ -145,7 +145,7 @@ function calcularCotaBarataPostCompactacion(lineas, config, incumbente, metricas
   }
 }
 
-function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
+function intentarPolishV20(plan, config, piezasEsperadas, metricas, options = {}) {
   const m = metricas.remnantPolish;
   const t0 = process.hrtime.bigint();
   m.runs++;
@@ -157,7 +157,7 @@ function intentarPolishV20(plan, config, piezasEsperadas, metricas) {
       return { valido: false, plan };
     }
     const { defragmentarPlanPorPlaca } = require('../experimental/per-board-remnant-defrag.cjs');
-    const r = defragmentarPlanPorPlaca(plan, { piezasEsperadas });
+    const r = defragmentarPlanPorPlaca(plan, { piezasEsperadas, ...options });
     m.attemptedBoards += +r.attemptedBoards || 0;
     m.improvedBoards += +r.improvedBoards || 0;
     m.rejectedBoards += +r.rejectedBoards || 0;
@@ -475,6 +475,40 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
     }
   }
 
+  // ---- polish local de remanente para pedidos que quedaron fuera de la
+  // compactacion global por tamaño/variedad. A esta altura la cantidad de
+  // placas ya esta certificada: cada placa se repaca de forma independiente,
+  // nunca se mueven piezas entre placas y el plan completo se revalida.
+  if (
+    config.usarPolishRemanentePorPlacaV2 === true &&
+    mejor.resumen.placas <= cota &&
+    (lineas.length > 40 || nPiezas > 120)
+  ) {
+    const polished = intentarPolishV20(
+      mejor,
+      { ...config, usarDefragRemanentePorPlaca: true },
+      piezasEsperadas,
+      metricas,
+      {
+        multiVariantes: true,
+        maxBoards: Number(config.polishRemanenteMaxPlacas) || 2,
+        requireRelocationOpportunity: true,
+        useStructuralDeltas: false,
+        seedOffsets: [0],
+        seedBaseOffset: 900000,
+      },
+    );
+    if (
+      polished.valido &&
+      polished.plan &&
+      polished.plan.resumen &&
+      polished.plan.resumen.placas === mejor.resumen.placas &&
+      mejorRemanentePlan(polished.plan, mejor)
+    ) {
+      mejor = polished.plan;
+    }
+  }
+
   // ---- si ya esta en la cota, ningun rescate de PLACAS puede aportar
   if (mejor.resumen.placas <= cota) {
     metricas.total.ms += Date.now() - t0;
@@ -558,13 +592,12 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
         !forceFull40 &&
         (highTypesP3Experimental || industrialRulesV3Experimental) &&
         typeCount > 40;
-      const midTypesHighRepeatP3 =
-        !forceFull40 &&
-        industrialRulesV3Experimental &&
-        typeCount >= 20 &&
-        typeCount <= 40 &&
-        piecesPerType >= 4;
-      const industrialP3 = highTypesP3 || midTypesHighRepeatP3;
+      // P3-B (20-40 types with >=4 pieces/type) was retired after the
+      // sealed full-runtime validation found a real board-count regression:
+      // case 5431340 produced 39 boards in Auto/P3-B versus 38 in both V1 and
+      // Advanced/Full40. Keep only the independently safer high-type P3-A gate
+      // while the full holdout is re-certified.
+      const industrialP3 = highTypesP3;
       const masterRounds =
         industrialP3
           ? Math.min(3, configuredMasterRounds)

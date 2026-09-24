@@ -1,5 +1,9 @@
 import { optimizationInputSchema } from "./schema";
-import type { OptimizationEdgeBandType, OptimizationInput } from "./types";
+import type {
+  OptimizationEdgeBandType,
+  OptimizationInput,
+  OptimizationPieceEdgeTypes
+} from "./types";
 
 export type CanonicalCaseSource = "optimization-input" | "xml-project" | "xml-order";
 export type CanonicalGrainSource = "optimization-input" | "xml" | "material-inference" | "unknown";
@@ -48,7 +52,9 @@ export interface CanonicalOptimizationPiece {
   rotationSource: CanonicalRotationSource;
   family?: string;
   edges: CanonicalPieceEdges;
+  /** Resumen derivado; el detalle real es `edgeTypes`. */
   edgeType?: OptimizationEdgeBandType;
+  edgeTypes?: OptimizationPieceEdgeTypes;
 }
 
 export interface CanonicalOptimizationCase {
@@ -129,7 +135,8 @@ function toCanonicalPiece(piece: OptimizationInput["pieces"][number]): Canonical
       left: Boolean(piece.edges?.left),
       right: Boolean(piece.edges?.right)
     },
-    edgeType: piece.edgeType
+    edgeType: piece.edgeType,
+    edgeTypes: piece.edgeTypes
   });
 }
 

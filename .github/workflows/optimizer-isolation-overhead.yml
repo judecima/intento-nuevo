@@ -1,0 +1,40 @@
+name: Optimizer Isolation Overhead
+
+concurrency:
+  group: optimizer-isolation-overhead-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - motor-auto-v1
+    paths:
+      - "tests/optimizer/isolated-performance.test.ts"
+      - ".github/workflows/optimizer-isolation-overhead.yml"
+      - "src/lib/optimizer/**"
+      - "scripts/optimizer-kernel-child.cjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: Measure isolation overhead
+        run: npx vitest run tests/optimizer/isolated-performance.test.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-isolation-overhead-result
+          path: research/optimizer/saas-hardening/ISOLATION_OVERHEAD_RESULT.json
+          retention-days: 30

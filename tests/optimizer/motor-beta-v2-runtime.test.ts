@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   LEGACY_OPTIMIZER_VERSION,
@@ -43,6 +43,10 @@ function input5504203(projectId: string): OptimizationInput {
   };
 }
 
+afterEach(() => {
+  delete process.env.OPTIMIZER_V2_REMNANT_POLISH;
+});
+
 describe("motor beta v2 runtime", () => {
   it("exposes an isolated V2 algorithm version and reaches the certified 75-board sentinel", () => {
     const result = optimizeProject(input5504203("motor-v2-runtime-5504203"), {
@@ -57,6 +61,41 @@ describe("motor beta v2 runtime", () => {
     expect(result.metrics.boardCount).toBe(75);
     expect(result.raw.opts?.masterStructuralV2).toBe(true);
     expect(result.raw.opts?.masterIndustrialRulesV3Experimental).toBe(true);
+  });
+
+  it("invalidates the in-process cache when the V2 algorithm identity changes", () => {
+    const input: OptimizationInput = {
+      projectId: "cache-remnant-polish-version",
+      board: { width: 1200, height: 800, thickness: 18 },
+      material: { description: "CACHE ALGORITHM VERSION", hasGrain: false, thickness: 18 },
+      kerf: 4.5,
+      trim: { x: 0, y: 0 },
+      strategy: "v10",
+      constraints: {
+        profile: "fast",
+        minRemnant: 100,
+        minCommercialRemnantLongSide: 250,
+        allowOneBoard: false,
+        allowPatternMaster: false,
+        allowMultiSlice: false,
+        allowDeadStripCompaction: false,
+      },
+      pieces: [{ reference: "P", quantity: 1, width: 300, height: 200 }],
+    };
+
+    process.env.OPTIMIZER_V2_REMNANT_POLISH = "0";
+    const before = optimizeProject(input, { motorVersion: "v2", patternGenerator: "js" });
+    const beforeAgain = optimizeProject(input, { motorVersion: "v2", patternGenerator: "js" });
+
+    process.env.OPTIMIZER_V2_REMNANT_POLISH = "1";
+    const after = optimizeProject(input, { motorVersion: "v2", patternGenerator: "js" });
+    const afterAgain = optimizeProject(input, { motorVersion: "v2", patternGenerator: "js" });
+
+    expect(before.metrics.cacheHit).toBe(false);
+    expect(beforeAgain.metrics.cacheHit).toBe(true);
+    expect(after.metrics.cacheHit).toBe(false);
+    expect(afterAgain.metrics.cacheHit).toBe(true);
+    expect(before.algorithmVersion).not.toBe(after.algorithmVersion);
   });
 
   it("keeps V1 and V2 cache entries isolated for the same optimization input", () => {

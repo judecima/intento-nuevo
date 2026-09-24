@@ -8,7 +8,15 @@
  * listado de cortes y metros lineales de tapacanto.
  */
 
+import { readSideEdgeType } from "@/lib/domain/edge-bands";
 import type { OptimizationEdgeBandType, OptimizationResult } from "@/lib/optimizer/types";
+
+export type CutPlanEdgeTypes = {
+  top: OptimizationEdgeBandType;
+  bottom: OptimizationEdgeBandType;
+  left: OptimizationEdgeBandType;
+  right: OptimizationEdgeBandType;
+};
 
 export type CutPlanEdges = {
   top: boolean;
@@ -46,7 +54,9 @@ export type CutPlanPiece = {
   sourceWidth: number;
   sourceHeight: number;
   edges: CutPlanEdges;
+  /** Resumen derivado; se conserva para los lectores viejos. */
   edgeType: OptimizationEdgeBandType;
+  edgeTypes: CutPlanEdgeTypes;
   trace: CutPlanTraceStep[];
 };
 
@@ -94,6 +104,7 @@ export type CutPlanGroup = {
   quantity: number;
   edges: CutPlanEdges;
   edgeType: OptimizationEdgeBandType;
+  edgeTypes: CutPlanEdgeTypes;
   boards: number[];
 };
 
@@ -422,6 +433,13 @@ function toPlanPiece(row: PieceRowLike, index: number): CutPlanPiece {
   const width = Number(row.width);
   const height = Number(row.height);
   const edgeType = readEdgeType(raw.edgeType, edges);
+  const rawTypes = asRecord(raw.edgeTypes);
+  const edgeTypes: CutPlanEdgeTypes = {
+    top: readSideEdgeType(rawTypes.top ?? edges.top, edgeType),
+    bottom: readSideEdgeType(rawTypes.bottom ?? edges.bottom, edgeType),
+    left: readSideEdgeType(rawTypes.left ?? edges.left, edgeType),
+    right: readSideEdgeType(rawTypes.right ?? edges.right, edgeType)
+  };
 
   return {
     id: row.id,
@@ -443,6 +461,7 @@ function toPlanPiece(row: PieceRowLike, index: number): CutPlanPiece {
       right: Boolean(edges.right)
     },
     edgeType,
+    edgeTypes,
     trace: Array.isArray(raw.trace) ? (raw.trace as CutPlanTraceStep[]) : []
   };
 }
@@ -485,7 +504,7 @@ function buildGroups(boards: CutPlanBoard[]): CutPlanGroup[] {
 
   for (const board of boards) {
     for (const piece of board.pieces) {
-      const key = `${piece.description}|${piece.sourceWidth}|${piece.sourceHeight}|${edgeKey(piece.edges)}|${piece.edgeType}`;
+      const key = `${piece.description}|${piece.sourceWidth}|${piece.sourceHeight}|${edgeTypeKey(piece.edgeTypes)}`;
       const existing = groups.get(key);
 
       if (existing) {
@@ -503,6 +522,7 @@ function buildGroups(boards: CutPlanBoard[]): CutPlanGroup[] {
         quantity: 1,
         edges: piece.edges,
         edgeType: piece.edgeType,
+        edgeTypes: piece.edgeTypes,
         boards: [board.index + 1]
       });
     }
@@ -561,11 +581,13 @@ function summarizeEdges(boards: CutPlanBoard[]): {
       // El largo del canto es el del lado original de la pieza: rotarla en la
       // placa no cambia cuanto tapacanto consume.
       for (const side of ["top", "bottom", "left", "right"] as const) {
-        if (!piece.edges[side]) continue;
+        const sideType = piece.edgeTypes[side];
+        if (sideType === "none") continue;
         sides += 1;
         const meters = (side === "left" || side === "right" ? piece.sourceHeight : piece.sourceWidth) / 1000;
-        if (piece.edgeType === "thin" || piece.edgeType === "both") edgeBand045Meters += meters;
-        if (piece.edgeType === "thick" || piece.edgeType === "both") edgeBand2mmMeters += meters;
+        // "both" es el mismo lado con los dos espesores, asi que suma en ambos.
+        if (sideType === "thin" || sideType === "both") edgeBand045Meters += meters;
+        if (sideType === "thick" || sideType === "both") edgeBand2mmMeters += meters;
       }
     }
   }
@@ -583,6 +605,10 @@ function readEdgeType(value: unknown, edges: Record<string, unknown>): Optimizat
   if (value === "thin" || value === "thick" || value === "both") return value;
   if (value === "none") return hasEdges ? "thin" : "none";
   return hasEdges ? "thin" : "none";
+}
+
+function edgeTypeKey(types: CutPlanEdgeTypes): string {
+  return `${types.top}/${types.bottom}/${types.left}/${types.right}`;
 }
 
 function edgeKey(edges: CutPlanEdges): string {

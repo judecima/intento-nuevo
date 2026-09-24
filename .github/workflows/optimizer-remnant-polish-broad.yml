@@ -1,0 +1,67 @@
+name: Optimizer Remnant Polish Broad Gate
+
+concurrency:
+  group: optimizer-remnant-polish-broad-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - motor-auto-v1
+    paths:
+      - "tests/optimizer/remnant-polish-broad-gate.test.ts"
+      - "research/optimizer/saas-hardening/remnant-polish-broad-report.cjs"
+      - ".github/workflows/optimizer-remnant-polish-broad.yml"
+      - "src/lib/optimizer/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ab-shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    env:
+      SHARD_INDEX: ${{ matrix.shard }}
+      SHARD_TOTAL: 8
+      SAMPLE_MOD: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run optimizer:rust:build
+      - name: V2 old vs remnant-polish A/B
+        run: npx vitest run tests/optimizer/remnant-polish-broad-gate.test.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: remnant-polish-broad-shard-${{ matrix.shard }}
+          path: research/optimizer/saas-hardening/remnant-polish-broad-shard-${{ matrix.shard }}.json
+          retention-days: 7
+
+  report:
+    needs: ab-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: remnant-polish-broad-shard-*
+          path: research/optimizer/saas-hardening
+          merge-multiple: true
+      - name: Aggregate remnant polish A/B
+        run: node research/optimizer/saas-hardening/remnant-polish-broad-report.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-remnant-polish-broad-result
+          path: research/optimizer/saas-hardening/REMNANT_POLISH_BROAD_RESULT.json
+          retention-days: 30

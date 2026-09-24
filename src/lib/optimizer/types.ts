@@ -40,6 +40,14 @@ export interface OptimizationPieceEdgesInput {
   right?: boolean;
 }
 
+/** Tapacanto de cada lado. `edges` queda como el booleano derivado. */
+export interface OptimizationPieceEdgeTypes {
+  top: OptimizationEdgeBandType;
+  bottom: OptimizationEdgeBandType;
+  left: OptimizationEdgeBandType;
+  right: OptimizationEdgeBandType;
+}
+
 export interface OptimizationPieceInput {
   id?: string;
   reference: string;
@@ -50,7 +58,9 @@ export interface OptimizationPieceInput {
   grain?: boolean;
   canRotate?: boolean;
   edges?: OptimizationPieceEdgesInput;
+  /** Resumen derivado; se conserva para entradas viejas. */
   edgeType?: OptimizationEdgeBandType;
+  edgeTypes?: OptimizationPieceEdgeTypes;
   metadata?: Record<string, unknown>;
 }
 
@@ -109,6 +119,7 @@ export interface OptimizationPlacement {
   sourceHeight: number;
   edges: OptimizationPlacementEdges;
   edgeType: OptimizationEdgeBandType;
+  edgeTypes: OptimizationPieceEdgeTypes;
   trace: OptimizationPlacementTrace[];
 }
 
@@ -214,6 +225,17 @@ export interface LegacyLineInput {
     aba?: boolean;
     izq?: boolean;
     der?: boolean;
+  } | null;
+  /**
+   * Tipo de tapacanto por lado. El motor legacy lo ignora (no descuenta canto:
+   * `descontarCanto` va fijo en false), pero el calculo de metros lineales que
+   * vive en el engine si lo usa.
+   */
+  cantosTipo?: {
+    arr: OptimizationEdgeBandType;
+    aba: OptimizationEdgeBandType;
+    izq: OptimizationEdgeBandType;
+    der: OptimizationEdgeBandType;
   } | null;
 }
 
