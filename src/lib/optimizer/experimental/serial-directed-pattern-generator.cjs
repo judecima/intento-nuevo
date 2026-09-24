@@ -116,10 +116,124 @@ function deterministicSubsets(typeCount, count, seed = 7) {
   return out;
 }
 
+function patternVector(pattern, typeCount) {
+  const vector = new Array(typeCount).fill(0);
+  for (const [index, count] of pattern?.uso || []) {
+    if (index >= 0 && index < typeCount) vector[index] = count;
+  }
+  return vector;
+}
+
+/*
+ * Dual aproximado del master restringido:
+ *
+ *   max demanda · y
+ *   s.a. patron_p · y <= 1
+ *        y >= 0
+ *
+ * En nuestros masters de corte todos los coeficientes son no negativos y los
+ * duales utiles observados son no negativos. No pretende certificar la cota:
+ * sólo producir precios estables para el pricing dirigido. La proyección sobre
+ * semiespacios mantiene siempre patron·y <= 1.
+ */
+function approximateRestrictedDual(patternList, lines, iterations = 2600) {
+  const typeCount = lines.length;
+  const vectors = patternList.map((pattern) => patternVector(pattern, typeCount));
+  const demand = lines.map((line) => Math.max(0, Number(line.cant) || 0));
+  const demandNorm = Math.sqrt(demand.reduce((sum, value) => sum + value * value, 0)) || 1;
+  const gradient = demand.map((value) => value / demandNorm);
+  const prices = new Array(typeCount).fill(0);
+
+  for (let step = 0; step < iterations; step++) {
+    const eta = 0.05 / Math.sqrt(1 + step / 50);
+    for (let i = 0; i < typeCount; i++) prices[i] += eta * gradient[i];
+
+    for (let sweep = 0; sweep < 2; sweep++) {
+      for (const vector of vectors) {
+        let score = 0;
+        let norm2 = 0;
+        for (let i = 0; i < typeCount; i++) {
+          const value = vector[i];
+          if (!value) continue;
+          score += value * prices[i];
+          norm2 += value * value;
+        }
+        const violation = score - 1;
+        if (violation <= 1e-12 || norm2 <= 0) continue;
+        const correction = violation / norm2;
+        for (let i = 0; i < typeCount; i++) {
+          const value = vector[i];
+          if (!value) continue;
+          prices[i] = Math.max(0, prices[i] - correction * value);
+        }
+      }
+    }
+  }
+
+  let objective = 0;
+  let maxViolation = 0;
+  for (let i = 0; i < typeCount; i++) objective += demand[i] * prices[i];
+  for (const vector of vectors) {
+    let score = 0;
+    for (let i = 0; i < typeCount; i++) score += vector[i] * prices[i];
+    maxViolation = Math.max(maxViolation, score - 1);
+  }
+
+  return { prices, objective, maxViolation };
+}
+
+function dualWeightedCounts(
+  lines,
+  targetBoards,
+  prices,
+  capacities,
+  scale,
+  exponent,
+  maxPieces,
+  anchorIndex = null,
+  anchorFraction = null,
+) {
+  const positive = prices.filter((price) => price > 1e-12);
+  const meanPrice = positive.length
+    ? positive.reduce((sum, price) => sum + price, 0) / positive.length
+    : 1;
+
+  let counts = lines.map((line, index) => {
+    const perBoard = line.cant / Math.max(1, targetBoards);
+    const ratio = meanPrice > 0 ? prices[index] / meanPrice : 1;
+    const factor = Math.max(0.3, Math.min(3.2, Math.pow(Math.max(0.05, ratio), exponent)));
+    const raw = perBoard * scale * factor;
+    let count = raw >= 0.35 ? Math.max(1, Math.round(raw)) : 0;
+    count = Math.min(count, capacities[index], line.cant);
+    return count;
+  });
+
+  if (anchorIndex !== null && anchorIndex >= 0 && anchorIndex < lines.length) {
+    const fraction = Math.max(0.1, Math.min(1, Number(anchorFraction) || 0.5));
+    counts[anchorIndex] = Math.max(
+      counts[anchorIndex],
+      Math.min(
+        lines[anchorIndex].cant,
+        capacities[anchorIndex],
+        Math.max(1, Math.ceil(capacities[anchorIndex] * fraction)),
+      ),
+    );
+  }
+
+  if (!counts.some(Boolean)) {
+    const best = prices
+      .map((price, index) => ({ price, index }))
+      .sort((a, b) => b.price - a.price || a.index - b.index)[0];
+    if (best) counts[best.index] = 1;
+  }
+
+  return scaleCountsToLimit(counts, maxPieces);
+}
+
 function generateSerialDirectedPatterns(lines, config, options = {}) {
   const typeCount = lines.length;
   const targetBoards = Math.max(1, Math.floor(Number(options.targetBoards) || 1));
-  const maxPhysicalTests = Math.max(1, Math.floor(Number(options.maxPhysicalTests) || 96));
+  const maxPhysicalTests = Math.max(1, Math.floor(Number(options.maxPhysicalTests) || 160));
   const maxBatchPieces = Math.max(8, Math.floor(Number(options.maxBatchPieces) || 96));
   const patterns = new Map();
   const capacities = lines.map((line) => monotypeGridCapacity(line, config));
@@ -137,6 +251,9 @@ function generateSerialDirectedPatterns(lines, config, options = {}) {
     capacities,
     upperBound,
     families: {},
+    dualRounds: [],
+    finalDualObjective: null,
+    finalDualPrices: null,
   };
 
   function addPattern(board) {
@@ -217,15 +334,92 @@ function generateSerialDirectedPatterns(lines, config, options = {}) {
     }
   }
 
-  const subsetBudget = Math.max(0, maxPhysicalTests - telemetry.tests);
-  const subsets = deterministicSubsets(typeCount, subsetBudget, 7);
-  let round = 0;
+  // Conservar algo de diversidad estructural, pero no gastar todo el
+  // presupuesto en subsets pseudoaleatorios.
+  const randomBudget = Math.min(16, Math.max(0, maxPhysicalTests - telemetry.tests));
+  const subsets = deterministicSubsets(typeCount, randomBudget, 7);
+  let subsetRound = 0;
   for (const indices of subsets) {
     if (telemetry.tests >= maxPhysicalTests) break;
-    const counts = demandRatioCounts(lines, targetBoards, indices, "ceil", 1, maxBatchPieces, config, true);
-    probe(counts, "SUBSET_RATIO", 4000 + round++);
+    const counts = demandRatioCounts(
+      lines,
+      targetBoards,
+      indices,
+      "ceil",
+      1,
+      maxBatchPieces,
+      config,
+      true,
+    );
+    probe(counts, "SUBSET_RATIO", 4000 + subsetRound++);
   }
 
+  // Pricing iterativo. Cada ronda estima precios duales del pool que existe en
+  // ese momento y genera nuevos subproblemas físicos sesgados hacia los tipos
+  // cuyo consumo por placa es más valioso para bajar el master restringido.
+  for (let dualRound = 0; dualRound < 4 && telemetry.tests < maxPhysicalTests; dualRound++) {
+    const beforePatterns = patterns.size;
+    const dual = approximateRestrictedDual([...patterns.values()], lines);
+    const ranking = dual.prices
+      .map((price, index) => ({ index, price }))
+      .sort((a, b) => b.price - a.price || a.index - b.index);
+    const top = ranking.slice(0, Math.min(6, ranking.length));
+
+    telemetry.dualRounds.push({
+      round: dualRound,
+      objectiveBefore: dual.objective,
+      maxViolation: dual.maxViolation,
+      prices: dual.prices.slice(),
+      ranking: ranking.map((entry) => entry.index),
+      testsBefore: telemetry.tests,
+      patternsBefore: beforePatterns,
+    });
+
+    let local = 0;
+    for (const exponent of [0.8, 1.25]) {
+      for (const scale of [0.75, 1.0, 1.3, 1.65]) {
+        if (telemetry.tests >= maxPhysicalTests) break;
+        const counts = dualWeightedCounts(
+          lines,
+          targetBoards,
+          dual.prices,
+          capacities,
+          scale,
+          exponent,
+          maxBatchPieces,
+        );
+        probe(counts, "DUAL_GLOBAL", 5000 + dualRound * 100 + local++);
+      }
+    }
+
+    for (const entry of top) {
+      for (const fraction of [0.5, 1.0]) {
+        if (telemetry.tests >= maxPhysicalTests) break;
+        const counts = dualWeightedCounts(
+          lines,
+          targetBoards,
+          dual.prices,
+          capacities,
+          1.0,
+          1.1,
+          maxBatchPieces,
+          entry.index,
+          fraction,
+        );
+        probe(counts, "DUAL_ANCHOR", 6000 + dualRound * 100 + local++);
+      }
+    }
+
+    const telemetryRound = telemetry.dualRounds[telemetry.dualRounds.length - 1];
+    telemetryRound.testsAfter = telemetry.tests;
+    telemetryRound.patternsAfter = patterns.size;
+    telemetryRound.newPatterns = patterns.size - beforePatterns;
+    if (telemetryRound.newPatterns === 0) break;
+  }
+
+  const finalDual = approximateRestrictedDual([...patterns.values()], lines);
+  telemetry.finalDualObjective = finalDual.objective;
+  telemetry.finalDualPrices = finalDual.prices;
   telemetry.patterns = patterns.size;
   return { patterns: [...patterns.values()], telemetry };
 }
