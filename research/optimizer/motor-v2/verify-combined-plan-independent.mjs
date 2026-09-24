@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 const EPS = 1e-6;
 
@@ -146,6 +147,45 @@ function verifyCutSequence(board, kerf, maxStages) {
       0,
     ),
   };
+}
+
+function canonicalPlanDigest(plan) {
+  const boards = (plan?.placas || []).map((board) => {
+    const placements = (board.colocadas || [])
+      .map((p) => ({
+        ref: Number(p.pieza?.ref),
+        x: Number(p.x),
+        y: Number(p.y),
+        base: Number(p.base),
+        altura: Number(p.altura),
+        rotada: Boolean(p.rotada),
+      }))
+      .sort((a, b) =>
+        a.ref - b.ref ||
+        a.x - b.x ||
+        a.y - b.y ||
+        a.base - b.base ||
+        a.altura - b.altura ||
+        Number(a.rotada) - Number(b.rotada)
+      );
+    const cuts = (board.cortes || []).map((c) => ({
+      x1: Number(c.x1),
+      y1: Number(c.y1),
+      x2: Number(c.x2),
+      y2: Number(c.y2),
+      nivel: Number(c.nivel || 0),
+    }));
+    return JSON.stringify({
+      ancho: Number(board.ancho),
+      alto: Number(board.alto),
+      placements,
+      cuts,
+    });
+  }).sort();
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(boards))
+    .digest("hex");
 }
 
 function verifyBundle(bundle) {
@@ -338,6 +378,7 @@ function verifyBundle(bundle) {
     boardsAbove2Stages,
     boardsAboveExpectedStages,
     allBoardsAtMost2Stages: boardsAbove2Stages === 0,
+    planDigest: canonicalPlanDigest(plan),
     leptonBoards: bundle.leptonBoards,
     leptonPhysicalBoardsFromXml: xmlAudit?.physicalBoards ?? null,
     xmlAudit,
@@ -348,10 +389,8 @@ function verifyBundle(bundle) {
 }
 
 function inputFiles(arg) {
-  const target = path.resolve(arg || path.join(
-    path.dirname(new URL(import.meta.url).pathname),
-    "combined-plan-audit",
-  ));
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const target = path.resolve(arg || path.join(here, "combined-plan-audit"));
   if (!fs.existsSync(target)) throw new Error(`input not found: ${target}`);
   const stat = fs.statSync(target);
   if (stat.isFile()) return [target];
@@ -397,6 +436,7 @@ for (const report of reports) {
     boardsAbove2Stages: report.boardsAbove2Stages,
     lepton: report.leptonBoards,
     leptonPhysical: report.leptonPhysicalBoardsFromXml,
+    digest: report.planDigest,
     errors: report.errors.length,
     warnings: report.warnings.length,
   }));
