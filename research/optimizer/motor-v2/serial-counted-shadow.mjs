@@ -22,6 +22,10 @@ const { solveRestrictedMasterLp } = require(path.join(
   ROOT,
   "src/lib/optimizer/experimental/restricted-master-lp.cjs",
 ));
+const { priceTwoStage } = require(path.join(
+  ROOT,
+  "src/lib/optimizer/experimental/two-stage-pricing-oracle.cjs",
+));
 const { generateSerialDirectedPatterns } = require(path.join(
   ROOT,
   "src/lib/optimizer/experimental/serial-directed-pattern-generator.cjs",
@@ -286,6 +290,9 @@ const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 176);
 const baselinePhysicalTests = envInt("SERIAL_BASELINE_PHYSICAL_TESTS", 96);
 const maxBatchPieces = envInt("SERIAL_MAX_BATCH_PIECES", 96);
 const poolOnly = process.env.SERIAL_POOL_ONLY === "1";
+const twoStagePricingEnabled = process.env.SERIAL_2STAGE_PRICING === "1";
+const twoStagePricingRounds = envInt("SERIAL_2STAGE_ROUNDS", 20);
+const twoStagePricingMaxStates = envInt("SERIAL_2STAGE_MAX_STATES", 500000);
 
 const rows = [];
 for (const c of cases) {
@@ -315,6 +322,121 @@ for (const c of cases) {
     } catch (error) {
       exactLpError = String(error?.stack || error);
     }
+  }
+
+  let twoStagePricing = null;
+  if (
+    twoStagePricingEnabled &&
+    exactLp?.status === "OPTIMAL" &&
+    Array.isArray(exactLp.dualPrices)
+  ) {
+    const pricingPool = patterns.slice();
+    const seenUsage = new Set(
+      pricingPool.map((pattern) =>
+        lines.map((_, index) => pattern.uso.get(index) || 0).join(","),
+      ),
+    );
+    const rounds = [];
+    const initialObjective = exactLp.objective;
+    let currentLp = exactLp;
+    let stopReason = "round-limit";
+    let oracleExact = true;
+    let pricingMs = 0;
+    let lpMs = exactLp.elapsedMs || 0;
+
+    for (let round = 0; round < twoStagePricingRounds; round++) {
+      const oracle = priceTwoStage(lines, config, currentLp.dualPrices, {
+        maxStates: twoStagePricingMaxStates,
+      });
+      pricingMs += oracle.elapsedMs || 0;
+      oracleExact = oracleExact && Boolean(oracle.exactForTwoStage);
+      const best = oracle.best;
+      const before = currentLp.objective;
+
+      if (!best) {
+        stopReason = "no-pattern";
+        rounds.push({
+          round,
+          before,
+          oracleStatus: oracle.status,
+          oracleExact: oracle.exactForTwoStage,
+          axes: oracle.axes,
+          pricingMs: oracle.elapsedMs,
+          added: false,
+        });
+        break;
+      }
+
+      const signature = best.usage.join(",");
+      const reducedCost = 1 - best.dualValue;
+      const roundTelemetry = {
+        round,
+        before,
+        dualValue: best.dualValue,
+        reducedCost,
+        rootAxis: best.rootAxis,
+        area: best.area,
+        usage: best.usage,
+        oracleExact: oracle.exactForTwoStage,
+        axes: oracle.axes,
+        pricingMs: oracle.elapsedMs,
+        added: false,
+      };
+
+      if (best.dualValue <= 1 + 1e-7) {
+        stopReason = "no-negative-reduced-cost";
+        rounds.push(roundTelemetry);
+        break;
+      }
+      if (seenUsage.has(signature)) {
+        stopReason = "duplicate-negative-column";
+        rounds.push(roundTelemetry);
+        break;
+      }
+
+      const uso = new Map();
+      best.usage.forEach((count, index) => {
+        if (count > 0) uso.set(index, count);
+      });
+      pricingPool.push({
+        uso,
+        area: best.area,
+        _twoStagePricing: true,
+        _rootAxis: best.rootAxis,
+      });
+      seenUsage.add(signature);
+
+      const nextLp = solveRestrictedMasterLp(
+        pricingPool,
+        lines.map((line) => line.cant),
+      );
+      lpMs += nextLp.elapsedMs || 0;
+      roundTelemetry.added = true;
+      roundTelemetry.after = nextLp.objective;
+      roundTelemetry.lpMs = nextLp.elapsedMs;
+      rounds.push(roundTelemetry);
+      currentLp = nextLp;
+
+      if (nextLp.status !== "OPTIMAL") {
+        stopReason = "lp-not-optimal";
+        break;
+      }
+    }
+
+    twoStagePricing = {
+      initialObjective,
+      finalObjective: currentLp.objective,
+      improvement: initialObjective - currentLp.objective,
+      addedColumns: pricingPool.length - patterns.length,
+      rounds,
+      stopReason,
+      oracleExact,
+      totalPricingMs: pricingMs,
+      totalLpMs: lpMs,
+      finalDualPrices: currentLp.dualPrices,
+      finalMaxConstraintError: currentLp.maxConstraintError,
+      finalMaxDualViolation: currentLp.maxDualViolation,
+    };
   }
 
   const maxCoverage = coverageMax(patterns, lines.length);
@@ -367,6 +489,7 @@ for (const c of cases) {
       : null,
     exactLpDualPrices: exactLp?.dualPrices ?? null,
     exactLpError,
+    twoStagePricing,
     missingTypes,
     solverBoards: Number.isFinite(solution?.placas) ? solution.placas : null,
     solverNodes: solution?.nodos ?? null,
@@ -400,6 +523,12 @@ for (const c of cases) {
     exactLp: row.exactLpObjective,
     exactLpMs: row.exactLpMs,
     exactLpIterations: row.exactLpIterations,
+    twoStageLp: row.twoStagePricing?.finalObjective ?? null,
+    twoStageGain: row.twoStagePricing?.improvement ?? null,
+    twoStageCols: row.twoStagePricing?.addedColumns ?? null,
+    twoStageStop: row.twoStagePricing?.stopReason ?? null,
+    twoStageExact: row.twoStagePricing?.oracleExact ?? null,
+    twoStagePricingMs: row.twoStagePricing?.totalPricingMs ?? null,
     dualTop: row.generatorTelemetry?.finalDualPrices
       ? row.generatorTelemetry.finalDualPrices
           .map((price, index) => ({ index, price }))
@@ -421,6 +550,7 @@ const summary = {
   schema: "optimizer-serial-counted-shadow-v1", generatedAt: new Date().toISOString(),
   targets: targetIds.size, fixtureCases: fixtureCases.length, xmlRecoveredCases: xmlRecovery.cases.length, unresolvedIds: missing,
   limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces, poolOnly,
+  twoStagePricingEnabled, twoStagePricingRounds, twoStagePricingMaxStates,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
