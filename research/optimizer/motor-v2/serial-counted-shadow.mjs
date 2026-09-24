@@ -4,13 +4,14 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 import { createContext } from "../pattern-generators/context.mjs";
 import { generatePatternsRust } from "../pattern-generators/rust/adapter.mjs";
 
 const require = createRequire(import.meta.url);
-const ROOT = path.resolve(new URL("../../../", import.meta.url).pathname);
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, "../../..");
 const FIX = path.resolve(HERE, "../holdout-v2-fixture");
 
 const { resolverCoberturaContada } = require(path.join(
