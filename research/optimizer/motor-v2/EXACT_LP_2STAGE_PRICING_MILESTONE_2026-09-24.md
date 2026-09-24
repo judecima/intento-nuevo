@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE — SERIAL TUNING CLOSED, COMPONENTS RETAINED FOR FURNITURE**
+Status: **RESEARCH MILESTONE — ONE FINAL ROUNDING AUDIT ACTIVE; COUNTED-DFS TUNING CLOSED**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -89,7 +89,9 @@ Do not:
 - treat the 20-round pricing result as converged;
 - promote the serial route directly to production.
 
-One final bounded serial experiment is still justified because it reuses the already-built components and attacks the actual remaining gap:
+One final bounded serial experiment is still justified because it reuses the already-built components and attacks the actual remaining gap. Important caveat: once residual quantities become small, per-type demand caps can bind the 2-stage pricing problem. The current oracle is exact only when its unconstrained optimum respects those caps; any cap-binding residual is reported as non-certified pricing rather than falsely declared converged.
+
+Experiment:
 1. floor the current LP;
 2. re-solve/re-price on the residual demand;
 3. repeat until the residual is furniture-sized (roughly <=100 pieces) or a hard research budget is reached;
