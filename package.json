@@ -23,7 +23,8 @@
     "optimizer:validate:full": "node scripts/validate-production-runtime-full.mjs",
     "optimizer:validate:auto": "node scripts/validate-production-runtime-full.mjs --candidate-only",
     "optimizer:validate:v1-review": "node scripts/validate-production-runtime-v1-review.mjs",
-    "optimizer:validate:attribution": "node scripts/replay-production-runtime-attribution.mjs"
+    "optimizer:validate:attribution": "node scripts/replay-production-runtime-attribution.mjs",
+    "optimizer:audit:serial": "node scripts/audit-serial-production.mjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
