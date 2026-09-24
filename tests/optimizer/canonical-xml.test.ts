@@ -109,6 +109,55 @@ describe("parseCanonicalXml / diferencias relevantes", () => {
   });
 });
 
+describe("parseCanonicalXml / refilado en project", () => {
+  it("mantiene trim 0x0 por defecto pero expone la inferencia como metadata", () => {
+    const parsed = parseCanonicalXml(projectDirectionalXml, {
+      fileName: "project-directional.xml"
+    });
+
+    expect(parsed.case.trim).toEqual({ x: 0, y: 0 });
+    expect(parsed.stats.projectTrimMode).toBe("zero");
+    expect(parsed.stats.inferredProjectTrim).toEqual({
+      x: 5,
+      y: 5,
+      unambiguous: true
+    });
+  });
+
+  it("aplica el trim inferido cuando projectTrimMode=infer", () => {
+    const parsed = parseCanonicalXml(projectDirectionalXml, {
+      fileName: "project-directional.xml",
+      projectTrimMode: "infer"
+    });
+
+    expect(parsed.case.trim).toEqual({ x: 5, y: 5 });
+    expect(parsed.stats.projectTrimMode).toBe("infer");
+    expect(parsed.stats.inferredProjectTrim).toEqual({
+      x: 5,
+      y: 5,
+      unambiguous: true
+    });
+  });
+
+  it("falla explicitamente si el trim por eje no es univoco", () => {
+    const ambiguous = projectDirectionalXml.replace(
+      '<no.2 l="2600" w="95" trim="5"',
+      '<no.2 l="2600" w="95" trim="7"'
+    );
+
+    try {
+      parseCanonicalXml(ambiguous, {
+        fileName: "project-trim-ambiguous.xml",
+        projectTrimMode: "infer"
+      });
+      throw new Error("Expected ambiguous project trim to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CanonicalXmlParseError);
+      expect((error as CanonicalXmlParseError).code).toBe("project-trim-ambiguous");
+    }
+  });
+});
+
 describe("parseCanonicalXml / orientacion en project", () => {
   it("convierte los ejes locales l/w a dimensiones globales segun el layer", () => {
     const parsed = parseCanonicalXml(projectXml, { fileName: "project-minimal.xml" });
