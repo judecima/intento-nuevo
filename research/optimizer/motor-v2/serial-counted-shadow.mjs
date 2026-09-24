@@ -340,6 +340,7 @@ for (const c of cases) {
     solverBoards: Number.isFinite(solution?.placas) ? solution.placas : null,
     solverNodes: solution?.nodos ?? null,
     multiplicityBranches: solution?.ramasMultiplicidad ?? null,
+    solverDepthMax: solution?.profundidadMax ?? null,
     solverInitialIncumbent: solution?.initialIncumbent ?? null,
     solverMonotypeIncumbent: solution?.monotypeIncumbent ?? null,
     solverSeededIncumbent: solution?.seededIncumbent ?? null,
@@ -348,7 +349,14 @@ for (const c of cases) {
     valid: Boolean(validation?.ok), deltaVsLepton: boards == null ? null : boards - c.leptonBoards,
     reachedLepton: boards != null && boards <= c.leptonBoards,
     reachedSafeLowerBound: boards != null && boards <= lb.value,
-    patternCounts: solution?.counts?.map((entry) => ({ count: entry.count, usage: lines.map((_, index) => entry.pattern.uso.get(index) || 0) })) ?? null,
+    patternCounts: solution?.counts?.map((entry) => ({
+      count: entry.count,
+      usage: lines.map((_, index) => entry.pattern.uso.get(index) || 0),
+    })) ?? null,
+    poolPatterns: patterns.map((pattern) => ({
+      usage: lines.map((_, index) => pattern.uso.get(index) || 0),
+      area: pattern.area,
+    })),
     generatorError, solverError,
   };
   rows.push(row);
@@ -361,6 +369,7 @@ for (const c of cases) {
     boards: row.materializedBoards, valid: row.valid, delta: row.deltaVsLepton,
     seed: row.solverSeededIncumbent,
     monoSeed: row.solverMonotypeIncumbent,
+    depth: row.solverDepthMax,
     nodes: row.solverNodes, multBranches: row.multiplicityBranches, solveMs: row.solveMs,
     generatorStatus: row.generatorStatus, missingTypes: row.missingTypes,
   }));
