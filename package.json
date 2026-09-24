@@ -22,7 +22,8 @@
     "optimizer:rust:test": "npm run optimizer:rust:build && REQUIRE_RUST_PATTERN_GENERATOR=1 vitest run tests/optimizer/rust-pattern-generator.test.ts",
     "optimizer:validate:full": "node scripts/validate-production-runtime-full.mjs",
     "optimizer:validate:auto": "node scripts/validate-production-runtime-full.mjs --candidate-only",
-    "optimizer:validate:v1-review": "node scripts/validate-production-runtime-v1-review.mjs"
+    "optimizer:validate:v1-review": "node scripts/validate-production-runtime-v1-review.mjs",
+    "optimizer:audit:lepton-semantics": "node scripts/audit-holdout-lepton-semantics.mjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
