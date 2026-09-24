@@ -65,3 +65,39 @@ npm run optimizer:validate:auto:lepton-trim -- `
 ```
 
 Do not start furniture LP/pricing experiments until the corrected baseline is available.
+
+
+## Canonical parser correction
+
+`parseCanonicalXml()` now supports an explicit `projectTrimMode`:
+- `"zero"` (default): preserves historical production behavior;
+- `"infer"`: reconstructs project trim X/Y from Lepton level-1/2 node trim values after root-direction resolution.
+
+The corrected holdout runner uses `projectTrimMode: "infer"` from parse time; it no longer mutates `parsed.case.trim` after canonicalization.
+
+Contract tests cover:
+- historical default remains 0 x 0;
+- real project fixture infers and applies 5 x 5;
+- ambiguous trim fails with `project-trim-ambiguous`.
+
+## Secondary cohorts
+
+From the semantics rows:
+- 328 historical cases have no candidate-vs-Lepton comparison;
+- 1,709 cases with >=5 pieces show no rotation in Lepton;
+- of those no-rotation cases: 61 historical better, 1,627 equal, 0 worse, 21 unknown.
+
+The audit now emits:
+- `IDS_UNKNOWN.txt`;
+- `IDS_ROTATION_REVIEW.txt` (the 61 historical better cases where Lepton did not rotate);
+- material names per case, to review wood/decor grain risk;
+- `IDS_FURNITURE_LE75.txt`;
+- `IDS_OVER75.txt`;
+- `IDS_ZERO_PIECES.txt`.
+
+The current corpus split by physical Lepton boards is:
+- 15,760 cases with <=75 boards and at least one piece;
+- 26 cases with >75 boards;
+- 1 zero-piece project.
+
+The corrected product baseline should therefore be run first on `IDS_FURNITURE_LE75.txt`, while >75-board jobs are analyzed separately.
