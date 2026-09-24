@@ -330,6 +330,7 @@ const residualCgMaxCycles = envInt("SERIAL_RESIDUAL_CG_MAX_CYCLES", 6);
 const residualCgPricingRounds = envInt("SERIAL_RESIDUAL_CG_PRICING_ROUNDS", 100);
 const residualCgPricingBudgetMs = envInt("SERIAL_RESIDUAL_CG_PRICING_BUDGET_MS", 3000);
 const residualCgFinalizerMs = envInt("SERIAL_RESIDUAL_CG_FINALIZER_MS", 3000);
+const residualCgFinalizerMaxPieces = envInt("SERIAL_RESIDUAL_CG_FINALIZER_MAX_PIECES", 300);
 
 const rows = [];
 for (const c of cases) {
@@ -760,7 +761,7 @@ for (const c of cases) {
 
       if (residualPieces === 0) {
         finalizerBoards = 0;
-      } else if (residualPieces <= residualCgThresholdPieces) {
+      } else if (residualPieces <= residualCgFinalizerMaxPieces) {
         const finalizerStarted = nowMs();
         try {
           const sub = [];
@@ -793,7 +794,10 @@ for (const c of cases) {
         finalizerMs = nowMs() - finalizerStarted;
       } else {
         finalizerError =
-          "residual remained above threshold: " + residualPieces;
+          "residual exceeds finalizer max pieces: " +
+          residualPieces +
+          " > " +
+          residualCgFinalizerMaxPieces;
       }
 
       let combinedBoards = null;
@@ -825,6 +829,7 @@ for (const c of cases) {
 
       residualCgAudit = {
         thresholdPieces: residualCgThresholdPieces,
+        finalizerMaxPieces: residualCgFinalizerMaxPieces,
         cycles,
         stopReason: residualCgStopReason,
         residualPieces,
@@ -1050,6 +1055,7 @@ const summary = {
   twoStageResidualWatchdogMs, twoStageResidualNodes,
   residualCgEnabled, residualCgThresholdPieces, residualCgMaxCycles,
   residualCgPricingRounds, residualCgPricingBudgetMs, residualCgFinalizerMs,
+  residualCgFinalizerMaxPieces,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
