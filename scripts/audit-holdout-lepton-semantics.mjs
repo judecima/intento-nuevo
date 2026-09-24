@@ -21,6 +21,8 @@ const summaryPath = path.join(args.output, "LEPTON_SEMANTICS_SUMMARY.json");
 const nonZeroIdsPath = path.join(args.output, "IDS_TRIM_NONZERO.txt");
 const ambiguousIdsPath = path.join(args.output, "IDS_TRIM_AMBIGUOUS.txt");
 const zeroIdsPath = path.join(args.output, "IDS_TRIM_ZERO.txt");
+const unknownIdsPath = path.join(args.output, "IDS_UNKNOWN.txt");
+const rotationReviewIdsPath = path.join(args.output, "IDS_ROTATION_REVIEW.txt");
 
 const files = collectXml(args.inputs);
 const runtimeRows = args.runtimeRows ? loadJsonl(args.runtimeRows) : [];
@@ -96,6 +98,28 @@ const trimDistribution = histogram(
   unambiguous.map((row) => `${row.inferredRefilado.x},${row.inferredRefilado.y}`),
 );
 
+const unknownRows = project.filter(
+  (row) => row.runtime?.candidateVsLepton == null,
+);
+const unknownRuntimeMissing = unknownRows.filter((row) => row.runtime == null);
+const unknownRuntimePresent = unknownRows.filter((row) => row.runtime != null);
+
+const noRotationAtLeast5 = project.filter(
+  (row) => row.physicalPieces >= 5 && !row.rotation?.rotationObserved,
+);
+const noRotationBetter = noRotationAtLeast5.filter(
+  (row) => row.runtime?.candidateVsLepton < 0,
+);
+const noRotationEqual = noRotationAtLeast5.filter(
+  (row) => row.runtime?.candidateVsLepton === 0,
+);
+const noRotationWorse = noRotationAtLeast5.filter(
+  (row) => row.runtime?.candidateVsLepton > 0,
+);
+const noRotationUnknown = noRotationAtLeast5.filter(
+  (row) => row.runtime?.candidateVsLepton == null,
+);
+
 const cohortSummary = {};
 for (const [name, predicate] of Object.entries({
   better: (row) => row.runtime?.candidateVsLepton < 0,
@@ -143,11 +167,41 @@ const summary = {
     ).length,
   },
   qualityCohorts: cohortSummary,
+  unknown: {
+    cases: unknownRows.length,
+    runtimeMissing: unknownRuntimeMissing.length,
+    runtimePresentNoComparison: unknownRuntimePresent.length,
+    trimDistribution: histogram(
+      unknownRows.map(
+        (row) => `${row.inferredRefilado?.x},${row.inferredRefilado?.y}`,
+      ),
+    ),
+    runtimePresentCases: unknownRuntimePresent.map((row) => ({
+      caseId: row.caseId,
+      leptonBoards: row.runtime?.leptonBoards ?? row.physicalBoards ?? null,
+      physicalPieces: row.physicalPieces,
+      candidateWallMs: row.runtime?.candidateWallMs ?? null,
+      candidateCpuMs: row.runtime?.candidateCpuMs ?? null,
+      trim: row.inferredRefilado,
+    })),
+  },
+  noRotationAtLeast5: {
+    cases: noRotationAtLeast5.length,
+    better: noRotationBetter.length,
+    equal: noRotationEqual.length,
+    worse: noRotationWorse.length,
+    unknown: noRotationUnknown.length,
+    betterMaterials: histogram(
+      noRotationBetter.flatMap((row) => row.materials || []),
+    ),
+  },
   outputs: {
     rows: rowsPath,
     nonZeroIds: nonZeroIdsPath,
     zeroIds: zeroIdsPath,
     ambiguousIds: ambiguousIdsPath,
+    unknownIds: unknownIdsPath,
+    rotationReviewIds: rotationReviewIdsPath,
   },
   errorsPreview: errors.slice(0, 20).map((row) => ({
     caseId: row.caseId,
@@ -160,6 +214,8 @@ fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + "\n");
 writeIds(nonZeroIdsPath, trimNonZero);
 writeIds(zeroIdsPath, trimZero);
 writeIds(ambiguousIdsPath, trimAmbiguous);
+writeIds(unknownIdsPath, unknownRows);
+writeIds(rotationReviewIdsPath, noRotationBetter);
 
 console.log("SUMMARY " + JSON.stringify({
   xmlFiles: summary.xmlFiles,
@@ -171,6 +227,8 @@ console.log("SUMMARY " + JSON.stringify({
   trimAmbiguous: summary.trim.ambiguous,
   trimDistribution: summary.trim.distribution,
   qualityCohorts: summary.qualityCohorts,
+  unknown: summary.unknown,
+  noRotationAtLeast5: summary.noRotationAtLeast5,
   output: summaryPath,
 }));
 
