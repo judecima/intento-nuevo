@@ -398,6 +398,7 @@ function priceTwoStage(lines, config, dualPrices, options = {}) {
   if (dualPrices.length !== typeCount) throw new Error("dual price length mismatch");
 
   let best = null;
+  let demandCapViolationSeen = false;
   const axes = [];
   for (const rootAxis of ["x", "y"]) {
     const built = buildStripOptions(lines, config, dualPrices, rootAxis, options);
@@ -422,10 +423,14 @@ function priceTwoStage(lines, config, dualPrices, options = {}) {
       (count, index) => count > Number(lines[index].cant),
     );
     if (exceedsDemand) {
-      // The current research oracle is exact only while demand caps do not bind.
-      // Never emit an infeasible column.
+      // The unconstrained 2-stage optimum for this axis violates residual
+      // demand caps. We reject it, but the second-best bounded pattern is not
+      // enumerated by this research oracle, so bounded-demand exactness is lost.
+      demandCapViolationSeen = true;
+      axes[axes.length - 1].demandCapViolation = true;
       continue;
     }
+    axes[axes.length - 1].demandCapViolation = false;
 
     const pattern = physicalPattern(lines, config, rootAxis, root);
     const candidate = {
@@ -455,8 +460,9 @@ function priceTwoStage(lines, config, dualPrices, options = {}) {
     elapsedMs,
     best,
     axes,
-    exactForTwoStage: axes.every((axis) => !axis.restricted),
-    demandCapsBinding: false,
+    exactForTwoStage:
+      axes.every((axis) => !axis.restricted) && !demandCapViolationSeen,
+    demandCapsBinding: demandCapViolationSeen,
   };
 }
 
