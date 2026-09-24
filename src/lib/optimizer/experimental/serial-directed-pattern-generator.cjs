@@ -233,7 +233,11 @@ function dualWeightedCounts(
 function generateSerialDirectedPatterns(lines, config, options = {}) {
   const typeCount = lines.length;
   const targetBoards = Math.max(1, Math.floor(Number(options.targetBoards) || 1));
-  const maxPhysicalTests = Math.max(1, Math.floor(Number(options.maxPhysicalTests) || 160));
+  const maxPhysicalTests = Math.max(1, Math.floor(Number(options.maxPhysicalTests) || 176));
+  const baselinePhysicalTests = Math.min(
+    maxPhysicalTests,
+    Math.max(1, Math.floor(Number(options.baselinePhysicalTests) || 96)),
+  );
   const maxBatchPieces = Math.max(8, Math.floor(Number(options.maxBatchPieces) || 96));
   const patterns = new Map();
   const capacities = lines.map((line) => monotypeGridCapacity(line, config));
@@ -241,6 +245,7 @@ function generateSerialDirectedPatterns(lines, config, options = {}) {
   const telemetry = {
     targetBoards,
     maxPhysicalTests,
+    baselinePhysicalTests,
     maxBatchPieces,
     tests: 0,
     successfulTests: 0,
@@ -334,9 +339,11 @@ function generateSerialDirectedPatterns(lines, config, options = {}) {
     }
   }
 
-  // Conservar algo de diversidad estructural, pero no gastar todo el
-  // presupuesto en subsets pseudoaleatorios.
-  const randomBudget = Math.min(16, Math.max(0, maxPhysicalTests - telemetry.tests));
+  // Preservar EXACTAMENTE el pool base del milestone anterior antes de
+  // agregar pricing. El pricing debe ser monotónico: nunca reemplazar columnas
+  // que ya habían demostrado valor. Con baselinePhysicalTests=96 esto conserva
+  // UNIT + MONO_DENSE + GLOBAL_RATIO + el mismo presupuesto SUBSET_RATIO.
+  const randomBudget = Math.max(0, baselinePhysicalTests - telemetry.tests);
   const subsets = deterministicSubsets(typeCount, randomBudget, 7);
   let subsetRound = 0;
   for (const indices of subsets) {
