@@ -281,6 +281,7 @@ const solverWatchdogMs = envInt("SERIAL_SOLVER_WATCHDOG_MS", 12000);
 const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 176);
 const baselinePhysicalTests = envInt("SERIAL_BASELINE_PHYSICAL_TESTS", 96);
 const maxBatchPieces = envInt("SERIAL_MAX_BATCH_PIECES", 96);
+const poolOnly = process.env.SERIAL_POOL_ONLY === "1";
 
 const rows = [];
 for (const c of cases) {
@@ -306,7 +307,7 @@ for (const c of cases) {
   const missingTypes = maxCoverage.map((value, index) => (value > 0 ? null : index)).filter((value) => value !== null);
 
   let solution = null, solverError = null, solveMs = null, plan = null, validation = null;
-  if (!generatorError && patterns.length && !missingTypes.length) {
+  if (!poolOnly && !generatorError && patterns.length && !missingTypes.length) {
     const areaPlaca =
       (c.width - (config.refiladoX || 0)) *
       (c.height - (config.refiladoY || 0));
@@ -330,6 +331,8 @@ for (const c of cases) {
   const boards = validation?.ok && plan?.resumen ? plan.resumen.placas : null;
   const row = {
     id: c.id, source: c.source ?? null, sourcePath: c.sourcePath ?? null, types: lines.length, pieces, quantityGcd, leptonBoards: c.leptonBoards,
+    demand: lines.map((line) => line.cant),
+    poolOnly,
     safeLowerBound: lb.value, lowerBoundReason: lb.reason,
     generatorStatus: generatorError ? "ERROR" : "DIRECTED",
     generatorRestricted: true,
@@ -388,7 +391,7 @@ const valid = rows.filter((r) => r.valid);
 const summary = {
   schema: "optimizer-serial-counted-shadow-v1", generatedAt: new Date().toISOString(),
   targets: targetIds.size, fixtureCases: fixtureCases.length, xmlRecoveredCases: xmlRecovery.cases.length, unresolvedIds: missing,
-  limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces,
+  limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces, poolOnly,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
