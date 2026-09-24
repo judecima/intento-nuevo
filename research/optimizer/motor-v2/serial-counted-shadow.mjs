@@ -278,7 +278,7 @@ const limits = {
 const maxVariants = envInt("SERIAL_MAX_VARIANTS", 1);
 const solverNodes = envInt("SERIAL_SOLVER_NODES", 1600000);
 const solverWatchdogMs = envInt("SERIAL_SOLVER_WATCHDOG_MS", 12000);
-const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 96);
+const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 160);
 const maxBatchPieces = envInt("SERIAL_MAX_BATCH_PIECES", 96);
 
 const rows = [];
@@ -365,6 +365,13 @@ for (const c of cases) {
     lb: row.safeLowerBound, patterns: row.generatorPatterns,
     tests: row.generatorTelemetry?.tests ?? null,
     upperBound: row.generatorTelemetry?.upperBound ?? null,
+    dualObjective: row.generatorTelemetry?.finalDualObjective ?? null,
+    dualTop: row.generatorTelemetry?.finalDualPrices
+      ? row.generatorTelemetry.finalDualPrices
+          .map((price, index) => ({ index, price }))
+          .sort((a, b) => b.price - a.price || a.index - b.index)
+          .slice(0, 6)
+      : null,
     genMs: row.generationMs,
     boards: row.materializedBoards, valid: row.valid, delta: row.deltaVsLepton,
     seed: row.solverSeededIncumbent,
