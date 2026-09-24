@@ -26,7 +26,7 @@ The earlier 20-round audit did **not** converge, but the final bounded rerun did
 - 5445716: 22 added columns, LP 615.042270;
 - 5447573: 25 added columns, LP 577.359733.
 
-The restricted 2-stage LP is therefore converged for the initial demand in these three cases. This still is not a global <=4-stage certificate.
+The restricted-master LP is converged **with respect to the exact 2-stage pricing oracle** for the initial demand in these three cases. The RMP itself is not a pure 2-stage model: it starts from the existing physical pool, which contains higher-stage patterns, and is then augmented with exact 2-stage columns. Therefore this result means "no missing negative-reduced-cost 2-stage column for the current duals", not "exact LP optimum of the pure 2-stage family", and it is not a global <=4-stage certificate.
 
 ## Physical validity
 
@@ -93,7 +93,7 @@ Do not:
 
 The iterative residual-repricing experiment ran, but **the Lepton+2 gate was not evaluated** because the normal-engine finalizer was gated by an arbitrary <=100-piece threshold. The three Ignacio residuals stopped at 148-230 pieces with `finalizerMs=0` and no combined plan, so the prior "failed gate" wording was incorrect. Residual repricing still did not reveal another pool-density gap.
 
-| Case | Converged global 2-stage LP | First floor boards | Residual pieces | Residual LP | Second floor progress | Residual pricing status |
+| Case | RMP LP after converged 2-stage pricing | First floor boards | Residual pieces | Residual LP | Second floor progress | Residual pricing status |
 |---|---:|---:|---:|---:|---|---|
 | 5445701 | 587.7570 | 580 | 198 | 7.7570 | none | exact, no negative reduced cost |
 | 5445716 | 615.0423 | 609 | 148 | 6.0423 | none | demand caps bind; not certified |
@@ -139,7 +139,7 @@ Important caveat: residual pricing is exact for 5445701 but demand caps bind in 
 
 The remaining concern is latency of the normal-engine residual finalizer. The 230-piece residual took ~7.6 s despite a nominal 3 s finalizer budget, so timeout/budget enforcement must be audited before this route is considered production-ready.
 
-The serial architecture has passed the internal gate, but final closure requires the independent exported-plan audit and one reproducibility rerun. Do not continue tuning counted DFS while those controls are pending.
+The serial architecture has passed the internal gate. Independent Run A has also passed completely; only the reproducibility Run B remains before final closure. Do not continue tuning counted DFS while that control is pending.
 
 Next product milestone:
 - return to furniture / Lepton <= 75 boards;
@@ -178,4 +178,34 @@ Run the four cases twice in separate export directories. Final closure requires:
 3. identical board counts in both runs;
 4. record whether the canonical plan digests are identical or only quality-equivalent.
 
-Only if every board in the integer plan is <=2 stages may the stronger statement "integer optimum proven within the 2-stage family" be made. If the finalizer uses 3/4-stage boards, the correct statement remains: the converged 2-stage pricing LP supplies the lower bound and the mixed-stage final plan reaches its ceiling.
+### Independent Run A result
+
+Independent verification passed 4/4 cases with zero errors:
+- exact type counts and total physical pieces;
+- unique piece IDs;
+- panel bounds and no overlaps;
+- independent kerf-aware guillotine cut simulation;
+- source panel dimensions and kerf;
+- physical Lepton panel counts read directly from XML.
+
+| Case | Boards | Pieces exact | Lepton physical from XML | Max cut level | Boards >2 stages | Digest |
+|---|---:|---:|---:|---:|---:|---|
+| 5445701 | 588 | 13600 | 591 | 3 | 107 | `63038f420a9c7c68df4b480f352c089d498be05137483bf503fea99ab05546ff` |
+| 5445716 | 616 | 13600 | 621 | 3 | 135 | `037889f7a4f056e613c0417115ba8a1965437bbddd786916b49095f4dad00476` |
+| 5447573 | 578 | 13600 | 588 | 3 | 108 | `09db7772340e829c8f44a227ebd741bd6825505997e437a960e63e57fbebb2fd` |
+| 5456195 | 7680 | 10240 | 7680 | 3 | 960 | `9b5fb0463824b3bc477b9092ac29b6743a03bac927ed643bf078f2d983549698` |
+
+The XMLs do not explicitly declare a `Grain` attribute, so the independent verifier correctly reports that no additional source-level grain restriction can be inferred beyond the canonical case semantics.
+
+Run A also corrects a previous interpretation: the integer plans are **not** pure 2-stage plans. The three Ignacio plans contain 107 / 135 / 108 boards above 2 stages. Since the finalizer contributes only 8 / 7 / 8 boards, at least 99 / 128 / 100 higher-stage boards come from the LP-fixed portion itself. This proves the starting RMP pool is mixed-stage.
+
+Therefore do **not** claim "integer optimum proven within the 2-stage family". The precise statement is:
+
+> An exact restricted master over the existing mixed-stage pool, augmented until no negative-reduced-cost 2-stage column remains, yields LP values 587.757 / 615.042 / 577.360. A fully materialized mixed-stage integer pipeline independently validates plans of 588 / 616 / 578 boards, beating the physical Lepton outputs by 3 / 5 / 10 boards.
+
+These LP values are valid lower bounds for the integer problem over the **current restricted mixed pool**, not for the unrestricted <=4-stage problem. Missing 3/4-stage columns could still lower the unrestricted LP/integer optimum.
+
+Final closure now requires only Run B:
+1. independent verification valid again;
+2. same board counts;
+3. compare plan digests to distinguish physical determinism from quality-only reproducibility.
