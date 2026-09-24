@@ -18,6 +18,10 @@ const { resolverCoberturaContada } = require(path.join(
   ROOT,
   "src/lib/optimizer/experimental/counted-coverage.cjs",
 ));
+const { solveRestrictedMasterLp } = require(path.join(
+  ROOT,
+  "src/lib/optimizer/experimental/restricted-master-lp.cjs",
+));
 const { generateSerialDirectedPatterns } = require(path.join(
   ROOT,
   "src/lib/optimizer/experimental/serial-directed-pattern-generator.cjs",
@@ -303,6 +307,16 @@ for (const c of cases) {
   } catch (error) { generatorError = String(error?.stack || error); }
   const generationMs = nowMs() - tg;
   const patterns = generator?.patterns || [];
+
+  let exactLp = null, exactLpError = null;
+  if (!generatorError && patterns.length) {
+    try {
+      exactLp = solveRestrictedMasterLp(patterns, lines.map((line) => line.cant));
+    } catch (error) {
+      exactLpError = String(error?.stack || error);
+    }
+  }
+
   const maxCoverage = coverageMax(patterns, lines.length);
   const missingTypes = maxCoverage.map((value, index) => (value > 0 ? null : index)).filter((value) => value !== null);
 
@@ -341,6 +355,18 @@ for (const c of cases) {
     generatorFailures: generator?.telemetry?.failedTests ?? 0,
     generatorTelemetry: generator?.telemetry ?? null,
     generationMs: +generationMs.toFixed(3),
+    exactLpStatus: exactLp?.status ?? null,
+    exactLpObjective: Number.isFinite(exactLp?.objective) ? exactLp.objective : null,
+    exactLpIterations: exactLp?.iterations ?? null,
+    exactLpMs: Number.isFinite(exactLp?.elapsedMs) ? +exactLp.elapsedMs.toFixed(3) : null,
+    exactLpMaxConstraintError: Number.isFinite(exactLp?.maxConstraintError)
+      ? exactLp.maxConstraintError
+      : null,
+    exactLpMaxDualViolation: Number.isFinite(exactLp?.maxDualViolation)
+      ? exactLp.maxDualViolation
+      : null,
+    exactLpDualPrices: exactLp?.dualPrices ?? null,
+    exactLpError,
     missingTypes,
     solverBoards: Number.isFinite(solution?.placas) ? solution.placas : null,
     solverNodes: solution?.nodos ?? null,
@@ -371,6 +397,9 @@ for (const c of cases) {
     tests: row.generatorTelemetry?.tests ?? null,
     upperBound: row.generatorTelemetry?.upperBound ?? null,
     dualObjective: row.generatorTelemetry?.finalDualObjective ?? null,
+    exactLp: row.exactLpObjective,
+    exactLpMs: row.exactLpMs,
+    exactLpIterations: row.exactLpIterations,
     dualTop: row.generatorTelemetry?.finalDualPrices
       ? row.generatorTelemetry.finalDualPrices
           .map((price, index) => ({ index, price }))
