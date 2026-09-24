@@ -34,7 +34,7 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
     const previous = byVector.get(key);
     if (!previous || area > previous.area) byVector.set(key, { v, area, source });
   }
-  const pats = [...byVector.values()];
+  const pats = [...byVector.values()].map((pattern, id) => ({ ...pattern, id }));
   if (!pats.length) return null;
 
   const maxCob = new Array(T).fill(0);
@@ -52,6 +52,7 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
   const memo = new Map();
   let nodos = 0;
   let ramasMultiplicidad = 0;
+  let profundidadMax = 0;
   let agotado = false;
   let targetReached = false;
   let timeout = false;
@@ -208,7 +209,8 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
     return seed;
   }
 
-  function dfs(rest, areaRest, usadas, counts) {
+  function dfs(rest, areaRest, usadas, counts, usedMask = 0n) {
+    profundidadMax = Math.max(profundidadMax, counts.length);
     if (targetReached) return;
     if (restEmpty(rest)) {
       if (usadas < mejor) {
@@ -221,7 +223,7 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
     if (usadas + cota(rest, areaRest) >= mejor) return;
     if (stopped()) return;
 
-    const key = rest.join(",");
+    const key = rest.join(",") + "|" + usedMask.toString(36);
     const previous = memo.get(key);
     if (previous !== undefined && previous <= usadas) return;
     memo.set(key, usadas);
@@ -241,6 +243,8 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
 
     const candidates = [];
     for (const p of pats) {
+      const bit = 1n << BigInt(p.id);
+      if ((usedMask & bit) !== 0n) continue;
       if (p.v[tipo] <= 0) continue;
       const copies = maxCopies(p, rest);
       const maxK = Math.min(copies, Math.max(0, mejor - usadas - 1));
@@ -272,7 +276,13 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
         if (nextUsed + cota(applied.rest, nextArea) >= mejor) continue;
 
         counts.push({ pattern: p.source, count: k });
-        dfs(applied.rest, nextArea, nextUsed, counts);
+        dfs(
+          applied.rest,
+          nextArea,
+          nextUsed,
+          counts,
+          usedMask | (1n << BigInt(p.id)),
+        );
         counts.pop();
 
         if (targetReached || stopped()) return;
@@ -297,7 +307,7 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
         if (targetBoards !== null && mejor <= targetBoards) targetReached = true;
       }
 
-      if (!targetReached) dfs(demanda.slice(), areaTotal, 0, []);
+      if (!targetReached) dfs(demanda.slice(), areaTotal, 0, [], 0n);
 
       let plan = null;
       if (mejorCounts && expandPlan) {
@@ -312,6 +322,7 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
         counts: mejorCounts,
         nodos,
         ramasMultiplicidad,
+        profundidadMax,
         agotado,
         targetReached,
         timeout,
