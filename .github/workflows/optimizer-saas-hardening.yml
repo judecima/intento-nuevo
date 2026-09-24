@@ -23,6 +23,8 @@ on:
       - "scripts/validate-production-runtime-full.mjs"
       - "scripts/prepare-production-runtime-v1-selection.mjs"
       - "scripts/validate-production-runtime-v1-review.mjs"
+      - "scripts/replay-production-runtime-attribution.mjs"
+      - "research/optimizer/RUNTIME_ATTRIBUTION_MILESTONE_2026-09-24.md"
       - ".github/workflows/optimizer-saas-hardening.yml"
   workflow_dispatch:
 
@@ -69,6 +71,14 @@ jobs:
           --output /tmp/full-runtime-validation-smoke
           --control-size 2
           --tail-size 1
+          --progress-every 1
+      - name: Runtime attribution smoke
+        run: >
+          node scripts/replay-production-runtime-attribution.mjs
+          --output /tmp/full-runtime-validation-smoke
+          --replay-output /tmp/runtime-attribution-smoke
+          --control-size 1
+          --limit 3
           --progress-every 1
       - name: Next production build
         run: npm run build

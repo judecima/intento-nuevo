@@ -51,6 +51,7 @@ const failuresPath = join(outputDir, "FULL_RUNTIME_VALIDATION_FAILURES.jsonl");
 const reviewPath = join(outputDir, "FULL_RUNTIME_VALIDATION_REVIEW.jsonl");
 const summaryPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SUMMARY.json");
 const summaryMdPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SUMMARY.md");
+const retryHistoryPath = join(outputDir, "FULL_RUNTIME_VALIDATION_RETRY_HISTORY.jsonl");
 
 const existingMeta = existsSync(metadataPath)
   ? JSON.parse(readFileSync(metadataPath, "utf8"))
@@ -60,13 +61,23 @@ if (
   existingMeta &&
   existingMeta.git?.head &&
   git.head &&
-  existingMeta.git.head !== git.head &&
-  !args.forceResume
+  existingMeta.git.head !== git.head
 ) {
-  throw new Error(
-    `El checkpoint pertenece a ${existingMeta.git.head} y el checkout actual es ${git.head}. ` +
-    "Usa otro --output o --force-resume si realmente quieres mezclar commits."
-  );
+  if (args.forceResume) {
+    console.warn("ADVERTENCIA: --force-resume activo; el checkpoint cruza commits deliberadamente.");
+  } else if (validatorOnlyCompatible(existingMeta.git.head, git.head)) {
+    console.warn(
+      "INFO: el checkpoint pertenece a " + existingMeta.git.head +
+      " y el validator corre en " + git.head +
+      "; solo cambiaron archivos de validacion permitidos, el runtime del optimizador es identico."
+    );
+  } else {
+    throw new Error(
+      "El checkpoint pertenece a " + existingMeta.git.head +
+      " y el checkout actual es " + git.head +
+      ". Usa otro --output o --force-resume si realmente quieres mezclar runtimes."
+    );
+  }
 }
 
 if (git.dirty) {
@@ -108,7 +119,35 @@ const inputDescriptors = prepareInputs(args.inputs, outputDir);
 const files = collectXmlFiles(inputDescriptors);
 if (files.length === 0) throw new Error("No se encontraron archivos .xml.");
 
-const resume = loadCheckpointRows(rowsPath);
+const loadedCheckpoint = loadCheckpointRows(rowsPath);
+const retryFailures = args.retryFailures
+  ? loadedCheckpoint.rows.filter((row) => row.status === "FAIL")
+  : [];
+const retryFailureCount = retryFailures.length;
+if (retryFailureCount > 0) {
+  const retryStamp = new Date().toISOString();
+  for (const previousRow of retryFailures) {
+    appendFileSync(
+      retryHistoryPath,
+      JSON.stringify({
+        schema: "optimizer-full-runtime-validation-retry-history-v1",
+        retriedAt: retryStamp,
+        sourceCheckpointGit: existingMeta?.git?.head ?? null,
+        retryGit: git.head ?? null,
+        previousRow,
+      }) + "\n"
+    );
+  }
+}
+const resume = {
+  rows: args.retryFailures
+    ? loadedCheckpoint.rows.filter((row) => row.status !== "FAIL")
+    : loadedCheckpoint.rows,
+  repaired: loadedCheckpoint.repaired || retryFailureCount > 0,
+};
+if (retryFailureCount > 0) {
+  console.log("Se reintentaran " + retryFailureCount + " filas FAIL; los SKIP canonicos se conservan.");
+}
 const completedKeys = new Set(resume.rows.map((row) => row.caseKey));
 const allRows = [...resume.rows];
 
@@ -166,6 +205,8 @@ const meta = {
     advanced: args.advanced,
     limit: args.limit,
     progressEvery: args.progressEvery,
+    retryFailures: args.retryFailures,
+    sourceCheckpointGit: existingMeta?.git?.head ?? null,
   },
 };
 writeJson(metadataPath, meta);
@@ -194,11 +235,16 @@ let fatalRustError = null;
 for (const file of selected) {
   const rowStarted = performance.now();
   let row;
+  let xmlSha256 = null;
+  let parsed = null;
+  let baseline = null;
+  let candidate = null;
+  let advanced = null;
 
   try {
     const xml = readFileSync(file.path, "utf8");
-    const xmlSha256 = sha256Text(xml);
-    const parsed = optimizer.parseCanonicalXml(xml, {
+    xmlSha256 = sha256Text(xml);
+    parsed = optimizer.parseCanonicalXml(xml, {
       fileName: file.displayName,
       defaultKerf: 4.5,
       defaultMinRemnant: 250,
@@ -214,10 +260,6 @@ for (const file of selected) {
     const leptonBoards = parsed.format === "project" ? physicalLeptonBoards(xml) : null;
     const typeCount = parsed.stats.pieceTypes;
     const pieceCount = parsed.stats.pieceQuantity;
-
-    let baseline;
-    let candidate;
-    let advanced;
 
     if (args.candidateOnly) {
       candidate = timed(() =>
@@ -272,6 +314,16 @@ for (const file of selected) {
     if (baseline) assertRust("baseline", baseline);
     assertRust("candidate", candidate);
     if (advanced) assertRust("advanced", advanced);
+
+    if (!candidate?.ok || !candidate.result) {
+      throw new Error("CANDIDATE_RUNTIME_ERROR: " + (candidate?.error ?? "candidate returned no result"));
+    }
+    if (baseline && (!baseline.ok || !baseline.result)) {
+      throw new Error("BASELINE_RUNTIME_ERROR: " + (baseline.error ?? "baseline returned no result"));
+    }
+    if (advanced && (!advanced.ok || !advanced.result)) {
+      throw new Error("ADVANCED_RUNTIME_ERROR: " + (advanced.error ?? "advanced returned no result"));
+    }
 
     const baselineBoards = baseline?.result?.metrics?.boardCount ?? null;
     const candidateBoards = candidate.result.metrics.boardCount;
@@ -359,8 +411,11 @@ for (const file of selected) {
         roundsExecuted: finiteOrNull(effort?.roundsExecuted),
         stopReason: effort?.stopReason ?? null,
         safeLowerBound: finiteOrNull(effort?.safeLowerBound),
-        blocks: Array.isArray(effort?.blocks) ? effort.blocks.length : null,
+        generationCpuMs: finiteOrNull(effort?.generationCpuMs),
+        blockCount: Array.isArray(effort?.blocks) ? effort.blocks.length : null,
+        blocks: Array.isArray(effort?.blocks) ? effort.blocks.map(normalizeEffortBlock) : [],
       },
+      stageTelemetry: v10Telemetry(candidate.result.raw?.metricasV10 ?? null),
       lowerBoundRoute: lowerBoundTelemetry
         ? {
             certifiedAfterBaseline: finiteOrNull(lowerBoundTelemetry.certifiedAfterBaseline),
@@ -402,6 +457,21 @@ for (const file of selected) {
       relativePath: file.relativePath,
       fileName: file.displayName,
       caseId: idFromFileName(file.displayName),
+      xmlSha256,
+      format: parsed?.format ?? null,
+      warnings: parsed?.warnings ?? null,
+      typeCount: parsed?.stats?.pieceTypes ?? null,
+      pieceCount: parsed?.stats?.pieceQuantity ?? null,
+      panel: parsed?.case?.panel ?? null,
+      kerf: parsed?.case?.kerf ?? null,
+      baseline: baseline ? armRow(baseline) : null,
+      candidate: candidate ? armRow(candidate) : null,
+      advanced: advanced ? armRow(advanced) : null,
+      originalTimedErrors: {
+        baseline: baseline?.ok === false ? baseline.error ?? null : null,
+        candidate: candidate?.ok === false ? candidate.error ?? null : null,
+        advanced: advanced?.ok === false ? advanced.error ?? null : null,
+      },
       error: message,
       rowWallMs: +(performance.now() - rowStarted).toFixed(3),
     };
@@ -460,6 +530,7 @@ console.log(rowsGzipPath);
 console.log(failuresPath);
 console.log(reviewPath);
 console.log(summaryMdPath);
+if (existsSync(retryHistoryPath)) console.log(retryHistoryPath);
 
 if (fatalRustError) {
   console.error("\nLa certificacion se detuvo porque Rust no estuvo activo:");
@@ -486,6 +557,7 @@ function parseArgs(argv) {
     candidateOnly: false,
     advanced: true,
     forceResume: false,
+    retryFailures: false,
     limit: Infinity,
     progressEvery: 10,
     help: false,
@@ -500,6 +572,7 @@ function parseArgs(argv) {
     }
     else if (arg === "--no-advanced") out.advanced = false;
     else if (arg === "--force-resume") out.forceResume = true;
+    else if (arg === "--retry-failures") out.retryFailures = true;
     else if (arg === "--limit") out.limit = Number(argv[++i]);
     else if (arg === "--progress-every") out.progressEvery = Math.max(1, Number(argv[++i]) || 10);
     else if (arg === "--help" || arg === "-h") out.help = true;
@@ -529,6 +602,7 @@ Opciones:
   --limit N           procesa como maximo N casos pendientes (util para smoke)
   --progress-every N  imprime progreso cada N casos (default 10)
   --force-resume      permite continuar un output creado con otro commit
+  --retry-failures     elimina del checkpoint solo las filas FAIL y las vuelve a ejecutar
   --help              muestra esta ayuda
 
 La corrida es reanudable. Si se interrumpe, repite exactamente el mismo comando.
@@ -729,6 +803,60 @@ function armRow(arm) {
     cacheHit: result.metrics.cacheHit ?? null,
     lowerBound: result.raw?.cotaV10 ?? null,
     remnant: remnantQuality(result),
+  };
+}
+
+function normalizeEffortBlock(block) {
+  if (!block || typeof block !== "object") return null;
+  return {
+    blockIndex: finiteOrNull(block.blockIndex),
+    requestedRounds: Array.isArray(block.requestedRounds) ? block.requestedRounds.slice() : [],
+    newlyExecuted: Array.isArray(block.newlyExecuted) ? block.newlyExecuted.slice() : [],
+    executedRounds: finiteOrNull(block.executedRounds),
+    solved: block.solved === true,
+    poolSize: finiteOrNull(block.poolSize),
+    candidateCount: finiteOrNull(block.candidateCount),
+    generationDeltaCpuMs: finiteOrNull(block.generationDeltaCpuMs),
+    generationCpuMs: finiteOrNull(block.generationCpuMs),
+    solverNodes: finiteOrNull(block.solverNodes),
+    solverExhausted: block.solverExhausted === true,
+    solverTargetReached: block.solverTargetReached === true,
+    solverNodeCap: finiteOrNull(block.solverNodeCap),
+    candidateBoards: finiteOrNull(block.candidateBoards),
+    incumbentBoards: finiteOrNull(block.incumbentBoards),
+    safeLowerBound: finiteOrNull(block.safeLowerBound),
+    wallMs: finiteOrNull(block.wallMs),
+    structuralShortCircuit: block.structuralShortCircuit === true,
+  };
+}
+
+function stageMetric(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    activaciones: finiteOrNull(value.activaciones),
+    ganancias: finiteOrNull(value.ganancias),
+    placasAhorradas: finiteOrNull(value.placasAhorradas),
+    invalidos: finiteOrNull(value.invalidos),
+    ms: finiteOrNull(value.ms),
+    peorMs: finiteOrNull(value.peorMs),
+  };
+}
+
+function v10Telemetry(metricas) {
+  if (!metricas || typeof metricas !== "object") return null;
+  return {
+    total: {
+      casos: finiteOrNull(metricas.total?.casos),
+      ms: finiteOrNull(metricas.total?.ms),
+    },
+    stages: {
+      compactacion: stageMetric(metricas.compactacion),
+      multislice: stageMetric(metricas.multislice),
+      oneboard: stageMetric(metricas.oneboard),
+      master: stageMetric(metricas.master),
+    },
+    lowerBound: metricas.lowerBound ? { ...metricas.lowerBound } : null,
+    remnantPolish: metricas.remnantPolish ? { ...metricas.remnantPolish } : null,
   };
 }
 
@@ -1176,6 +1304,23 @@ function gitInfo() {
     dirty: Boolean(dirtyText),
     dirtyStatus: dirtyText || "",
   };
+}
+
+const VALIDATOR_ONLY_CROSS_COMMIT_PATHS = new Set([
+  "scripts/validate-production-runtime-full.mjs",
+  "scripts/validate-production-runtime-v1-review.mjs",
+  "scripts/prepare-production-runtime-v1-selection.mjs",
+  "scripts/replay-production-runtime-attribution.mjs",
+  "package.json",
+  ".github/workflows/optimizer-saas-hardening.yml",
+  "research/optimizer/RUNTIME_ATTRIBUTION_MILESTONE_2026-09-24.md",
+]);
+
+function validatorOnlyCompatible(sourceGit, currentGit) {
+  const diff = gitCommand(["diff", "--name-only", sourceGit + ".." + currentGit]);
+  if (!diff) return true;
+  const paths = diff.split(/\r?\n/).filter(Boolean);
+  return paths.length > 0 && paths.every((path) => VALIDATOR_ONLY_CROSS_COMMIT_PATHS.has(path));
 }
 
 function gitCommand(args) {

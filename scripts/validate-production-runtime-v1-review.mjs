@@ -39,13 +39,23 @@ const currentGit = gitCommand(["rev-parse", "HEAD"]) || null;
 if (
   sourceMeta.git?.head &&
   currentGit &&
-  sourceMeta.git.head !== currentGit &&
-  !args.forceCrossCommit
+  sourceMeta.git.head !== currentGit
 ) {
-  throw new Error(
-    `La pasada Auto pertenece a ${sourceMeta.git.head} y V1 se ejecutaria sobre ${currentGit}. ` +
-    "Usa el mismo commit; --force-cross-commit queda solo para una auditoria deliberada."
-  );
+  if (args.forceCrossCommit) {
+    console.warn("ADVERTENCIA: --force-cross-commit activo; la comparacion cruza commits deliberadamente.");
+  } else if (validatorOnlyCompatible(sourceMeta.git.head, currentGit)) {
+    console.warn(
+      "INFO: la pasada Auto pertenece a " + sourceMeta.git.head +
+      " y el validator corre en " + currentGit +
+      "; solo cambiaron archivos de validacion permitidos, el runtime del optimizador es identico."
+    );
+  } else {
+    throw new Error(
+      "La pasada Auto pertenece a " + sourceMeta.git.head +
+      " y V1 se ejecutaria sobre " + currentGit +
+      ". Usa el mismo runtime o --force-cross-commit para una auditoria deliberada."
+    );
+  }
 }
 
 const preparedSelection = prepareValidationSelection(outputDir, {
@@ -121,11 +131,16 @@ for (const review of selectedReview) {
     );
     assertRust(baseline);
 
+    if (!baseline?.ok || !baseline.result) {
+      throw new Error("V1_RUNTIME_ERROR: " + (baseline?.error ?? "V1 returned no result"));
+    }
+
     const baselineValid = baseline.result.validation.ok === true;
     const baselineBoards = baseline.result.metrics.boardCount;
     const candidateBoards = review.candidateBoards;
+    const candidateAvailable = Number.isFinite(candidateBoards);
     const boardsCmp =
-      Number.isFinite(candidateBoards) && Number.isFinite(baselineBoards)
+      candidateAvailable && Number.isFinite(baselineBoards)
         ? cmp(candidateBoards, baselineBoards)
         : null;
 
@@ -137,8 +152,14 @@ for (const review of selectedReview) {
 
     const failures = [];
     if (!baseline.ok || !baselineValid) failures.push("baseline_invalid");
+    if (!candidateAvailable) failures.push("candidate_unavailable");
     if (boardsCmp > 0) failures.push("candidate_board_regression");
     if (boardsCmp === 0 && remnantCmp < 0) failures.push("candidate_remnant_regression");
+    const comparisonStatus = !candidateAvailable
+      ? "NOT_COMPARABLE"
+      : failures.length
+        ? "FAILED"
+        : "COMPARED";
 
     out = {
       schema: "optimizer-v1-selective-review-row-v1",
@@ -148,7 +169,7 @@ for (const review of selectedReview) {
       caseId: review.caseId,
       fileName: review.fileName,
       selectionReason: review.selectionReason,
-      comparisonStatus: failures.length ? "FAILED" : "COMPARED",
+      comparisonStatus,
       proofScope: review.proofScope,
       reasonCodes: review.reasonCodes,
       route: review.route,
@@ -156,7 +177,7 @@ for (const review of selectedReview) {
       typeCount: review.typeCount,
       pieceCount: review.pieceCount,
       leptonBoards: review.leptonBoards,
-      safeLowerBound: review.safeLowerBound,
+      safeLowerBound: review.globalLowerBound,
       candidateBoards,
       baselineBoards,
       candidateVsBaselineBoards: boardsCmp,
@@ -382,6 +403,7 @@ function summarize(rows, expected) {
       reviewRequiredCompared: rows.filter((r) => r.selectionReason === "REVIEW_REQUIRED" && r.comparisonStatus === "COMPARED").length,
       controlSampleCompared: rows.filter((r) => r.selectionReason === "CONTROL_SAMPLE" && r.comparisonStatus === "COMPARED").length,
       comparisonFailed: rows.filter((r) => r.comparisonStatus === "FAILED").length,
+      notComparable: rows.filter((r) => r.comparisonStatus === "NOT_COMPARABLE").length,
     },
     candidateVsBaseline: {
       better: values.filter((v) => v < 0).length,
@@ -468,6 +490,23 @@ function safeId(value) {
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
+}
+
+const VALIDATOR_ONLY_CROSS_COMMIT_PATHS = new Set([
+  "scripts/validate-production-runtime-full.mjs",
+  "scripts/validate-production-runtime-v1-review.mjs",
+  "scripts/prepare-production-runtime-v1-selection.mjs",
+  "scripts/replay-production-runtime-attribution.mjs",
+  "package.json",
+  ".github/workflows/optimizer-saas-hardening.yml",
+  "research/optimizer/RUNTIME_ATTRIBUTION_MILESTONE_2026-09-24.md",
+]);
+
+function validatorOnlyCompatible(sourceGit, currentGit) {
+  const diff = gitCommand(["diff", "--name-only", sourceGit + ".." + currentGit]);
+  if (!diff) return true;
+  const paths = diff.split(/\r?\n/).filter(Boolean);
+  return paths.length > 0 && paths.every((path) => VALIDATOR_ONLY_CROSS_COMMIT_PATHS.has(path));
 }
 
 function gitCommand(args) {
