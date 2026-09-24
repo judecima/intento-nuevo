@@ -275,7 +275,7 @@ function nowMs() { return Number(process.hrtime.bigint()) / 1e6; }
 
 function rawAttrs(text) {
   const out = {};
-  for (const match of String(text || "").matchAll(/([\\w:.-]+)\\s*=\\s*["']([^"']*)["']/g)) {
+  for (const match of String(text || "").matchAll(/([\w:.-]+)\s*=\s*["']([^"']*)["']/g)) {
     out[match[1].toLowerCase()] = match[2];
   }
   return out;
