@@ -1306,21 +1306,20 @@ function gitInfo() {
   };
 }
 
-const VALIDATOR_ONLY_CROSS_COMMIT_PATHS = new Set([
-  "scripts/validate-production-runtime-full.mjs",
-  "scripts/validate-production-runtime-v1-review.mjs",
-  "scripts/prepare-production-runtime-v1-selection.mjs",
-  "scripts/replay-production-runtime-attribution.mjs",
-  "package.json",
-  ".github/workflows/optimizer-saas-hardening.yml",
-  "research/optimizer/RUNTIME_ATTRIBUTION_MILESTONE_2026-09-24.md",
-]);
-
 function validatorOnlyCompatible(sourceGit, currentGit) {
+  const allowed = new Set([
+    "scripts/validate-production-runtime-full.mjs",
+    "scripts/validate-production-runtime-v1-review.mjs",
+    "scripts/prepare-production-runtime-v1-selection.mjs",
+    "scripts/replay-production-runtime-attribution.mjs",
+    "package.json",
+    ".github/workflows/optimizer-saas-hardening.yml",
+    "research/optimizer/RUNTIME_ATTRIBUTION_MILESTONE_2026-09-24.md",
+  ]);
   const diff = gitCommand(["diff", "--name-only", sourceGit + ".." + currentGit]);
   if (!diff) return true;
   const paths = diff.split(/\r?\n/).filter(Boolean);
-  return paths.length > 0 && paths.every((path) => VALIDATOR_ONLY_CROSS_COMMIT_PATHS.has(path));
+  return paths.length > 0 && paths.every((path) => allowed.has(path));
 }
 
 function gitCommand(args) {
