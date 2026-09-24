@@ -1,6 +1,6 @@
 # Exact LP + 2-Stage Pricing Milestone — 2026-09-24
 
-Status: **RESEARCH MILESTONE — ONE FINAL ROUNDING AUDIT ACTIVE; COUNTED-DFS TUNING CLOSED**
+Status: **RESEARCH MILESTONE CLOSED — SERIAL ROUNDING AUDIT FAILED GATE; COMPONENTS RETAINED FOR FURNITURE**
 
 Branch: `research/exact-lp-2stage-pricing-20260924`
 
@@ -14,19 +14,19 @@ All pricing columns are reconstructed physically and pass `validador_industrial_
 
 | Case | Original exact LP | 2-stage LP | Improvement | Lepton |
 |---|---:|---:|---:|---:|
-| 5445701 | 612.7221 | 587.8407 | 24.8814 | 591 |
-| 5445716 | 642.1849 | 615.1651 | 27.0198 | 621 |
-| 5447573 | 609.8712 | 577.7330 | 32.1382 | 588 |
+| 5445701 | 612.7221 | 587.7570 | 24.9651 | 591 |
+| 5445716 | 642.1849 | 615.0423 | 27.1426 | 621 |
+| 5447573 | 609.8712 | 577.3597 | 32.5114 | 588 |
 | 5456195 | 7680.0000 | 7680.0000 | 0.0000 | 7680 |
 
 This confirms that the old pool was missing dense 2-stage mixed patterns. More importantly, after pricing the restricted-master LP is already below Lepton in all three Ignacio cases. The remaining observed quality loss is therefore an integer-rounding / residual-completion problem, not a demonstrated pattern-pool gap.
 
-The 20-round audit did **not** converge by reduced cost. Round 19 still had negative reduced cost in all three Ignacio cases:
-- 5445701: about -0.00408;
-- 5445716: about -0.00948;
-- 5447573: about -0.00645.
+The earlier 20-round audit did **not** converge, but the final bounded rerun did. Initial 2-stage pricing stopped by `no-negative-reduced-cost` with an exact oracle in all three Ignacio cases:
+- 5445701: 26 added columns, LP 587.757045;
+- 5445716: 22 added columns, LP 615.042270;
+- 5447573: 25 added columns, LP 577.359733.
 
-Therefore the true optimum of the current 2-stage restricted family is at least slightly below the reported LP values. A round cap is a safety budget, not a convergence certificate.
+The restricted 2-stage LP is therefore converged for the initial demand in these three cases. This still is not a global <=4-stage certificate.
 
 ## Physical validity
 
@@ -89,22 +89,28 @@ Do not:
 - treat the 20-round pricing result as converged;
 - promote the serial route directly to production.
 
-One final bounded serial experiment is still justified because it reuses the already-built components and attacks the actual remaining gap. Important caveat: once residual quantities become small, per-type demand caps can bind the 2-stage pricing problem. The current oracle is exact only when its unconstrained optimum respects those caps; any cap-binding residual is reported as non-certified pricing rather than falsely declared converged.
+## Final iterative residual-repricing audit
 
-Experiment:
-1. floor the current LP;
-2. re-solve/re-price on the residual demand;
-3. repeat until the residual is furniture-sized (roughly <=100 pieces) or a hard research budget is reached;
-4. finish that small residual with the normal engine;
-5. require a fully materialized industrial-valid result.
+The final serial experiment was run and **failed the Lepton+2 gate**. This failure is informative: residual repricing did not reveal another pool-density gap.
 
-Gate: all three Ignacio cases must finish at Lepton+2 boards or better. Otherwise close the serial line.
+| Case | Converged global 2-stage LP | First floor boards | Residual pieces | Residual LP | Second floor progress | Residual pricing status |
+|---|---:|---:|---:|---:|---|---|
+| 5445701 | 587.7570 | 580 | 198 | 7.7570 | none | exact, no negative reduced cost |
+| 5445716 | 615.0423 | 609 | 148 | 6.0423 | none | demand caps bind; not certified |
+| 5447573 | 577.3597 | 570 | 230 | 7.3597 | none | demand caps bind; not certified |
+| 5456195 | 7680.0000 | 7680 | 0 | 0 | complete | exact |
+
+For 5445701 the residual pricing problem is exact for the modeled 2-stage family and converges with no negative reduced-cost column, yet every residual LP variable remains below 1 so a second floor fixes zero boards. That is direct evidence that the remaining gap is an **integer rounding / completion** problem, not a missing-column problem in the 2-stage pool.
+
+For 5445716 and 5447573, small per-type residual demands make demand caps bind. The current oracle correctly reports residual pricing as non-certified rather than claiming convergence. Even there, no additional admissible column was added and floor made no progress.
+
+The residuals remained above the <=100-piece finalizer threshold, so no final combined plan was emitted and the gate failed. Per the predefined rule, **serial research closes here**. If reopened in the future, the next algorithmic question is a small residual integer master / diving / branch-and-price strategy, not more pricing rounds and not more counted-DFS tuning.
 
 Next product milestone:
 - return to furniture / Lepton <= 75 boards;
-- test exact LP + 2-stage pricing on real furniture quality gaps;
-- test the dual bound on Master-active furniture cases;
-- measure p95/p99 and board-count regressions independently.
+- first test exact LP + additive 2-stage pricing on the real Lepton gap cohort;
+- then test root LP / dual-bound effects on advanced-exhausted LB+1 cases;
+- measure quality vs Lepton, p95/p99 CPU, and the share of AE cases certified before expensive Master generation independently.
 
 
 ## Important limits when transferring to furniture
