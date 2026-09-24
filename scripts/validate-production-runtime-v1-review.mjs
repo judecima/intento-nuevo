@@ -498,6 +498,7 @@ function validatorOnlyCompatible(sourceGit, currentGit) {
     "scripts/validate-production-runtime-v1-review.mjs",
     "scripts/prepare-production-runtime-v1-selection.mjs",
     "scripts/replay-production-runtime-attribution.mjs",
+    "scripts/audit-serial-production.mjs",
     "package.json",
     ".github/workflows/optimizer-saas-hardening.yml",
     "research/optimizer/RUNTIME_ATTRIBUTION_MILESTONE_2026-09-24.md",
