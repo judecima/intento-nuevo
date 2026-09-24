@@ -164,6 +164,7 @@ async function loadMissingFromXml(targetIds, alreadyFound) {
     const xmlPath = byId.get(id);
     if (!xmlPath) continue;
     const xml = fs.readFileSync(xmlPath, "utf8");
+    const rawSourceAudit = rawXmlSourceAudit(xml);
     const parsed = parser.parseCanonicalXml(xml, {
       fileName: path.basename(xmlPath),
       defaultKerf: 4.5,
@@ -202,6 +203,7 @@ async function loadMissingFromXml(targetIds, alreadyFound) {
       })),
       source: "xml",
       sourcePath: xmlPath,
+      rawSourceAudit,
     });
   }
 
@@ -262,6 +264,45 @@ function safeLowerBound(lines, config, incumbent) {
   return { value: Math.max(1, Math.floor(Number(result?.cheapLowerBound ?? 0)), Math.floor(Number(result?.lowerBound ?? 0))), reason: result?.reason ?? null };
 }
 function nowMs() { return Number(process.hrtime.bigint()) / 1e6; }
+
+function rawAttrs(text) {
+  const out = {};
+  for (const match of String(text || "").matchAll(/([\\w:.-]+)\\s*=\\s*["']([^"']*)["']/g)) {
+    out[match[1].toLowerCase()] = match[2];
+  }
+  return out;
+}
+
+function rawXmlSourceAudit(xml) {
+  const panels = [...String(xml).matchAll(/<panel\\d+\\b([^>]*)>/gi)].map((match) => rawAttrs(match[1]));
+  const roots = [...String(xml).matchAll(/<no\\.0\\b([^>]*)>/gi)].map((match) => rawAttrs(match[1]));
+  const quantities = panels.map((attrs) => {
+    const n = Number(attrs.num ?? 1);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  });
+  const physicalBoards = quantities.reduce((sum, value) => sum + value, 0);
+  const kerfValues = panels
+    .map((attrs) => Number(attrs.saw ?? attrs.kerf))
+    .filter(Number.isFinite);
+  const panelRectangles = panels.map((attrs) => ({
+    l: Number(attrs.l),
+    w: Number(attrs.w),
+    thickness: Number(attrs.thickness),
+    material: attrs.material ?? null,
+    num: Number(attrs.num ?? 1),
+  }));
+  const rootTrimReferences = roots
+    .map((attrs) => Number(attrs.trim))
+    .filter(Number.isFinite);
+  return {
+    panelTags: panels.length,
+    physicalBoards,
+    panelRectangles,
+    kerfValues: [...new Set(kerfValues)],
+    materials: [...new Set(panelRectangles.map((entry) => entry.material).filter(Boolean))],
+    rootTrimReferences: [...new Set(rootTrimReferences)],
+  };
+}
 
 function patternFromPhysicalBoard(board, typeCount) {
   if (!board?.colocadas?.length) return null;
@@ -331,6 +372,12 @@ const residualCgPricingRounds = envInt("SERIAL_RESIDUAL_CG_PRICING_ROUNDS", 100)
 const residualCgPricingBudgetMs = envInt("SERIAL_RESIDUAL_CG_PRICING_BUDGET_MS", 3000);
 const residualCgFinalizerMs = envInt("SERIAL_RESIDUAL_CG_FINALIZER_MS", 3000);
 const residualCgFinalizerMaxPieces = envInt("SERIAL_RESIDUAL_CG_FINALIZER_MAX_PIECES", 300);
+const exportCombinedPlans = process.env.SERIAL_EXPORT_COMBINED_PLANS === "1";
+const combinedPlanAuditDir = path.resolve(
+  process.env.SERIAL_COMBINED_PLAN_DIR ||
+  path.join(HERE, "combined-plan-audit"),
+);
+if (exportCombinedPlans) fs.mkdirSync(combinedPlanAuditDir, { recursive: true });
 
 const rows = [];
 for (const c of cases) {
@@ -363,6 +410,7 @@ for (const c of cases) {
   }
 
   let twoStagePricing = null;
+  let combinedPlanForExternalAudit = null;
   if (
     twoStagePricingEnabled &&
     exactLp?.status === "OPTIMAL" &&
@@ -817,6 +865,7 @@ for (const c of cases) {
           const validation = combinedPlan
             ? validarPlanIndustrial(combinedPlan, pieces)
             : null;
+          if (validation?.ok) combinedPlanForExternalAudit = combinedPlan;
           combinedBoards = combinedPlan?.resumen?.placas ?? null;
           combinedValid = Boolean(validation?.ok);
           if (!combinedValid) {
@@ -995,6 +1044,48 @@ for (const c of cases) {
     })),
     generatorError, solverError,
   };
+  if (exportCombinedPlans && combinedPlanForExternalAudit) {
+    const bundle = {
+      schema: "optimizer-combined-plan-audit-v1",
+      generatedAt: new Date().toISOString(),
+      caseId: c.id,
+      sourcePath: c.sourcePath ?? null,
+      rawSourceAudit: c.rawSourceAudit ?? null,
+      leptonBoards: c.leptonBoards,
+      expected: {
+        panel: { width: c.width, height: c.height },
+        trim: { x: c.trimX ?? 0, y: c.trimY ?? 0 },
+        useful: {
+          width: c.width - (c.trimX ?? 0),
+          height: c.height - (c.trimY ?? 0),
+        },
+        kerf: c.saw,
+        stages: c.stages ?? 4,
+        materialHasGrain: Boolean(c.materialHasGrain),
+        pieces: c.types.map((type, index) => ({
+          index,
+          width: type.w,
+          height: type.h,
+          quantity: type.q,
+          grain: Boolean(type.grain),
+          rotationAllowed: type.canRotate,
+          reference: type.reference ?? null,
+        })),
+      },
+      pipeline: {
+        convergedLp: row.twoStagePricing?.finalObjective ?? null,
+        fixedBoards: row.twoStagePricing?.residualCgAudit?.fixedBoards ?? null,
+        finalizerBoards: row.twoStagePricing?.residualCgAudit?.finalizerBoards ?? null,
+        combinedBoards: row.twoStagePricing?.residualCgAudit?.combinedBoards ?? null,
+      },
+      plan: combinedPlanForExternalAudit,
+    };
+    fs.writeFileSync(
+      path.join(combinedPlanAuditDir, String(c.id) + ".combined-plan.json"),
+      JSON.stringify(bundle) + "\n",
+    );
+  }
+
   rows.push(row);
   console.log("CASE " + JSON.stringify({
     id: row.id, types: row.types, pieces: row.pieces, gcd: row.quantityGcd, lepton: row.leptonBoards,
@@ -1045,6 +1136,21 @@ for (const c of cases) {
   }));
 }
 
+for (const row of rows) {
+  const combined = row.twoStagePricing?.residualCgAudit;
+  if (combined?.combinedValid && Number.isFinite(combined.combinedBoards)) {
+    row.legacyValid = row.valid;
+    row.legacyMaterializedBoards = row.materializedBoards;
+    row.valid = true;
+    row.materializedBoards = combined.combinedBoards;
+    row.deltaVsLepton = combined.combinedBoards - row.leptonBoards;
+    row.reachedLepton = combined.combinedBoards <= row.leptonBoards;
+    row.reachedSafeLowerBound = combined.combinedBoards <= row.safeLowerBound;
+    row.resultPipeline = "residual-cg-finalizer";
+  } else {
+    row.resultPipeline = row.valid ? "counted-coverage" : null;
+  }
+}
 const valid = rows.filter((r) => r.valid);
 const summary = {
   schema: "optimizer-serial-counted-shadow-v1", generatedAt: new Date().toISOString(),
@@ -1055,7 +1161,7 @@ const summary = {
   twoStageResidualWatchdogMs, twoStageResidualNodes,
   residualCgEnabled, residualCgThresholdPieces, residualCgMaxCycles,
   residualCgPricingRounds, residualCgPricingBudgetMs, residualCgFinalizerMs,
-  residualCgFinalizerMaxPieces,
+  residualCgFinalizerMaxPieces, exportCombinedPlans,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
