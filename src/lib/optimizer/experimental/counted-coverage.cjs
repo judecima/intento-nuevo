@@ -21,6 +21,10 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
   const watchdogRaw = Number(control && control.watchdogMs);
   const watchdogMs = Number.isFinite(watchdogRaw) && watchdogRaw > 0 ? watchdogRaw : null;
   const expandPlan = control?.expandPlan !== false;
+  const lowerBoundDual = Array.isArray(control?.lowerBoundDual) &&
+    control.lowerBoundDual.length === T
+    ? control.lowerBoundDual.map((value) => Number(value) || 0)
+    : null;
 
   const byVector = new Map();
   for (const source of patrones || []) {
@@ -84,6 +88,11 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
     let lb = Math.ceil(Math.max(0, areaRest) / areaPlaca - 1e-9);
     for (let i = 0; i < T; i++) {
       if (rest[i] > 0) lb = Math.max(lb, Math.ceil(rest[i] / maxCob[i]));
+    }
+    if (lowerBoundDual) {
+      let dualBound = 0;
+      for (let i = 0; i < T; i++) dualBound += rest[i] * lowerBoundDual[i];
+      lb = Math.max(lb, Math.ceil(dualBound - 1e-9));
     }
     return lb;
   }
@@ -330,6 +339,7 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
         watchdogHit,
         elapsedMs: Date.now() - t0,
         patterns: pats.length,
+        dualBoundEnabled: Boolean(lowerBoundDual),
         initialIncumbent,
         seededIncumbent: greedySeed?.boards ?? monoSeed?.boards ?? null,
         monotypeIncumbent: monoSeed?.boards ?? null,
