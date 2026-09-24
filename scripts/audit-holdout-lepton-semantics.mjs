@@ -1,0 +1,263 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { auditLeptonProjectXml } from "./lib/lepton-project-semantics.mjs";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, "..");
+const args = parseArgs(process.argv.slice(2));
+
+if (args.help || !args.inputs.length) {
+  printHelp();
+  process.exit(args.help ? 0 : 2);
+}
+
+fs.mkdirSync(args.output, { recursive: true });
+
+const rowsPath = path.join(args.output, "LEPTON_SEMANTICS_ROWS.jsonl");
+const summaryPath = path.join(args.output, "LEPTON_SEMANTICS_SUMMARY.json");
+const nonZeroIdsPath = path.join(args.output, "IDS_TRIM_NONZERO.txt");
+const ambiguousIdsPath = path.join(args.output, "IDS_TRIM_AMBIGUOUS.txt");
+const zeroIdsPath = path.join(args.output, "IDS_TRIM_ZERO.txt");
+
+const files = collectXml(args.inputs);
+const runtimeRows = args.runtimeRows ? loadJsonl(args.runtimeRows) : [];
+const runtimeById = new Map(
+  runtimeRows
+    .filter((row) => Number.isSafeInteger(Number(row.caseId)))
+    .map((row) => [Number(row.caseId), row]),
+);
+
+const rows = [];
+let processed = 0;
+
+for (const file of files) {
+  const xml = fs.readFileSync(file, "utf8");
+  const caseId = idFromFileName(path.basename(file));
+  let audit;
+  try {
+    audit = auditLeptonProjectXml(xml, {
+      caseId,
+      fileName: path.basename(file),
+    });
+  } catch (error) {
+    audit = {
+      schema: "lepton-project-semantics-v1",
+      caseId,
+      fileName: path.basename(file),
+      project: null,
+      error: String(error?.stack || error),
+    };
+  }
+
+  const runtime = runtimeById.get(caseId);
+  const candidateBoards = runtime?.candidate?.boards ?? runtime?.candidate?.boardCount ?? runtime?.candidate?.metrics?.boardCount ?? null;
+  const leptonBoards = runtime?.leptonBoards ?? audit?.physicalBoards ?? null;
+  const candidateVsLepton =
+    runtime?.comparisons?.candidateVsLepton ??
+    (Number.isFinite(candidateBoards) && Number.isFinite(leptonBoards)
+      ? Math.sign(candidateBoards - leptonBoards)
+      : null);
+
+  rows.push({
+    ...audit,
+    path: file,
+    runtime: runtime
+      ? {
+          candidateBoards,
+          leptonBoards,
+          candidateVsLepton,
+          candidateCpuMs: runtime?.candidate?.cpuMs ?? null,
+          candidateWallMs: runtime?.candidate?.wallMs ?? null,
+          enteredMaster: runtime?.auto?.enteredMaster ?? null,
+        }
+      : null,
+  });
+
+  processed++;
+  if (processed % args.progressEvery === 0 || processed === files.length) {
+    console.log(`AUDIT ${processed}/${files.length}`);
+  }
+}
+
+fs.writeFileSync(rowsPath, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+
+const project = rows.filter((row) => row.project === true && !row.error);
+const nonProject = rows.filter((row) => row.project === false && !row.error);
+const errors = rows.filter((row) => row.error);
+const unambiguous = project.filter((row) => row.inferredRefilado?.unambiguous);
+const trimNonZero = unambiguous.filter((row) => row.inferredRefilado?.nonZero);
+const trimZero = unambiguous.filter((row) => !row.inferredRefilado?.nonZero);
+const trimAmbiguous = project.filter((row) => !row.inferredRefilado?.unambiguous);
+
+const trimDistribution = histogram(
+  unambiguous.map((row) => `${row.inferredRefilado.x},${row.inferredRefilado.y}`),
+);
+
+const cohortSummary = {};
+for (const [name, predicate] of Object.entries({
+  better: (row) => row.runtime?.candidateVsLepton < 0,
+  equal: (row) => row.runtime?.candidateVsLepton === 0,
+  worse: (row) => row.runtime?.candidateVsLepton > 0,
+  unknown: (row) => row.runtime?.candidateVsLepton == null,
+})) {
+  const cohort = project.filter(predicate);
+  const cohortKnown = cohort.filter((row) => row.inferredRefilado?.unambiguous);
+  const cohortNonZero = cohortKnown.filter((row) => row.inferredRefilado?.nonZero);
+  cohortSummary[name] = {
+    cases: cohort.length,
+    trimKnown: cohortKnown.length,
+    trimNonZero: cohortNonZero.length,
+    trimNonZeroPct:
+      cohortKnown.length > 0 ? +(100 * cohortNonZero.length / cohortKnown.length).toFixed(3) : null,
+    trimDistribution: histogram(
+      cohortKnown.map((row) => `${row.inferredRefilado.x},${row.inferredRefilado.y}`),
+    ),
+  };
+}
+
+const summary = {
+  schema: "optimizer-holdout-lepton-semantics-audit-v1",
+  generatedAt: new Date().toISOString(),
+  inputs: args.inputs,
+  runtimeRows: args.runtimeRows,
+  xmlFiles: files.length,
+  projectCases: project.length,
+  nonProjectCases: nonProject.length,
+  errors: errors.length,
+  trim: {
+    unambiguous: unambiguous.length,
+    ambiguous: trimAmbiguous.length,
+    nonZero: trimNonZero.length,
+    zero: trimZero.length,
+    nonZeroPct:
+      unambiguous.length > 0 ? +(100 * trimNonZero.length / unambiguous.length).toFixed(3) : null,
+    distribution: trimDistribution,
+  },
+  rotation: {
+    observed: project.filter((row) => row.rotation?.rotationObserved).length,
+    sameCodeBothOrientations: project.filter(
+      (row) => row.rotation?.sameCodeBothOrientationsObserved,
+    ).length,
+  },
+  qualityCohorts: cohortSummary,
+  outputs: {
+    rows: rowsPath,
+    nonZeroIds: nonZeroIdsPath,
+    zeroIds: zeroIdsPath,
+    ambiguousIds: ambiguousIdsPath,
+  },
+  errorsPreview: errors.slice(0, 20).map((row) => ({
+    caseId: row.caseId,
+    fileName: row.fileName,
+    error: row.error,
+  })),
+};
+
+fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + "\n");
+writeIds(nonZeroIdsPath, trimNonZero);
+writeIds(zeroIdsPath, trimZero);
+writeIds(ambiguousIdsPath, trimAmbiguous);
+
+console.log("SUMMARY " + JSON.stringify({
+  xmlFiles: summary.xmlFiles,
+  projectCases: summary.projectCases,
+  errors: summary.errors,
+  trimUnambiguous: summary.trim.unambiguous,
+  trimNonZero: summary.trim.nonZero,
+  trimZero: summary.trim.zero,
+  trimAmbiguous: summary.trim.ambiguous,
+  trimDistribution: summary.trim.distribution,
+  qualityCohorts: summary.qualityCohorts,
+  output: summaryPath,
+}));
+
+function writeIds(filePath, sourceRows) {
+  const ids = sourceRows
+    .map((row) => row.caseId)
+    .filter(Number.isSafeInteger)
+    .sort((a, b) => a - b);
+  fs.writeFileSync(filePath, ids.join("\n") + (ids.length ? "\n" : ""));
+}
+
+function histogram(values) {
+  const map = new Map();
+  for (const value of values) map.set(value, (map.get(value) || 0) + 1);
+  return Object.fromEntries(
+    [...map.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))),
+  );
+}
+
+function loadJsonl(filePath) {
+  if (!fs.existsSync(filePath)) throw new Error(`No existe --runtime-rows: ${filePath}`);
+  const out = [];
+  for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    out.push(JSON.parse(line));
+  }
+  return out;
+}
+
+function collectXml(inputs) {
+  const out = [];
+  for (const input of inputs) {
+    if (!fs.existsSync(input)) throw new Error(`No existe --input: ${input}`);
+    const stat = fs.statSync(input);
+    if (stat.isFile()) {
+      if (path.extname(input).toLowerCase() === ".xml") out.push(input);
+      else throw new Error(`El auditor acepta carpetas o XML, no ${input}`);
+      continue;
+    }
+    walk(input, out);
+  }
+  return [...new Set(out)].sort((a, b) => a.localeCompare(b));
+}
+
+function walk(dir, out) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === ".extracted-ok") continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(full, out);
+    else if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".xml") out.push(full);
+  }
+}
+
+function idFromFileName(name) {
+  const match = /(^|\D)(\d{5,})(?=\D|$)/.exec(name);
+  return match ? Number(match[2]) : null;
+}
+
+function parseArgs(argv) {
+  const out = {
+    inputs: [],
+    output: path.join(REPO, "validation-full", "lepton-semantics-audit"),
+    runtimeRows: null,
+    progressEvery: 250,
+    help: false,
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--input") out.inputs.push(path.resolve(argv[++i]));
+    else if (arg === "--output") out.output = path.resolve(argv[++i]);
+    else if (arg === "--runtime-rows") out.runtimeRows = path.resolve(argv[++i]);
+    else if (arg === "--progress-every") out.progressEvery = Math.max(1, Number(argv[++i]) || 250);
+    else if (arg === "--help" || arg === "-h") out.help = true;
+    else throw new Error(`Argumento desconocido: ${arg}`);
+  }
+  return out;
+}
+
+function printHelp() {
+  console.log(`
+Uso:
+  node scripts/audit-holdout-lepton-semantics.mjs \\
+    --input ".\\validation-full\\_extracted" \\
+    --runtime-rows ".\\validation-full\\FULL_RUNTIME_VALIDATION_ROWS.jsonl" \\
+    --output ".\\validation-full\\lepton-semantics-audit"
+
+Puede repetirse --input para varias carpetas. El script sólo lee XML ya extraídos.
+Cruzar --runtime-rows es opcional, pero permite informar trim por cohortes mejor/igual/peor.
+`);
+}
