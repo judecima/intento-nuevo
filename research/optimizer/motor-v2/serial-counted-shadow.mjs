@@ -278,7 +278,8 @@ const limits = {
 const maxVariants = envInt("SERIAL_MAX_VARIANTS", 1);
 const solverNodes = envInt("SERIAL_SOLVER_NODES", 1600000);
 const solverWatchdogMs = envInt("SERIAL_SOLVER_WATCHDOG_MS", 12000);
-const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 160);
+const maxPhysicalTests = envInt("SERIAL_MAX_PHYSICAL_TESTS", 176);
+const baselinePhysicalTests = envInt("SERIAL_BASELINE_PHYSICAL_TESTS", 96);
 const maxBatchPieces = envInt("SERIAL_MAX_BATCH_PIECES", 96);
 
 const rows = [];
@@ -295,6 +296,7 @@ for (const c of cases) {
     generator = generateSerialDirectedPatterns(lines, config, {
       targetBoards: lb.value,
       maxPhysicalTests,
+      baselinePhysicalTests,
       maxBatchPieces,
     });
   } catch (error) { generatorError = String(error?.stack || error); }
@@ -386,7 +388,7 @@ const valid = rows.filter((r) => r.valid);
 const summary = {
   schema: "optimizer-serial-counted-shadow-v1", generatedAt: new Date().toISOString(),
   targets: targetIds.size, fixtureCases: fixtureCases.length, xmlRecoveredCases: xmlRecovery.cases.length, unresolvedIds: missing,
-  limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, maxBatchPieces,
+  limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
