@@ -13,27 +13,46 @@ import { cpus, hostname, platform, release, totalmem } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { prepareValidationSelection } from "./prepare-production-runtime-v1-selection.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = parseArgs(process.argv.slice(2));
 const outputDir = resolve(args.output);
 const metaPath = join(outputDir, "FULL_RUNTIME_VALIDATION_META.json");
-const reviewPath = join(outputDir, "FULL_RUNTIME_VALIDATION_REVIEW.jsonl");
+const selectionPath = join(outputDir, "FULL_RUNTIME_VALIDATION_SELECTION.jsonl");
+const queuePath = join(outputDir, "FULL_RUNTIME_VALIDATION_V1_QUEUE.jsonl");
+const evidencePath = join(outputDir, "FULL_RUNTIME_VALIDATION_EVIDENCE.jsonl");
 const resultsPath = join(outputDir, "FULL_RUNTIME_VALIDATION_V1_REVIEW_RESULTS.jsonl");
 const failuresPath = join(outputDir, "FULL_RUNTIME_VALIDATION_V1_REVIEW_FAILURES.jsonl");
 const summaryPath = join(outputDir, "FULL_RUNTIME_VALIDATION_V1_REVIEW_SUMMARY.json");
 
-if (!existsSync(metaPath) || !existsSync(reviewPath)) {
+if (!existsSync(metaPath)) {
   throw new Error(
-    "Faltan FULL_RUNTIME_VALIDATION_META.json o FULL_RUNTIME_VALIDATION_REVIEW.jsonl. " +
-    "Ejecuta primero la pasada --candidate-only."
+    "Falta FULL_RUNTIME_VALIDATION_META.json. Ejecuta primero la pasada --candidate-only."
   );
 }
 
 sanitizeOptimizerEnvironment();
 
 const sourceMeta = JSON.parse(readFileSync(metaPath, "utf8"));
-const reviewRows = readJsonl(reviewPath);
+const currentGit = gitCommand(["rev-parse", "HEAD"]) || null;
+if (
+  sourceMeta.git?.head &&
+  currentGit &&
+  sourceMeta.git.head !== currentGit &&
+  !args.forceCrossCommit
+) {
+  throw new Error(
+    `La pasada Auto pertenece a ${sourceMeta.git.head} y V1 se ejecutaria sobre ${currentGit}. ` +
+    "Usa el mismo commit; --force-cross-commit queda solo para una auditoria deliberada."
+  );
+}
+
+const preparedSelection = prepareValidationSelection(outputDir, {
+  controlSize: args.controlSize,
+  tailSize: args.tailSize,
+});
+const reviewRows = preparedSelection.queue;
 const existing = existsSync(resultsPath) ? readJsonl(resultsPath) : [];
 const done = new Set(existing.map((row) => row.caseKey));
 const selectedReview = Number.isFinite(args.limit)
@@ -48,7 +67,8 @@ for (const row of reviewRows) {
 }
 
 console.log(
-  `Casos REVIEW: ${reviewRows.length}. Ya revisados con V1: ${done.size}. A ejecutar: ${selectedReview.length}.`
+  `Cola V1: ${reviewRows.length} (REVIEW_REQUIRED + CONTROL_SAMPLE). ` +
+  `Ya comparados: ${done.size}. A ejecutar: ${selectedReview.length}.`
 );
 
 const bundlePath = join(REPO, "node_modules", ".cache", "full-runtime-validation", "optimizer-v1-review.mjs");
@@ -127,7 +147,12 @@ for (const review of selectedReview) {
       caseKey: review.caseKey,
       caseId: review.caseId,
       fileName: review.fileName,
-      reasons: review.reasons,
+      selectionReason: review.selectionReason,
+      comparisonStatus: failures.length ? "FAILED" : "COMPARED",
+      proofScope: review.proofScope,
+      reasonCodes: review.reasonCodes,
+      route: review.route,
+      stratum: review.stratum,
       typeCount: review.typeCount,
       pieceCount: review.pieceCount,
       leptonBoards: review.leptonBoards,
@@ -149,7 +174,12 @@ for (const review of selectedReview) {
       caseKey: review.caseKey,
       caseId: review.caseId,
       fileName: review.fileName,
-      reasons: review.reasons,
+      selectionReason: review.selectionReason,
+      comparisonStatus: "FAILED",
+      proofScope: review.proofScope,
+      reasonCodes: review.reasonCodes,
+      route: review.route,
+      stratum: review.stratum,
       error: String(error?.stack || error),
       rowWallMs: +(performance.now() - rowStarted).toFixed(3),
     };
@@ -169,6 +199,7 @@ for (const review of selectedReview) {
     const s = summarize(allRows, reviewRows.length);
     writeJson(summaryPath, s);
     writeFailures(failuresPath, allRows);
+    writeEvidence(evidencePath, preparedSelection.entries, allRows);
     const elapsed = performance.now() - started;
     const eta = sessionDone ? (elapsed / sessionDone) * (selectedReview.length - sessionDone) : 0;
     console.log(
@@ -182,11 +213,15 @@ for (const review of selectedReview) {
 const summary = summarize(allRows, reviewRows.length);
 writeJson(summaryPath, summary);
 writeFailures(failuresPath, allRows);
+writeEvidence(evidencePath, preparedSelection.entries, allRows);
 
 console.log("\nResultado V1 selectivo:");
 console.log(resultsPath);
 console.log(summaryPath);
 console.log(failuresPath);
+console.log(selectionPath);
+console.log(queuePath);
+console.log(evidencePath);
 
 if (summary.failures > 0) process.exitCode = 2;
 
@@ -195,11 +230,17 @@ function parseArgs(argv) {
     output: join(REPO, "validation-full"),
     limit: Infinity,
     progressEvery: 10,
+    controlSize: 300,
+    tailSize: 50,
+    forceCrossCommit: false,
   };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--output") out.output = argv[++i];
     else if (argv[i] === "--limit") out.limit = Number(argv[++i]);
     else if (argv[i] === "--progress-every") out.progressEvery = Math.max(1, Number(argv[++i]) || 10);
+    else if (argv[i] === "--control-size") out.controlSize = Math.max(0, Number(argv[++i]) || 0);
+    else if (argv[i] === "--tail-size") out.tailSize = Math.max(0, Number(argv[++i]) || 0);
+    else if (argv[i] === "--force-cross-commit") out.forceCrossCommit = true;
     else throw new Error(`Argumento desconocido: ${argv[i]}`);
   }
   return out;
@@ -337,6 +378,11 @@ function summarize(rows, expected) {
     processedCases: rows.length,
     complete: rows.length >= expected,
     failures: rows.filter((r) => r.status === "FAIL").length,
+    evidence: {
+      reviewRequiredCompared: rows.filter((r) => r.selectionReason === "REVIEW_REQUIRED" && r.comparisonStatus === "COMPARED").length,
+      controlSampleCompared: rows.filter((r) => r.selectionReason === "CONTROL_SAMPLE" && r.comparisonStatus === "COMPARED").length,
+      comparisonFailed: rows.filter((r) => r.comparisonStatus === "FAILED").length,
+    },
     candidateVsBaseline: {
       better: values.filter((v) => v < 0).length,
       equal: values.filter((v) => v === 0).length,
@@ -376,6 +422,33 @@ function quantile(a, q) {
 function writeFailures(path, rows) {
   const f = rows.filter((r) => r.status === "FAIL");
   writeFileSync(path, f.map((r) => JSON.stringify(r)).join("\n") + (f.length ? "\n" : ""));
+}
+
+function writeEvidence(path, selectionEntries, comparisonRows) {
+  const comparisons = new Map(comparisonRows.map((row) => [row.caseKey, row]));
+  const evidence = selectionEntries.map((entry) => {
+    const comparison = comparisons.get(entry.caseKey);
+    if (!comparison) return entry;
+    return {
+      ...entry,
+      comparisonStatus: comparison.comparisonStatus,
+      v1: {
+        status: comparison.status,
+        failures: comparison.failures,
+        boards: comparison.baselineBoards ?? null,
+        remnant: comparison.baselineRemnant ?? null,
+        wallMs: comparison.baseline?.wallMs ?? null,
+      },
+      comparison: {
+        candidateVsV1Boards: comparison.candidateVsBaselineBoards ?? null,
+        candidateVsV1Remnant: comparison.candidateVsBaselineRemnant ?? null,
+      },
+    };
+  });
+  writeFileSync(
+    path,
+    evidence.map((row) => JSON.stringify(row)).join("\n") + (evidence.length ? "\n" : "")
+  );
 }
 
 function readJsonl(path) {
