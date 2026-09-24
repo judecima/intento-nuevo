@@ -57,6 +57,12 @@ function envInt(name, fallback) {
   const value = Number(process.env[name]);
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
+function envNonNegativeNumber(name) {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
 
 function parseIds() {
   if (process.env.SERIAL_ALL === "1") return new Set(ALL_AUDIT_SERIAL_IDS);
@@ -183,8 +189,10 @@ async function loadMissingFromXml(targetIds, alreadyFound) {
       saw: canonical.kerf,
       leptonBoards,
       materialHasGrain: canonical.material.hasGrain ?? false,
-      trimX: canonical.trim.x,
-      trimY: canonical.trim.y,
+      trimX: forcedTrimX ?? canonical.trim.x,
+      trimY: forcedTrimY ?? canonical.trim.y,
+      canonicalTrimX: canonical.trim.x,
+      canonicalTrimY: canonical.trim.y,
       stages: canonical.constraints.stages ?? 4,
       minRemnant: canonical.constraints.minRemnant,
       minCommercialRemnantLongSide:
@@ -331,6 +339,9 @@ function usageSignature(pattern, typeCount) {
     (_, index) => pattern?.uso?.get(index) || 0,
   ).join(",");
 }
+
+const forcedTrimX = envNonNegativeNumber("SERIAL_FORCE_TRIM_X");
+const forcedTrimY = envNonNegativeNumber("SERIAL_FORCE_TRIM_Y");
 
 const targetIds = parseIds();
 const fixtureCases = decodeFixture(targetIds).map((c) => ({ ...c, source: "holdout-v2-fixture" }));
@@ -1163,6 +1174,7 @@ const summary = {
   limits, maxVariants, solverNodes, solverWatchdogMs, maxPhysicalTests, baselinePhysicalTests, maxBatchPieces, poolOnly,
   twoStagePricingEnabled, twoStagePricingRounds, twoStagePricingMaxStates,
   twoStageMasterEnabled, twoStageMasterWatchdogMs, twoStageMasterNodes,
+  forcedTrimX, forcedTrimY,
   twoStageResidualWatchdogMs, twoStageResidualNodes,
   residualCgEnabled, residualCgThresholdPieces, residualCgMaxCycles,
   residualCgPricingRounds, residualCgPricingBudgetMs, residualCgFinalizerMs,
