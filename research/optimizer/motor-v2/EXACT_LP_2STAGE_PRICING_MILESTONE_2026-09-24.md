@@ -278,7 +278,7 @@ As before, numerical equality `combinedBoards = ceil(RMP LP)` is **not** a globa
 
 ## Serial closure
 
-The three Ignacio cases are closed as an architectural proof at Lepton-level quality under matched trim. Case `5456195` was not included in the matched-refilado rerun; its fairness/trim semantics must be picked up by the holdout-wide audit before the overall serial chapter is called completely closed.
+The three Ignacio cases are closed as an architectural proof at Lepton-level quality under matched trim. The holdout-wide semantics audit also resolved case `5456195`: its Lepton XML uses `refiladoX=10`, `refiladoY=10`, kerf 4.4, and Lepton does rotate pieces (portrait rate 21.875%). Therefore the old 7680 result generated under zero trim is not a final like-for-like serial comparison; `5456195` belongs in the corrected holdout/runtime rerun rather than requiring a separate serial experiment.
 
 Retain for transfer to furniture:
 1. exact restricted-master LP;
@@ -306,3 +306,22 @@ Next product milestone remains furniture / Lepton <=75 boards:
 The matched-refilado rerun shows that a 10 x 10 mm trim materially changes board counts (by 4 / 2 / 9 boards in the three Ignacio cases relative to the earlier zero-trim runs). Therefore historical holdout quality claims measured with project XML trim forced to zero must be treated as provisional until the holdout-wide trim audit and corrected runtime comparison are complete.
 
 Do not start furniture LP/pricing experiments against the old holdout baseline. First establish the corrected Lepton-matched baseline from frozen runtime commit `d72d6f5729c4a65b15c168553b5815a760185f72`.
+
+
+## Holdout trim audit result
+
+The full 15,787-project audit completed with zero parse errors and no ambiguous trim cases:
+- 14,648 / 15,787 (92.785%) have non-zero Lepton trim;
+- 8,851 use 5 x 5 mm;
+- 5,367 use 10 x 10 mm;
+- 345 use 15 x 15 mm;
+- 85 use 3 x 3 mm;
+- only 1,139 use 0 x 0 mm.
+
+The historical quality cohorts are strongly confounded by this:
+- old `better`: 1,317 / 1,353 (97.339%) had non-zero trim;
+- old `equal`: 12,951 / 14,034 (92.283%);
+- old `worse`: 52 / 72 (72.222%);
+- old `unknown`: 328 / 328 (100%).
+
+Therefore historical holdout claims against Lepton using zero project trim are superseded for quality comparison. Recompute the baseline from frozen runtime `d72d6f5729c4a65b15c168553b5815a760185f72` with inferred project trim before any furniture LP/pricing experiment.
