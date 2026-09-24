@@ -264,6 +264,7 @@ export function auditLeptonProjectXml(xml, options = {}) {
   let portraitPhysical = 0;
   let squarePhysical = 0;
   const kerfValues = new Set();
+  const materials = new Set();
   const trimByAxis = { x: new Set(), y: new Set() };
   const rootTrimValues = new Set();
   const codes = new Map();
@@ -271,6 +272,7 @@ export function auditLeptonProjectXml(xml, options = {}) {
   for (const shape of shapes) {
     physicalBoards += shape.quantity;
     if (Number.isFinite(shape.declared.kerf)) kerfValues.add(shape.declared.kerf);
+    if (shape.declared.material) materials.add(shape.declared.material);
 
     const rootTrim = n(attr(shape.root, "trim", "Trim"));
     if (Number.isFinite(rootTrim)) rootTrimValues.add(rootTrim);
@@ -316,6 +318,7 @@ export function auditLeptonProjectXml(xml, options = {}) {
     physicalBoards,
     physicalPieces,
     kerfValues: [...kerfValues].sort((a, b) => a - b),
+    materials: [...materials].sort((a, b) => String(a).localeCompare(String(b))),
     rootTrimValues: [...rootTrimValues].sort((a, b) => a - b),
     trimByAxis: {
       x: [...trimByAxis.x].sort((a, b) => a - b),
