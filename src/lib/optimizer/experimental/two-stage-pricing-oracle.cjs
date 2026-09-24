@@ -121,7 +121,7 @@ function bestSequence(items, spanMm, kerfMm, typeCount, options = {}) {
 
   const zeroUsage = new Array(typeCount).fill(0);
   const states = new Map();
-  states.set(0, { value: 0, usage: zeroUsage, area: 0, count: 0 });
+  states.set(0, { value: 0, usage: zeroUsage, area: 0, count: 0, trace: null });
   const heap = new MinHeap();
   heap.push(0);
   const queued = new Set([0]);
@@ -141,6 +141,7 @@ function bestSequence(items, spanMm, kerfMm, typeCount, options = {}) {
         usage: addUsage(state.usage, item.usage),
         area: state.area + item.area,
         count: state.count + 1,
+        trace: { item, prev: state.trace },
       };
       const prev = states.get(next);
       if (!better(candidate, prev)) continue;
@@ -170,9 +171,17 @@ function bestSequence(items, spanMm, kerfMm, typeCount, options = {}) {
   }
   if (!best) return null;
 
+  const sequence = [];
+  for (let node = best.trace; node; node = node.prev) sequence.push(node.item);
+  sequence.reverse();
+  const effectiveUsedUnits = bestUsed * divisor;
+  const exactEdge = exactCapC >= 0 && bestUsed === exactCapC;
+
   return {
     ...best,
-    effectiveUsedUnits: bestUsed * divisor,
+    sequence,
+    exactEdge,
+    effectiveUsedUnits,
     restricted,
     states: states.size,
   };
@@ -223,6 +232,8 @@ function buildStripOptions(lines, config, dualPrices, rootAxis, options) {
         area: Number(lines[i].base) * Number(lines[i].altura),
         typeIndex: i,
         rotated: orientation.rotated,
+        width: orientation.width,
+        height: orientation.height,
       });
     }
   }
@@ -247,10 +258,133 @@ function buildStripOptions(lines, config, dualPrices, rootAxis, options) {
       usage: best.usage,
       area: best.area,
       count: 1,
+      innerSequence: best.sequence,
+      innerExactEdge: best.exactEdge,
     });
   }
 
   return { strips, rootSpan, restricted, innerStates };
+}
+
+function physicalPattern(lines, config, rootAxis, root) {
+  const usefulWidth = Number(config.placaBase) - Number(config.refiladoX || 0);
+  const usefulHeight = Number(config.placaAltura) - Number(config.refiladoY || 0);
+  const saw = Number(config.sierra || 0);
+  const colocadas = [];
+  const cortes = [];
+  const uso = new Map();
+  let pieceId = 0;
+
+  function addPiece(item, x, y) {
+    const typeIndex = item.typeIndex;
+    const line = lines[typeIndex];
+    const pieza = {
+      id: `pricing-${rootAxis}-${pieceId++}`,
+      ref: typeIndex,
+      base: Number(line.base),
+      altura: Number(line.altura),
+      veta: Boolean(line.veta),
+      detalle: line.detalle || `PRICING-${typeIndex}`,
+      _corte: {
+        base: Number(line.base),
+        altura: Number(line.altura),
+      },
+    };
+    colocadas.push({
+      x,
+      y,
+      base: item.width,
+      altura: item.height,
+      rotada: Boolean(item.rotated),
+      pieza,
+      nivel: 2,
+    });
+    uso.set(typeIndex, (uso.get(typeIndex) || 0) + 1);
+  }
+
+  let rootPos = 0;
+  const strips = root.sequence || [];
+  for (let stripIndex = 0; stripIndex < strips.length; stripIndex++) {
+    const strip = strips[stripIndex];
+    const stripStart = rootPos;
+    const stripEnd = stripStart + strip.dimension;
+    const needsRootCut = stripIndex < strips.length - 1 || !root.exactEdge;
+
+    // A 2-stage cross-cut is legal only after the parent strip is isolated.
+    if (needsRootCut) {
+      if (rootAxis === "x") {
+        cortes.push({
+          x1: stripEnd,
+          y1: 0,
+          x2: stripEnd,
+          y2: usefulHeight,
+          nivel: 1,
+          largo: usefulHeight,
+        });
+      } else {
+        cortes.push({
+          x1: 0,
+          y1: stripEnd,
+          x2: usefulWidth,
+          y2: stripEnd,
+          nivel: 1,
+          largo: usefulWidth,
+        });
+      }
+    }
+
+    let innerPos = 0;
+    const inner = strip.innerSequence || [];
+    for (let itemIndex = 0; itemIndex < inner.length; itemIndex++) {
+      const item = inner[itemIndex];
+      const itemStart = innerPos;
+      const itemEnd = itemStart + item.dimension;
+      const needsInnerCut = itemIndex < inner.length - 1 || !strip.innerExactEdge;
+
+      if (rootAxis === "x") {
+        addPiece(item, stripStart, itemStart);
+        if (needsInnerCut) {
+          cortes.push({
+            x1: stripStart,
+            y1: itemEnd,
+            x2: stripEnd,
+            y2: itemEnd,
+            nivel: 2,
+            largo: strip.dimension,
+          });
+        }
+      } else {
+        addPiece(item, itemStart, stripStart);
+        if (needsInnerCut) {
+          cortes.push({
+            x1: itemEnd,
+            y1: stripStart,
+            x2: itemEnd,
+            y2: stripEnd,
+            nivel: 2,
+            largo: strip.dimension,
+          });
+        }
+      }
+
+      innerPos = itemEnd + (needsInnerCut ? saw : 0);
+    }
+
+    rootPos = stripEnd + (needsRootCut ? saw : 0);
+  }
+
+  return {
+    uso,
+    area: colocadas.reduce((sum, placement) => sum + placement.base * placement.altura, 0),
+    placa: {
+      ancho: usefulWidth,
+      alto: usefulHeight,
+      colocadas,
+      cortes,
+      restos: [],
+      arbol: null,
+    },
+  };
 }
 
 /**
@@ -293,11 +427,13 @@ function priceTwoStage(lines, config, dualPrices, options = {}) {
       continue;
     }
 
+    const pattern = physicalPattern(lines, config, rootAxis, root);
     const candidate = {
       rootAxis,
       dualValue: root.value,
       usage: root.usage,
       area: usageArea(root.usage, lines),
+      pattern,
       restricted: built.restricted || root.restricted,
       stripTypes: built.strips.length,
       innerStates: built.innerStates,
