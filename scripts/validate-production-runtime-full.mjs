@@ -315,6 +315,7 @@ for (const file of selected) {
     }
 
     const effort = candidate.result.raw?.metricasV10?.effortController ?? null;
+    const lowerBoundTelemetry = candidate.result.raw?.metricasV10?.lowerBound ?? null;
     const polish = candidate.result.raw?.metricasV10?.remnantPolish ?? null;
 
     row = {
@@ -360,6 +361,16 @@ for (const file of selected) {
         safeLowerBound: finiteOrNull(effort?.safeLowerBound),
         blocks: Array.isArray(effort?.blocks) ? effort.blocks.length : null,
       },
+      lowerBoundRoute: lowerBoundTelemetry
+        ? {
+            certifiedAfterBaseline: finiteOrNull(lowerBoundTelemetry.certifiedAfterBaseline),
+            certifiedAfterCompactation: finiteOrNull(lowerBoundTelemetry.certifiedAfterCompactation),
+            cheapCertified: finiteOrNull(lowerBoundTelemetry.cheapCertified),
+            postCompactCertified: finiteOrNull(lowerBoundTelemetry.postCompactCertified),
+            cheapReason: lowerBoundTelemetry.cheapReason ?? null,
+            postCompactReason: lowerBoundTelemetry.postCompactReason ?? null,
+          }
+        : null,
       remnantPolish: polish
         ? {
             runs: finiteOrNull(polish.runs),
