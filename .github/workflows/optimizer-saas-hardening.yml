@@ -21,6 +21,8 @@ on:
       - "scripts/diagnose-tail-case-30.mjs"
       - "scripts/diagnose-remnant-case-95.mjs"
       - "scripts/validate-production-runtime-full.mjs"
+      - "scripts/prepare-production-runtime-v1-selection.mjs"
+      - "scripts/validate-production-runtime-v1-review.mjs"
       - ".github/workflows/optimizer-saas-hardening.yml"
   workflow_dispatch:
 
@@ -57,9 +59,16 @@ jobs:
       - name: Full local validator smoke
         run: >
           node scripts/validate-production-runtime-full.mjs
+          --candidate-only
           --input tests/fixtures/optimizer/xml
           --output /tmp/full-runtime-validation-smoke
-          --limit 2
+          --progress-every 1
+      - name: Selective V1 evidence smoke
+        run: >
+          node scripts/validate-production-runtime-v1-review.mjs
+          --output /tmp/full-runtime-validation-smoke
+          --control-size 2
+          --tail-size 1
           --progress-every 1
       - name: Next production build
         run: npm run build
