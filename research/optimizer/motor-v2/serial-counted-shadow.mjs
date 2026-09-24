@@ -31,6 +31,7 @@ const { generateSerialDirectedPatterns } = require(path.join(
   "src/lib/optimizer/experimental/serial-directed-pattern-generator.cjs",
 ));
 const { materializar } = require(path.join(ROOT, "src/lib/optimizer/legacy/materializar.cjs"));
+const { optimizar } = require(path.join(ROOT, "src/lib/optimizer/legacy/motor.cjs"));
 const { validarPlanIndustrial } = require(path.join(
   ROOT,
   "src/lib/optimizer/legacy/validador_industrial_v3.cjs",
@@ -262,6 +263,31 @@ function safeLowerBound(lines, config, incumbent) {
 }
 function nowMs() { return Number(process.hrtime.bigint()) / 1e6; }
 
+function patternFromPhysicalBoard(board, typeCount) {
+  if (!board?.colocadas?.length) return null;
+  const uso = new Map();
+  for (const placement of board.colocadas) {
+    const index = Number(placement?.pieza?.ref);
+    if (!Number.isInteger(index) || index < 0 || index >= typeCount) return null;
+    uso.set(index, (uso.get(index) || 0) + 1);
+  }
+  return {
+    uso,
+    area: board.colocadas.reduce(
+      (sum, placement) => sum + placement.base * placement.altura,
+      0,
+    ),
+    placa: board,
+  };
+}
+
+function usageSignature(pattern, typeCount) {
+  return Array.from(
+    { length: typeCount },
+    (_, index) => pattern?.uso?.get(index) || 0,
+  ).join(",");
+}
+
 const targetIds = parseIds();
 const fixtureCases = decodeFixture(targetIds).map((c) => ({ ...c, source: "holdout-v2-fixture" }));
 const xmlRecovery = await loadMissingFromXml(targetIds, fixtureCases);
@@ -298,6 +324,12 @@ const twoStageMasterWatchdogMs = envInt("SERIAL_2STAGE_MASTER_WATCHDOG_MS", 3000
 const twoStageMasterNodes = envInt("SERIAL_2STAGE_MASTER_NODES", 1600000);
 const twoStageResidualWatchdogMs = envInt("SERIAL_2STAGE_RESIDUAL_WATCHDOG_MS", 1000);
 const twoStageResidualNodes = envInt("SERIAL_2STAGE_RESIDUAL_NODES", 250000);
+const residualCgEnabled = process.env.SERIAL_RESIDUAL_CG === "1";
+const residualCgThresholdPieces = envInt("SERIAL_RESIDUAL_CG_THRESHOLD", 100);
+const residualCgMaxCycles = envInt("SERIAL_RESIDUAL_CG_MAX_CYCLES", 6);
+const residualCgPricingRounds = envInt("SERIAL_RESIDUAL_CG_PRICING_ROUNDS", 100);
+const residualCgPricingBudgetMs = envInt("SERIAL_RESIDUAL_CG_PRICING_BUDGET_MS", 3000);
+const residualCgFinalizerMs = envInt("SERIAL_RESIDUAL_CG_FINALIZER_MS", 3000);
 
 const rows = [];
 for (const c of cases) {
@@ -565,6 +597,254 @@ for (const c of cases) {
       };
     }
 
+    let residualCgAudit = null;
+    if (
+      residualCgEnabled &&
+      currentLp?.status === "OPTIMAL" &&
+      Array.isArray(currentLp.primal)
+    ) {
+      const residualPool = pricingPool.slice();
+      const residualSeenUsage = new Set(
+        residualPool.map((pattern) => usageSignature(pattern, lines.length)),
+      );
+      const fixedPatterns = [];
+      let residualDemand = lines.map((line) => Number(line.cant));
+      let totalResidualPricingMs = 0;
+      let residualPricingExact = true;
+      let demandCapsBindingSeen = false;
+      let residualCgStopReason = "max-cycles";
+      const cycles = [];
+
+      for (let cycle = 0; cycle < residualCgMaxCycles; cycle++) {
+        const piecesBefore = residualDemand.reduce((sum, value) => sum + value, 0);
+        if (piecesBefore <= residualCgThresholdPieces) {
+          residualCgStopReason = "furniture-sized-residual";
+          break;
+        }
+
+        let residualLp = solveRestrictedMasterLp(residualPool, residualDemand);
+        const residualLines = lines.map((line, index) => ({
+          ...line,
+          cant: residualDemand[index],
+        }));
+        const pricingStarted = nowMs();
+        let pricingStop = "round-limit";
+        let pricingAdded = 0;
+        let lastReducedCost = null;
+
+        for (let round = 0; round < residualCgPricingRounds; round++) {
+          if (nowMs() - pricingStarted >= residualCgPricingBudgetMs) {
+            pricingStop = "pricing-budget";
+            break;
+          }
+
+          const oracle = priceTwoStage(
+            residualLines,
+            config,
+            residualLp.dualPrices,
+            { maxStates: twoStagePricingMaxStates },
+          );
+          totalResidualPricingMs += oracle.elapsedMs || 0;
+          residualPricingExact =
+            residualPricingExact && Boolean(oracle.exactForTwoStage);
+          demandCapsBindingSeen =
+            demandCapsBindingSeen || Boolean(oracle.demandCapsBinding);
+
+          const best = oracle.best;
+          if (!best) {
+            pricingStop = oracle.demandCapsBinding
+              ? "no-feasible-pattern-demand-caps"
+              : "no-pattern";
+            break;
+          }
+
+          lastReducedCost = 1 - best.dualValue;
+          if (best.dualValue <= 1 + 1e-7) {
+            pricingStop = "no-negative-reduced-cost";
+            break;
+          }
+
+          const signature = best.usage.join(",");
+          if (residualSeenUsage.has(signature)) {
+            pricingStop = "duplicate-negative-column";
+            break;
+          }
+
+          const expectedPieces = best.usage.reduce((sum, count) => sum + count, 0);
+          const validation = best.pattern?.placa
+            ? validarPlanIndustrial(
+                {
+                  placas: [best.pattern.placa],
+                  opts: config,
+                  resumen: { piezas: expectedPieces },
+                },
+                expectedPieces,
+              )
+            : null;
+          if (!validation?.ok) {
+            pricingStop = "invalid-pricing-column";
+            break;
+          }
+
+          best.pattern._twoStagePricing = true;
+          best.pattern._residualPricing = true;
+          residualPool.push(best.pattern);
+          residualSeenUsage.add(signature);
+          pricingAdded++;
+          residualLp = solveRestrictedMasterLp(residualPool, residualDemand);
+        }
+
+        const floorCounts = residualLp.primal.map((value) =>
+          Math.max(0, Math.floor(Number(value) + 1e-9)),
+        );
+        const nextResidual = residualDemand.slice();
+        let fixedBoardsThisCycle = 0;
+
+        for (
+          let patternIndex = 0;
+          patternIndex < residualPool.length;
+          patternIndex++
+        ) {
+          const count = floorCounts[patternIndex] || 0;
+          if (!count) continue;
+          fixedBoardsThisCycle += count;
+          for (let copy = 0; copy < count; copy++) {
+            fixedPatterns.push(residualPool[patternIndex]);
+          }
+          for (const [typeIndex, usage] of residualPool[patternIndex].uso || []) {
+            nextResidual[typeIndex] -= usage * count;
+          }
+        }
+
+        const minResidual = Math.min(...nextResidual);
+        const piecesAfter = nextResidual.reduce(
+          (sum, value) => sum + Math.max(0, value),
+          0,
+        );
+        cycles.push({
+          cycle,
+          piecesBefore,
+          lpObjective: residualLp.objective,
+          pricingAdded,
+          pricingStop,
+          lastReducedCost,
+          pricingExact: residualPricingExact,
+          demandCapsBindingSeen,
+          fixedBoards: fixedBoardsThisCycle,
+          piecesAfter,
+        });
+
+        if (minResidual < 0) {
+          residualCgStopReason = "negative-residual-after-floor";
+          break;
+        }
+        if (!fixedBoardsThisCycle || piecesAfter >= piecesBefore) {
+          residualCgStopReason = "no-floor-progress";
+          break;
+        }
+
+        residualDemand = nextResidual;
+        if (piecesAfter <= residualCgThresholdPieces) {
+          residualCgStopReason = "furniture-sized-residual";
+          break;
+        }
+      }
+
+      let finalizerBoards = null;
+      let finalizerError = null;
+      let finalizerMs = 0;
+      const residualPieces = residualDemand.reduce(
+        (sum, value) => sum + Math.max(0, value),
+        0,
+      );
+
+      if (residualPieces === 0) {
+        finalizerBoards = 0;
+      } else if (residualPieces <= residualCgThresholdPieces) {
+        const finalizerStarted = nowMs();
+        try {
+          const sub = [];
+          for (let index = 0; index < lines.length; index++) {
+            const count = residualDemand[index];
+            if (!count) continue;
+            sub.push({
+              ...lines[index],
+              ref: index,
+              cant: count,
+            });
+          }
+          const finalResult = optimizar(sub, {
+            ...config,
+            presupuestoBeamMs: residualCgFinalizerMs,
+            maxPiezasBeam: Math.max(120, residualPieces),
+            trazaDiag: false,
+          });
+          const finalPatterns = (finalResult?.placas || [])
+            .map((board) => patternFromPhysicalBoard(board, lines.length))
+            .filter(Boolean);
+          if (finalPatterns.length !== (finalResult?.placas || []).length) {
+            throw new Error("residual finalizer returned unmappable board");
+          }
+          fixedPatterns.push(...finalPatterns);
+          finalizerBoards = finalPatterns.length;
+        } catch (error) {
+          finalizerError = String(error?.stack || error);
+        }
+        finalizerMs = nowMs() - finalizerStarted;
+      } else {
+        finalizerError =
+          "residual remained above threshold: " + residualPieces;
+      }
+
+      let combinedBoards = null;
+      let combinedValid = false;
+      let validationError = null;
+      if (!finalizerError && finalizerBoards !== null) {
+        try {
+          const combinedPlan = materializar(
+            fixedPatterns,
+            lines,
+            {
+              ...config,
+              anchoUtil: c.width - (config.refiladoX || 0),
+              altoUtil: c.height - (config.refiladoY || 0),
+            },
+          );
+          const validation = combinedPlan
+            ? validarPlanIndustrial(combinedPlan, pieces)
+            : null;
+          combinedBoards = combinedPlan?.resumen?.placas ?? null;
+          combinedValid = Boolean(validation?.ok);
+          if (!combinedValid) {
+            validationError = validation || "materialization failed";
+          }
+        } catch (error) {
+          validationError = String(error?.stack || error);
+        }
+      }
+
+      residualCgAudit = {
+        thresholdPieces: residualCgThresholdPieces,
+        cycles,
+        stopReason: residualCgStopReason,
+        residualPieces,
+        finalizerBoards,
+        finalizerMs: +finalizerMs.toFixed(3),
+        finalizerError,
+        fixedBoards: fixedPatterns.length - (finalizerBoards || 0),
+        combinedBoards,
+        combinedValid,
+        validationError,
+        totalResidualPricingMs,
+        residualPricingExact,
+        demandCapsBindingSeen,
+        gateLeptonPlus2:
+          combinedValid &&
+          Number.isFinite(combinedBoards) &&
+          combinedBoards <= c.leptonBoards + 2,
+      };
+    }
+
     let masterAudit = null;
     if (twoStageMasterEnabled) {
       const areaPlaca =
@@ -631,6 +911,7 @@ for (const c of cases) {
         .filter((entry) => entry.added)
         .every((entry) => entry.patternValid === true),
       lpFloorResidualAudit,
+      residualCgAudit,
       masterAudit,
     };
   }
@@ -735,6 +1016,14 @@ for (const c of cases) {
     lpFloorCombinedBoards: row.twoStagePricing?.lpFloorResidualAudit?.combinedBoards ?? null,
     lpFloorCombinedValid: row.twoStagePricing?.lpFloorResidualAudit?.combinedValid ?? null,
     lpFloorResidualMs: row.twoStagePricing?.lpFloorResidualAudit?.elapsedMs ?? null,
+    residualCgBoards: row.twoStagePricing?.residualCgAudit?.combinedBoards ?? null,
+    residualCgValid: row.twoStagePricing?.residualCgAudit?.combinedValid ?? null,
+    residualCgPieces: row.twoStagePricing?.residualCgAudit?.residualPieces ?? null,
+    residualCgCycles: row.twoStagePricing?.residualCgAudit?.cycles?.length ?? null,
+    residualCgStop: row.twoStagePricing?.residualCgAudit?.stopReason ?? null,
+    residualCgExact: row.twoStagePricing?.residualCgAudit?.residualPricingExact ?? null,
+    residualCgCaps: row.twoStagePricing?.residualCgAudit?.demandCapsBindingSeen ?? null,
+    residualCgGate: row.twoStagePricing?.residualCgAudit?.gateLeptonPlus2 ?? null,
     dualTop: row.generatorTelemetry?.finalDualPrices
       ? row.generatorTelemetry.finalDualPrices
           .map((price, index) => ({ index, price }))
@@ -759,6 +1048,8 @@ const summary = {
   twoStagePricingEnabled, twoStagePricingRounds, twoStagePricingMaxStates,
   twoStageMasterEnabled, twoStageMasterWatchdogMs, twoStageMasterNodes,
   twoStageResidualWatchdogMs, twoStageResidualNodes,
+  residualCgEnabled, residualCgThresholdPieces, residualCgMaxCycles,
+  residualCgPricingRounds, residualCgPricingBudgetMs, residualCgFinalizerMs,
   valid: valid.length, invalid: rows.length - valid.length,
   reachedLepton: valid.filter((r) => r.reachedLepton).length,
   betterThanLepton: valid.filter((r) => r.deltaVsLepton < 0).length,
