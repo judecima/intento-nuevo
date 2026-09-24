@@ -101,6 +101,113 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
     return true;
   }
 
+  function applyCopies(p, rest, k) {
+    const nr = rest.slice();
+    let deltaArea = 0;
+    for (let i = 0; i < T; i++) {
+      const used = p.v[i] * k;
+      if (used > nr[i]) return null;
+      nr[i] -= used;
+      deltaArea += used * areaPorTipo[i];
+    }
+    return { rest: nr, deltaArea };
+  }
+
+  function pushCount(counts, pattern, count) {
+    if (count <= 0) return;
+    const previous = counts[counts.length - 1];
+    if (previous && previous.pattern === pattern) previous.count += count;
+    else counts.push({ pattern, count });
+  }
+
+  function buildMonotypeIncumbent() {
+    const counts = [];
+    let boards = 0;
+    for (let type = 0; type < T; type++) {
+      let remaining = demanda[type];
+      if (remaining <= 0) continue;
+      const mono = pats
+        .filter((p) => p.v[type] > 0 && p.v.every((value, index) => index === type || value === 0))
+        .sort((a, b) => b.v[type] - a.v[type] || b.area - a.area);
+      if (!mono.length) return null;
+      while (remaining > 0) {
+        const candidate = mono.find((p) => p.v[type] <= remaining);
+        if (!candidate) return null;
+        const copies = Math.floor(remaining / candidate.v[type]);
+        const use = Math.max(1, copies);
+        pushCount(counts, candidate.source, use);
+        boards += use;
+        remaining -= candidate.v[type] * use;
+      }
+    }
+    return { boards, counts };
+  }
+
+  function preferredMultiplicities(p, rest, areaRest, usadas, maxK) {
+    const candidates = new Set();
+    for (const raw of [
+      maxK,
+      Math.floor(maxK * 0.75),
+      Math.floor(maxK * 0.5),
+      Math.floor(maxK * 0.25),
+      1,
+    ]) {
+      if (raw >= 1 && raw <= maxK) candidates.add(raw);
+    }
+    const scored = [];
+    for (const k of candidates) {
+      const applied = applyCopies(p, rest, k);
+      if (!applied) continue;
+      const nextArea = Math.max(0, areaRest - applied.deltaArea);
+      scored.push({
+        k,
+        projected: usadas + k + cota(applied.rest, nextArea),
+      });
+    }
+    scored.sort((a, b) => a.projected - b.projected || b.k - a.k);
+    return scored;
+  }
+
+  function buildGreedyIncumbent(seed) {
+    const rest = demanda.slice();
+    const counts = [];
+    let boards = 0;
+    let areaRest = demanda.reduce((sum, count, index) => sum + count * areaPorTipo[index], 0);
+    let guard = 0;
+    const guardLimit = Math.max(64, T * 16);
+
+    while (!restEmpty(rest) && guard++ < guardLimit) {
+      let best = null;
+      for (const p of pats) {
+        const maxK = maxCopies(p, rest);
+        if (maxK <= 0) continue;
+        for (const { k, projected } of preferredMultiplicities(p, rest, areaRest, boards, maxK)) {
+          const applied = applyCopies(p, rest, k);
+          if (!applied) continue;
+          const density = p.area / areaPlaca;
+          const pieces = p.v.reduce((sum, value) => sum + value, 0);
+          const candidate = { p, k, projected, density, pieces, applied };
+          if (
+            !best ||
+            candidate.projected < best.projected ||
+            (candidate.projected === best.projected && candidate.density > best.density) ||
+            (candidate.projected === best.projected && candidate.density === best.density && candidate.pieces > best.pieces)
+          ) best = candidate;
+        }
+      }
+      if (!best) break;
+      for (let i = 0; i < T; i++) rest[i] = best.applied.rest[i];
+      areaRest = Math.max(0, areaRest - best.applied.deltaArea);
+      boards += best.k;
+      pushCount(counts, best.p.source, best.k);
+      if (seed && boards >= seed.boards) return seed;
+    }
+
+    if (!restEmpty(rest)) return seed || null;
+    if (!seed || boards < seed.boards) return { boards, counts };
+    return seed;
+  }
+
   function dfs(rest, areaRest, usadas, counts) {
     if (targetReached) return;
     if (restEmpty(rest)) {
@@ -136,38 +243,36 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
     for (const p of pats) {
       if (p.v[tipo] <= 0) continue;
       const copies = maxCopies(p, rest);
-      if (copies <= 0) continue;
-      candidates.push({ p, copies });
+      const maxK = Math.min(copies, Math.max(0, mejor - usadas - 1));
+      if (maxK <= 0) continue;
+      const preferred = preferredMultiplicities(p, rest, areaRest, usadas, maxK);
+      const bestProjected = preferred.length ? preferred[0].projected : Number.MAX_SAFE_INTEGER;
+      candidates.push({ p, maxK, preferred, bestProjected });
     }
     candidates.sort((a, b) =>
-      b.copies - a.copies ||
+      a.bestProjected - b.bestProjected ||
       b.p.area - a.p.area ||
       b.p.v[tipo] - a.p.v[tipo] ||
       a.p.v.join(",").localeCompare(b.p.v.join(","))
     );
 
-    for (const { p, copies } of candidates) {
-      for (let k = copies; k >= 1; k--) {
+    for (const { p, maxK, preferred } of candidates) {
+      const ordered = preferred.map((entry) => entry.k);
+      const preferredSet = new Set(ordered);
+      for (let k = maxK; k >= 1; k--) {
+        if (!preferredSet.has(k)) ordered.push(k);
+      }
+
+      for (const k of ordered) {
         ramasMultiplicidad++;
-        const nr = rest.slice();
-        let deltaArea = 0;
-        let valid = true;
-        for (let i = 0; i < T; i++) {
-          const used = p.v[i] * k;
-          if (used > nr[i]) {
-            valid = false;
-            break;
-          }
-          nr[i] -= used;
-          deltaArea += used * areaPorTipo[i];
-        }
-        if (!valid) continue;
+        const applied = applyCopies(p, rest, k);
+        if (!applied) continue;
         const nextUsed = usadas + k;
-        const nextArea = Math.max(0, areaRest - deltaArea);
-        if (nextUsed + cota(nr, nextArea) >= mejor) continue;
+        const nextArea = Math.max(0, areaRest - applied.deltaArea);
+        if (nextUsed + cota(applied.rest, nextArea) >= mejor) continue;
 
         counts.push({ pattern: p.source, count: k });
-        dfs(nr, nextArea, nextUsed, counts);
+        dfs(applied.rest, nextArea, nextUsed, counts);
         counts.pop();
 
         if (targetReached || stopped()) return;
@@ -182,7 +287,17 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
       }
       areaPorTipo = areaTipos.map(Number);
       const areaTotal = demanda.reduce((sum, count, index) => sum + count * areaPorTipo[index], 0);
-      dfs(demanda.slice(), areaTotal, 0, []);
+
+      const initialIncumbent = mejor;
+      const monoSeed = buildMonotypeIncumbent();
+      const greedySeed = buildGreedyIncumbent(monoSeed);
+      if (greedySeed && greedySeed.boards < mejor) {
+        mejor = greedySeed.boards;
+        mejorCounts = greedySeed.counts.map((entry) => ({ ...entry }));
+        if (targetBoards !== null && mejor <= targetBoards) targetReached = true;
+      }
+
+      if (!targetReached) dfs(demanda.slice(), areaTotal, 0, []);
 
       let plan = null;
       if (mejorCounts && expandPlan) {
@@ -204,6 +319,9 @@ function resolverCoberturaContada(patrones, demanda, areaPlaca, incumbente, limi
         watchdogHit,
         elapsedMs: Date.now() - t0,
         patterns: pats.length,
+        initialIncumbent,
+        seededIncumbent: greedySeed?.boards ?? monoSeed?.boards ?? null,
+        monotypeIncumbent: monoSeed?.boards ?? null,
       };
     },
   };
