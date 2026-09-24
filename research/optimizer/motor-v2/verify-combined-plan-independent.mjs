@@ -26,6 +26,8 @@ function independentXmlAudit(xml) {
     const n = Number(attrs.num ?? 1);
     return sum + (Number.isFinite(n) && n > 0 ? n : 1);
   }, 0);
+  const grainAttributes = [...String(xml).matchAll(/\bgrain\s*=\s*["']([^"']+)["']/gi)]
+    .map((match) => match[1]);
   return {
     sha256: crypto.createHash("sha256").update(xml).digest("hex"),
     panelTags: panels.length,
@@ -45,6 +47,7 @@ function independentXmlAudit(xml) {
     rootTrimReferences: [...new Set(
       roots.map((attrs) => Number(attrs.trim)).filter(Number.isFinite),
     )],
+    grainAttributes: [...new Set(grainAttributes)],
   };
 }
 
@@ -352,6 +355,9 @@ function verifyBundle(bundle) {
       );
     }
 
+    if (!xmlAudit.grainAttributes.length) {
+      warnings.push("source XML does not explicitly declare Grain; no extra grain restriction can be inferred independently.");
+    }
     if (xmlAudit.rootTrimReferences.some((value) => Math.abs(value) > EPS)) {
       warnings.push(
         "XML root-node trim references are non-zero; canonical project parsing treats these as cut-tree references, not global panel refilado.",
