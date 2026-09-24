@@ -32,6 +32,15 @@ if (args.help || args.inputs.length === 0) {
 const outputDir = resolve(args.output);
 mkdirSync(outputDir, { recursive: true });
 
+const requestedSearchBudgets = {
+  maxBeamExpansions: process.env.OPTIMIZER_MAX_BEAM_EXPANSIONS ?? null,
+  beamWatchdogMs: process.env.OPTIMIZER_BEAM_WATCHDOG_MS ?? null,
+  maxMasterNodes: process.env.OPTIMIZER_MAX_MASTER_NODES ?? null,
+  masterWatchdogMs: process.env.OPTIMIZER_MASTER_WATCHDOG_MS ?? null,
+  maxRescueAttempts: process.env.OPTIMIZER_MAX_RESCUE_ATTEMPTS ?? null,
+  rescueWatchdogMs: process.env.OPTIMIZER_RESCUE_WATCHDOG_MS ?? null,
+};
+
 sanitizeOptimizerEnvironment();
 
 const git = gitInfo();
@@ -118,12 +127,22 @@ const meta = {
     totalMemoryBytes: totalmem(),
     rustAddon,
     searchBudgets: {
-      maxBeamExpansions: process.env.OPTIMIZER_MAX_BEAM_EXPANSIONS ?? null,
-      beamWatchdogMs: process.env.OPTIMIZER_BEAM_WATCHDOG_MS ?? null,
-      maxMasterNodes: process.env.OPTIMIZER_MAX_MASTER_NODES ?? null,
-      masterWatchdogMs: process.env.OPTIMIZER_MASTER_WATCHDOG_MS ?? null,
-      maxRescueAttempts: process.env.OPTIMIZER_MAX_RESCUE_ATTEMPTS ?? null,
-      rescueWatchdogMs: process.env.OPTIMIZER_RESCUE_WATCHDOG_MS ?? null,
+      requestedBeforeSanitize: requestedSearchBudgets,
+      effectiveCandidateBalanced: {
+        beamBudgetMs: 1500,
+        maxBeamExpansions: null,
+        beamWatchdogMs: null,
+        rescueBudgetMs: 300,
+        maxRescueAttempts: null,
+        rescueWatchdogMs: null,
+        masterRounds: 40,
+        masterTimeBudgetMs: 8000,
+        maxMasterNodes: 1600000,
+        masterWatchdogMs: 12000,
+      },
+      note:
+        "Candidate V2/Auto defaults are resolved in legacy-engine.ts after experimental env vars are sanitized. " +
+        "Null requested values therefore do not mean unlimited Master search.",
     },
   },
   runtime: {
