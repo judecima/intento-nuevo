@@ -27,7 +27,11 @@ const furnitureLe75IdsPath = path.join(args.output, "IDS_FURNITURE_LE75.txt");
 const over75IdsPath = path.join(args.output, "IDS_OVER75.txt");
 const zeroPieceIdsPath = path.join(args.output, "IDS_ZERO_PIECES.txt");
 
-const files = collectXml(args.inputs);
+const allFiles = collectXml(args.inputs);
+const idsFilter = args.idsFile ? loadIdsFile(args.idsFile) : null;
+const files = idsFilter
+  ? allFiles.filter((file) => idsFilter.has(idFromFileName(path.basename(file))))
+  : allFiles;
 const runtimeRows = args.runtimeRows ? loadJsonl(args.runtimeRows) : [];
 const runtimeById = new Map(
   runtimeRows
@@ -151,6 +155,31 @@ for (const [name, predicate] of Object.entries({
   };
 }
 
+const farEdge = {
+  rightCases: project.filter((row) => row.touchesPhysicalRootEdge?.right).length,
+  bottomCases: project.filter((row) => row.touchesPhysicalRootEdge?.bottom).length,
+  eitherCases: project.filter(
+    (row) => row.touchesPhysicalRootEdge?.right || row.touchesPhysicalRootEdge?.bottom,
+  ).length,
+  neitherCases: project.filter(
+    (row) => !row.touchesPhysicalRootEdge?.right && !row.touchesPhysicalRootEdge?.bottom,
+  ).length,
+  physicalBoardsEither: project.reduce(
+    (sum, row) => sum + (row.physicalBoardsTouchingFarEdge?.either || 0),
+    0,
+  ),
+  byTrim: histogram(
+    project.map((row) => {
+      const trim = `${row.inferredRefilado?.x},${row.inferredRefilado?.y}`;
+      const touched =
+        row.touchesPhysicalRootEdge?.right || row.touchesPhysicalRootEdge?.bottom
+          ? "far-edge"
+          : "no-far-edge";
+      return `${trim}|${touched}`;
+    }),
+  ),
+};
+
 const summary = {
   schema: "optimizer-holdout-lepton-semantics-audit-v1",
   generatedAt: new Date().toISOString(),
@@ -175,6 +204,7 @@ const summary = {
       (row) => row.rotation?.sameCodeBothOrientationsObserved,
     ).length,
   },
+  farEdge,
   qualityCohorts: cohortSummary,
   unknown: {
     cases: unknownRows.length,
@@ -246,6 +276,7 @@ console.log("SUMMARY " + JSON.stringify({
   trimZero: summary.trim.zero,
   trimAmbiguous: summary.trim.ambiguous,
   trimDistribution: summary.trim.distribution,
+  farEdge: summary.farEdge,
   qualityCohorts: summary.qualityCohorts,
   unknown: summary.unknown,
   productCohorts: summary.productCohorts,
@@ -267,6 +298,17 @@ function histogram(values) {
   return Object.fromEntries(
     [...map.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))),
   );
+}
+
+function loadIdsFile(filePath) {
+  if (!fs.existsSync(filePath)) throw new Error(`No existe --ids-file: ${filePath}`);
+  const ids = new Set();
+  for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
+    const value = Number(line.trim());
+    if (Number.isSafeInteger(value)) ids.add(value);
+  }
+  if (!ids.size) throw new Error(`--ids-file no contiene IDs válidos: ${filePath}`);
+  return ids;
 }
 
 function loadJsonl(filePath) {
@@ -313,6 +355,7 @@ function parseArgs(argv) {
     inputs: [],
     output: path.join(REPO, "validation-full", "lepton-semantics-audit"),
     runtimeRows: null,
+    idsFile: null,
     progressEvery: 250,
     help: false,
   };
@@ -321,6 +364,7 @@ function parseArgs(argv) {
     if (arg === "--input") out.inputs.push(path.resolve(argv[++i]));
     else if (arg === "--output") out.output = path.resolve(argv[++i]);
     else if (arg === "--runtime-rows") out.runtimeRows = path.resolve(argv[++i]);
+    else if (arg === "--ids-file") out.idsFile = path.resolve(argv[++i]);
     else if (arg === "--progress-every") out.progressEvery = Math.max(1, Number(argv[++i]) || 250);
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`Argumento desconocido: ${arg}`);
@@ -334,9 +378,12 @@ Uso:
   node scripts/audit-holdout-lepton-semantics.mjs \\
     --input ".\\validation-full\\_extracted" \\
     --runtime-rows ".\\validation-full\\FULL_RUNTIME_VALIDATION_ROWS.jsonl" \\
+    --ids-file ".\\validation-full\\FAILED_TRIM_IDS.txt" \\
     --output ".\\validation-full\\lepton-semantics-audit"
 
 Puede repetirse --input para varias carpetas. El script sólo lee XML ya extraídos.
+--ids-file es opcional y limita el audit a esos IDs; es útil para auditar sólo
+los fallos por refilado sin recorrer nuevamente todo el holdout.
 Cruzar --runtime-rows es opcional, pero permite informar trim por cohortes mejor/igual/peor.
 `);
 }
