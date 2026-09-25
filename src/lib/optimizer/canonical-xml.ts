@@ -178,21 +178,31 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
           warnings.push(warning(options.fileName, `project terminal node ${childId} jumps from layer ${parentLayer} to ${childLayer}`));
         }
 
-        const placed = globalProjectNodeDimensions(child, rootDirection, options.fileName);
+        // El nodo hijo describe el BLOQUE fisico del layout Lepton, no siempre la
+        // dimension neta de la pieza. Si el hijo conserva trim > 0, su eje local l
+        // incluye la franja de refilado. La pieza terminal ocupa:
+        //   - part.cut sobre el eje de corte del padre;
+        //   - child.l - child.trim sobre el eje perpendicular.
+        const placedNodeFrame = globalProjectNodeDimensions(child, rootDirection, options.fileName);
         const placedX = numberAttr(child, ["x", "X"]) ?? 0;
         const placedY = numberAttr(child, ["y", "Y"]) ?? 0;
-        if (placedX + placed.width > frame.width + FIT_TOLERANCE || placedY + placed.height > frame.height + FIT_TOLERANCE) {
+        if (
+          placedX + placedNodeFrame.width > frame.width + FIT_TOLERANCE ||
+          placedY + placedNodeFrame.height > frame.height + FIT_TOLERANCE
+        ) {
           warnings.push(
             warning(
               options.fileName,
-              `project terminal node ${childId} spans ${formatNumber(placed.width)}x${formatNumber(placed.height)} at ${formatNumber(placedX)},${formatNumber(placedY)} outside the ${formatNumber(frame.width)}x${formatNumber(frame.height)} panel frame`
+              `project terminal node ${childId} spans ${formatNumber(placedNodeFrame.width)}x${formatNumber(placedNodeFrame.height)} at ${formatNumber(placedX)},${formatNumber(placedY)} outside the ${formatNumber(frame.width)}x${formatNumber(frame.height)} panel frame`
             )
           );
         }
 
         // La orientacion colocada es una decision de Lepton y cambia entre paneles del
         // mismo archivo, asi que la pieza canonica se normaliza a mayor x menor.
-        const dimensions = landscape(placed);
+        const dimensions = landscape(
+          globalProjectTerminalPieceDimensions(child, part, rootDirection, options.fileName)
+        );
         const quantity = positiveIntegerAttr(part, ["num"], 1, options.fileName) * shape.info.quantity;
         const code = nonEmpty(attr(part, "code"));
         addGroupedPiece(grouped, {
@@ -635,6 +645,49 @@ function globalProjectNodeDimensions(node: XmlNode, rootDirection: XmlDirection,
 
 function nodeDirection(rootDirection: XmlDirection, layer: number): XmlDirection {
   return layer % 2 === 1 ? rootDirection : flipDirection(rootDirection);
+}
+
+/**
+ * Reconstruye la dimension NETA de una pieza terminal de XML <project>.
+ *
+ * El nodo hijo conserva el marco fisico usado por el arbol de Lepton. Cuando
+ * child.trim > 0, su eje local l incluye esa franja de refilado; no forma parte
+ * de la pieza. El atributo part.cut ya es la otra dimension neta.
+ */
+function globalProjectTerminalPieceDimensions(
+  child: XmlNode,
+  part: XmlNode,
+  rootDirection: XmlDirection,
+  fileName?: string
+): { width: number; height: number } {
+  const childLayer = positiveIntegerAttr(child, ["layer"], undefined, fileName);
+  const childDirection = nodeDirection(rootDirection, childLayer);
+  const childFrame = globalProjectNodeDimensions(child, rootDirection, fileName);
+  const trim = numberAttr(child, ["trim", "Trim"]) ?? 0;
+  const terminalCut = positiveNumberAttr(part, ["cut", "Cut"], "project terminal part cut", fileName);
+
+  if (trim < 0) {
+    throw parseError(
+      `project terminal node trim must be non-negative: ${formatNumber(trim)}`,
+      "project-negative-trim",
+      fileName
+    );
+  }
+
+  const rawChildSpan = childDirection === "x" ? childFrame.width : childFrame.height;
+  const netChildSpan = roundDimension(rawChildSpan - trim);
+
+  if (!(netChildSpan > 0)) {
+    throw parseError(
+      `project terminal node span is not positive after trim: span=${formatNumber(rawChildSpan)} trim=${formatNumber(trim)}`,
+      "project-terminal-trim-exhausts-span",
+      fileName
+    );
+  }
+
+  return childDirection === "x"
+    ? { width: netChildSpan, height: terminalCut }
+    : { width: terminalCut, height: netChildSpan };
 }
 
 function readRotationAllowed(
