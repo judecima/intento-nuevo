@@ -247,7 +247,7 @@ describe("parseCanonicalXml / orientacion en project", () => {
     // El contrato relevante es la direccion geometrica resultante. El warning es
     // diagnostico y no forma parte de la representacion canonica.
     expect(parsed.stats.rootDirections).toEqual(["y"]);
-    expect(piece(parsed.case, "6")).toMatchObject({ width: 532.2, height: 153.2 });
+    expect(piece(parsed.case, "6")).toMatchObject({ width: 537.2, height: 153.2 });
   });
 
   it("normaliza la orientacion de las piezas porque es una decision de Lepton", () => {
