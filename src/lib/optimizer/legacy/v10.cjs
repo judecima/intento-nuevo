@@ -76,6 +76,9 @@ function nuevasMetricas() {
       finalBoards: null,
       generationCpuMs: 0,
     },
+    // Research-only. Filled only when OPTIMIZER_RESEARCH_CAPTURE_MASTER_POOL=1.
+    // Production behavior and search are unchanged.
+    researchMasterPools: [],
     total: { casos: 0, ms: 0 }
   };
 }
@@ -88,6 +91,33 @@ function registrar(m, ms, gano, ahorro, invalido) {
 
 function envFlag(name) {
   return /^(1|true|yes|on)$/i.test(String(process.env[name] || ''));
+}
+
+function capturarPoolMasterInvestigacion(metricas, pool, lineas, meta = {}) {
+  if (!envFlag('OPTIMIZER_RESEARCH_CAPTURE_MASTER_POOL')) return;
+  if (!Array.isArray(pool) || !Array.isArray(lineas)) return;
+  const typeCount = lineas.length;
+  metricas.researchMasterPools.push({
+    checkpoint: meta.checkpoint || null,
+    kind: meta.kind || null,
+    roundsExecuted: Number.isFinite(+meta.roundsExecuted) ? +meta.roundsExecuted : null,
+    poolSize: pool.length,
+    patterns: pool.map((pattern) => {
+      const usage = new Array(typeCount).fill(0);
+      for (const [index, count] of pattern?.uso || []) {
+        if (index >= 0 && index < typeCount) usage[index] = Number(count) || 0;
+      }
+      const cuts = pattern?.placa?.cortes || [];
+      return {
+        usage,
+        area: Number(pattern?.area) || 0,
+        maxPhysicalCutLevel: cuts.reduce(
+          (max, cut) => Math.max(max, Number(cut?.nivel) || 0),
+          0,
+        ),
+      };
+    }),
+  });
 }
 
 function usarCotaBarataPostBaseline(config) {
@@ -664,6 +694,12 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           if (shouldSolve) {
             const masterPatterns = incremental.patterns();
             pool = masterPatterns.concat(mono);
+            const roundsExecutedForPool = incremental.executedRounds().length;
+            capturarPoolMasterInvestigacion(metricas, pool, lineas, {
+              checkpoint: `P${roundsExecutedForPool}`,
+              kind: isFinalCheckpoint ? "final" : "checkpoint",
+              roundsExecuted: roundsExecutedForPool,
+            });
             const fullNodeCapRaw = Number(config.maxNodosMaster);
             const fullNodeCap =
               Number.isFinite(fullNodeCapRaw) && fullNodeCapRaw > 0
@@ -775,6 +811,11 @@ function optimizarV10(lineas, config, metricas = nuevasMetricas()) {
           metricas.effortController.roundsExecuted = masterRounds;
         }
         const pool = masterPatterns.concat(patronesMonotipo(lineas, config));
+        capturarPoolMasterInvestigacion(metricas, pool, lineas, {
+          checkpoint: `P${metricas.effortController.roundsExecuted || masterRounds}`,
+          kind: "fixed",
+          roundsExecuted: metricas.effortController.roundsExecuted || masterRounds,
+        });
         const s = resolverCobertura(pool, lineas.map(l => l.cant), areaPlaca,
                                     mejor.resumen.placas, config.msMaster || 8000,
                                     { telemetry: config._step0Telemetry || null,
