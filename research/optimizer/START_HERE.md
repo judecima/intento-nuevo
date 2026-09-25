@@ -1,30 +1,41 @@
 # START HERE — MDF Optimizer Research
 
+## Active continuation — 2026-09-25
+
+Repository:
+`judecima/intento-nuevo`
+
 Active branch:
-`research/perfv3-industrial-incremental-20260922`
+`research/holdout-trim-baseline-20260924`
 
-Branch HEAD at handoff:
-`ace8e4c79f5d01e7ebfe150e0acf86220e4a753c`
+Canonical handoff:
+`research/optimizer/STATUS_2026-09-25_TRIM_SEMANTICS_HANDOFF.md`
 
-Canonical progress checkpoint:
-`research/optimizer/CURRENT_PROGRESS_2026-09-22.md`
+Supporting trim gate:
+`research/optimizer/TRIM_SEMANTICS_GATE_2026-09-25.md`
 
 For a new chat:
+
 1. checkout/read the active branch above;
-2. read CURRENT_PROGRESS_2026-09-22.md before proposing work;
-3. treat A/B + incremental V3 as the accepted baseline;
-4. do not repeat experiments listed as rejected;
-5. continue the effective-branching / Guide-Strip / residual-builder line;
-6. preserve the lexicographic objective: minimum boards first, then commercial remnant quality, then latency;
-7. respect per-piece rotation override: board grain defines the default, but explicit canRotate=true is allowed;
-8. use the current 37,828 valid cases as discovery/mining data;
-9. keep the next ~20k user cases sealed as external validation until new thresholds/rules are frozen.
+2. read `STATUS_2026-09-25_TRIM_SEMANTICS_HANDOFF.md` completely before proposing work;
+3. read `TRIM_SEMANTICS_GATE_2026-09-25.md`;
+4. trust the latest commit on this same branch if HEAD has advanced;
+5. do not reconstruct state from older handoffs unless the canonical status explicitly points to them;
+6. preserve the lexicographic objective: minimum boards first, commercial remnant second, latency third;
+7. do not start A–F gap mining until trim semantics are closed and the corrected holdout is rerun;
+8. do not deploy to Vercel;
+9. do not modify `.gitignore` or `.vercelignore` or clean local research artifacts.
 
-If branch HEAD has advanced, trust the latest commit on this same branch and then read the checkpoint again.
+Immediate milestone:
+- run the full-corpus trim rule audit;
+- require `factoryEdgeOrReserve.failingCases == 0`;
+- only then implement one coherent trim policy across schema, generators, materializer, validator, and lower bounds.
 
+## Older handoffs
 
-## Chat handoff — 2026-09-22
-Before continuing in a new conversation, read:
+The following files are historical context only and are superseded by the 2026-09-25 status unless explicitly referenced there:
+
+- `research/optimizer/CURRENT_PROGRESS_2026-09-22.md`
 - `research/optimizer/CHAT_HANDOFF_2026-09-22.md`
 
-It freezes the current state before the user's next ~15k sealed holdout, including Safe Cascade v1, Monotype-v2 external PASS, R3-M-v4 frozen candidate, H2 1399 results, early cheap-LB family evidence, and the no-retuning holdout protocol.
+Do not use the older 2026-09-22 active branch as the continuation point.
