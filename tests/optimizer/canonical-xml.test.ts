@@ -162,10 +162,11 @@ describe("parseCanonicalXml / orientacion en project", () => {
   it("convierte los ejes locales l/w a dimensiones globales segun el layer", () => {
     const parsed = parseCanonicalXml(projectXml, { fileName: "project-minimal.xml" });
 
-    // no.3 declara l="410" w="560" en layer 2: la pieza colocada mide 560x410, no 410x560.
-    expect(piece(parsed.case, "B")).toMatchObject({ width: 560, height: 410, quantity: 2 });
+    // no.3 declara l="410" w="560" trim="5" en layer 2: el bloque fisico
+    // es 560x410, pero la pieza neta usa child.l-trim => 560x405.
+    expect(piece(parsed.case, "B")).toMatchObject({ width: 560, height: 405, quantity: 2 });
     expect(piece(parsed.case, "A")).toMatchObject({
-      width: 1830,
+      width: 1825,
       height: 230,
       quantity: 1,
       grain: null,
@@ -176,6 +177,35 @@ describe("parseCanonicalXml / orientacion en project", () => {
     expect(parsed.stats.rootDirections).toEqual(["x"]);
     expect(parsed.stats.pieceOrientation).toBe("normalized-from-placement");
     expect(parsed.warnings).toEqual([]);
+  });
+
+  it("descuenta el trim del nodo hijo al reconstruir una pieza terminal", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8" ?>
+<project>
+<panel1 l="2440" w="1220" material="TRIPLAY OKUME" thickness="16" saw="4.5" num="4">
+<no.1 l="2440" w="1220" trim="5" x="0" y="0" layer="1" id="0">
+<part cut="790" num="1" type="1" id="1" code="1" />
+<part cut="790" num="1" type="1" id="2" code="1" />
+<part cut="790" num="1" type="1" id="3" code="1" />
+</no.1>
+<no.2 l="1220" w="790" trim="5" x="0" y="0" layer="2" id="1" />
+<no.3 l="1220" w="790" trim="5" x="0" y="794.5" layer="2" id="2" />
+<no.4 l="1220" w="790" trim="5" x="0" y="1589" layer="2" id="3" />
+</panel1>
+</project>`;
+
+    const parsed = parseCanonicalXml(xml, {
+      fileName: "5468441-min.xml",
+      projectTrimMode: "infer"
+    });
+
+    expect(parsed.case.panel).toEqual({ width: 2440, height: 1220, thickness: 16 });
+    expect(parsed.case.trim).toEqual({ x: 5, y: 5 });
+    expect(piece(parsed.case, "1")).toMatchObject({
+      width: 1215,
+      height: 790,
+      quantity: 12
+    });
   });
 
   it("resuelve un panel con nodo raiz en direccion y y agrega piezas entre paneles", () => {
