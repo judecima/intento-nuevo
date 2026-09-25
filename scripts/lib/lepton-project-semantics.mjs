@@ -226,6 +226,10 @@ function terminalPlacements(shape) {
         short,
         orientation,
         multiplicity,
+        x: n(attr(child, "x", "X")) || 0,
+        y: n(attr(child, "y", "Y")) || 0,
+        width: d.width,
+        height: d.height,
       });
     }
   }
@@ -263,6 +267,13 @@ export function auditLeptonProjectXml(xml, options = {}) {
   let landscapePhysical = 0;
   let portraitPhysical = 0;
   let squarePhysical = 0;
+  let minLeft = Infinity;
+  let minTop = Infinity;
+  let minRight = Infinity;
+  let minBottom = Infinity;
+  let boardsTouchingRight = 0;
+  let boardsTouchingBottom = 0;
+  let boardsTouchingFarEdge = 0;
   const kerfValues = new Set();
   const materials = new Set();
   const trimByAxis = { x: new Set(), y: new Set() };
@@ -286,11 +297,25 @@ export function auditLeptonProjectXml(xml, options = {}) {
       trimByAxis[dir].add(trim);
     }
 
-    for (const placement of terminalPlacements(shape)) {
+    const frame = globalDims(shape.root, shape.rootDirection);
+    const placements = terminalPlacements(shape);
+    let touchesRight = false;
+    let touchesBottom = false;
+
+    for (const placement of placements) {
       physicalPieces += placement.multiplicity;
       if (placement.orientation === "portrait") portraitPhysical += placement.multiplicity;
       else if (placement.orientation === "landscape") landscapePhysical += placement.multiplicity;
       else squarePhysical += placement.multiplicity;
+
+      const rightMargin = frame.width - (placement.x + placement.width);
+      const bottomMargin = frame.height - (placement.y + placement.height);
+      minLeft = Math.min(minLeft, placement.x);
+      minTop = Math.min(minTop, placement.y);
+      minRight = Math.min(minRight, rightMargin);
+      minBottom = Math.min(minBottom, bottomMargin);
+      if (Math.abs(rightMargin) <= EPS) touchesRight = true;
+      if (Math.abs(bottomMargin) <= EPS) touchesBottom = true;
 
       const key = `${placement.code}|${placement.long}x${placement.short}`;
       let stat = codes.get(key);
@@ -300,6 +325,10 @@ export function auditLeptonProjectXml(xml, options = {}) {
       }
       stat[placement.orientation] += placement.multiplicity;
     }
+
+    if (touchesRight) boardsTouchingRight += shape.quantity;
+    if (touchesBottom) boardsTouchingBottom += shape.quantity;
+    if (touchesRight || touchesBottom) boardsTouchingFarEdge += shape.quantity;
   }
 
   const orientationByCode = [...codes.values()];
@@ -329,6 +358,23 @@ export function auditLeptonProjectXml(xml, options = {}) {
       y: trimY,
       unambiguous: trimX != null && trimY != null,
       nonZero: (trimX ?? 0) > EPS || (trimY ?? 0) > EPS,
+    },
+    minObservedPieceMargins: {
+      left: Number.isFinite(minLeft) ? minLeft : null,
+      top: Number.isFinite(minTop) ? minTop : null,
+      right: Number.isFinite(minRight) ? minRight : null,
+      bottom: Number.isFinite(minBottom) ? minBottom : null,
+    },
+    touchesPhysicalRootEdge: {
+      left: Number.isFinite(minLeft) && Math.abs(minLeft) <= EPS,
+      top: Number.isFinite(minTop) && Math.abs(minTop) <= EPS,
+      right: Number.isFinite(minRight) && Math.abs(minRight) <= EPS,
+      bottom: Number.isFinite(minBottom) && Math.abs(minBottom) <= EPS,
+    },
+    physicalBoardsTouchingFarEdge: {
+      right: boardsTouchingRight,
+      bottom: boardsTouchingBottom,
+      either: boardsTouchingFarEdge,
     },
     rotation: {
       landscapePhysical,
