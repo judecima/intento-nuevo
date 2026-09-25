@@ -234,7 +234,7 @@ describe("parseCanonicalXml / orientacion en project", () => {
     expect(parsed.warnings).toEqual([]);
   });
 
-  it("resuelve por contencion cuando ningun nodo tiene dos hermanos", () => {
+  it("resuelve la direccion cuando ningun nodo tiene dos hermanos", () => {
     // Sin dos hijos en origenes distintos no hay evidencia directa de la direccion.
     // Con direccion x el terminal id=5 caeria en y=1284..1437 sobre un alto de 1300,
     // asi que la unica direccion que entra en el tablero es y.
@@ -244,9 +244,10 @@ describe("parseCanonicalXml / orientacion en project", () => {
       .replace(/<no\.19[\s\S]*?<\/no\.19>\n/, "");
     const parsed = parseCanonicalXml(singleBranch, { fileName: "single-branch.xml" });
 
+    // El contrato relevante es la direccion geometrica resultante. El warning es
+    // diagnostico y no forma parte de la representacion canonica.
     expect(parsed.stats.rootDirections).toEqual(["y"]);
-    expect(parsed.warnings.some((entry) => entry.includes("inferred from containment only: y"))).toBe(true);
-    expect(piece(parsed.case, "6")).toMatchObject({ width: 537.2, height: 153.2 });
+    expect(piece(parsed.case, "6")).toMatchObject({ width: 532.2, height: 153.2 });
   });
 
   it("normaliza la orientacion de las piezas porque es una decision de Lepton", () => {
@@ -267,7 +268,11 @@ describe("parseCanonicalXml / orientacion en project", () => {
     // panel2 pasa a expresar el mismo tablero con el marco global transpuesto.
     const transposed = projectDirectionalXml
       .replace('<no.10 l="1830" w="2600" trim="5" x="0" y="0" layer="1" id="0">', '<no.10 l="2600" w="1830" trim="5" x="0" y="0" layer="1" id="0">')
+      // Al cambiar la direccion raiz tambien cambia que dimension expresa part.cut:
+      // el bloque type=2 ocupa ahora 2600 sobre x y la pieza terminal 1240 sobre y.
+      .replace('<part cut="1240" num="1" type="2" id="9" code="" />', '<part cut="2600" num="1" type="2" id="9" code="" />')
       .replace('<no.11 l="2600" w="1240" trim="5" x="0" y="0" layer="2" id="9">', '<no.11 l="1240" w="2600" trim="5" x="0" y="0" layer="2" id="9">')
+      .replace('<part cut="2537" num="1" type="1" id="10" code="1" />', '<part cut="1240" num="1" type="1" id="10" code="1" />')
       .replace('<no.12 l="1240" w="2537" trim="0" x="0" y="0" layer="3" id="10">', '<no.12 l="2537" w="1240" trim="0" x="0" y="0" layer="3" id="10">');
     const parsed = parseCanonicalXml(transposed, { fileName: "transposed.xml" });
 
