@@ -26,6 +26,8 @@ const rotationReviewIdsPath = path.join(args.output, "IDS_ROTATION_REVIEW.txt");
 const furnitureLe75IdsPath = path.join(args.output, "IDS_FURNITURE_LE75.txt");
 const over75IdsPath = path.join(args.output, "IDS_OVER75.txt");
 const zeroPieceIdsPath = path.join(args.output, "IDS_ZERO_PIECES.txt");
+const globalTrimRuleFailIdsPath = path.join(args.output, "IDS_TRIM_RULE_GLOBAL_FAIL.txt");
+const factoryEdgeRuleFailIdsPath = path.join(args.output, "IDS_TRIM_RULE_FACTORY_EDGE_FAIL.txt");
 
 const allFiles = collectXml(args.inputs);
 const idsFilter = args.idsFile ? loadIdsFile(args.idsFile) : null;
@@ -180,6 +182,43 @@ const farEdge = {
   ),
 };
 
+function summarizeTrimRule(rows, ruleName) {
+  const eligible = rows.filter(
+    (row) =>
+      row.inferredRefilado?.unambiguous &&
+      row.trimRuleCandidates?.[ruleName]?.pass != null,
+  );
+  const passing = eligible.filter((row) => row.trimRuleCandidates[ruleName].pass === true);
+  const failing = eligible.filter((row) => row.trimRuleCandidates[ruleName].pass === false);
+  return {
+    eligibleCases: eligible.length,
+    passingCases: passing.length,
+    failingCases: failing.length,
+    passPct:
+      eligible.length > 0 ? +(100 * passing.length / eligible.length).toFixed(3) : null,
+    violatingPhysicalBoards: failing.reduce(
+      (sum, row) =>
+        sum + (row.trimRuleCandidates?.[ruleName]?.violatingPhysicalBoards || 0),
+      0,
+    ),
+    byTrim: histogram(
+      eligible.map((row) => {
+        const trim = `${row.inferredRefilado.x},${row.inferredRefilado.y}`;
+        return `${trim}|${row.trimRuleCandidates[ruleName].pass ? "pass" : "fail"}`;
+      }),
+    ),
+    failingCaseIds: failing
+      .map((row) => row.caseId)
+      .filter(Number.isSafeInteger)
+      .sort((a, b) => a - b),
+  };
+}
+
+const trimRuleCandidates = {
+  globalFarInset: summarizeTrimRule(project, "globalFarInset"),
+  factoryEdgeOrReserve: summarizeTrimRule(project, "factoryEdgeOrReserve"),
+};
+
 const summary = {
   schema: "optimizer-holdout-lepton-semantics-audit-v1",
   generatedAt: new Date().toISOString(),
@@ -205,6 +244,7 @@ const summary = {
     ).length,
   },
   farEdge,
+  trimRuleCandidates,
   qualityCohorts: cohortSummary,
   unknown: {
     cases: unknownRows.length,
@@ -249,6 +289,8 @@ const summary = {
     furnitureLe75Ids: furnitureLe75IdsPath,
     over75Ids: over75IdsPath,
     zeroPieceIds: zeroPieceIdsPath,
+    globalTrimRuleFailIds: globalTrimRuleFailIdsPath,
+    factoryEdgeRuleFailIds: factoryEdgeRuleFailIdsPath,
   },
   errorsPreview: errors.slice(0, 20).map((row) => ({
     caseId: row.caseId,
@@ -266,6 +308,16 @@ writeIds(rotationReviewIdsPath, noRotationBetter);
 writeIds(furnitureLe75IdsPath, furnitureLe75);
 writeIds(over75IdsPath, over75);
 writeIds(zeroPieceIdsPath, zeroPiece);
+fs.writeFileSync(
+  globalTrimRuleFailIdsPath,
+  trimRuleCandidates.globalFarInset.failingCaseIds.join("\n") +
+    (trimRuleCandidates.globalFarInset.failingCaseIds.length ? "\n" : ""),
+);
+fs.writeFileSync(
+  factoryEdgeRuleFailIdsPath,
+  trimRuleCandidates.factoryEdgeOrReserve.failingCaseIds.join("\n") +
+    (trimRuleCandidates.factoryEdgeOrReserve.failingCaseIds.length ? "\n" : ""),
+);
 
 console.log("SUMMARY " + JSON.stringify({
   xmlFiles: summary.xmlFiles,
@@ -277,6 +329,7 @@ console.log("SUMMARY " + JSON.stringify({
   trimAmbiguous: summary.trim.ambiguous,
   trimDistribution: summary.trim.distribution,
   farEdge: summary.farEdge,
+  trimRuleCandidates: summary.trimRuleCandidates,
   qualityCohorts: summary.qualityCohorts,
   unknown: summary.unknown,
   productCohorts: summary.productCohorts,
