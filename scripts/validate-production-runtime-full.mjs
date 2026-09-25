@@ -43,6 +43,9 @@ const requestedSearchBudgets = {
 };
 
 sanitizeOptimizerEnvironment();
+if (args.captureMasterPool) {
+  process.env.OPTIMIZER_RESEARCH_CAPTURE_MASTER_POOL = "1";
+}
 
 const git = gitInfo();
 const metadataPath = join(outputDir, "FULL_RUNTIME_VALIDATION_META.json");
@@ -173,6 +176,7 @@ const meta = {
     progressEvery: args.progressEvery,
     respectProjectTrim: args.respectProjectTrim,
     idsFile: args.idsFile,
+    captureMasterPool: args.captureMasterPool,
     discoveredXmlFiles: allFiles.length,
   },
 };
@@ -515,6 +519,7 @@ function parseArgs(argv) {
     progressEvery: 10,
     respectProjectTrim: false,
     idsFile: null,
+    captureMasterPool: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -531,6 +536,7 @@ function parseArgs(argv) {
     else if (arg === "--progress-every") out.progressEvery = Math.max(1, Number(argv[++i]) || 10);
     else if (arg === "--respect-project-trim") out.respectProjectTrim = true;
     else if (arg === "--ids-file") out.idsFile = resolve(argv[++i]);
+    else if (arg === "--capture-master-pool") out.captureMasterPool = true;
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`Argumento desconocido: ${arg}`);
   }
@@ -562,6 +568,10 @@ Opciones:
                       Lepton de niveles 1-2 y lo aplica al input canónico.
                       Si el trim no es unívoco, el caso falla explícitamente.
   --ids-file PATH     procesa sólo IDs listados en el archivo (uno por línea)
+  --capture-master-pool
+                      research-only: incluye snapshots vectoriales del pool
+                      Master en P16/P40 (o el último checkpoint ejecutado).
+                      Usar sólo sobre cohortes pequeñas de gaps.
   --force-resume      permite continuar un output creado con otro commit
   --help              muestra esta ayuda
 
@@ -773,6 +783,10 @@ function armRow(arm) {
     effortMode: result.metrics.effortMode ?? null,
     cacheHit: result.metrics.cacheHit ?? null,
     lowerBound: result.raw?.cotaV10 ?? null,
+    researchMasterPools:
+      result.raw?.metricasV10?.researchMasterPools?.length
+        ? result.raw.metricasV10.researchMasterPools
+        : null,
     remnant: remnantQuality(result),
   };
 }
