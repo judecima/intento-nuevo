@@ -101,3 +101,61 @@ The current corpus split by physical Lepton boards is:
 - 1 zero-piece project.
 
 The corrected product baseline should therefore be run first on `IDS_FURNITURE_LE75.txt`, while >75-board jobs are analyzed separately.
+
+
+## Full corrected holdout run — semantic blocker
+
+The first full furniture rerun with `projectTrimMode="infer"` completed 15,443 selected XML:
+- 14,504 OK;
+- 937 runtime exceptions;
+- 2 canonical parse skips;
+- candidate vs Lepton among OK rows: 1,078 better / 13,192 equal / 234 worse;
+- raw net among OK rows: 687 boards saved.
+
+This is **not yet the official matched-refilado baseline**.
+
+Two independent contradictions show that treating Lepton `trim` as a globally reduced rectangular frame is not yet validated:
+
+1. All 937 runtime failures occur on non-zero trim cases in the paired semantics audit:
+   - 837 with 5 x 5;
+   - 91 with 10 x 10;
+   - 8 with 15 x 15;
+   - 1 with 3 x 3.
+   Their historical zero-trim outcomes were 99 better / 837 equal / 1 worse.
+
+2. Among the 14,504 successful rows, **123 cases have candidate safe lower bound > physical Lepton board count**. All 123 were historical `equal -> worse` transitions after enabling trim. If restrictions were equivalent and the lower bound remained valid, this is impossible. These 123 contribute 333 boards of apparent regression.
+
+Large examples:
+- 5504203: old 75, Lepton 75, matched-global-trim candidate 113, LB 113;
+- 5531188 / 5532387: old 24, Lepton 24, candidate 56, LB 56;
+- 5453025: old 12, Lepton 12, candidate 30, LB 30;
+- 5468441: old 4, Lepton 4, candidate 12, LB 12.
+
+The strong/DFF lower-bound code explicitly uses
+`W = placaBase - refiladoX` and `H = placaAltura - refiladoY`, so the contradiction can come from either:
+- incorrect global-frame interpretation of Lepton trim; or
+- a lower-bound validity bug for non-zero trim.
+
+Do not classify the 234 current worse cases as algorithmic gaps yet.
+
+Paired results on the 14,504 successful cases:
+- old net on same cases: 1,250 boards;
+- current raw net: 687;
+- apparent trim effect: 563 boards (45.0% of paired old advantage).
+
+But 123 internally contradictory rows account for 333 boards of apparent loss. Excluding only those contradictions (diagnostic only, not a certified baseline) leaves 14,381 rows with a 1,020-board net advantage (~2.20%).
+
+One-board losses are also contaminated:
+- current Lepton=1 worse cases: 155;
+- old 1 -> new 2: 105;
+- old 1 -> new 3: 15;
+- old 2 -> new 2: 35.
+Therefore the current 1->2 increase cannot yet be treated as a real generation gap.
+
+Next gate:
+1. audit Lepton far-edge usage for the union of:
+   - 937 runtime failures;
+   - 123 rows with lowerBound > Lepton;
+2. determine actual trim semantics;
+3. validate/recompute DFF/strong lower bounds under that semantics;
+4. rerun only the affected cohort before declaring the holdout baseline official.
