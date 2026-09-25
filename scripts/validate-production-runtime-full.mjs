@@ -290,6 +290,16 @@ for (const file of selected) {
       );
     }
 
+    if (baseline && !baseline.ok) {
+      throw new Error("BASELINE_RUNTIME_ERROR: " + baseline.error);
+    }
+    if (!candidate.ok) {
+      throw new Error("CANDIDATE_RUNTIME_ERROR: " + candidate.error);
+    }
+    if (advanced && !advanced.ok) {
+      throw new Error("ADVANCED_RUNTIME_ERROR: " + advanced.error);
+    }
+
     if (baseline) assertRust("baseline", baseline);
     assertRust("candidate", candidate);
     if (advanced) assertRust("advanced", advanced);
