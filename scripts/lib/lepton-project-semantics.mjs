@@ -279,6 +279,7 @@ export function auditLeptonProjectXml(xml, options = {}) {
   const trimByAxis = { x: new Set(), y: new Set() };
   const rootTrimValues = new Set();
   const codes = new Map();
+  const panelEdgeUsage = [];
 
   for (const shape of shapes) {
     physicalBoards += shape.quantity;
@@ -301,6 +302,10 @@ export function auditLeptonProjectXml(xml, options = {}) {
     const placements = terminalPlacements(shape);
     let touchesRight = false;
     let touchesBottom = false;
+    let panelMinRight = Infinity;
+    let panelMinBottom = Infinity;
+    let panelMinLeft = Infinity;
+    let panelMinTop = Infinity;
 
     for (const placement of placements) {
       physicalPieces += placement.multiplicity;
@@ -314,6 +319,10 @@ export function auditLeptonProjectXml(xml, options = {}) {
       minTop = Math.min(minTop, placement.y);
       minRight = Math.min(minRight, rightMargin);
       minBottom = Math.min(minBottom, bottomMargin);
+      panelMinLeft = Math.min(panelMinLeft, placement.x);
+      panelMinTop = Math.min(panelMinTop, placement.y);
+      panelMinRight = Math.min(panelMinRight, rightMargin);
+      panelMinBottom = Math.min(panelMinBottom, bottomMargin);
       if (Math.abs(rightMargin) <= EPS) touchesRight = true;
       if (Math.abs(bottomMargin) <= EPS) touchesBottom = true;
 
@@ -329,12 +338,68 @@ export function auditLeptonProjectXml(xml, options = {}) {
     if (touchesRight) boardsTouchingRight += shape.quantity;
     if (touchesBottom) boardsTouchingBottom += shape.quantity;
     if (touchesRight || touchesBottom) boardsTouchingFarEdge += shape.quantity;
+
+    panelEdgeUsage.push({
+      panelIndex: shape.index + 1,
+      quantity: shape.quantity,
+      frame,
+      minMargins: {
+        left: Number.isFinite(panelMinLeft) ? panelMinLeft : null,
+        top: Number.isFinite(panelMinTop) ? panelMinTop : null,
+        right: Number.isFinite(panelMinRight) ? panelMinRight : null,
+        bottom: Number.isFinite(panelMinBottom) ? panelMinBottom : null,
+      },
+      touchesFarEdge: {
+        right: touchesRight,
+        bottom: touchesBottom,
+        either: touchesRight || touchesBottom,
+      },
+    });
   }
 
   const orientationByCode = [...codes.values()];
   const both = orientationByCode.filter((entry) => entry.landscape > 0 && entry.portrait > 0);
   const trimX = uniqueSingle(trimByAxis.x);
   const trimY = uniqueSingle(trimByAxis.y);
+
+  const axisRule = (margin, trim, allowFactoryEdge) => {
+    if (!Number.isFinite(trim) || !Number.isFinite(margin)) return null;
+    if (trim <= EPS) return true;
+    if (allowFactoryEdge && Math.abs(margin) <= EPS) return true;
+    return margin + EPS >= trim;
+  };
+  const evaluateRule = (allowFactoryEdge) => {
+    let violatingPhysicalBoards = 0;
+    let passingPhysicalBoards = 0;
+    const violations = [];
+    for (const panel of panelEdgeUsage) {
+      const xPass = axisRule(panel.minMargins.right, trimX, allowFactoryEdge);
+      const yPass = axisRule(panel.minMargins.bottom, trimY, allowFactoryEdge);
+      const pass = xPass === true && yPass === true;
+      if (pass) passingPhysicalBoards += panel.quantity;
+      else {
+        violatingPhysicalBoards += panel.quantity;
+        if (violations.length < 20) {
+          violations.push({
+            panelIndex: panel.panelIndex,
+            quantity: panel.quantity,
+            xPass,
+            yPass,
+            rightMargin: panel.minMargins.right,
+            bottomMargin: panel.minMargins.bottom,
+          });
+        }
+      }
+    }
+    return {
+      pass: violatingPhysicalBoards === 0,
+      passingPhysicalBoards,
+      violatingPhysicalBoards,
+      violationsPreview: violations,
+    };
+  };
+  const globalFarInsetRule = evaluateRule(false);
+  const factoryEdgeOrReserveRule = evaluateRule(true);
 
   return {
     schema: "lepton-project-semantics-v1",
@@ -376,6 +441,11 @@ export function auditLeptonProjectXml(xml, options = {}) {
       bottom: boardsTouchingBottom,
       either: boardsTouchingFarEdge,
     },
+    trimRuleCandidates: {
+      globalFarInset: globalFarInsetRule,
+      factoryEdgeOrReserve: factoryEdgeOrReserveRule,
+    },
+    panelEdgeUsage,
     rotation: {
       landscapePhysical,
       portraitPhysical,
