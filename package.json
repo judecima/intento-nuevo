@@ -27,7 +27,8 @@
     "optimizer:audit:serial": "node scripts/audit-serial-production.mjs",
     "optimizer:research:serial-counted": "node research/optimizer/motor-v2/serial-counted-shadow.mjs",
     "optimizer:research:serial-verify-combined": "node research/optimizer/motor-v2/verify-combined-plan-independent.mjs",
-    "optimizer:research:lepton-fairness": "node research/optimizer/motor-v2/audit-lepton-layout-fairness.mjs"
+    "optimizer:research:lepton-fairness": "node research/optimizer/motor-v2/audit-lepton-layout-fairness.mjs",
+    "optimizer:research:lepton-column-audit": "node research/optimizer/motor-v2/lepton-column-injection-audit.mjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
