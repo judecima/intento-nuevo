@@ -196,6 +196,16 @@ function summarizeTrimRule(rows, ruleName) {
     failingCases: failing.length,
     passPct:
       eligible.length > 0 ? +(100 * passing.length / eligible.length).toFixed(3) : null,
+    evaluablePhysicalBoards: eligible.reduce(
+      (sum, row) =>
+        sum + (row.trimRuleCandidates?.[ruleName]?.evaluablePhysicalBoards || 0),
+      0,
+    ),
+    notApplicablePhysicalBoards: eligible.reduce(
+      (sum, row) =>
+        sum + (row.trimRuleCandidates?.[ruleName]?.notApplicablePhysicalBoards || 0),
+      0,
+    ),
     violatingPhysicalBoards: failing.reduce(
       (sum, row) =>
         sum + (row.trimRuleCandidates?.[ruleName]?.violatingPhysicalBoards || 0),

@@ -200,6 +200,8 @@ function resolveDirections(shapes) {
 
 function terminalPlacements(shape) {
   const out = [];
+  const missingTerminalReferences = [];
+  let terminalReferences = 0;
   const rootDirection = shape.rootDirection;
 
   for (const parent of shape.nodes) {
@@ -207,9 +209,13 @@ function terminalPlacements(shape) {
       (child) => child.name.toLowerCase() === "part",
     )) {
       if (integer(attr(part, "type", "Type"), 0) !== 1) continue;
+      terminalReferences++;
       const childId = String(attr(part, "id", "ID") ?? "");
       const child = shape.byId.get(childId);
-      if (!child) continue;
+      if (!child) {
+        missingTerminalReferences.push(childId);
+        continue;
+      }
 
       const d = globalDims(child, rootDirection);
       const code = String(attr(part, "code", "Code") ?? childId);
@@ -234,7 +240,11 @@ function terminalPlacements(shape) {
     }
   }
 
-  return out;
+  return {
+    placements: out,
+    terminalReferences,
+    missingTerminalReferences,
+  };
 }
 
 function uniqueSingle(set) {
@@ -299,7 +309,13 @@ export function auditLeptonProjectXml(xml, options = {}) {
     }
 
     const frame = globalDims(shape.root, shape.rootDirection);
-    const placements = terminalPlacements(shape);
+    const terminal = terminalPlacements(shape);
+    if (terminal.missingTerminalReferences.length > 0) {
+      throw new Error(
+        `panel ${shape.index + 1} terminal references missing child nodes: ${terminal.missingTerminalReferences.join(",")}`,
+      );
+    }
+    const placements = terminal.placements;
     let touchesRight = false;
     let touchesBottom = false;
     let panelMinRight = Infinity;
@@ -342,6 +358,7 @@ export function auditLeptonProjectXml(xml, options = {}) {
     panelEdgeUsage.push({
       panelIndex: shape.index + 1,
       quantity: shape.quantity,
+      terminalPlacements: placements.length,
       frame,
       minMargins: {
         left: Number.isFinite(panelMinLeft) ? panelMinLeft : null,
@@ -371,8 +388,13 @@ export function auditLeptonProjectXml(xml, options = {}) {
   const evaluateRule = (allowFactoryEdge) => {
     let violatingPhysicalBoards = 0;
     let passingPhysicalBoards = 0;
+    let notApplicablePhysicalBoards = 0;
     const violations = [];
     for (const panel of panelEdgeUsage) {
+      if (panel.terminalPlacements === 0) {
+        notApplicablePhysicalBoards += panel.quantity;
+        continue;
+      }
       const xPass = axisRule(panel.minMargins.right, trimX, allowFactoryEdge);
       const yPass = axisRule(panel.minMargins.bottom, trimY, allowFactoryEdge);
       const pass = xPass === true && yPass === true;
@@ -393,7 +415,9 @@ export function auditLeptonProjectXml(xml, options = {}) {
     }
     return {
       pass: violatingPhysicalBoards === 0,
+      evaluablePhysicalBoards: passingPhysicalBoards + violatingPhysicalBoards,
       passingPhysicalBoards,
+      notApplicablePhysicalBoards,
       violatingPhysicalBoards,
       violationsPreview: violations,
     };
