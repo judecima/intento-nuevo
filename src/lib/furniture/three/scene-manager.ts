@@ -146,6 +146,7 @@ export class FurnitureSceneManager {
         mesh.position.set(part.x - pivot.x, part.y - pivot.y, part.z - pivot.z);
         group.add(mesh);
         this.decorateObject(group, part);
+        group.userData.originalPosition = group.position.clone();
         this.furnitureGroup.add(group);
         this.partsMap.set(part.id, group);
       } else {
@@ -175,10 +176,10 @@ export class FurnitureSceneManager {
   }
 
   explodeView(factor = 1) {
+    const center = this.furnitureCenter();
     this.partsMap.forEach((object) => {
       const original = object.userData.originalPosition as THREE.Vector3 | undefined;
       if (!original) return;
-      const center = this.furnitureCenter();
       const direction = original.clone().sub(center);
       if (direction.lengthSq() > 0) direction.normalize();
       const explodeOffset = direction.multiplyScalar(Math.max(0, factor) * 300);
