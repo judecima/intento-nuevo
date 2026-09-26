@@ -11,6 +11,7 @@ type XmlFormat = "project" | "order";
 type XmlDirection = "x" | "y";
 type KerfSource = "xml" | "default";
 type PieceOrientationSource = "normalized-from-placement" | "xml-declared";
+export type ProjectTrimMode = "zero" | "infer";
 
 interface XmlNode {
   name: string;
@@ -23,6 +24,12 @@ export interface CanonicalXmlParseOptions {
   defaultKerf?: number;
   defaultMinRemnant?: number;
   defaultMinCommercialRemnantLongSide?: number;
+  /**
+   * "zero" conserva la semántica histórica y deja trim 0x0.
+   * "infer" reconstruye refilado X/Y desde los atributos trim de los nodos
+   * project de niveles 1-2, usando la dirección global resuelta de cada panel.
+   */
+  projectTrimMode?: ProjectTrimMode;
 }
 
 export interface CanonicalXmlParseStats {
@@ -43,8 +50,16 @@ export interface CanonicalXmlParseStats {
   pieceOrientation: PieceOrientationSource;
   /** Direccion de corte del nodo raiz por panel (solo project). */
   rootDirections?: XmlDirection[];
-  /** Atributo trim del nodo raiz, conservado solo como referencia (solo project). */
+  /** Atributo trim del nodo raiz, conservado como referencia (solo project). */
   trimReference?: number[];
+  /** Política aplicada al refilado de XML project. */
+  projectTrimMode?: ProjectTrimMode;
+  /** Refilado X/Y inferido desde el layout Lepton; independiente de si se aplica. */
+  inferredProjectTrim?: {
+    x: number | null;
+    y: number | null;
+    unambiguous: boolean;
+  };
 }
 
 export interface CanonicalXmlParseResult {
@@ -103,6 +118,23 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
     shape.direction = shape.direction ?? resolveProjectRootDirection(shape, referenceFrame, warnings, options.fileName);
   }
 
+  const projectTrimMode: ProjectTrimMode = options.projectTrimMode ?? "zero";
+  const inferredProjectTrim = inferProjectTrim(shapes, options.fileName);
+  if (projectTrimMode === "infer" && !inferredProjectTrim.unambiguous) {
+    throw parseError(
+      `project trim is ambiguous: x=${JSON.stringify(inferredProjectTrim.valuesX)} y=${JSON.stringify(inferredProjectTrim.valuesY)}`,
+      "project-trim-ambiguous",
+      options.fileName
+    );
+  }
+  const effectiveProjectTrim =
+    projectTrimMode === "infer"
+      ? {
+          x: inferredProjectTrim.x as number,
+          y: inferredProjectTrim.y as number
+        }
+      : { x: 0, y: 0 };
+
   const rootDirections: XmlDirection[] = [];
   const trimReference: number[] = [];
   const boardFormats: string[] = [];
@@ -146,21 +178,31 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
           warnings.push(warning(options.fileName, `project terminal node ${childId} jumps from layer ${parentLayer} to ${childLayer}`));
         }
 
-        const placed = globalProjectNodeDimensions(child, rootDirection, options.fileName);
+        // El nodo hijo describe el BLOQUE fisico del layout Lepton, no siempre la
+        // dimension neta de la pieza. Si el hijo conserva trim > 0, su eje local l
+        // incluye la franja de refilado. La pieza terminal ocupa:
+        //   - part.cut sobre el eje de corte del padre;
+        //   - child.l - child.trim sobre el eje perpendicular.
+        const placedNodeFrame = globalProjectNodeDimensions(child, rootDirection, options.fileName);
         const placedX = numberAttr(child, ["x", "X"]) ?? 0;
         const placedY = numberAttr(child, ["y", "Y"]) ?? 0;
-        if (placedX + placed.width > frame.width + FIT_TOLERANCE || placedY + placed.height > frame.height + FIT_TOLERANCE) {
+        if (
+          placedX + placedNodeFrame.width > frame.width + FIT_TOLERANCE ||
+          placedY + placedNodeFrame.height > frame.height + FIT_TOLERANCE
+        ) {
           warnings.push(
             warning(
               options.fileName,
-              `project terminal node ${childId} spans ${formatNumber(placed.width)}x${formatNumber(placed.height)} at ${formatNumber(placedX)},${formatNumber(placedY)} outside the ${formatNumber(frame.width)}x${formatNumber(frame.height)} panel frame`
+              `project terminal node ${childId} spans ${formatNumber(placedNodeFrame.width)}x${formatNumber(placedNodeFrame.height)} at ${formatNumber(placedX)},${formatNumber(placedY)} outside the ${formatNumber(frame.width)}x${formatNumber(frame.height)} panel frame`
             )
           );
         }
 
         // La orientacion colocada es una decision de Lepton y cambia entre paneles del
         // mismo archivo, asi que la pieza canonica se normaliza a mayor x menor.
-        const dimensions = landscape(placed);
+        const dimensions = landscape(
+          globalProjectTerminalPieceDimensions(child, part, rootDirection, options.fileName)
+        );
         const quantity = positiveIntegerAttr(part, ["num"], 1, options.fileName) * shape.info.quantity;
         const code = nonEmpty(attr(part, "code"));
         addGroupedPiece(grouped, {
@@ -193,6 +235,12 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
     pieceOrientation: "normalized-from-placement",
     rootDirections,
     trimReference,
+    projectTrimMode,
+    inferredProjectTrim: {
+      x: inferredProjectTrim.x,
+      y: inferredProjectTrim.y,
+      unambiguous: inferredProjectTrim.unambiguous
+    },
     canonicalCase: {
       source: "xml-project",
       panel: {
@@ -200,7 +248,7 @@ function parseProjectXml(root: XmlNode, options: CanonicalXmlParseOptions): Cano
         height: panelFrame.height,
         thickness: first.info.material.thickness
       },
-      trim: { x: 0, y: 0 },
+      trim: effectiveProjectTrim,
       kerf: first.info.kerf,
       material: first.info.material,
       constraints: defaultConstraints(options),
@@ -275,6 +323,43 @@ function landscape(value: { width: number; height: number }): { width: number; h
 
 function sameFrame(a: { width: number; height: number }, b: { width: number; height: number }): boolean {
   return sameNumber(a.width, b.width) && sameNumber(a.height, b.height);
+}
+
+function inferProjectTrim(
+  shapes: ProjectPanelShape[],
+  fileName?: string
+): {
+  x: number | null;
+  y: number | null;
+  unambiguous: boolean;
+  valuesX: number[];
+  valuesY: number[];
+} {
+  const byAxis: Record<XmlDirection, Set<number>> = {
+    x: new Set<number>(),
+    y: new Set<number>()
+  };
+
+  for (const shape of shapes) {
+    const rootDirection = shape.direction as XmlDirection;
+    for (const node of shape.nodes) {
+      const layer = positiveIntegerAttr(node, ["layer"], undefined, fileName);
+      if (layer > 2) continue;
+      const trim = numberAttr(node, ["trim", "Trim"]);
+      if (trim == null) continue;
+      byAxis[nodeDirection(rootDirection, layer)].add(trim);
+    }
+  }
+
+  const valuesX = [...byAxis.x].sort((a, b) => a - b);
+  const valuesY = [...byAxis.y].sort((a, b) => a - b);
+  return {
+    x: valuesX.length === 1 ? valuesX[0] as number : null,
+    y: valuesY.length === 1 ? valuesY[0] as number : null,
+    unambiguous: valuesX.length === 1 && valuesY.length === 1,
+    valuesX,
+    valuesY
+  };
 }
 
 function parseOrderXml(root: XmlNode, options: CanonicalXmlParseOptions): CanonicalXmlParseResult {
@@ -364,6 +449,12 @@ function buildResult(input: {
   pieceOrientation: PieceOrientationSource;
   rootDirections?: XmlDirection[];
   trimReference?: number[];
+  projectTrimMode?: ProjectTrimMode;
+  inferredProjectTrim?: {
+    x: number | null;
+    y: number | null;
+    unambiguous: boolean;
+  };
   canonicalCase: CanonicalOptimizationCase;
 }): CanonicalXmlParseResult {
   const canonicalCase = normalizeCanonicalOptimizationCase(input.canonicalCase);
@@ -382,7 +473,9 @@ function buildResult(input: {
       warnings: input.warnings.length,
       pieceOrientation: input.pieceOrientation,
       ...(input.rootDirections ? { rootDirections: input.rootDirections } : {}),
-      ...(input.trimReference ? { trimReference: input.trimReference } : {})
+      ...(input.trimReference ? { trimReference: input.trimReference } : {}),
+      ...(input.projectTrimMode ? { projectTrimMode: input.projectTrimMode } : {}),
+      ...(input.inferredProjectTrim ? { inferredProjectTrim: input.inferredProjectTrim } : {})
     }
   };
 }
@@ -552,6 +645,49 @@ function globalProjectNodeDimensions(node: XmlNode, rootDirection: XmlDirection,
 
 function nodeDirection(rootDirection: XmlDirection, layer: number): XmlDirection {
   return layer % 2 === 1 ? rootDirection : flipDirection(rootDirection);
+}
+
+/**
+ * Reconstruye la dimension NETA de una pieza terminal de XML <project>.
+ *
+ * El nodo hijo conserva el marco fisico usado por el arbol de Lepton. Cuando
+ * child.trim > 0, su eje local l incluye esa franja de refilado; no forma parte
+ * de la pieza. El atributo part.cut ya es la otra dimension neta.
+ */
+function globalProjectTerminalPieceDimensions(
+  child: XmlNode,
+  part: XmlNode,
+  rootDirection: XmlDirection,
+  fileName?: string
+): { width: number; height: number } {
+  const childLayer = positiveIntegerAttr(child, ["layer"], undefined, fileName);
+  const childDirection = nodeDirection(rootDirection, childLayer);
+  const childFrame = globalProjectNodeDimensions(child, rootDirection, fileName);
+  const trim = numberAttr(child, ["trim", "Trim"]) ?? 0;
+  const terminalCut = positiveNumberAttr(part, ["cut", "Cut"], "project terminal part cut", fileName);
+
+  if (trim < 0) {
+    throw parseError(
+      `project terminal node trim must be non-negative: ${formatNumber(trim)}`,
+      "project-negative-trim",
+      fileName
+    );
+  }
+
+  const rawChildSpan = childDirection === "x" ? childFrame.width : childFrame.height;
+  const netChildSpan = roundDimension(rawChildSpan - trim);
+
+  if (!(netChildSpan > 0)) {
+    throw parseError(
+      `project terminal node span is not positive after trim: span=${formatNumber(rawChildSpan)} trim=${formatNumber(trim)}`,
+      "project-terminal-trim-exhausts-span",
+      fileName
+    );
+  }
+
+  return childDirection === "x"
+    ? { width: netChildSpan, height: terminalCut }
+    : { width: terminalCut, height: netChildSpan };
 }
 
 function readRotationAllowed(
