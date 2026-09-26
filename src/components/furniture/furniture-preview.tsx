@@ -42,18 +42,18 @@ export function FurniturePreview({
         justifyContent="space-between"
       >
         <ButtonGroup size="small" variant="outlined">
-          {model.hasDoors && (
-            <>
-              <Button onClick={() => viewerRef.current?.openDoors()}>Abrir puertas</Button>
-              <Button onClick={() => viewerRef.current?.closeDoors()}>Cerrar puertas</Button>
-            </>
-          )}
-          {model.hasDrawers && (
-            <>
-              <Button onClick={() => viewerRef.current?.openDrawers()}>Abrir cajones</Button>
-              <Button onClick={() => viewerRef.current?.closeDrawers()}>Cerrar cajones</Button>
-            </>
-          )}
+          {model.hasDoors ? (
+            <Button onClick={() => viewerRef.current?.openDoors()}>Abrir puertas</Button>
+          ) : null}
+          {model.hasDoors ? (
+            <Button onClick={() => viewerRef.current?.closeDoors()}>Cerrar puertas</Button>
+          ) : null}
+          {model.hasDrawers ? (
+            <Button onClick={() => viewerRef.current?.openDrawers()}>Abrir cajones</Button>
+          ) : null}
+          {model.hasDrawers ? (
+            <Button onClick={() => viewerRef.current?.closeDrawers()}>Cerrar cajones</Button>
+          ) : null}
         </ButtonGroup>
 
         <ButtonGroup size="small" variant="outlined">
