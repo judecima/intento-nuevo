@@ -253,7 +253,7 @@ export class FurnitureSceneManager {
     window.removeEventListener('resize', this.resize);
     this.renderer.domElement.removeEventListener('pointerdown', this.onPointerDown);
 
-    this.clearFurniture();
+    this.clearFurniture(false);
     this.disposeObject(this.scene);
     this.controls.dispose();
     this.renderer.dispose();
@@ -508,7 +508,7 @@ export class FurnitureSceneManager {
     return center;
   }
 
-  private clearFurniture() {
+  private clearFurniture(notifySelection = true) {
     while (this.furnitureGroup.children.length > 0) {
       const child = this.furnitureGroup.children[0];
       this.furnitureGroup.remove(child);
@@ -518,7 +518,7 @@ export class FurnitureSceneManager {
     this.itemStates.clear();
     this.animationOffsets.clear();
     this.drawerTravelByGroup.clear();
-    this.onPartSelect?.(null);
+    if (notifySelection) this.onPartSelect?.(null);
   }
 
   private disposeObject(object: THREE.Object3D) {
