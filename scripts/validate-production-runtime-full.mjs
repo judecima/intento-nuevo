@@ -20,6 +20,7 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { auditLeptonProjectXml } from "./lib/lepton-project-semantics.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = parseArgs(process.argv.slice(2));
@@ -42,6 +43,9 @@ const requestedSearchBudgets = {
 };
 
 sanitizeOptimizerEnvironment();
+if (args.captureMasterPool) {
+  process.env.OPTIMIZER_RESEARCH_CAPTURE_MASTER_POOL = "1";
+}
 
 const git = gitInfo();
 const metadataPath = join(outputDir, "FULL_RUNTIME_VALIDATION_META.json");
@@ -105,8 +109,12 @@ if (!existsSync(rustAddon)) {
 }
 
 const inputDescriptors = prepareInputs(args.inputs, outputDir);
-const files = collectXmlFiles(inputDescriptors);
-if (files.length === 0) throw new Error("No se encontraron archivos .xml.");
+const allFiles = collectXmlFiles(inputDescriptors);
+const idsFilter = args.idsFile ? loadIdsFile(args.idsFile) : null;
+const files = idsFilter
+  ? allFiles.filter((file) => idsFilter.has(idFromFileName(file.displayName)))
+  : allFiles;
+if (files.length === 0) throw new Error("No se encontraron archivos .xml para el filtro solicitado.");
 
 const resume = loadCheckpointRows(rowsPath);
 const completedKeys = new Set(resume.rows.map((row) => row.caseKey));
@@ -166,6 +174,10 @@ const meta = {
     advanced: args.advanced,
     limit: args.limit,
     progressEvery: args.progressEvery,
+    respectProjectTrim: args.respectProjectTrim,
+    idsFile: args.idsFile,
+    captureMasterPool: args.captureMasterPool,
+    discoveredXmlFiles: allFiles.length,
   },
 };
 writeJson(metadataPath, meta);
@@ -203,7 +215,16 @@ for (const file of selected) {
       defaultKerf: 4.5,
       defaultMinRemnant: 250,
       defaultMinCommercialRemnantLongSide: 400,
+      projectTrimMode: args.respectProjectTrim ? "infer" : "zero",
     });
+
+    const leptonSemantics =
+      parsed.format === "project"
+        ? auditLeptonProjectXml(xml, {
+            caseId: idFromFileName(file.displayName),
+            fileName: file.displayName,
+          })
+        : null;
 
     const input = optimizer.benchmarkInputFromCanonicalCase(parsed.case, {
       strategy: "v10",
@@ -269,6 +290,16 @@ for (const file of selected) {
       );
     }
 
+    if (baseline && !baseline.ok) {
+      throw new Error("BASELINE_RUNTIME_ERROR: " + baseline.error);
+    }
+    if (!candidate.ok) {
+      throw new Error("CANDIDATE_RUNTIME_ERROR: " + candidate.error);
+    }
+    if (advanced && !advanced.ok) {
+      throw new Error("ADVANCED_RUNTIME_ERROR: " + advanced.error);
+    }
+
     if (baseline) assertRust("baseline", baseline);
     assertRust("candidate", candidate);
     if (advanced) assertRust("advanced", advanced);
@@ -330,6 +361,14 @@ for (const file of selected) {
       xmlSha256,
       format: parsed.format,
       warnings: parsed.warnings,
+      leptonSemantics: leptonSemantics
+        ? {
+            inferredRefilado: leptonSemantics.inferredRefilado,
+            rotation: leptonSemantics.rotation,
+            kerfValues: leptonSemantics.kerfValues,
+          }
+        : null,
+      effectiveTrim: parsed.case.trim,
       typeCount,
       pieceCount,
       panel: parsed.case.panel,
@@ -488,6 +527,9 @@ function parseArgs(argv) {
     forceResume: false,
     limit: Infinity,
     progressEvery: 10,
+    respectProjectTrim: false,
+    idsFile: null,
+    captureMasterPool: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -502,6 +544,9 @@ function parseArgs(argv) {
     else if (arg === "--force-resume") out.forceResume = true;
     else if (arg === "--limit") out.limit = Number(argv[++i]);
     else if (arg === "--progress-every") out.progressEvery = Math.max(1, Number(argv[++i]) || 10);
+    else if (arg === "--respect-project-trim") out.respectProjectTrim = true;
+    else if (arg === "--ids-file") out.idsFile = resolve(argv[++i]);
+    else if (arg === "--capture-master-pool") out.captureMasterPool = true;
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`Argumento desconocido: ${arg}`);
   }
@@ -528,6 +573,15 @@ Opciones:
   --no-advanced       no ejecuta V2 Advanced/Full40
   --limit N           procesa como maximo N casos pendientes (util para smoke)
   --progress-every N  imprime progreso cada N casos (default 10)
+  --respect-project-trim
+                      para XML <project>, infiere refilado X/Y desde los nodos
+                      Lepton de niveles 1-2 y lo aplica al input canónico.
+                      Si el trim no es unívoco, el caso falla explícitamente.
+  --ids-file PATH     procesa sólo IDs listados en el archivo (uno por línea)
+  --capture-master-pool
+                      research-only: incluye snapshots vectoriales del pool
+                      Master en P16/P40 (o el último checkpoint ejecutado).
+                      Usar sólo sobre cohortes pequeñas de gaps.
   --force-resume      permite continuar un output creado con otro commit
   --help              muestra esta ayuda
 
@@ -643,6 +697,17 @@ function walkXml(root) {
   return out;
 }
 
+function loadIdsFile(filePath) {
+  if (!existsSync(filePath)) throw new Error(`No existe --ids-file: ${filePath}`);
+  const ids = new Set();
+  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
+    const value = Number(line.trim());
+    if (Number.isSafeInteger(value)) ids.add(value);
+  }
+  if (!ids.size) throw new Error(`--ids-file no contiene IDs válidos: ${filePath}`);
+  return ids;
+}
+
 function loadCheckpointRows(path) {
   if (!existsSync(path)) return { rows: [], repaired: false };
   const text = readFileSync(path, "utf8");
@@ -728,6 +793,10 @@ function armRow(arm) {
     effortMode: result.metrics.effortMode ?? null,
     cacheHit: result.metrics.cacheHit ?? null,
     lowerBound: result.raw?.cotaV10 ?? null,
+    researchMasterPools:
+      result.raw?.metricasV10?.researchMasterPools?.length
+        ? result.raw.metricasV10.researchMasterPools
+        : null,
     remnant: remnantQuality(result),
   };
 }
