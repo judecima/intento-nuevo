@@ -1224,11 +1224,12 @@ function sha256File(path) {
 }
 
 function idFromFileName(name) {
-  const matches = [...String(name).matchAll(/\d+/g)].map((m) => m[0]);
-  if (!matches.length) return null;
-  matches.sort((a, b) => b.length - a.length);
-  const n = Number(matches[0]);
-  return Number.isSafeInteger(n) ? n : matches[0];
+  // Debe coincidir exactamente con audit-holdout-lepton-semantics.mjs:
+  // el caseId es el primer bloque de al menos 5 dígitos delimitado por no-dígitos.
+  // No elegir el bloque numérico más largo: algunos nombres de cliente contienen
+  // números más largos que el ID del caso y quedarían excluidos por --ids-file.
+  const match = /(^|\D)(\d{5,})(?=\D|$)/.exec(String(name));
+  return match ? Number(match[2]) : null;
 }
 
 function safeId(value) {
