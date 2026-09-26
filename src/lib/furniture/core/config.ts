@@ -26,6 +26,35 @@ export interface BuildConfig {
   /** Largos comerciales de corredera telescópica. */
   slideLengths: number[];
   /** Espacio mínimo detrás de la caja del cajón. */
+  slideRearClearance: number;
+  /** Separación entre el piso del cajón y el borde inferior del frente. */
+  drawerBoxBottomOffset: number;
+  /** Alto de caja / alto de frente. */
+  drawerBoxHeightRatio: number;
+  drawerBoxMinHeight: number;
+  /** Holgura lateral de estantes (por lado). */
+  shelfSideClearance: number;
+  /** Retiro del estante respecto del frente del cuerpo. */
+  shelfFrontSetback: number;
+  /** Luz máxima recomendada de estante en 18 mm sin apoyo intermedio. */
+  shelfSpanWarning: number;
+  railHeight: number;
+  edges: { body: EdgeBandType; front: EdgeBandType; drawerBox: EdgeBandType };
+  /** Tornillos por unión según profundidad de la unión. */
+  jointScrews: (depth: number) => number;
+  /** Tornillos por metro de perímetro para fijar el fondo. */
+  backScrewsPerMeter: number;
+  hingeCount: (doorHeight: number, doorWidth: number) => number;
+}
+
+export const DEFAULT_CONFIG: BuildConfig = {
+  backThickness: 5,
+  drawerBottomThickness: 5,
+  gaps: { outer: 2, between: 3, underCountertop: 3, inset: 2 },
+  hinges: { mounting: 'overlay', openingAngle: 110, softClose: true },
+  hingeAngles: [95, 110, 165],
+  slideClearance: 13,
+  slideLengths: [250, 300, 350, 400, 450, 500, 550, 600],
   slideRearClearance: 30,
   drawerBoxBottomOffset: 15,
   drawerBoxHeightRatio: 0.7,

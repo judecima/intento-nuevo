@@ -155,7 +155,7 @@ export interface DoorSpec {
 
 const CRANK_NAME: Record<HingeCrank, string> = { recta: 'Recta', semicodo: 'Semicodo', codo: 'Codo' };
 
-/** Embutida → codo, divisor compartido → semicodo, exterior → recta. */
+/** Tipo de bisagra según el panel donde apoya: lateral → recta, divisor compartido → semicodo, embutida → codo. */
 function hingeCrank(b: Builder, pivot: Boundary): HingeCrank {
   if (b.inset) return 'codo';
   return pivot.kind === 'shared' ? 'semicodo' : 'recta';
@@ -171,7 +171,7 @@ export function doors(b: Builder, c: Carcass, specs: DoorSpec[], y0: number, y1:
   if (b.inset) {
     if (!insetY) throw new Error('Puertas embutidas sin caras interiores definidas.');
     y0 = insetY[0] + b.cfg.gaps.inset;
-    y1 = inset[1] - b.cfg.gaps.inset;
+    y1 = insetY[1] - b.cfg.gaps.inset;
   }
   const z0 = b.inset ? c.zf - T : c.zf;
   if (openingAngle === 165) b.warn('Apertura de 165°: dejar espacio libre junto a paredes y otros muebles.');

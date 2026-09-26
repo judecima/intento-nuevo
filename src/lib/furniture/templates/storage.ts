@@ -1,7 +1,7 @@
 import type { Builder } from '../core/builder';
 import {
   addBack, carcassSandwich, carcassThrough, doors, drawerStack, horizontalDivider, open, outer, SKU,
- } from '../core/assemblies';
+} from '../core/assemblies';
 import type { FurnitureParams } from '../core/types';
 import { hangers, legs } from './kitchen';
 
@@ -40,15 +40,14 @@ export function closet(p: FurnitureParams, b: Builder) {
 }
 
 export function bookshelf(p: FurnitureParams, b: Builder) {
-  const T = b.T, c = carcassSandwich(b, p, 'panel');
+  const T = b.T;
+  const c = carcassSandwich(b, p, 'panel');
   if (p.hasBack) addBack(b, c);
   const innerH = c.interior.y1 - c.interior.y0;
   // Estantes fijos cada ~350 mm (4 estantes en 1800 mm).
   const n = Math.max(1, Math.round(innerH / 350) - 1);
   const step = (innerH - n * T) / (n + 1);
   for (let i = 1; i <= n; i++) {
-    const yc = Math.round(c.interior.y0 + i * step +
-(i - 1) * T + T ? 0 : 0);
     const yc = Math.round(c.interior.y0 + i * step + (i - 1) * T + T / 2);
     horizontalDivider(b, c, `estante-${i}`, `Estante ${i}`, yc, c.interior.x0, c.interior.x1);
   }

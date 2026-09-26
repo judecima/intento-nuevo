@@ -50,7 +50,7 @@ Por defecto `backThickness` y `drawerBottomThickness` son **5 mm**. Ambos se pue
 
 ## Bisagras
 
-`params.hinges  (opcional; si se omite, usa `config.hinges`):
+`params.hinges` (opcional; si se omite, usa `config.hinges`):
 
 | Campo | Valores | Efecto |
 |---|---|---|

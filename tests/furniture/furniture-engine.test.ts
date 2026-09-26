@@ -86,7 +86,7 @@ describe('furniture parametric engine', () => {
     const drawerBottom = lines.filter((line) => line.material === 'drawerBottom');
 
     expect(back.length).toBeGreaterThan(0);
-    expect(drawerBottom .length).toBeGreaterThan(0);
+    expect(drawerBottom.length).toBeGreaterThan(0);
     expect(back.every((line) => line.cutEspesor === 5)).toBe(true);
     expect(drawerBottom.every((line) => line.cutEspesor === 5)).toBe(true);
   });
@@ -102,7 +102,7 @@ describe('furniture parametric engine', () => {
     expect(model.parts.some((part) => part.material === 'back')).toBe(true);
   });
 
-  it('groups 18 mm melamine separately from shared 5 mm MDF Pand passes the canonical optimizer schema', () => {
+  it('groups 18 mm melamine separately from shared 5 mm MDF and passes the canonical optimizer schema', () => {
     const inputs = milestoneInputs();
     expect(inputs).toHaveLength(2);
 
