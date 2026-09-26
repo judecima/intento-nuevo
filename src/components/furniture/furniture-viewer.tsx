@@ -64,9 +64,8 @@ export const FurnitureViewer = forwardRef<FurnitureViewerHandle, FurnitureViewer
       const container = containerRef.current;
       if (!container) return;
 
-      const manager = new FurnitureSceneManager(container, { onPartSelect });
+      const manager = new FurnitureSceneManager(container);
       managerRef.current = manager;
-      manager.buildFurniture(model.parts, color);
 
       return () => {
         manager.dispose();
