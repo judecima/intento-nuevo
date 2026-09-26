@@ -40,6 +40,8 @@ Por defecto `backThickness` y `drawerBottomThickness` son **5 mm**. Ambos se pue
 | `templates/*.ts` | Las 21 plantillas, escritas solo con los conjuntos de `assemblies`. |
 | `registry.ts` | Tipo → plantilla, con rangos de medidas admitidos. |
 | `adapters/optimizer.ts` | Conversión a `OptimizationInput` del optimizador. |
+| `three/scene-manager.ts` | Render Three.js directo del mismo `FurnitureModel`; selección, puertas, cajones, explosión y screenshot. |
+| `three/viewer-theme.ts` | Acabados visuales y clasificación por rol de material; MDF fino se detecta por `material`, no por nombre. |
 
 ## Convenciones
 
@@ -61,6 +63,12 @@ Por defecto `backThickness` y `drawerBottomThickness` son **5 mm**. Ambos se pue
 El tipo de bisagra de cada puerta se deduce: sobre lateral exterior → **recta**; sobre divisor compartido → **semicodo**; embutida → **codo**. El SKU queda como `hinge-35-{tipo}-{ángulo}[-sc]`. La alacena rebatible mantiene su bisagra propia y pistones.
 
 Luces: superpuesta usa `gaps.outer` y `gaps.between`; embutida usa `gaps.inset` (2 mm) contra las caras interiores.
+
+## Visor 3D
+
+El visor no reconstruye el mueble: consume directamente `FurnitureModel.parts`. La ruta de smoke local es `/furniture/preview` y muestra `cabinet_base_120_2p3c` 1200×870×600 con controles de puertas, cajones, vista explotada, selección y OrbitControls.
+
+El MDF de fondo y pisos de cajón se renderiza con el espesor real de 5 mm porque las dimensiones 3D provienen del mismo `FurniturePart` que genera el despiece y la optimización.
 
 ## Validación
 
