@@ -1228,7 +1228,7 @@ function idFromFileName(name) {
   // el caseId es el primer bloque de al menos 5 dígitos delimitado por no-dígitos.
   // No elegir el bloque numérico más largo: algunos nombres de cliente contienen
   // números más largos que el ID del caso y quedarían excluidos por --ids-file.
-  const match = /(^|\\D)(\\d{5,})(?=\\D|$)/.exec(String(name));
+  const match = /(^|\D)(\d{5,})(?=\D|$)/.exec(String(name));
   return match ? Number(match[2]) : null;
 }
 
