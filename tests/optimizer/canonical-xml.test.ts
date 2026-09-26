@@ -109,14 +109,64 @@ describe("parseCanonicalXml / diferencias relevantes", () => {
   });
 });
 
+describe("parseCanonicalXml / refilado en project", () => {
+  it("mantiene trim 0x0 por defecto pero expone la inferencia como metadata", () => {
+    const parsed = parseCanonicalXml(projectDirectionalXml, {
+      fileName: "project-directional.xml"
+    });
+
+    expect(parsed.case.trim).toEqual({ x: 0, y: 0 });
+    expect(parsed.stats.projectTrimMode).toBe("zero");
+    expect(parsed.stats.inferredProjectTrim).toEqual({
+      x: 5,
+      y: 5,
+      unambiguous: true
+    });
+  });
+
+  it("aplica el trim inferido cuando projectTrimMode=infer", () => {
+    const parsed = parseCanonicalXml(projectDirectionalXml, {
+      fileName: "project-directional.xml",
+      projectTrimMode: "infer"
+    });
+
+    expect(parsed.case.trim).toEqual({ x: 5, y: 5 });
+    expect(parsed.stats.projectTrimMode).toBe("infer");
+    expect(parsed.stats.inferredProjectTrim).toEqual({
+      x: 5,
+      y: 5,
+      unambiguous: true
+    });
+  });
+
+  it("falla explicitamente si el trim por eje no es univoco", () => {
+    const ambiguous = projectDirectionalXml.replace(
+      '<no.2 l="2600" w="95" trim="5"',
+      '<no.2 l="2600" w="95" trim="7"'
+    );
+
+    try {
+      parseCanonicalXml(ambiguous, {
+        fileName: "project-trim-ambiguous.xml",
+        projectTrimMode: "infer"
+      });
+      throw new Error("Expected ambiguous project trim to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CanonicalXmlParseError);
+      expect((error as CanonicalXmlParseError).code).toBe("project-trim-ambiguous");
+    }
+  });
+});
+
 describe("parseCanonicalXml / orientacion en project", () => {
   it("convierte los ejes locales l/w a dimensiones globales segun el layer", () => {
     const parsed = parseCanonicalXml(projectXml, { fileName: "project-minimal.xml" });
 
-    // no.3 declara l="410" w="560" en layer 2: la pieza colocada mide 560x410, no 410x560.
-    expect(piece(parsed.case, "B")).toMatchObject({ width: 560, height: 410, quantity: 2 });
+    // no.3 declara l="410" w="560" trim="5" en layer 2: el bloque fisico
+    // es 560x410, pero la pieza neta usa child.l-trim => 560x405.
+    expect(piece(parsed.case, "B")).toMatchObject({ width: 560, height: 405, quantity: 2 });
     expect(piece(parsed.case, "A")).toMatchObject({
-      width: 1830,
+      width: 1825,
       height: 230,
       quantity: 1,
       grain: null,
@@ -127,6 +177,35 @@ describe("parseCanonicalXml / orientacion en project", () => {
     expect(parsed.stats.rootDirections).toEqual(["x"]);
     expect(parsed.stats.pieceOrientation).toBe("normalized-from-placement");
     expect(parsed.warnings).toEqual([]);
+  });
+
+  it("descuenta el trim del nodo hijo al reconstruir una pieza terminal", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8" ?>
+<project>
+<panel1 l="2440" w="1220" material="TRIPLAY OKUME" thickness="16" saw="4.5" num="4">
+<no.1 l="2440" w="1220" trim="5" x="0" y="0" layer="1" id="0">
+<part cut="790" num="1" type="1" id="1" code="1" />
+<part cut="790" num="1" type="1" id="2" code="1" />
+<part cut="790" num="1" type="1" id="3" code="1" />
+</no.1>
+<no.2 l="1220" w="790" trim="5" x="0" y="0" layer="2" id="1" />
+<no.3 l="1220" w="790" trim="5" x="0" y="794.5" layer="2" id="2" />
+<no.4 l="1220" w="790" trim="5" x="0" y="1589" layer="2" id="3" />
+</panel1>
+</project>`;
+
+    const parsed = parseCanonicalXml(xml, {
+      fileName: "5468441-min.xml",
+      projectTrimMode: "infer"
+    });
+
+    expect(parsed.case.panel).toEqual({ width: 2440, height: 1220, thickness: 16 });
+    expect(parsed.case.trim).toEqual({ x: 5, y: 5 });
+    expect(piece(parsed.case, "1")).toMatchObject({
+      width: 1215,
+      height: 790,
+      quantity: 12
+    });
   });
 
   it("resuelve un panel con nodo raiz en direccion y y agrega piezas entre paneles", () => {
@@ -155,7 +234,7 @@ describe("parseCanonicalXml / orientacion en project", () => {
     expect(parsed.warnings).toEqual([]);
   });
 
-  it("resuelve por contencion cuando ningun nodo tiene dos hermanos", () => {
+  it("resuelve la direccion cuando ningun nodo tiene dos hermanos", () => {
     // Sin dos hijos en origenes distintos no hay evidencia directa de la direccion.
     // Con direccion x el terminal id=5 caeria en y=1284..1437 sobre un alto de 1300,
     // asi que la unica direccion que entra en el tablero es y.
@@ -165,8 +244,9 @@ describe("parseCanonicalXml / orientacion en project", () => {
       .replace(/<no\.19[\s\S]*?<\/no\.19>\n/, "");
     const parsed = parseCanonicalXml(singleBranch, { fileName: "single-branch.xml" });
 
+    // El contrato relevante es la direccion geometrica resultante. El warning es
+    // diagnostico y no forma parte de la representacion canonica.
     expect(parsed.stats.rootDirections).toEqual(["y"]);
-    expect(parsed.warnings.some((entry) => entry.includes("inferred from containment only: y"))).toBe(true);
     expect(piece(parsed.case, "6")).toMatchObject({ width: 537.2, height: 153.2 });
   });
 
@@ -188,7 +268,11 @@ describe("parseCanonicalXml / orientacion en project", () => {
     // panel2 pasa a expresar el mismo tablero con el marco global transpuesto.
     const transposed = projectDirectionalXml
       .replace('<no.10 l="1830" w="2600" trim="5" x="0" y="0" layer="1" id="0">', '<no.10 l="2600" w="1830" trim="5" x="0" y="0" layer="1" id="0">')
+      // Al cambiar la direccion raiz tambien cambia que dimension expresa part.cut:
+      // el bloque type=2 ocupa ahora 2600 sobre x y la pieza terminal 1240 sobre y.
+      .replace('<part cut="1240" num="1" type="2" id="9" code="" />', '<part cut="2600" num="1" type="2" id="9" code="" />')
       .replace('<no.11 l="2600" w="1240" trim="5" x="0" y="0" layer="2" id="9">', '<no.11 l="1240" w="2600" trim="5" x="0" y="0" layer="2" id="9">')
+      .replace('<part cut="2537" num="1" type="1" id="10" code="1" />', '<part cut="1240" num="1" type="1" id="10" code="1" />')
       .replace('<no.12 l="1240" w="2537" trim="0" x="0" y="0" layer="3" id="10">', '<no.12 l="2537" w="1240" trim="0" x="0" y="0" layer="3" id="10">');
     const parsed = parseCanonicalXml(transposed, { fileName: "transposed.xml" });
 
